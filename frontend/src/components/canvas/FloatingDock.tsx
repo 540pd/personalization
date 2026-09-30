@@ -120,14 +120,14 @@ export default function FloatingDock() {
   return (
     // Outer wrapper is pointer-events-none so canvas clicks below the dock still land on Konva.
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-      <div className="flex items-center gap-0.5 rounded-full bg-neutral-900/95 border border-neutral-700/60 shadow-2xl px-2 py-1.5 pointer-events-auto backdrop-blur-sm">
+      <div className="flex items-center gap-1 rounded-xl bg-white/95 border border-black/10 shadow-xl px-3.5 py-2.5 pointer-events-auto backdrop-blur-sm">
         {TOOLS.map((tool, index) => {
           const isActive = activeTool === tool.id;
           return (
             <div key={tool.id} className="flex items-center">
               {/* Divider after pointer tool */}
               {index === 1 && (
-                <div className="w-px h-5 bg-neutral-700/60 mx-1.5" />
+                <div className="w-px h-6 bg-black/10 mx-2" />
               )}
               <button
                 title={tool.label}
@@ -135,12 +135,12 @@ export default function FloatingDock() {
                 tabIndex={tool.wired ? 0 : -1}
                 aria-pressed={isActive}
                 className={[
-                  "w-9 h-9 flex items-center justify-center rounded-full text-sm transition-all duration-150 select-none",
+                  "w-11 h-11 flex items-center justify-center rounded-full text-sm transition-all duration-150 select-none",
                   isActive
-                    ? "bg-white text-neutral-900 shadow-sm"
+                    ? "bg-neutral-900 text-white shadow-sm"
                     : tool.wired
-                    ? "text-neutral-300 hover:bg-neutral-700/70 hover:text-white cursor-pointer"
-                    : "text-neutral-500 cursor-not-allowed opacity-50",
+                    ? "text-neutral-600 hover:bg-black/5 hover:text-neutral-900 cursor-pointer"
+                    : "text-neutral-400 cursor-not-allowed opacity-50",
                 ].join(" ")}
               >
                 {tool.icon}
