@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react";
 import { useConnectionStore, type Connection } from "@/lib/connectionStore";
 import { useNodePanel } from "@/lib/nodePanelStore";
 import { useKonvaNodes } from "@/lib/konvaNodesStore";
+import { useKonvaSelection } from "@/lib/konvaSelectionStore";
 import { useViewport } from "@/lib/viewport";
 import { useToolStore } from "@/lib/toolStore";
 import type { PanelInstance } from "@/lib/nodePanelStore";
@@ -17,20 +18,22 @@ const PORT_FRACTION = 0.3; // 30% from top — must match NodePanel.tsx and Konv
 const SNAP_RADIUS   = 16;  // px — cursor snaps to input port within this radius
 
 // ── Port position helpers ─────────────────────────────────────────────────────
+// Convention (standard, matches ComfyUI/Blueprint): output = RIGHT edge, input = LEFT edge.
+// Konva nodes (uploaded images) are source-only: right-edge output port, no input port.
 
 function panelOutputPt(p: PanelInstance, sx: number, sy: number, sc: number) {
-  const left = sx + p.canvasX * sc;
-  const top  = sy + p.canvasY * sc - p.h / 2;
-  return { x: left, y: top + p.h * PORT_FRACTION };
-}
-
-function panelInputPt(p: PanelInstance, sx: number, sy: number, sc: number) {
   const left = sx + p.canvasX * sc;
   const top  = sy + p.canvasY * sc - p.h / 2;
   return { x: left + p.w, y: top + p.h * PORT_FRACTION };
 }
 
-function konvaInputPt(n: KonvaNodeRecord, sx: number, sy: number, sc: number) {
+function panelInputPt(p: PanelInstance, sx: number, sy: number, sc: number) {
+  const left = sx + p.canvasX * sc;
+  const top  = sy + p.canvasY * sc - p.h / 2;
+  return { x: left, y: top + p.h * PORT_FRACTION };
+}
+
+function konvaOutputPt(n: KonvaNodeRecord, sx: number, sy: number, sc: number) {
   return {
     x: sx + n.canvasX * sc + n.canvasW * sc,
     y: sy + n.canvasY * sc + n.canvasH * sc * PORT_FRACTION,
@@ -60,43 +63,44 @@ function resolveEndpoints(
   konvaNodes: Record<string, KonvaNodeRecord>,
   sx: number, sy: number, sc: number,
 ): { fromX: number; fromY: number; toX: number; toY: number } | null {
-  const fromPanel = panels.find((p) => p.id === conn.fromNodeId);
-  if (!fromPanel) return null;
-  const from = panelOutputPt(fromPanel, sx, sy, sc);
-
-  let toX: number, toY: number;
-  if (conn.toNodeType === "panel") {
-    const toPanel = panels.find((p) => p.id === conn.toNodeId);
-    if (!toPanel) return null;
-    ({ x: toX, y: toY } = panelInputPt(toPanel, sx, sy, sc));
+  let fromX: number, fromY: number;
+  if (conn.fromNodeType === "konva") {
+    const fromNode = konvaNodes[conn.fromNodeId];
+    if (!fromNode) return null;
+    ({ x: fromX, y: fromY } = konvaOutputPt(fromNode, sx, sy, sc));
   } else {
-    const toNode = konvaNodes[conn.toNodeId];
-    if (!toNode) return null;
-    ({ x: toX, y: toY } = konvaInputPt(toNode, sx, sy, sc));
+    const fromPanel = panels.find((p) => p.id === conn.fromNodeId);
+    if (!fromPanel) return null;
+    ({ x: fromX, y: fromY } = panelOutputPt(fromPanel, sx, sy, sc));
   }
-  return { fromX: from.x, fromY: from.y, toX, toY };
+
+  // Only panels have input ports
+  const toPanel = panels.find((p) => p.id === conn.toNodeId);
+  if (!toPanel) return null;
+  const { x: toX, y: toY } = panelInputPt(toPanel, sx, sy, sc);
+
+  return { fromX, fromY, toX, toY };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface InputPortEntry {
   nodeId:   string;
-  nodeType: "panel" | "konva";
+  nodeType: "panel";
   x: number;
   y: number;
 }
 
 export default function ConnectionOverlay() {
-  const { connections, drag, selectedId } = useConnectionStore();
+  const { connections, drag, selectedIds } = useConnectionStore();
   const panels     = useNodePanel((s) => s.panels);
   const konvaNodes = useKonvaNodes((s) => s.nodes);
   const { x: sx, y: sy, scale: sc } = useViewport();
   const activeTool = useToolStore((s) => s.activeTool);
 
-  // Build list of all valid input port positions (snap targets).
+  // Only panels have input ports (konva nodes are output-only sources).
   const inputPorts: InputPortEntry[] = [
     ...panels.map((p) => ({ nodeId: p.id, nodeType: "panel" as const, ...panelInputPt(p, sx, sy, sc) })),
-    ...Object.values(konvaNodes).map((n) => ({ nodeId: n.id, nodeType: "konva" as const, ...konvaInputPt(n, sx, sy, sc) })),
   ];
 
   // Always-fresh ref so pointer handlers never see stale data.
@@ -121,7 +125,7 @@ export default function ConnectionOverlay() {
                Math.hypot(e.clientX - p.x, e.clientY - p.y) < SNAP_RADIUS
       );
       if (snap) {
-        useConnectionStore.getState().commitConnection(snap.nodeId, snap.nodeType);
+        useConnectionStore.getState().commitConnection(snap.nodeId);
       } else {
         useConnectionStore.getState().cancelDrag();
       }
@@ -137,16 +141,16 @@ export default function ConnectionOverlay() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drag?.fromNodeId]);
 
-  // Delete key removes the selected connection.
+  // Delete key removes all selected connections.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.code !== "Delete" && e.code !== "Backspace") return;
-      const { selectedId: sel } = useConnectionStore.getState();
-      if (!sel) return;
+      const { selectedIds } = useConnectionStore.getState();
+      if (!selectedIds.length) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      useConnectionStore.getState().removeConnection(sel);
+      selectedIds.forEach((id) => useConnectionStore.getState().removeConnection(id));
     };
     window.addEventListener("keydown", handler, { capture: true });
     return () => window.removeEventListener("keydown", handler, { capture: true });
@@ -167,14 +171,20 @@ export default function ConnectionOverlay() {
   // Drag preview
   let dragPreview: React.ReactNode = null;
   if (drag) {
-    const fromPanel = panels.find((p) => p.id === drag.fromNodeId);
-    if (fromPanel) {
-      const from = panelOutputPt(fromPanel, sx, sy, sc);
-      const toX  = snapTarget ? snapTarget.x : drag.cursorX;
-      const toY  = snapTarget ? snapTarget.y : drag.cursorY;
+    let fromPt: { x: number; y: number } | null = null;
+    if (drag.fromNodeType === "konva") {
+      const fromNode = konvaNodes[drag.fromNodeId];
+      if (fromNode) fromPt = konvaOutputPt(fromNode, sx, sy, sc);
+    } else {
+      const fromPanel = panels.find((p) => p.id === drag.fromNodeId);
+      if (fromPanel) fromPt = panelOutputPt(fromPanel, sx, sy, sc);
+    }
+    if (fromPt) {
+      const toX = snapTarget ? snapTarget.x : drag.cursorX;
+      const toY = snapTarget ? snapTarget.y : drag.cursorY;
       dragPreview = (
         <path
-          d={buildPath(from.x, from.y, toX, toY, linkStyle)}
+          d={buildPath(fromPt.x, fromPt.y, toX, toY, linkStyle)}
           fill="none"
           stroke="#000"
           strokeWidth={1.5}
@@ -203,8 +213,8 @@ export default function ConnectionOverlay() {
         const pts = resolveEndpoints(conn, panels, konvaNodes, sx, sy, sc);
         if (!pts) return null;
         const { fromX, fromY, toX, toY } = pts;
-        const d       = buildPath(fromX, fromY, toX, toY, linkStyle);
-        const isSelected = conn.id === selectedId;
+        const d          = buildPath(fromX, fromY, toX, toY, linkStyle);
+        const isSelected = selectedIds.includes(conn.id);
         return (
           <g key={conn.id}>
             {/* Wide invisible hit area so thin lines are easy to click */}
@@ -218,7 +228,13 @@ export default function ConnectionOverlay() {
               style={{ pointerEvents: "stroke", cursor: "pointer" }}
               onClick={(e) => {
                 e.stopPropagation();
-                useConnectionStore.getState().selectConnection(conn.id);
+                if (e.ctrlKey || e.metaKey) {
+                  useConnectionStore.getState().addConnectionToSelection(conn.id);
+                } else {
+                  useConnectionStore.getState().selectConnection(conn.id);
+                  useKonvaSelection.getState().deselect();
+                  useNodePanel.getState().closeAllPanels();
+                }
               }}
             />
             {/* Visible wire */}

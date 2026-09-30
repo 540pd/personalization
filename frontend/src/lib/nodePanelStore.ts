@@ -7,8 +7,9 @@ export interface PanelInstance {
   // 3-state: inactive → active (transformer) → panel-open (transformer + panel)
   isActive:    boolean;
   isPanelOpen: boolean;
-  w: number;  // placeholder width in screen px (synced from SinglePanel)
-  h: number;  // placeholder height in screen px (synced from SinglePanel)
+  w: number;       // placeholder width in screen px (synced from SinglePanel)
+  h: number;       // placeholder height in screen px (synced from SinglePanel)
+  preview?: string; // generated image data URL — used as reference by downstream nodes
 }
 
 // Snapshot type for position undo/redo.
@@ -33,6 +34,7 @@ interface NodePanelState {
   redoPos:         () => void;
   clearAll:        () => void;
   setSize:         (id: string, w: number, h: number) => void;
+  setPreview:      (id: string, url: string) => void;
 }
 
 let _nextId = 1;
@@ -160,4 +162,9 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
       if (!panel || (panel.w === w && panel.h === h)) return s;
       return { panels: s.panels.map((p) => p.id === id ? { ...p, w, h } : p) };
     }),
+
+  setPreview: (id, url) =>
+    set((s) => ({
+      panels: s.panels.map((p) => p.id === id ? { ...p, preview: url } : p),
+    })),
 }));

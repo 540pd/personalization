@@ -6,6 +6,7 @@ export interface KonvaNodeRecord {
   canvasY: number;
   canvasW: number;
   canvasH: number;
+  imageUrl?: string; // object URL for uploaded images — used as reference by downstream nodes
 }
 
 interface KonvaNodesState {
@@ -17,7 +18,7 @@ interface KonvaNodesState {
 export const useKonvaNodes = create<KonvaNodesState>((set) => ({
   nodes: {},
   upsert: (node) =>
-    set((s) => ({ nodes: { ...s.nodes, [node.id]: node } })),
+    set((s) => ({ nodes: { ...s.nodes, [node.id]: { ...s.nodes[node.id], ...node } } })),
   remove: (id) =>
     set((s) => {
       const next = { ...s.nodes };

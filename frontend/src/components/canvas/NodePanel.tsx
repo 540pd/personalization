@@ -11,6 +11,8 @@ import { useViewport } from "@/lib/viewport";
 import { generateImageV2 } from "@/lib/api";
 import type { AspectRatioV2 } from "@/lib/types";
 import { useConnectionStore } from "@/lib/connectionStore";
+import { useKonvaSelection } from "@/lib/konvaSelectionStore";
+import { useKonvaNodes } from "@/lib/konvaNodesStore";
 
 // ── Image generation models ───────────────────────────────────────────────────
 // To add a new model: append an entry with the Vertex AI model ID as `id` and
@@ -83,7 +85,6 @@ function SinglePanel({
   const [grounding,    setGrounding]    = useState(false);
   const [aspectRatio,  setAspectRatio]  = useState("16:9");
   const [quality,      setQuality]      = useState("2K");
-  const [preview,      setPreview]      = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [genError,     setGenError]     = useState<string | null>(null);
   const [dragging,     setDragging]     = useState(false);
@@ -148,8 +149,13 @@ function SinglePanel({
     }
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (e: React.PointerEvent) => {
     if (!isDragging.current) {
+      if (!(e.ctrlKey || e.metaKey)) {
+        // Normal click: clear other selection types.
+        useKonvaSelection.getState().deselect();
+        useConnectionStore.getState().deselectConnection();
+      }
       // Step through states: inactive → active → panel-open → active
       if (!isActive)              onActivate();
       else if (!isPanelOpen)      onOpenPanel();
@@ -199,6 +205,18 @@ function SinglePanel({
     setIsGenerating(true);
     setGenError(null);
     try {
+      // Collect reference images from all nodes connected to this node's input port.
+      const { connections } = useConnectionStore.getState();
+      const { nodes: konvaNodes } = useKonvaNodes.getState();
+      const { panels } = useNodePanel.getState();
+      const referenceImages = connections
+        .filter((c) => c.toNodeId === instance.id)
+        .map((c) => {
+          if (c.fromNodeType === "konva") return konvaNodes[c.fromNodeId]?.imageUrl;
+          return panels.find((p) => p.id === c.fromNodeId)?.preview;
+        })
+        .filter((url): url is string => typeof url === "string");
+
       const result = await generateImageV2({
         modelId: model,
         instruction: instruction.trim(),
@@ -207,8 +225,11 @@ function SinglePanel({
         thinking: thinking !== "None",
         temperature,
         grounding,
+        referenceImages: referenceImages.length ? referenceImages : undefined,
       });
-      if (result.imageUrl) setPreview(result.imageUrl);
+      if (result.imageUrl) {
+        useNodePanel.getState().setPreview(instance.id, result.imageUrl);
+      }
     } catch (err) {
       setGenError(err instanceof Error ? err.message : "Generation failed. Please try again.");
     } finally {
@@ -254,50 +275,51 @@ function SinglePanel({
               }}
             />
           ))}
-
-          {/* Output port — left edge, 30% from top */}
-          <div
-            title="Output"
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              useConnectionStore.getState().startDrag(instance.id, e.clientX, e.clientY);
-            }}
-            style={{
-              position: "absolute",
-              left: TR_PADDING,
-              top:  TR_PADDING + ph * 0.3,
-              width:  PORT_D,
-              height: PORT_D,
-              background: "#fff",
-              border: "1.5px solid #000",
-              borderRadius: "50%",
-              transform: "translate(-50%, -50%)",
-              cursor: "crosshair",
-              pointerEvents: "auto",
-              zIndex: 1,
-            }}
-          />
-
-          {/* Input port — right edge, 30% from top */}
-          <div
-            title="Input"
-            style={{
-              position: "absolute",
-              left: TR_PADDING + pw,
-              top:  TR_PADDING + ph * 0.3,
-              width:  PORT_D,
-              height: PORT_D,
-              background: "#fff",
-              border: "1.5px solid #000",
-              borderRadius: "50%",
-              transform: "translate(-50%, -50%)",
-              cursor: "crosshair",
-              pointerEvents: "auto",
-              zIndex: 1,
-            }}
-          />
         </div>
       )}
+
+      {/* ── Ports — always visible ── */}
+      {/* Input port — left edge, 30% from top */}
+      <div
+        title="Input"
+        style={{
+          position: "fixed",
+          left: placeholderLeft,
+          top:  placeholderTop + ph * 0.3,
+          width:  PORT_D,
+          height: PORT_D,
+          background: "#fff",
+          border: "1.5px solid #000",
+          borderRadius: "50%",
+          transform: "translate(-50%, -50%)",
+          cursor: "crosshair",
+          pointerEvents: "auto",
+          zIndex: 51,
+        }}
+      />
+
+      {/* Output port — right edge, 30% from top */}
+      <div
+        title="Output"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          useConnectionStore.getState().startDrag(instance.id, "panel", e.clientX, e.clientY);
+        }}
+        style={{
+          position: "fixed",
+          left: placeholderLeft + pw,
+          top:  placeholderTop + ph * 0.3,
+          width:  PORT_D,
+          height: PORT_D,
+          background: "#fff",
+          border: "1.5px solid #000",
+          borderRadius: "50%",
+          transform: "translate(-50%, -50%)",
+          cursor: "crosshair",
+          pointerEvents: "auto",
+          zIndex: 51,
+        }}
+      />
 
       {/* ── Placeholder ── */}
       <button
@@ -318,8 +340,8 @@ function SinglePanel({
         }}
         title={isPanelOpen ? "Drag to move · Click to collapse" : "Drag to move · Click to open panel"}
       >
-        {preview ? (
-          <img src={preview} alt="Generated preview" className="w-full h-full object-cover rounded-2xl" />
+        {instance.preview ? (
+          <img src={instance.preview} alt="Generated preview" className="w-full h-full object-cover rounded-2xl" />
         ) : (
           <div className="flex flex-col items-center gap-2 select-none">
             <svg

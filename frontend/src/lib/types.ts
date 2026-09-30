@@ -26,6 +26,7 @@ export interface GenerateImageV2Params {
   thinking?: boolean;
   temperature?: number;
   grounding?: boolean;
+  referenceImages?: string[]; // data URLs from upstream nodes in the canvas graph
 }
 
 export interface GenerateImageV2Result {

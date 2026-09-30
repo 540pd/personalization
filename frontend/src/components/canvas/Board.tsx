@@ -135,18 +135,33 @@ export default function Board() {
       if (e.target !== stage && e.target.hasName("selectable")) {
         if (useToolStore.getState().activeTool !== "pointer") {
           useToolStore.getState().setTool("pointer");
-          // Eagerly set the cursor so it doesn't flicker through "grab".
           stage.container().style.cursor = "move";
         }
-        const n = e.target as Konva.Shape;
-        transformer.nodes([n]);
+        const n  = e.target as Konva.Shape;
+        const id = n.id() || String(n._id);
+        const nw = n.width()  * n.scaleX();
+        const nh = n.height() * n.scaleY();
+        const isMulti = e.evt.ctrlKey || e.evt.metaKey;
+
+        if (isMulti) {
+          // Ctrl+click: toggle this node in/out of the selection.
+          const current = transformer.nodes() as Konva.Shape[];
+          const alreadyIn = current.includes(n);
+          if (alreadyIn) {
+            transformer.nodes(current.filter((node) => node !== n));
+            useKonvaSelection.getState().removeFromSelection(id);
+          } else {
+            transformer.nodes([...current, n]);
+            useKonvaSelection.getState().addToSelection(id, n.x(), n.y(), nw, nh);
+          }
+        } else {
+          // Normal click: single-select, clear everything else.
+          transformer.nodes([n]);
+          useKonvaSelection.getState().select(id, n.x(), n.y(), nw, nh);
+          useNodePanel.getState().closeAllPanels();
+          useConnectionStore.getState().deselectConnection();
+        }
         layer.batchDraw();
-        useKonvaSelection.getState().select(
-          n.id() || String(n._id),
-          n.x(), n.y(),
-          n.width()  * n.scaleX(),
-          n.height() * n.scaleY(),
-        );
         return;
       }
 
@@ -384,12 +399,18 @@ export default function Board() {
                 ctx.fillStrokeShape(shape);
               },
             });
+            // Convert to data URL so downstream AI nodes can send it to the backend.
+            const canvas = document.createElement("canvas");
+            canvas.width = w; canvas.height = h;
+            canvas.getContext("2d")?.drawImage(img, 0, 0, w, h);
+            const imageUrl = canvas.toDataURL("image/png");
             useKonvaNodes.getState().upsert({
               id: imgNodeId,
               canvasX: cx - w / 2 + off,
               canvasY: cy - h / 2 + off,
               canvasW: w,
               canvasH: h,
+              imageUrl,
             });
             layer.add(node);
             layer.batchDraw();
@@ -457,6 +478,17 @@ export default function Board() {
     stage.scale({ x: scale, y: scale });
     stage.batchDraw();
   }, [x, y, scale]);
+
+  // When konvaSelection is cleared from outside (NodePanel/ConnectionOverlay click),
+  // also clear the Konva transformer so the selection ring disappears.
+  useEffect(() => {
+    return useKonvaSelection.subscribe((s) => {
+      if (!s.nodeIds.length && transformerRef.current && layerRef.current) {
+        transformerRef.current.nodes([]);
+        layerRef.current.batchDraw();
+      }
+    });
+  }, []);
 
   // Switch between pointer (select) mode and pan mode.
   useEffect(() => {

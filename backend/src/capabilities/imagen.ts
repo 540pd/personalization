@@ -73,15 +73,27 @@ export class ImagenCapability implements ImageCapability {
       config["temperature"] = params.temperature;
     }
 
+    // Build parts array: reference images (if any) come before the text prompt
+    // so the model treats them as visual context / style reference.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parts: any[] = [];
+    for (const dataUrl of params.referenceImages ?? []) {
+      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
+      }
+    }
+    parts.push({ text: prompt });
+
     const response = await ai.models.generateContent({
       model: params.modelId,
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      contents: [{ role: "user", parts }],
       config,
     });
 
     // Extract inline image data from the first candidate.
-    const parts = response.candidates?.[0]?.content?.parts ?? [];
-    const imagePart = parts.find((p) => p.inlineData?.data);
+    const responseParts = response.candidates?.[0]?.content?.parts ?? [];
+    const imagePart = responseParts.find((p) => p.inlineData?.data);
 
     if (!imagePart?.inlineData) {
       throw new Error(

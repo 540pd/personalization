@@ -57,7 +57,7 @@ const VALID_ASPECT_RATIOS_V2: AspectRatioV2[] = ["1:1", "16:9", "9:16", "4:3", "
 
 generateRouter.post("/generate/image", requireIdentity(), async (req, res, next) => {
   try {
-    const { modelId, instruction, aspectRatio, quality, thinking, temperature, grounding } =
+    const { modelId, instruction, aspectRatio, quality, thinking, temperature, grounding, referenceImages } =
       req.body as {
         modelId?: unknown;
         instruction?: unknown;
@@ -66,6 +66,7 @@ generateRouter.post("/generate/image", requireIdentity(), async (req, res, next)
         thinking?: unknown;
         temperature?: unknown;
         grounding?: unknown;
+        referenceImages?: unknown;
       };
 
     if (typeof modelId !== "string" || !VALID_MODELS.has(modelId)) {
@@ -95,6 +96,9 @@ generateRouter.post("/generate/image", requireIdentity(), async (req, res, next)
       thinking: typeof thinking === "boolean" ? thinking : undefined,
       temperature: typeof temperature === "number" ? temperature : undefined,
       grounding: typeof grounding === "boolean" ? grounding : undefined,
+      referenceImages: Array.isArray(referenceImages)
+        ? (referenceImages as unknown[]).filter((u): u is string => typeof u === "string")
+        : undefined,
     });
 
     res.json({

@@ -2,43 +2,46 @@ import { create } from "zustand";
 
 export interface Connection {
   id: string;
-  fromNodeId: string;       // NodePanel node ID (output port, left edge)
-  toNodeId: string;         // NodePanel or Konva node ID (input port, right edge)
-  toNodeType: "panel" | "konva";
+  fromNodeId:   string;
+  fromNodeType: "panel" | "konva";
+  toNodeId:     string;
+  toNodeType:   "panel";  // only panels have input ports
 }
 
 export interface DragState {
-  fromNodeId: string;
+  fromNodeId:   string;
+  fromNodeType: "panel" | "konva";
   cursorX: number;
   cursorY: number;
 }
 
 interface ConnectionState {
-  connections:      Connection[];
-  drag:             DragState | null;
-  selectedId:       string | null;
-  startDrag:        (fromNodeId: string, x: number, y: number) => void;
-  updateDrag:       (x: number, y: number) => void;
-  commitConnection: (toNodeId: string, toNodeType: "panel" | "konva") => void;
-  cancelDrag:       () => void;
-  selectConnection: (id: string) => void;
-  deselectConnection: () => void;
-  removeConnection: (id: string) => void;
-  removeForNode:    (nodeId: string) => void;
+  connections:           Connection[];
+  drag:                  DragState | null;
+  selectedIds:           string[];
+  startDrag:             (fromNodeId: string, fromNodeType: "panel" | "konva", x: number, y: number) => void;
+  updateDrag:            (x: number, y: number) => void;
+  commitConnection:      (toNodeId: string) => void;
+  cancelDrag:            () => void;
+  selectConnection:      (id: string) => void;
+  addConnectionToSelection: (id: string) => void;
+  deselectConnection:    () => void;
+  removeConnection:      (id: string) => void;
+  removeForNode:         (nodeId: string) => void;
 }
 
 export const useConnectionStore = create<ConnectionState>((set, get) => ({
   connections: [],
   drag:        null,
-  selectedId:  null,
+  selectedIds: [],
 
-  startDrag: (fromNodeId, x, y) =>
-    set({ drag: { fromNodeId, cursorX: x, cursorY: y }, selectedId: null }),
+  startDrag: (fromNodeId, fromNodeType, x, y) =>
+    set({ drag: { fromNodeId, fromNodeType, cursorX: x, cursorY: y }, selectedIds: [] }),
 
   updateDrag: (x, y) =>
     set((s) => s.drag ? { drag: { ...s.drag, cursorX: x, cursorY: y } } : s),
 
-  commitConnection: (toNodeId, toNodeType) => {
+  commitConnection: (toNodeId) => {
     const { drag, connections } = get();
     if (!drag || drag.fromNodeId === toNodeId) { set({ drag: null }); return; }
     const exists = connections.some(
@@ -49,12 +52,13 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
       set((s) => ({
         connections: [...s.connections, {
           id: newId,
-          fromNodeId: drag.fromNodeId,
+          fromNodeId:   drag.fromNodeId,
+          fromNodeType: drag.fromNodeType,
           toNodeId,
-          toNodeType,
+          toNodeType: "panel" as const,
         }],
         drag: null,
-        selectedId: newId, // auto-select newly created connection
+        selectedIds: [newId], // auto-select newly created connection
       }));
     } else {
       set({ drag: null });
@@ -63,26 +67,29 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
 
   cancelDrag: () => set({ drag: null }),
 
-  selectConnection:   (id) => set({ selectedId: id }),
-  deselectConnection: ()   => set({ selectedId: null }),
+  selectConnection:      (id) => set({ selectedIds: [id] }),
+  addConnectionToSelection: (id) =>
+    set((s) =>
+      s.selectedIds.includes(id) ? s : { selectedIds: [...s.selectedIds, id] }
+    ),
+  deselectConnection: () => set({ selectedIds: [] }),
 
   removeConnection: (id) =>
     set((s) => ({
       connections: s.connections.filter((c) => c.id !== id),
-      selectedId:  s.selectedId === id ? null : s.selectedId,
+      selectedIds: s.selectedIds.filter((sid) => sid !== id),
     })),
 
   removeForNode: (nodeId) =>
     set((s) => {
-      const remaining = s.connections.filter(
-        (c) => c.fromNodeId !== nodeId && c.toNodeId !== nodeId
+      const removedIds = new Set(
+        s.connections
+          .filter((c) => c.fromNodeId === nodeId || c.toNodeId === nodeId)
+          .map((c) => c.id)
       );
-      const removedIds = new Set(s.connections.filter(
-        (c) => c.fromNodeId === nodeId || c.toNodeId === nodeId
-      ).map((c) => c.id));
       return {
-        connections: remaining,
-        selectedId: removedIds.has(s.selectedId ?? "") ? null : s.selectedId,
+        connections: s.connections.filter((c) => !removedIds.has(c.id)),
+        selectedIds: s.selectedIds.filter((sid) => !removedIds.has(sid)),
       };
     }),
 }));
