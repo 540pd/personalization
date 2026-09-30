@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import hotkeys from "hotkeys-js";
-import { Video, Image, SquareText } from "lucide-react";
+import { Video, Image, SquareText, Upload } from "lucide-react";
 import { useToolStore, type Tool } from "@/lib/toolStore";
 
 // --- icons (inline SVG, currentColor) ---
@@ -93,13 +93,6 @@ const IconColorPicker = () => (
   </svg>
 );
 
-const IconMediaUpload = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-    <circle cx="8" cy="8" r="6" />
-    <line x1="8" y1="5" x2="8" y2="11" />
-    <line x1="5" y1="8" x2="11" y2="8" />
-  </svg>
-);
 
 // --- tooltip ---
 
@@ -145,7 +138,7 @@ const TOOLS_RIGHT: ToolDef[] = [
   { id: "text",         label: "Text",        shortcut: "T",  icon: <IconText /> },
   { id: "sticky-note",  label: "Sticky Note",                 icon: <IconStickyNote /> },
   { id: "color-picker", label: "Color",                       icon: <IconColorPicker /> },
-  { id: "media-upload", label: "Upload",      shortcut: "⌘U", icon: <IconMediaUpload /> },
+  { id: "media-upload", label: "Upload",      shortcut: "⌘U", icon: <Upload size={16} /> },
 ];
 
 // ---
@@ -163,6 +156,15 @@ export default function FloatingDock() {
   const isGenerateActive = GENERATE_IDS.includes(activeTool);
   const isLinksActive    = LINK_IDS.includes(activeTool);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    window.dispatchEvent(new CustomEvent("canvas:upload", { detail: { files } }));
+    e.target.value = "";
+  };
+
   useEffect(() => {
     hotkeys("v", () => setTool("pointer"));
     hotkeys("escape", () => {
@@ -170,9 +172,11 @@ export default function FloatingDock() {
       setIsGenerateMenuOpen(false);
       setIsLinksMenuOpen(false);
     });
+    hotkeys("command+u,ctrl+u", (e) => { e.preventDefault(); fileInputRef.current?.click(); });
     return () => {
       hotkeys.unbind("v");
       hotkeys.unbind("escape");
+      hotkeys.unbind("command+u,ctrl+u");
     };
   }, [setTool]);
 
@@ -224,6 +228,15 @@ export default function FloatingDock() {
     ].join(" ");
 
   return (
+    <>
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/*,video/*,audio/*"
+      multiple
+      className="hidden"
+      onChange={handleFileChange}
+    />
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
       <div className="flex items-center gap-1 rounded-xl bg-white/95 border border-black/10 shadow-xl px-3.5 py-2.5 pointer-events-auto backdrop-blur-sm">
 
@@ -309,21 +322,30 @@ export default function FloatingDock() {
           )}
         </div>
 
-        {/* Right-side tools (not yet wired) */}
-        {TOOLS_RIGHT.map((tool) => (
-          <div key={tool.id} className="relative group flex items-center">
-            <button
-              title=""
-              tabIndex={-1}
-              className="w-11 h-11 flex items-center justify-center rounded-full text-sm transition-all duration-150 select-none text-neutral-400 cursor-not-allowed opacity-50"
-            >
-              {tool.icon}
-            </button>
-            <Tooltip label={tool.label} shortcut={tool.shortcut} />
-          </div>
-        ))}
+        {/* Right-side tools */}
+        {TOOLS_RIGHT.map((tool) => {
+          const isUpload = tool.id === "media-upload";
+          return (
+            <div key={tool.id} className="relative group flex items-center">
+              <button
+                title=""
+                tabIndex={isUpload ? 0 : -1}
+                onClick={isUpload ? () => fileInputRef.current?.click() : undefined}
+                className={
+                  isUpload
+                    ? btnClass(false)
+                    : "w-11 h-11 flex items-center justify-center rounded-full text-sm transition-all duration-150 select-none text-neutral-400 cursor-not-allowed opacity-50"
+                }
+              >
+                {tool.icon}
+              </button>
+              <Tooltip label={tool.label} shortcut={tool.shortcut} />
+            </div>
+          );
+        })}
 
       </div>
     </div>
+    </>
   );
 }

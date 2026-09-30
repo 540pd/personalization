@@ -5,6 +5,11 @@ import Konva from "konva";
 import { useViewport } from "@/lib/viewport";
 import { useToolStore } from "@/lib/toolStore";
 
+const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
+const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
+
+type Snapshot = Array<{ node: Konva.Shape; attrs: Record<string, unknown> }>;
+
 export default function Board() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
@@ -24,14 +29,13 @@ export default function Board() {
       container,
       width: container.offsetWidth,
       height: container.offsetHeight,
-      draggable: false, // pointer is the default tool; panning is disabled
+      draggable: false,
     });
 
     const layer = new Konva.Layer();
     stage.add(layer);
 
-    // Demo node — placeholder so pointer/transformer ACs are testable before
-    // real image nodes are added via the Generate Image panel.
+    // Demo node — placeholder until real nodes arrive via the Generate / Upload flows.
     const demoNode = new Konva.Rect({
       id: "demo-node",
       x: 200,
@@ -47,12 +51,12 @@ export default function Board() {
     });
     layer.add(demoNode);
 
-    // Transformer — attached to selected node, drawn on top of all shapes.
     const transformer = new Konva.Transformer({
-      rotateEnabled: true,
-      borderStroke: "#6366f1",
+      rotateEnabled: false,
+      enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"],
+      borderStroke: "#000000",
       borderStrokeWidth: 1.5,
-      anchorStroke: "#6366f1",
+      anchorStroke: "#000000",
       anchorFill: "#ffffff",
       anchorSize: 8,
       anchorCornerRadius: 2,
@@ -63,6 +67,58 @@ export default function Board() {
     stageRef.current = stage;
     layerRef.current = layer;
     transformerRef.current = transformer;
+
+    // --- Undo / redo (snapshot-based, reference-safe for Konva.Image) ---
+    const historySnaps: Snapshot[] = [];
+    let historyIdx = -1;
+
+    const saveSnapshot = () => {
+      const snap: Snapshot = (layer.find(".selectable") as Konva.Shape[]).map((n) => ({
+        node: n,
+        attrs: { ...n.getAttrs() },
+      }));
+      historySnaps.splice(historyIdx + 1); // discard redo stack
+      historySnaps.push(snap);
+      if (historySnaps.length > UNDO_LIMIT) historySnaps.shift();
+      historyIdx = historySnaps.length - 1;
+    };
+
+    const restoreSnapshot = (snap: Snapshot) => {
+      transformer.nodes([]);
+      const snapSet = new Set(snap.map((s) => s.node));
+      // Remove nodes absent from this snapshot.
+      (layer.find(".selectable") as Konva.Shape[]).forEach((n) => {
+        if (!snapSet.has(n)) n.remove();
+      });
+      // Restore attrs; re-add nodes that were previously removed.
+      snap.forEach(({ node, attrs }) => {
+        if (!node.getParent()) layer.add(node);
+        node.setAttrs(attrs);
+      });
+      // Re-apply draggable per active tool.
+      const tool = useToolStore.getState().activeTool;
+      (layer.find(".selectable") as Konva.Shape[]).forEach((n) => {
+        n.draggable(tool === "pointer");
+      });
+      layer.batchDraw();
+    };
+
+    const undo = () => {
+      if (historyIdx <= 0) return;
+      historyIdx--;
+      restoreSnapshot(historySnaps[historyIdx]);
+    };
+
+    const redo = () => {
+      if (historyIdx >= historySnaps.length - 1) return;
+      historyIdx++;
+      restoreSnapshot(historySnaps[historyIdx]);
+    };
+
+    // Snapshot initial state (demo node).
+    saveSnapshot();
+
+    // --- Stage events ---
 
     // Click to select / deselect.
     stage.on("click tap", (e) => {
@@ -88,11 +144,17 @@ export default function Board() {
       useViewport.getState().zoomToPoint(e.evt.deltaY, pointer.x, pointer.y);
     });
 
-    // Drag end → persist pan position. Filter out node drag events that bubble up.
+    // Drag end → persist pan position; save snapshot on node drag.
     stage.on("dragend", (e) => {
-      if (e.target !== stage) return;
-      useViewport.getState().setPosition(stage.x(), stage.y());
+      if (e.target === stage) {
+        useViewport.getState().setPosition(stage.x(), stage.y());
+      } else if (e.target.hasName("selectable")) {
+        saveSnapshot();
+      }
     });
+
+    // Save snapshot after transformer resize / rotate commit.
+    transformer.on("transformend", () => saveSnapshot());
 
     // Cursor: move over selectable nodes in pointer mode.
     stage.on("mouseover", (e) => {
@@ -122,6 +184,8 @@ export default function Board() {
       }
     });
 
+    // --- Window keyboard listeners ---
+
     // Space-to-pan: temporarily enable dragging regardless of active tool.
     const handleSpaceDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -145,6 +209,120 @@ export default function Board() {
     window.addEventListener("keydown", handleSpaceDown);
     window.addEventListener("keyup", handleSpaceUp);
 
+    // Ctrl/Cmd + Z → undo; Ctrl/Cmd + Y or Ctrl/Cmd + Shift + Z → redo.
+    const handleUndoRedo = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      if (e.code === "KeyZ" && !e.shiftKey) { e.preventDefault(); undo(); }
+      if (e.code === "KeyY" || (e.code === "KeyZ" && e.shiftKey)) { e.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", handleUndoRedo);
+
+    // --- Delete / Copy / Paste ---
+    let clipboard: { className: string; attrs: Record<string, unknown> } | null = null;
+
+    const handleEditKeys = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const selected = transformer.nodes() as Konva.Shape[];
+
+      // Delete / Backspace → remove selected nodes.
+      if (e.code === "Delete" || e.code === "Backspace") {
+        if (!selected.length) return;
+        e.preventDefault();
+        transformer.nodes([]);
+        selected.forEach((n) => n.destroy());
+        saveSnapshot();
+        return;
+      }
+
+      // Ctrl+C → copy attrs of the first selected node.
+      if (mod && e.code === "KeyC") {
+        if (!selected.length) return;
+        clipboard = { className: selected[0].getClassName(), attrs: { ...selected[0].getAttrs() } };
+        return;
+      }
+
+      // Ctrl+V → paste with +20px offset, select the new node.
+      if (mod && e.code === "KeyV") {
+        if (!clipboard) return;
+        e.preventDefault();
+        const pasteAttrs = {
+          ...clipboard.attrs,
+          x: ((clipboard.attrs.x as number) ?? 0) + 20,
+          y: ((clipboard.attrs.y as number) ?? 0) + 20,
+          id: undefined,
+          name: "selectable",
+          draggable: useToolStore.getState().activeTool === "pointer",
+        };
+        const node: Konva.Shape =
+          clipboard.className === "Image"
+            ? new Konva.Image(pasteAttrs as Konva.ImageConfig)
+            : new Konva.Rect(pasteAttrs as Konva.RectConfig);
+        layer.add(node);
+        transformer.nodes([node]);
+        layer.batchDraw();
+        saveSnapshot();
+      }
+    };
+    window.addEventListener("keydown", handleEditKeys);
+
+    // Place uploaded files on the canvas, centered in the current viewport.
+    const handleUpload = (e: Event) => {
+      const { files } = (e as CustomEvent<{ files: File[] }>).detail as { files: File[] };
+      const { x: sx, y: sy, scale: s } = useViewport.getState();
+      const cx = -sx / s + window.innerWidth  / (2 * s);
+      const cy = -sy / s + window.innerHeight / (2 * s);
+
+      files.forEach((file, i) => {
+        const off = i * 24;
+        if (file.type.startsWith("image/")) {
+          const url = URL.createObjectURL(file);
+          const img = new window.Image() as HTMLImageElement;
+          img.onload = () => {
+            const maxW = 480;
+            const ratio = Math.min(1, maxW / img.naturalWidth);
+            const w = img.naturalWidth  * ratio;
+            const h = img.naturalHeight * ratio;
+            const node = new Konva.Image({
+              image: img,
+              x: cx - w / 2 + off,
+              y: cy - h / 2 + off,
+              width: w,
+              height: h,
+              name: "selectable",
+              draggable: useToolStore.getState().activeTool === "pointer",
+            });
+            layer.add(node);
+            layer.batchDraw();
+            saveSnapshot();
+          };
+          img.src = url;
+        } else {
+          // Video / audio — placeholder rect until media nodes are fully supported.
+          const w = 240;
+          const h = file.type.startsWith("video/") ? 135 : 64;
+          const node = new Konva.Rect({
+            x: cx - w / 2 + off,
+            y: cy - h / 2 + off,
+            width: w,
+            height: h,
+            fill: "#1e1e2e",
+            stroke: "#6b6b8a",
+            strokeWidth: 1.5,
+            cornerRadius: 8,
+            name: "selectable",
+            draggable: useToolStore.getState().activeTool === "pointer",
+          });
+          layer.add(node);
+          layer.batchDraw();
+          saveSnapshot();
+        }
+      });
+    };
+    window.addEventListener("canvas:upload", handleUpload);
+
     const observer = new ResizeObserver(() => {
       stage.width(container.offsetWidth);
       stage.height(container.offsetHeight);
@@ -154,6 +332,9 @@ export default function Board() {
     return () => {
       window.removeEventListener("keydown", handleSpaceDown);
       window.removeEventListener("keyup", handleSpaceUp);
+      window.removeEventListener("keydown", handleUndoRedo);
+      window.removeEventListener("keydown", handleEditKeys);
+      window.removeEventListener("canvas:upload", handleUpload);
       observer.disconnect();
       stage.destroy();
       stageRef.current = null;
