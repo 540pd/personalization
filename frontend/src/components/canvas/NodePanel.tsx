@@ -5,15 +5,22 @@
 // Instances are stored in the nodePanelStore array and rendered here.
 
 import { useState, useRef, useEffect } from "react";
-import { X, ChevronDown } from "lucide-react";
+import { X, ChevronDown, Check, Loader2 } from "lucide-react";
 import { useNodePanel, type PanelInstance } from "@/lib/nodePanelStore";
 import { useViewport } from "@/lib/viewport";
+import { generateImageV2 } from "@/lib/api";
+import type { AspectRatioV2 } from "@/lib/types";
 
+// ── Image generation models ───────────────────────────────────────────────────
+// To add a new model: append an entry with the Vertex AI model ID as `id` and
+// the display name as `label`. The `id` value is sent verbatim to the backend
+// POST /api/generate/image as the `modelId` field.
+// Example:
+//   { id: "gemini-3.2-flash-image", label: "Nano Banana 3" },
 const MODELS = [
-  { id: "imagen-3",         label: "Imagen 3" },
-  { id: "imagen-3-fast",    label: "Imagen 3 Fast" },
-  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
-  { id: "gemini-2.5-pro",   label: "Gemini 2.5 Pro" },
+  { id: "gemini-3.1-flash-image",      label: "Nano Banana 2" },
+  { id: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite" },
+  { id: "gemini-3-pro-image",          label: "Nano Banana Pro" },
 ];
 
 const ASPECT_RATIOS = ["16:9", "1:1", "9:16", "4:3", "3:4"];
@@ -64,7 +71,9 @@ function SinglePanel({
 }: SinglePanelProps) {
   const { canvasX, canvasY, isActive, isPanelOpen } = instance;
 
-  const [model,        setModel]        = useState("imagen-3");
+  const [model,        setModel]        = useState(MODELS[0].id);
+  const [isModelOpen,  setIsModelOpen]  = useState(false);
+  const modelPickerRef = useRef<HTMLDivElement>(null);
   const [instruction,  setInstruction]  = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [thinking,     setThinking]     = useState("Minimal");
@@ -73,9 +82,9 @@ function SinglePanel({
   const [aspectRatio,  setAspectRatio]  = useState("16:9");
   const [quality,      setQuality]      = useState("2K");
   const [preview,      setPreview]      = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [genError,     setGenError]     = useState<string | null>(null);
   const [dragging,     setDragging]     = useState(false);
-
-  void setPreview;
 
   const isDragging = useRef(false);
   const dragStart  = useRef({ px: 0, py: 0, cx: 0, cy: 0 });
@@ -96,6 +105,16 @@ function SinglePanel({
     setSizeW(w);
     setSizeH(h);
   }, [aspectRatio]);
+
+  // Close model picker on outside click.
+  useEffect(() => {
+    if (!isModelOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (!modelPickerRef.current?.contains(e.target as Node)) setIsModelOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isModelOpen]);
 
   const pw = sizeW;
   const ph = sizeH;
@@ -167,6 +186,28 @@ function SinglePanel({
   };
 
   const onAnchorPointerUp = () => { anchorDrag.current = null; };
+
+  const handleCreate = async () => {
+    if (!instruction.trim() || isGenerating) return;
+    setIsGenerating(true);
+    setGenError(null);
+    try {
+      const result = await generateImageV2({
+        modelId: model,
+        instruction: instruction.trim(),
+        aspectRatio: aspectRatio as AspectRatioV2,
+        quality: quality === "4K" ? "hd" : "standard",
+        thinking: thinking !== "None",
+        temperature,
+        grounding,
+      });
+      if (result.imageUrl) setPreview(result.imageUrl);
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : "Generation failed. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <>
@@ -271,17 +312,38 @@ function SinglePanel({
           <div className="flex items-start justify-between px-5 pt-5 pb-1 shrink-0">
             <div>
               <h2 className="text-base font-semibold text-neutral-900">Create Image</h2>
-              <div className="relative flex items-center mt-0.5">
-                <select
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="appearance-none text-sm text-neutral-400 bg-transparent pr-4 outline-none cursor-pointer"
+              <div className="relative mt-0.5" ref={modelPickerRef}>
+                {/* Trigger */}
+                <button
+                  onClick={() => setIsModelOpen((v) => !v)}
+                  className="flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-600 transition-colors"
                 >
-                  {MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
-                  ))}
-                </select>
-                <ChevronDown size={12} className="absolute right-0 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                  <span>{MODELS.find((m) => m.id === model)?.label ?? model}</span>
+                  <ChevronDown
+                    size={12}
+                    className={`transition-transform duration-150 ${isModelOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {/* Dropdown */}
+                {isModelOpen && (
+                  <div className="absolute top-full left-0 mt-1.5 w-48 bg-white rounded-xl border border-black/[0.08] shadow-lg z-10 overflow-hidden">
+                    {MODELS.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => { setModel(m.id); setIsModelOpen(false); }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                          model === m.id
+                            ? "bg-neutral-50 text-neutral-900 font-medium"
+                            : "text-neutral-600 hover:bg-black/5"
+                        }`}
+                      >
+                        <span>{m.label}</span>
+                        {model === m.id && <Check size={13} className="text-neutral-700 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <button
@@ -405,12 +467,23 @@ function SinglePanel({
               </div>
             </div>
 
+            {genError && (
+              <p className="text-xs text-red-500 text-center -mt-1 leading-snug">
+                {genError}
+              </p>
+            )}
+
             <button
-              onClick={onRemove}
-              disabled
-              className="w-full rounded-xl bg-neutral-900 py-3 text-sm font-medium text-white cursor-not-allowed opacity-40 select-none"
+              onClick={handleCreate}
+              disabled={!instruction.trim() || isGenerating}
+              className={`w-full rounded-xl py-3 text-sm font-medium text-white select-none flex items-center justify-center gap-2 transition-opacity ${
+                !instruction.trim() || isGenerating
+                  ? "bg-neutral-900 cursor-not-allowed opacity-40"
+                  : "bg-neutral-900 cursor-pointer hover:opacity-90 active:opacity-80"
+              }`}
             >
-              Create
+              {isGenerating && <Loader2 size={14} className="animate-spin shrink-0" />}
+              {isGenerating ? "Creating…" : "Create"}
             </button>
 
           </div>

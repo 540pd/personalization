@@ -15,3 +15,22 @@ export interface GenerateImageResult {
   status: "queued" | "generating" | "done" | "error";
   imageUrl?: string;
 }
+
+export type AspectRatioV2 = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
+
+export interface GenerateImageV2Params {
+  modelId: string;
+  instruction: string;
+  aspectRatio: AspectRatioV2;
+  quality?: "standard" | "hd";
+  thinking?: boolean;
+  temperature?: number;
+  grounding?: boolean;
+}
+
+export interface GenerateImageV2Result {
+  jobId: string;
+  status: "done" | "error";
+  imageUrl?: string;
+  modelUsed?: string;
+}

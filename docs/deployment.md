@@ -28,7 +28,7 @@
 | `FIRESTORE_PROJECT_ID` | GCP project ID for Firestore |
 | `GCS_BUCKET_NAME` | GCS bucket name for asset storage |
 | `VERTEX_PROJECT_ID` | GCP project ID for Vertex AI Imagen 3 |
-| `VERTEX_LOCATION` | Vertex AI region (default: `us-central1`) |
+| `VERTEX_LOCATION` | Vertex AI region — Nano Banana models require `global` (default: `global`) |
 | `PORT` | Server port (default: 4000 locally, set to 8080 by Cloud Run) |
 
 ## Secrets (Secret Manager)
@@ -90,6 +90,38 @@ gcloud firestore databases create --region=us-central1
 
 Collections created at runtime (no schema migration needed):
 - `boards/{boardId}` — board documents scoped by userId
+
+## Vertex AI setup
+
+Image generation uses the Vertex AI Generative AI API (Nano Banana / Gemini image models).
+
+**Local dev** — copy `.env.example` to `.env` and fill in `VERTEX_PROJECT_ID`:
+
+```bash
+cp backend/.env.example backend/.env
+# then set: VERTEX_PROJECT_ID=your-gcp-project-id
+```
+
+GCP Application Default Credentials must be configured locally:
+
+```bash
+gcloud auth application-default login
+```
+
+**Cloud Run** — the backend service account needs the Vertex AI user role so it can call the Generative AI API:
+
+```bash
+# Find the backend service account
+gcloud run services describe gcos-backend --region us-central1 \
+  --format="value(spec.template.spec.serviceAccountName)"
+
+# Grant Vertex AI access
+gcloud projects add-iam-policy-binding <project-id> \
+  --member=serviceAccount:<backend-sa>@<project-id>.iam.gserviceaccount.com \
+  --role=roles/aiplatform.user
+```
+
+If `VERTEX_PROJECT_ID` is not set, the backend returns a mock placeholder image rather than calling Vertex AI — no crash, no error.
 
 ## GCS bucket setup
 
