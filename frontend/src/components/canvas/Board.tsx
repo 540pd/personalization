@@ -10,6 +10,7 @@ export default function Board() {
   const stageRef = useRef<Konva.Stage | null>(null);
   const layerRef = useRef<Konva.Layer | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
+  const isSpacePanning = useRef(false);
 
   const { x, y, scale } = useViewport();
   const { activeTool } = useToolStore();
@@ -107,17 +108,42 @@ export default function Board() {
       }
     });
 
-    // Cursor: grabbing while panning.
+    // Cursor: grabbing while panning (regular pan mode or space-pan).
     stage.on("mousedown", () => {
-      if (useToolStore.getState().activeTool !== "pointer") {
+      if (isSpacePanning.current || useToolStore.getState().activeTool !== "pointer") {
         stage.container().style.cursor = "grabbing";
       }
     });
     stage.on("mouseup", () => {
-      if (useToolStore.getState().activeTool !== "pointer") {
+      if (isSpacePanning.current) {
+        stage.container().style.cursor = "grab";
+      } else if (useToolStore.getState().activeTool !== "pointer") {
         stage.container().style.cursor = "grab";
       }
     });
+
+    // Space-to-pan: temporarily enable dragging regardless of active tool.
+    const handleSpaceDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.code !== "Space" || isSpacePanning.current) return;
+      e.preventDefault();
+      isSpacePanning.current = true;
+      stage.draggable(true);
+      stage.container().style.cursor = "grab";
+    };
+    const handleSpaceUp = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || !isSpacePanning.current) return;
+      isSpacePanning.current = false;
+      const tool = useToolStore.getState().activeTool;
+      if (tool === "pointer") {
+        stage.draggable(false);
+        stage.container().style.cursor = "default";
+      } else {
+        stage.container().style.cursor = "grab";
+      }
+    };
+    window.addEventListener("keydown", handleSpaceDown);
+    window.addEventListener("keyup", handleSpaceUp);
 
     const observer = new ResizeObserver(() => {
       stage.width(container.offsetWidth);
@@ -126,6 +152,8 @@ export default function Board() {
     observer.observe(container);
 
     return () => {
+      window.removeEventListener("keydown", handleSpaceDown);
+      window.removeEventListener("keyup", handleSpaceUp);
       observer.disconnect();
       stage.destroy();
       stageRef.current = null;

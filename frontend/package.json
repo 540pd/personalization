@@ -19,6 +19,7 @@
     "google-auth-library": "^9.15.0",
     "hotkeys-js": "^3.13.0",
     "konva": "^9.3.0",
+    "lucide-react": "^1.49.0",
     "next": "^15.3.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

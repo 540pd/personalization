@@ -2,9 +2,12 @@ import { create } from "zustand";
 
 export type Tool =
   | "pointer"
+  | "generate-instruction"
   | "generate-image"
   | "generate-video"
-  | "generate-audio"
+  | "link-straight"
+  | "link-elbow"
+  | "link-curve"
   | "frame"
   | "shapes"
   | "text"
