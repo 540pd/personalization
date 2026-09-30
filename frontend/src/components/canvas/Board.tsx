@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import Konva from "konva";
 import { useViewport } from "@/lib/viewport";
 import { useToolStore } from "@/lib/toolStore";
+import { useNodePanel } from "@/lib/nodePanelStore";
 
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
@@ -122,18 +123,31 @@ export default function Board() {
 
     // Click to select / deselect.
     stage.on("click tap", (e) => {
-      if (useToolStore.getState().activeTool !== "pointer") return;
-
-      if (e.target === stage) {
-        transformer.nodes([]);
+      // Clicking a selectable node always selects it — auto-switch to pointer
+      // if the user is in another tool mode (matches Figma / Luma behaviour).
+      if (e.target !== stage && e.target.hasName("selectable")) {
+        if (useToolStore.getState().activeTool !== "pointer") {
+          useToolStore.getState().setTool("pointer");
+          // Eagerly set the cursor so it doesn't flicker through "grab".
+          stage.container().style.cursor = "move";
+        }
+        transformer.nodes([e.target as Konva.Shape]);
         layer.batchDraw();
+        // Place the placeholder to the right of the node, vertically centred.
+        const n = e.target as Konva.Shape;
+        useNodePanel.getState().addPanel(
+          n.x() + n.width()  + 32,
+          n.y() + n.height() / 2,
+        );
         return;
       }
 
-      if (e.target.hasName("selectable")) {
-        transformer.nodes([e.target as Konva.Shape]);
-        layer.batchDraw();
-      }
+      // Always close node panels on background click, regardless of active tool.
+      useNodePanel.getState().closeAllPanels();
+      // Only clear transformer selection in pointer mode.
+      if (useToolStore.getState().activeTool !== "pointer") return;
+      transformer.nodes([]);
+      layer.batchDraw();
     });
 
     // Wheel → zoom toward cursor.
@@ -142,6 +156,16 @@ export default function Board() {
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
       useViewport.getState().zoomToPoint(e.evt.deltaY, pointer.x, pointer.y);
+    });
+
+    // While dragging: sync viewport store so the NodePanel tracks in real-time.
+    stage.on("dragmove", (e) => {
+      if (e.target === stage) {
+        // Keep viewport store live during pan so HTML overlays move with canvas.
+        useViewport.getState().setPosition(stage.x(), stage.y());
+        return;
+      }
+      // Node drag: placeholder is repositioned manually by the user.
     });
 
     // Drag end → persist pan position; save snapshot on node drag.
@@ -165,8 +189,7 @@ export default function Board() {
     });
     stage.on("mouseout", (e) => {
       if (e.target !== stage && e.target.hasName("selectable")) {
-        const tool = useToolStore.getState().activeTool;
-        stage.container().style.cursor = tool === "pointer" ? "default" : "grab";
+        stage.container().style.cursor = "default";
       }
     });
 
@@ -177,10 +200,11 @@ export default function Board() {
       }
     });
     stage.on("mouseup", () => {
+      // Only keep grab after releasing the mouse if spacebar is still held.
       if (isSpacePanning.current) {
         stage.container().style.cursor = "grab";
-      } else if (useToolStore.getState().activeTool !== "pointer") {
-        stage.container().style.cursor = "grab";
+      } else {
+        stage.container().style.cursor = "default";
       }
     });
 
@@ -198,13 +222,10 @@ export default function Board() {
     const handleSpaceUp = (e: KeyboardEvent) => {
       if (e.code !== "Space" || !isSpacePanning.current) return;
       isSpacePanning.current = false;
-      const tool = useToolStore.getState().activeTool;
-      if (tool === "pointer") {
+      if (useToolStore.getState().activeTool === "pointer") {
         stage.draggable(false);
-        stage.container().style.cursor = "default";
-      } else {
-        stage.container().style.cursor = "grab";
       }
+      stage.container().style.cursor = "default";
     };
     window.addEventListener("keydown", handleSpaceDown);
     window.addEventListener("keyup", handleSpaceUp);
@@ -293,6 +314,14 @@ export default function Board() {
               height: h,
               name: "selectable",
               draggable: useToolStore.getState().activeTool === "pointer",
+              // Force bounding-rect hit detection so clicks on transparent PNG
+              // areas still register (Konva default uses per-pixel alpha for images).
+              hitFunc(ctx: Konva.Context, shape: Konva.Shape) {
+                ctx.beginPath();
+                ctx.rect(0, 0, shape.width(), shape.height());
+                ctx.closePath();
+                ctx.fillStrokeShape(shape);
+              },
             });
             layer.add(node);
             layer.batchDraw();
@@ -365,7 +394,7 @@ export default function Board() {
       (stage.find(".selectable") as Konva.Shape[]).forEach((n) => n.draggable(true));
     } else {
       stage.draggable(true);
-      stage.container().style.cursor = "grab";
+      stage.container().style.cursor = "default";
       transformer.nodes([]);
       (stage.find(".selectable") as Konva.Shape[]).forEach((n) => n.draggable(false));
       layer.batchDraw();

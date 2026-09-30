@@ -9,6 +9,8 @@ import { useState, useEffect, useRef } from "react";
 import hotkeys from "hotkeys-js";
 import { Video, Image, SquareText, Upload } from "lucide-react";
 import { useToolStore, type Tool } from "@/lib/toolStore";
+import { useNodePanel } from "@/lib/nodePanelStore";
+import { useViewport } from "@/lib/viewport";
 
 // --- icons (inline SVG, currentColor) ---
 
@@ -145,6 +147,8 @@ const TOOLS_RIGHT: ToolDef[] = [
 
 export default function FloatingDock() {
   const { activeTool, setTool } = useToolStore();
+  const { addPanel, closeAllPanels } = useNodePanel();
+  const viewport = useViewport();
   const [isGenerateMenuOpen, setIsGenerateMenuOpen] = useState(false);
   const [isLinksMenuOpen, setIsLinksMenuOpen]       = useState(false);
 
@@ -166,11 +170,12 @@ export default function FloatingDock() {
   };
 
   useEffect(() => {
-    hotkeys("v", () => setTool("pointer"));
+    hotkeys("v", () => { setTool("pointer"); });
     hotkeys("escape", () => {
       setTool("pointer");
       setIsGenerateMenuOpen(false);
       setIsLinksMenuOpen(false);
+      closeAllPanels();
     });
     hotkeys("command+u,ctrl+u", (e) => { e.preventDefault(); fileInputRef.current?.click(); });
     return () => {
@@ -244,7 +249,7 @@ export default function FloatingDock() {
         <div className="relative group flex items-center">
           <button
             title=""
-            onClick={() => setTool("pointer")}
+            onClick={() => { setTool("pointer"); }}
             aria-pressed={activeTool === "pointer"}
             className={btnClass(activeTool === "pointer")}
           >
@@ -278,7 +283,23 @@ export default function FloatingDock() {
               {GENERATE_ITEMS.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => { setTool(item.id); setIsGenerateMenuOpen(false); }}
+                  onClick={() => {
+                    setTool(item.id);
+                    setIsGenerateMenuOpen(false);
+                    if (item.id === "generate-image") {
+                      // New placeholder at viewport centre, offset slightly per existing count.
+                      const { x: sx, y: sy, scale: sc } = viewport;
+                      const existing = useNodePanel.getState().panels.length;
+                      const offset   = existing * 24;
+                      const cx = (-sx + window.innerWidth  / 2) / sc + 24 + offset;
+                      const cy = (-sy + window.innerHeight / 2) / sc      + offset;
+                      addPanel(cx, cy);
+                      // Switch to pointer so canvas background click can deactivate the placeholder.
+                      setTool("pointer");
+                    } else {
+                      closeAllPanels();
+                    }
+                  }}
                   className={submenuItemClass(activeTool === item.id)}
                 >
                   {item.icon}
@@ -311,7 +332,7 @@ export default function FloatingDock() {
               {LINK_ITEMS.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => { setTool(item.id); setIsLinksMenuOpen(false); }}
+                  onClick={() => { setTool(item.id); setIsLinksMenuOpen(false); closeAllPanels(); }}
                   className={submenuItemClass(activeTool === item.id)}
                 >
                   {item.icon}
