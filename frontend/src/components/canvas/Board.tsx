@@ -5,6 +5,9 @@ import Konva from "konva";
 import { useViewport } from "@/lib/viewport";
 import { useToolStore } from "@/lib/toolStore";
 import { useNodePanel } from "@/lib/nodePanelStore";
+import { useKonvaSelection } from "@/lib/konvaSelectionStore";
+import { useKonvaNodes } from "@/lib/konvaNodesStore";
+import { useConnectionStore } from "@/lib/connectionStore";
 
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
@@ -51,6 +54,10 @@ export default function Board() {
       draggable: true,
     });
     layer.add(demoNode);
+    useKonvaNodes.getState().upsert({
+      id: "demo-node",
+      canvasX: 200, canvasY: 150, canvasW: 240, canvasH: 160,
+    });
 
     const transformer = new Konva.Transformer({
       rotateEnabled: false,
@@ -131,19 +138,22 @@ export default function Board() {
           // Eagerly set the cursor so it doesn't flicker through "grab".
           stage.container().style.cursor = "move";
         }
-        transformer.nodes([e.target as Konva.Shape]);
-        layer.batchDraw();
-        // Place the placeholder to the right of the node, vertically centred.
         const n = e.target as Konva.Shape;
-        useNodePanel.getState().addPanel(
-          n.x() + n.width()  + 32,
-          n.y() + n.height() / 2,
+        transformer.nodes([n]);
+        layer.batchDraw();
+        useKonvaSelection.getState().select(
+          n.id() || String(n._id),
+          n.x(), n.y(),
+          n.width()  * n.scaleX(),
+          n.height() * n.scaleY(),
         );
         return;
       }
 
       // Always close node panels on background click, regardless of active tool.
       useNodePanel.getState().closeAllPanels();
+      useKonvaSelection.getState().deselect();
+      useConnectionStore.getState().deselectConnection();
       // Only clear transformer selection in pointer mode.
       if (useToolStore.getState().activeTool !== "pointer") return;
       transformer.nodes([]);
@@ -165,7 +175,15 @@ export default function Board() {
         useViewport.getState().setPosition(stage.x(), stage.y());
         return;
       }
-      // Node drag: placeholder is repositioned manually by the user.
+      // Konva node drag: keep port overlay in sync.
+      if (e.target.hasName("selectable")) {
+        const n = e.target as Konva.Shape;
+        useKonvaSelection.getState().update(
+          n.x(), n.y(),
+          n.width()  * n.scaleX(),
+          n.height() * n.scaleY(),
+        );
+      }
     });
 
     // Drag end → persist pan position; save snapshot on node drag.
@@ -174,11 +192,47 @@ export default function Board() {
         useViewport.getState().setPosition(stage.x(), stage.y());
       } else if (e.target.hasName("selectable")) {
         saveSnapshot();
+        const draggedId = (e.target as Konva.Shape).id();
+        if (draggedId) {
+          const n = e.target as Konva.Shape;
+          useKonvaNodes.getState().upsert({
+            id: draggedId,
+            canvasX: n.x(), canvasY: n.y(),
+            canvasW: n.width() * n.scaleX(), canvasH: n.height() * n.scaleY(),
+          });
+        }
+      }
+    });
+
+    // Keep port overlay in sync during transformer resize.
+    transformer.on("transform", () => {
+      const nodes = transformer.nodes() as Konva.Shape[];
+      if (nodes.length > 0) {
+        const n = nodes[0];
+        useKonvaSelection.getState().update(
+          n.x(), n.y(),
+          n.width()  * n.scaleX(),
+          n.height() * n.scaleY(),
+        );
       }
     });
 
     // Save snapshot after transformer resize / rotate commit.
-    transformer.on("transformend", () => saveSnapshot());
+    transformer.on("transformend", () => {
+      saveSnapshot();
+      const tNodes = transformer.nodes() as Konva.Shape[];
+      if (tNodes.length > 0) {
+        const n = tNodes[0];
+        const nId = n.id();
+        if (nId) {
+          useKonvaNodes.getState().upsert({
+            id: nId,
+            canvasX: n.x(), canvasY: n.y(),
+            canvasW: n.width() * n.scaleX(), canvasH: n.height() * n.scaleY(),
+          });
+        }
+      }
+    });
 
     // Cursor: move over selectable nodes in pointer mode.
     stage.on("mouseover", (e) => {
@@ -253,7 +307,12 @@ export default function Board() {
         if (!selected.length) return;
         e.preventDefault();
         transformer.nodes([]);
-        selected.forEach((n) => n.destroy());
+        selected.forEach((n) => {
+          const nId = n.id();
+          if (nId) useKonvaNodes.getState().remove(nId);
+          n.destroy();
+        });
+        useKonvaSelection.getState().deselect();
         saveSnapshot();
         return;
       }
@@ -306,7 +365,9 @@ export default function Board() {
             const ratio = Math.min(1, maxW / img.naturalWidth);
             const w = img.naturalWidth  * ratio;
             const h = img.naturalHeight * ratio;
+            const imgNodeId = crypto.randomUUID();
             const node = new Konva.Image({
+              id: imgNodeId,
               image: img,
               x: cx - w / 2 + off,
               y: cy - h / 2 + off,
@@ -323,6 +384,13 @@ export default function Board() {
                 ctx.fillStrokeShape(shape);
               },
             });
+            useKonvaNodes.getState().upsert({
+              id: imgNodeId,
+              canvasX: cx - w / 2 + off,
+              canvasY: cy - h / 2 + off,
+              canvasW: w,
+              canvasH: h,
+            });
             layer.add(node);
             layer.batchDraw();
             saveSnapshot();
@@ -332,7 +400,9 @@ export default function Board() {
           // Video / audio — placeholder rect until media nodes are fully supported.
           const w = 240;
           const h = file.type.startsWith("video/") ? 135 : 64;
+          const rectNodeId = crypto.randomUUID();
           const node = new Konva.Rect({
+            id: rectNodeId,
             x: cx - w / 2 + off,
             y: cy - h / 2 + off,
             width: w,
@@ -343,6 +413,13 @@ export default function Board() {
             cornerRadius: 8,
             name: "selectable",
             draggable: useToolStore.getState().activeTool === "pointer",
+          });
+          useKonvaNodes.getState().upsert({
+            id: rectNodeId,
+            canvasX: cx - w / 2 + off,
+            canvasY: cy - h / 2 + off,
+            canvasW: w,
+            canvasH: h,
           });
           layer.add(node);
           layer.batchDraw();

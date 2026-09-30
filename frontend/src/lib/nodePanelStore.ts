@@ -7,6 +7,8 @@ export interface PanelInstance {
   // 3-state: inactive → active (transformer) → panel-open (transformer + panel)
   isActive:    boolean;
   isPanelOpen: boolean;
+  w: number;  // placeholder width in screen px (synced from SinglePanel)
+  h: number;  // placeholder height in screen px (synced from SinglePanel)
 }
 
 // Snapshot type for position undo/redo.
@@ -30,6 +32,7 @@ interface NodePanelState {
   undoPos:         () => void;
   redoPos:         () => void;
   clearAll:        () => void;
+  setSize:         (id: string, w: number, h: number) => void;
 }
 
 let _nextId = 1;
@@ -58,7 +61,7 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
       const newId = `panel-${_nextId++}`;
       const newPanels = [
         ...s.panels.map((p) => ({ ...p, isActive: false, isPanelOpen: false })),
-        { id: newId, canvasX: cx, canvasY: cy, isActive: true, isPanelOpen: true },
+        { id: newId, canvasX: cx, canvasY: cy, isActive: true, isPanelOpen: true, w: 200, h: 113 },
       ];
       const snap = makeSnap(newPanels);
       const history = [...s.posHistory.slice(0, s.posHistoryIdx + 1), snap];
@@ -150,4 +153,11 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
     }),
 
   clearAll: () => set({ panels: [], selectedId: null, posHistory: [], posHistoryIdx: -1 }),
+
+  setSize: (id, w, h) =>
+    set((s) => {
+      const panel = s.panels.find((p) => p.id === id);
+      if (!panel || (panel.w === w && panel.h === h)) return s;
+      return { panels: s.panels.map((p) => p.id === id ? { ...p, w, h } : p) };
+    }),
 }));

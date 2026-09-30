@@ -10,6 +10,7 @@ import { useNodePanel, type PanelInstance } from "@/lib/nodePanelStore";
 import { useViewport } from "@/lib/viewport";
 import { generateImageV2 } from "@/lib/api";
 import type { AspectRatioV2 } from "@/lib/types";
+import { useConnectionStore } from "@/lib/connectionStore";
 
 // ── Image generation models ───────────────────────────────────────────────────
 // To add a new model: append an entry with the Vertex AI model ID as `id` and
@@ -42,6 +43,7 @@ const PANEL_W    = 320;
 const GAP        = 12;
 const TR_PADDING = 4;   // matches Konva Transformer padding
 const ANCHOR_SZ  = 8;   // matches Konva anchorSize
+const PORT_D     = 10;  // port circle diameter in px
 
 // Corner anchor positions + resize cursor. idx: 0=TL, 1=TR, 2=BL, 3=BR.
 const ANCHORS = [
@@ -115,6 +117,11 @@ function SinglePanel({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [isModelOpen]);
+
+  // Sync rendered size to nodePanelStore so ConnectionOverlay can compute port positions.
+  useEffect(() => {
+    useNodePanel.getState().setSize(instance.id, sizeW, sizeH);
+  }, [instance.id, sizeW, sizeH]);
 
   const pw = sizeW;
   const ph = sizeH;
@@ -247,6 +254,48 @@ function SinglePanel({
               }}
             />
           ))}
+
+          {/* Output port — left edge, 30% from top */}
+          <div
+            title="Output"
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              useConnectionStore.getState().startDrag(instance.id, e.clientX, e.clientY);
+            }}
+            style={{
+              position: "absolute",
+              left: TR_PADDING,
+              top:  TR_PADDING + ph * 0.3,
+              width:  PORT_D,
+              height: PORT_D,
+              background: "#fff",
+              border: "1.5px solid #000",
+              borderRadius: "50%",
+              transform: "translate(-50%, -50%)",
+              cursor: "crosshair",
+              pointerEvents: "auto",
+              zIndex: 1,
+            }}
+          />
+
+          {/* Input port — right edge, 30% from top */}
+          <div
+            title="Input"
+            style={{
+              position: "absolute",
+              left: TR_PADDING + pw,
+              top:  TR_PADDING + ph * 0.3,
+              width:  PORT_D,
+              height: PORT_D,
+              background: "#fff",
+              border: "1.5px solid #000",
+              borderRadius: "50%",
+              transform: "translate(-50%, -50%)",
+              cursor: "crosshair",
+              pointerEvents: "auto",
+              zIndex: 1,
+            }}
+          />
         </div>
       )}
 
