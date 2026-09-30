@@ -1,0 +1,45 @@
+import type { NextConfig } from "next";
+
+// `turbopack.root` is pinned to this directory to prevent Next.js from
+// misdetecting the monorepo root. Without it, Next.js walks upward and finds
+// the root-level package-lock.json (husky-only tooling), treats the repo root
+// as the workspace root, and nests standalone output one level deeper than
+// the Cloud Run runner expects (.next/standalone/frontend/.next/... instead
+// of .next/standalone/.next/...). Pinning removes that ambiguity.
+const nextConfig: NextConfig = {
+  output: "standalone",
+  turbopack: {
+    root: import.meta.dirname,
+  },
+  poweredByHeader: false,
+  webpack: (config) => {
+    // Konva's package.json `main` field resolves to index-node.js which
+    // requires the `canvas` npm package (a native Node.js binding). Webpack
+    // picks this up even for the browser bundle. Stubbing `canvas` to false
+    // tells webpack to skip it — Konva detects the browser at runtime and uses
+    // the native HTMLCanvasElement instead.
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+    };
+    return config;
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+        ],
+      },
+    ];
+  },
+};
+
+export default nextConfig;

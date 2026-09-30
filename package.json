@@ -1,0 +1,11 @@
+{
+  "name": "gcos-personalization",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0"
+  }
+}
