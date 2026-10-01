@@ -8,9 +8,9 @@
 import { useState, useEffect, useRef } from "react";
 import hotkeys from "hotkeys-js";
 import { Video, Image, SquareText, Upload } from "lucide-react";
-import { useToolStore, type Tool } from "@/lib/toolStore";
-import { useNodePanel } from "@/lib/nodePanelStore";
-import { useViewport } from "@/lib/viewport";
+import { useToolStore, type Tool } from "@/store/tool.store";
+import { useNodePanel } from "@/store/nodePanel.store";
+import { useViewport } from "@/store/viewport.store";
 
 // --- icons (inline SVG, currentColor) ---
 

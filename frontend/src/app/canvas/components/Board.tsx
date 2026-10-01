@@ -2,12 +2,12 @@
 
 import { useEffect, useRef } from "react";
 import Konva from "konva";
-import { useViewport } from "@/lib/viewport";
-import { useToolStore } from "@/lib/toolStore";
-import { useNodePanel } from "@/lib/nodePanelStore";
-import { useKonvaSelection } from "@/lib/konvaSelectionStore";
-import { useKonvaNodes } from "@/lib/konvaNodesStore";
-import { useConnectionStore } from "@/lib/connectionStore";
+import { useViewport } from "@/store/viewport.store";
+import { useToolStore } from "@/store/tool.store";
+import { useNodePanel } from "@/store/nodePanel.store";
+import { useKonvaSelection } from "@/store/konvaSelection.store";
+import { useKonvaNodes } from "@/store/konvaNodes.store";
+import { useConnectionStore } from "@/store/connection.store";
 
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;

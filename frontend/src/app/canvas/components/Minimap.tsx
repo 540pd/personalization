@@ -6,7 +6,7 @@
 // Clicking the zoom % opens a shortcut menu above the panel.
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useViewport } from "@/lib/viewport";
+import { useViewport } from "@/store/viewport.store";
 
 const WORLD_W = 4000;
 const WORLD_H = 3000;
