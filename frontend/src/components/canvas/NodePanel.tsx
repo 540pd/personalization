@@ -8,7 +8,7 @@ import { useState, useRef, useEffect } from "react";
 import { X, ChevronDown, Check, Loader2 } from "lucide-react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
-import { generateImageV2 } from "@/lib/api";
+import { generateImageV2 } from "@/api/canvas.api";
 import type { AspectRatioV2 } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
