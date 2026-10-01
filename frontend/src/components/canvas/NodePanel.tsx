@@ -9,7 +9,7 @@ import { X, ChevronDown, Check, Loader2 } from "lucide-react";
 import { useNodePanel, type PanelInstance } from "@/lib/nodePanelStore";
 import { useViewport } from "@/lib/viewport";
 import { generateImageV2 } from "@/lib/api";
-import type { AspectRatioV2 } from "@/lib/types";
+import type { AspectRatioV2 } from "@/types/canvas.types";
 import { useConnectionStore } from "@/lib/connectionStore";
 import { useKonvaSelection } from "@/lib/konvaSelectionStore";
 import { useKonvaNodes } from "@/lib/konvaNodesStore";

@@ -1,5 +1,5 @@
 import { getIdToken, notifySessionExpired } from "./authState";
-import type { Board, GenerateImageParams, GenerateImageResult, GenerateImageV2Params, GenerateImageV2Result } from "./types";
+import type { Board, GenerateImageParams, GenerateImageResult, GenerateImageV2Params, GenerateImageV2Result } from "@/types/canvas.types";
 
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = getIdToken();
