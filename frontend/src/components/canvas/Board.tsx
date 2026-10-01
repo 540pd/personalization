@@ -39,26 +39,6 @@ export default function Board() {
     const layer = new Konva.Layer();
     stage.add(layer);
 
-    // Demo node — placeholder until real nodes arrive via the Generate / Upload flows.
-    const demoNode = new Konva.Rect({
-      id: "demo-node",
-      x: 200,
-      y: 150,
-      width: 240,
-      height: 160,
-      fill: "#1e1e2e",
-      stroke: "#6b6b8a",
-      strokeWidth: 1.5,
-      cornerRadius: 8,
-      name: "selectable",
-      draggable: true,
-    });
-    layer.add(demoNode);
-    useKonvaNodes.getState().upsert({
-      id: "demo-node",
-      canvasX: 200, canvasY: 150, canvasW: 240, canvasH: 160,
-    });
-
     const transformer = new Konva.Transformer({
       rotateEnabled: false,
       enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"],
