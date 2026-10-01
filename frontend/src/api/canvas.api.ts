@@ -1,4 +1,4 @@
-import { getIdToken, notifySessionExpired } from "@/lib/authState";
+import { getIdToken, notifySessionExpired } from "@/auth/authState";
 import type { Board, GenerateImageParams, GenerateImageResult, GenerateImageV2Params, GenerateImageV2Result } from "@/types/canvas.types";
 
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
