@@ -6,13 +6,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import { X, ChevronDown, Check, Loader2 } from "lucide-react";
-import { useNodePanel, type PanelInstance } from "@/lib/nodePanelStore";
-import { useViewport } from "@/lib/viewport";
+import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
+import { useViewport } from "@/store/viewport.store";
 import { generateImageV2 } from "@/lib/api";
 import type { AspectRatioV2 } from "@/types/canvas.types";
-import { useConnectionStore } from "@/lib/connectionStore";
-import { useKonvaSelection } from "@/lib/konvaSelectionStore";
-import { useKonvaNodes } from "@/lib/konvaNodesStore";
+import { useConnectionStore } from "@/store/connection.store";
+import { useKonvaSelection } from "@/store/konvaSelection.store";
+import { useKonvaNodes } from "@/store/konvaNodes.store";
 
 // ── Image generation models ───────────────────────────────────────────────────
 // To add a new model: append an entry with the Vertex AI model ID as `id` and

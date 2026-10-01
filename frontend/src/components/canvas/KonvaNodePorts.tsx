@@ -3,9 +3,9 @@
 // Renders an output port (right edge) for every registered Konva node
 // (uploaded images, demo node, etc.) — always visible, not just when selected.
 
-import { useKonvaNodes } from "@/lib/konvaNodesStore";
-import { useViewport } from "@/lib/viewport";
-import { useConnectionStore } from "@/lib/connectionStore";
+import { useKonvaNodes } from "@/store/konvaNodes.store";
+import { useViewport } from "@/store/viewport.store";
+import { useConnectionStore } from "@/store/connection.store";
 
 const PORT_D = 10;
 

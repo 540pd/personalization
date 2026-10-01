@@ -5,14 +5,14 @@
 // Sits at zIndex 49 — below ports (51) but above the Konva canvas.
 
 import { useEffect, useRef } from "react";
-import { useConnectionStore, type Connection } from "@/lib/connectionStore";
-import { useNodePanel } from "@/lib/nodePanelStore";
-import { useKonvaNodes } from "@/lib/konvaNodesStore";
-import { useKonvaSelection } from "@/lib/konvaSelectionStore";
-import { useViewport } from "@/lib/viewport";
-import { useToolStore } from "@/lib/toolStore";
-import type { PanelInstance } from "@/lib/nodePanelStore";
-import type { KonvaNodeRecord } from "@/lib/konvaNodesStore";
+import { useConnectionStore, type Connection } from "@/store/connection.store";
+import { useNodePanel } from "@/store/nodePanel.store";
+import { useKonvaNodes } from "@/store/konvaNodes.store";
+import { useKonvaSelection } from "@/store/konvaSelection.store";
+import { useViewport } from "@/store/viewport.store";
+import { useToolStore } from "@/store/tool.store";
+import type { PanelInstance } from "@/store/nodePanel.store";
+import type { KonvaNodeRecord } from "@/store/konvaNodes.store";
 
 const PORT_FRACTION = 0.3; // 30% from top — must match NodePanel.tsx and KonvaNodePorts.tsx
 const SNAP_RADIUS   = 16;  // px — cursor snaps to input port within this radius
