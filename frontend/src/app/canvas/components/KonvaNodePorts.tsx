@@ -8,6 +8,12 @@ import { useViewport } from "@/store/viewport.store";
 import { useConnectionStore } from "@/store/connection.store";
 
 const PORT_D = 10;
+// Ports are a half-disc arc carved into the node, mouth facing the wire: an
+// output opens right, an input opens left. The chord on the mouth side is
+// hidden so nothing crosses the wire, which leaves from the mouth's centre.
+const PORT_W = PORT_D / 2;
+// Transparent padding so the clickable target stays larger than the visual.
+const HIT_PAD = 5;
 
 export default function KonvaNodePorts() {
   const nodes = useKonvaNodes((s) => s.nodes);
@@ -31,19 +37,30 @@ export default function KonvaNodePorts() {
             }}
             style={{
               position: "fixed",
-              left:   screenX + screenW,
+              left:   screenX + screenW - PORT_W - HIT_PAD,
               top:    screenY + screenH * 0.3,
-              width:  PORT_D,
-              height: PORT_D,
-              background:    "#fff",
-              border:        "1.5px solid #000",
-              borderRadius:  "50%",
-              transform:     "translate(-50%, -50%)",
+              width:  PORT_W + HIT_PAD * 2,
+              height: PORT_D + HIT_PAD * 2,
+              transform:      "translateY(-50%)",
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
               cursor:        "crosshair",
               pointerEvents: "auto",
               zIndex:        51,
             }}
-          />
+          >
+            <div
+              style={{
+                width:  PORT_W,
+                height: PORT_D,
+                background:   "#fff",
+                border:       "1.5px solid #000",
+                borderRightColor: "transparent", // mouth faces the wire
+                borderRadius: "999px 0 0 999px",
+              }}
+            />
+          </div>
         );
       })}
     </>
