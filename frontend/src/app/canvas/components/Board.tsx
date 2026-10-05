@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import Konva from "konva";
 import { useViewport } from "@/store/viewport.store";
 import { useToolStore } from "@/store/tool.store";
@@ -34,6 +34,50 @@ export default function Board() {
   const transformerRef = useRef<Konva.Transformer | null>(null);
   const hoverOutlineRef = useRef<Konva.Rect | null>(null);
   const isSpacePanning = useRef(false);
+
+  // A multi-selection is drawn as one outline per image rather than a single
+  // combined box, so it is obvious which images are in it. The transformer's
+  // own border and handles are suppressed while multi-selected, but its node
+  // list is left intact — it stays the source of truth for Delete / Ctrl+C
+  // and for the dragstart selection check.
+  const updateSelectionChrome = useCallback(() => {
+    const layer = layerRef.current;
+    const transformer = transformerRef.current;
+    if (!layer || !transformer) return;
+
+    const sel = transformer.nodes() as Konva.Shape[];
+    const multi = sel.length > 1;
+    transformer.borderEnabled(!multi);
+    transformer.resizeEnabled(!multi);
+
+    const pool = () => layer.find(".selection-outline") as Konva.Rect[];
+    for (let i = pool().length; i < sel.length; i++) {
+      layer.add(
+        new Konva.Rect({
+          name: "selection-outline",
+          stroke: "#000000",
+          strokeWidth: 1.5,
+          strokeScaleEnabled: false, // constant 1.5px at every zoom
+          listening: false,
+        })
+      );
+    }
+    const needed = multi ? sel.length : 0;
+    pool().forEach((r, i) => {
+      if (i >= needed) {
+        r.visible(false);
+        return;
+      }
+      const n = sel[i];
+      r.position({ x: n.x(), y: n.y() });
+      r.size({ width: n.width() * n.scaleX(), height: n.height() * n.scaleY() });
+      r.cornerRadius((n.getAttr("cornerRadius") as number) ?? 0);
+      r.visible(true);
+      r.moveToTop();
+    });
+    transformer.moveToTop();
+    layer.batchDraw();
+  }, []);
 
   const { x, y, scale } = useViewport();
   const { activeTool } = useToolStore();
@@ -145,8 +189,14 @@ export default function Board() {
         if (!node.getParent()) layer.add(node);
         node.setAttrs(attrs);
       });
+      // Restore stacking. layer.find() returns ascending z, so the snapshot
+      // array already encodes the order — raising each in turn replays it.
+      // Without this, a drag that reordered nodes could not be undone.
+      snap.forEach(({ node }) => node.moveToTop());
+      syncAllNodeGeometry();
       applyDraggability(layer);
       hideHover(); // the hovered node may no longer exist in this snapshot
+      updateSelectionChrome();
       layer.batchDraw();
     };
 
@@ -177,7 +227,15 @@ export default function Board() {
         canvasY: n.y(),
         canvasW: n.width()  * n.scaleX(),
         canvasH: n.height() * n.scaleY(),
+        z: n.zIndex(),
       });
+    };
+
+    // Raising one node shifts everyone else's index, so z-order changes need a
+    // full republish — a single-node sync would leave the others stale and a
+    // port would hide or show against the wrong stacking.
+    const syncAllNodeGeometry = () => {
+      (layer.find(".selectable") as Konva.Shape[]).forEach(syncNodeGeometry);
     };
 
     // --- Stage events ---
@@ -208,9 +266,14 @@ export default function Board() {
             hideHover();
             useKonvaSelection.getState().addToSelection(id);
           }
+          updateSelectionChrome();
         } else {
           // Normal click: single-select, clear everything else.
           transformer.nodes([n]);
+          // The transformer is created before any shape exists, so it would
+          // otherwise sit at the bottom of the layer and its border and handles
+          // would be hidden behind whatever overlaps the selected node.
+          updateSelectionChrome();
           hideHover(); // transformer border takes over from here
           useKonvaSelection.getState().select(id);
           useNodePanel.getState().closeAllPanels();
@@ -227,6 +290,7 @@ export default function Board() {
       // Only clear transformer selection in pointer mode.
       if (useToolStore.getState().activeTool !== "pointer") return;
       transformer.nodes([]);
+      updateSelectionChrome();
       layer.batchDraw();
     });
 
@@ -242,7 +306,27 @@ export default function Board() {
     // threshold is passed, so a plain click never flashes it.
     stage.on("dragstart", (e) => {
       if (e.target !== stage && e.target.hasName("selectable")) {
+        const n = e.target as Konva.Shape;
         stage.container().style.cursor = "move";
+        // Konva suppresses "click" once a drag begins, so a press-drag on an
+        // unselected node never reaches the click handler's selection logic.
+        // Leaving the old selection in place would point Delete and Ctrl+C at
+        // a node the user is not touching. Already-selected nodes are left
+        // alone so dragging one of a multi-selection keeps the group.
+        if (!transformer.nodes().includes(n)) {
+          transformer.nodes([n]);
+          useKonvaSelection.getState().select(n.id() || String(n._id));
+          useNodePanel.getState().closeAllPanels();
+          useConnectionStore.getState().deselectConnection();
+          hideHover(); // transformer border replaces the hover outline
+        }
+        // Raise the dragged node so it cannot vanish under something it is
+        // being moved across. Tied to drag, not selection: moving a node is a
+        // deliberate edit, whereas merely clicking one should not reorder it.
+        n.moveToTop();
+        syncAllNodeGeometry();
+        updateSelectionChrome();
+        layer.batchDraw();
       }
     });
 
@@ -257,6 +341,7 @@ export default function Board() {
       if (e.target.hasName("selectable")) {
         showHover(e.target as Konva.Shape);
         syncNodeGeometry(e.target as Konva.Shape);
+        updateSelectionChrome(); // outlines follow the moving node
       }
     });
 
@@ -275,6 +360,7 @@ export default function Board() {
     // moves under a multi-select resize, so sync all of them, not just the first.
     transformer.on("transform", () => {
       (transformer.nodes() as Konva.Shape[]).forEach(syncNodeGeometry);
+      updateSelectionChrome();
     });
 
     // Save snapshot after transformer resize / rotate commit.
@@ -359,11 +445,13 @@ export default function Board() {
         if (!selected.length) return;
         e.preventDefault();
         transformer.nodes([]);
+        updateSelectionChrome();
         selected.forEach((n) => {
           const nId = n.id();
           if (nId) useKonvaNodes.getState().remove(nId);
           n.destroy();
         });
+        syncAllNodeGeometry();
         useKonvaSelection.getState().deselect();
         saveSnapshot();
         return;
@@ -393,7 +481,9 @@ export default function Board() {
             : new Konva.Rect(pasteAttrs as Konva.RectConfig);
         layer.add(node);
         applyDraggability(layer);
+        syncAllNodeGeometry();
         transformer.nodes([node]);
+        updateSelectionChrome();
         layer.batchDraw();
         saveSnapshot();
       }
@@ -455,6 +545,7 @@ export default function Board() {
             });
             layer.add(node);
             applyDraggability(layer);
+            syncAllNodeGeometry();
             layer.batchDraw();
             saveSnapshot();
           };
@@ -485,6 +576,7 @@ export default function Board() {
           });
           layer.add(node);
           applyDraggability(layer);
+          syncAllNodeGeometry();
           layer.batchDraw();
           saveSnapshot();
         }
@@ -510,7 +602,7 @@ export default function Board() {
       layerRef.current = null;
       transformerRef.current = null;
     };
-  }, []);
+  }, [updateSelectionChrome]);
 
   // Sync viewport store → Konva stage.
   useEffect(() => {
@@ -527,10 +619,11 @@ export default function Board() {
     return useKonvaSelection.subscribe((s) => {
       if (!s.nodeIds.length && transformerRef.current && layerRef.current) {
         transformerRef.current.nodes([]);
+        updateSelectionChrome();
         layerRef.current.batchDraw();
       }
     });
-  }, []);
+  }, [updateSelectionChrome]);
 
   // Switch between pointer (select) mode and pan mode.
   useEffect(() => {
@@ -547,11 +640,12 @@ export default function Board() {
       stage.draggable(true);
       stage.container().style.cursor = "default";
       transformer.nodes([]);
+      updateSelectionChrome();
       hoverOutlineRef.current?.visible(false);
       applyDraggability(layer);
       layer.batchDraw();
     }
-  }, [activeTool]);
+  }, [activeTool, updateSelectionChrome]);
 
   return (
     <div
