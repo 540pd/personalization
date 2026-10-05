@@ -12,6 +12,10 @@ import { useConnectionStore } from "@/store/connection.store";
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
 
+// Smallest a node may be resized to, in canvas units. Matches NodePanel's
+// MIN_SIZE so both node kinds bottom out at the same place.
+const MIN_NODE_SIZE = 60;
+
 // Nodes are draggable only in pointer mode. Sole owner of that rule: call it
 // after adding a node and whenever the active tool changes. Reading the tool
 // here rather than capturing it at construction is what keeps a node created
@@ -51,6 +55,11 @@ export default function Board() {
 
     const transformer = new Konva.Transformer({
       rotateEnabled: false,
+      // Konva implements a flip as rotation:-180, and every geometry helper
+      // here computes x + width * scaleX with no notion of rotation — a
+      // flipped node would report a box the shape no longer occupies, leaving
+      // its port and wires stranded a full width away.
+      flipEnabled: false,
       enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"],
       borderStroke: "#000000",
       borderStrokeWidth: 1.5,
@@ -59,6 +68,14 @@ export default function Board() {
       anchorSize: 8,
       anchorCornerRadius: 2,
       padding: 4,
+      // Without a floor, an over-drag collapses the node to ~0 and it becomes
+      // impossible to grab again. Boxes arrive in absolute (post-zoom) coords,
+      // so divide by the stage scale to keep the floor zoom-independent.
+      boundBoxFunc: (oldBox, newBox) => {
+        const s = stage.scaleX() || 1;
+        if (newBox.width / s < MIN_NODE_SIZE || newBox.height / s < MIN_NODE_SIZE) return oldBox;
+        return newBox;
+      },
     });
     layer.add(transformer);
 
