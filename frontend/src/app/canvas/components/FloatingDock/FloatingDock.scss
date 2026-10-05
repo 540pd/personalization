@@ -1,0 +1,95 @@
+@reference "../../../globals.css";
+
+.floating-dock-wrapper {
+  @apply fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none;
+}
+
+.floating-dock {
+  @apply flex items-center gap-1 rounded-xl bg-white/95 border border-black/10 shadow-xl px-3.5 py-2.5 pointer-events-auto backdrop-blur-sm;
+}
+
+/* ---------------------------------
+   Tool wrapper
+---------------------------------- */
+
+.floating-dock-tool-wrapper {
+  @apply relative flex items-center;
+}
+
+/* ---------------------------------
+   Tool button
+---------------------------------- */
+
+.floating-dock-button {
+  @apply w-11 h-11 flex items-center justify-center rounded-full text-sm transition-all duration-150 select-none cursor-pointer;
+}
+
+.floating-dock-button-active {
+  @apply bg-neutral-900 text-white shadow-sm;
+}
+
+.floating-dock-button-inactive {
+  @apply text-neutral-600 hover:bg-black/5 hover:text-neutral-900;
+}
+
+.floating-dock-button-disabled {
+  @apply w-11 h-11 flex items-center justify-center rounded-full text-sm transition-all duration-150 select-none text-neutral-400 cursor-not-allowed opacity-50;
+}
+
+/* ---------------------------------
+   Divider
+---------------------------------- */
+
+.floating-dock-divider {
+  @apply w-px h-6 bg-black/10 mx-2;
+}
+
+/* ---------------------------------
+   Tooltip
+---------------------------------- */
+
+.floating-dock-tooltip {
+  @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 items-center gap-1.5 rounded-full bg-white border border-black/10 shadow-md px-3 py-1 whitespace-nowrap pointer-events-none z-10;
+
+  display: none;
+}
+
+.floating-dock-tool-wrapper:hover .floating-dock-tooltip {
+  display: flex;
+}
+
+.floating-dock-tooltip-label {
+  @apply text-sm text-neutral-700;
+}
+
+.floating-dock-tooltip-shortcut {
+  @apply rounded bg-neutral-100 text-neutral-500 text-xs font-medium px-1.5 py-0.5;
+}
+
+/* ---------------------------------
+   Submenus
+---------------------------------- */
+
+.floating-dock-submenu {
+  @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-xl bg-white/95 border border-black/10 shadow-xl backdrop-blur-sm overflow-hidden pointer-events-auto;
+}
+
+.floating-dock-submenu-item {
+  @apply w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors whitespace-nowrap;
+}
+
+.floating-dock-submenu-item-active {
+  @apply bg-neutral-100 text-neutral-900 font-medium;
+}
+
+.floating-dock-submenu-item-inactive {
+  @apply text-neutral-700 hover:bg-black/5;
+}
+
+/* ---------------------------------
+   Hidden file input
+---------------------------------- */
+
+.floating-dock-file-input {
+  @apply hidden;
+}

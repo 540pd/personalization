@@ -1,0 +1,221 @@
+@reference "../../../globals.css";
+
+.node-panel-placeholder {
+  @apply relative flex flex-col items-center justify-center overflow-hidden rounded-2xl;
+}
+
+.node-panel-preview {
+  @apply h-full w-full rounded-2xl object-cover;
+}
+
+.node-panel-placeholder-content {
+  @apply flex select-none flex-col items-center gap-2;
+}
+
+.node-panel-image-icon {
+  @apply text-neutral-300;
+}
+
+.node-panel-placeholder-text {
+  @apply px-3 text-center text-[11px] leading-tight text-neutral-400;
+}
+
+.node-panel-drag-overlay {
+  @apply absolute inset-0 rounded-2xl bg-black/[0.04] ring-2 ring-neutral-400 ring-offset-1;
+}
+
+/* Create Image panel */
+
+.node-panel-create {
+  @apply flex w-80 flex-col rounded-2xl bg-white shadow-xl;
+}
+
+.node-panel-header {
+  @apply flex shrink-0 items-start justify-between px-5 pb-1 pt-5;
+}
+
+.node-panel-title {
+  @apply text-base font-semibold text-neutral-900;
+}
+
+.node-panel-model-wrapper {
+  @apply relative mt-0.5;
+}
+
+.node-panel-model-trigger {
+  @apply flex items-center gap-1 text-sm text-neutral-400 transition-colors hover:text-neutral-600;
+}
+
+.node-panel-chevron {
+  @apply transition-transform duration-150;
+}
+
+.node-panel-chevron-open {
+  @apply rotate-180;
+}
+
+.node-panel-model-dropdown {
+  @apply absolute left-0 top-full z-10 mt-1.5 w-48 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-lg;
+}
+
+.node-panel-model-option {
+  @apply flex w-full items-center justify-between px-3 py-2 text-sm transition-colors;
+}
+
+.node-panel-model-option-active {
+  @apply bg-neutral-50 font-medium text-neutral-900;
+}
+
+.node-panel-model-option-inactive {
+  @apply text-neutral-600 hover:bg-black/5;
+}
+
+.node-panel-model-check {
+  @apply shrink-0 text-neutral-700;
+}
+
+.node-panel-close-button {
+  @apply mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-700;
+}
+
+/* Body */
+
+.node-panel-body {
+  @apply flex flex-col gap-4 overflow-y-auto px-5 pb-5 pt-3;
+}
+
+.node-panel-section-label {
+  @apply mb-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-400;
+}
+
+.node-panel-instruction {
+  @apply w-full resize-none rounded-xl bg-neutral-100 px-3.5 py-2.5 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-black/10;
+}
+
+/* Advanced */
+
+.node-panel-advanced-trigger {
+  @apply flex items-center gap-1.5 text-sm font-medium text-neutral-700;
+}
+
+.node-panel-advanced-content {
+  @apply mt-3 flex flex-col gap-2.5;
+}
+
+.node-panel-advanced-row {
+  @apply flex gap-2;
+}
+
+.node-panel-setting {
+  @apply flex-1 rounded-xl bg-neutral-100 px-3 py-2.5;
+}
+
+.node-panel-grounding {
+  @apply flex flex-col;
+}
+
+.node-panel-setting-label {
+  @apply mb-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-400;
+}
+
+.node-panel-select {
+  @apply w-full cursor-pointer bg-transparent text-sm text-neutral-700 outline-none;
+}
+
+/* Grounding toggle */
+
+.node-panel-grounding .node-panel-setting-label {
+  @apply mb-2;
+}
+
+.node-panel-toggle {
+  @apply relative inline-flex h-6 w-10 items-center rounded-full transition-colors;
+}
+
+.node-panel-toggle-on {
+  @apply bg-neutral-900;
+}
+
+.node-panel-toggle-off {
+  @apply bg-neutral-300;
+}
+
+.node-panel-toggle-thumb {
+  @apply inline-block h-5 w-5 rounded-full bg-white shadow transition-transform;
+}
+
+.node-panel-toggle-thumb-on {
+  @apply translate-x-[18px];
+}
+
+.node-panel-toggle-thumb-off {
+  @apply translate-x-0.5;
+}
+
+/* Temperature */
+
+.node-panel-temperature {
+  @apply rounded-xl bg-neutral-100 px-3 py-2.5;
+}
+
+.node-panel-temperature-header {
+  @apply mb-2 flex items-center justify-between;
+}
+
+.node-panel-temperature-header .node-panel-setting-label {
+  @apply mb-0;
+}
+
+.node-panel-temperature-value {
+  @apply tabular-nums text-xs text-neutral-500;
+}
+
+.node-panel-temperature-slider {
+  @apply flex items-center gap-2;
+}
+
+.node-panel-range-label {
+  @apply text-[10px] text-neutral-400;
+}
+
+.node-panel-range {
+  @apply flex-1 accent-neutral-900;
+}
+
+/* Aspect ratio / quality */
+
+.node-panel-options {
+  @apply flex items-center gap-2;
+}
+
+.node-panel-option {
+  @apply flex items-center gap-1.5 rounded-lg bg-neutral-100 px-2.5 py-1.5;
+}
+
+.node-panel-option-select {
+  @apply cursor-pointer bg-transparent text-xs text-neutral-700 outline-none;
+}
+
+/* Error */
+
+.node-panel-error {
+  @apply -mt-1 text-center text-xs leading-snug text-red-500;
+}
+
+/* Create button */
+
+.node-panel-create-button {
+  @apply flex w-full select-none items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white transition-opacity;
+}
+
+.node-panel-create-button-disabled {
+  @apply cursor-not-allowed bg-neutral-900 opacity-40;
+}
+
+.node-panel-create-button-enabled {
+  @apply cursor-pointer bg-neutral-900 hover:opacity-90 active:opacity-80;
+}
+
+.node-panel-loader {
+  @apply shrink-0 animate-spin;
+}
