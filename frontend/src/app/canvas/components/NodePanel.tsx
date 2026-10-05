@@ -13,6 +13,7 @@ import type { AspectRatioV2 } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
+import { COLORS, PORT_FRACTION, PORT_STYLE, SELECTION, Z_INDEX } from "@/constants/canvas.constants";
 
 // ── Image generation models ───────────────────────────────────────────────────
 // To add a new model: append an entry with the Vertex AI model ID as `id` and
@@ -43,9 +44,6 @@ function placeholderSize(ratio: string): { w: number; h: number } {
 
 const PANEL_W    = 320;
 const GAP        = 12;
-const TR_PADDING = 4;   // matches Konva Transformer padding
-const ANCHOR_SZ  = 8;   // matches Konva anchorSize
-const PORT_D     = 10;  // port circle diameter in px
 
 // Corner anchor positions + resize cursor. idx: 0=TL, 1=TR, 2=BL, 3=BR.
 const ANCHORS = [
@@ -244,13 +242,13 @@ function SinglePanel({
         <div
           style={{
             position: "fixed",
-            left: placeholderLeft - TR_PADDING,
-            top:  placeholderTop  - TR_PADDING,
-            width:  pw + TR_PADDING * 2,
-            height: ph + TR_PADDING * 2,
-            border: "1.5px solid #000",
+            left: placeholderLeft - SELECTION.padding,
+            top:  placeholderTop  - SELECTION.padding,
+            width:  pw + SELECTION.padding * 2,
+            height: ph + SELECTION.padding * 2,
+            border: `${SELECTION.borderWidth}px solid ${COLORS.ink}`,
             borderRadius: 6,
-            zIndex: 51,
+            zIndex: Z_INDEX.ports,
             pointerEvents: "none",
           }}
         >
@@ -264,11 +262,11 @@ function SinglePanel({
                 position: "absolute",
                 left: pos.left,
                 top:  pos.top,
-                width:  ANCHOR_SZ,
-                height: ANCHOR_SZ,
-                background: "#fff",
-                border: "1px solid #000",
-                borderRadius: 2,
+                width:  SELECTION.anchorSize,
+                height: SELECTION.anchorSize,
+                background: COLORS.paper,
+                border: `1px solid ${COLORS.ink}`,
+                borderRadius: SELECTION.anchorCornerRadius,
                 transform: "translate(-50%, -50%)",
                 cursor: pos.cursor,
                 pointerEvents: "auto",
@@ -279,26 +277,17 @@ function SinglePanel({
       )}
 
       {/* ── Ports — always visible ── */}
-      {/* Input port — left edge, 30% from top */}
+      {/* Input port — left edge, PORT_FRACTION from top */}
       <div
         title="Input"
         style={{
-          position: "fixed",
+          ...PORT_STYLE,
           left: placeholderLeft,
-          top:  placeholderTop + ph * 0.3,
-          width:  PORT_D,
-          height: PORT_D,
-          background: "#fff",
-          border: "1.5px solid #000",
-          borderRadius: "50%",
-          transform: "translate(-50%, -50%)",
-          cursor: "crosshair",
-          pointerEvents: "auto",
-          zIndex: 51,
+          top:  placeholderTop + ph * PORT_FRACTION,
         }}
       />
 
-      {/* Output port — right edge, 30% from top */}
+      {/* Output port — right edge, PORT_FRACTION from top */}
       <div
         title="Output"
         onPointerDown={(e) => {
@@ -306,18 +295,9 @@ function SinglePanel({
           useConnectionStore.getState().startDrag(instance.id, "panel", e.clientX, e.clientY);
         }}
         style={{
-          position: "fixed",
+          ...PORT_STYLE,
           left: placeholderLeft + pw,
-          top:  placeholderTop + ph * 0.3,
-          width:  PORT_D,
-          height: PORT_D,
-          background: "#fff",
-          border: "1.5px solid #000",
-          borderRadius: "50%",
-          transform: "translate(-50%, -50%)",
-          cursor: "crosshair",
-          pointerEvents: "auto",
-          zIndex: 51,
+          top:  placeholderTop + ph * PORT_FRACTION,
         }}
       />
 
@@ -333,8 +313,8 @@ function SinglePanel({
           top: placeholderTop,
           width: pw,
           height: ph,
-          zIndex: 50,
-          background: "#f5f5f5",
+          zIndex: Z_INDEX.nodes,
+          background: COLORS.placeholder,
           cursor: isPanelOpen ? "pointer" : dragging ? "grabbing" : "move",
           pointerEvents: "auto",
         }}
@@ -373,8 +353,8 @@ function SinglePanel({
             left: panelLeft,
             top: screenCenterY,
             transform: "translateY(-50%)",
-            zIndex: 50,
-            border: "1px solid rgba(0,0,0,0.08)",
+            zIndex: Z_INDEX.nodes,
+            border: `1px solid ${COLORS.panelBorder}`,
             maxHeight: "calc(100vh - 2rem)",
             pointerEvents: "auto",
           }}

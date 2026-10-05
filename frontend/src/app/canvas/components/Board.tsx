@@ -8,6 +8,7 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
+import { COLORS, SELECTION } from "@/constants/canvas.constants";
 
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
@@ -42,13 +43,13 @@ export default function Board() {
     const transformer = new Konva.Transformer({
       rotateEnabled: false,
       enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"],
-      borderStroke: "#000000",
-      borderStrokeWidth: 1.5,
-      anchorStroke: "#000000",
-      anchorFill: "#ffffff",
-      anchorSize: 8,
-      anchorCornerRadius: 2,
-      padding: 4,
+      borderStroke: COLORS.ink,
+      borderStrokeWidth: SELECTION.borderWidth,
+      anchorStroke: COLORS.ink,
+      anchorFill: COLORS.paper,
+      anchorSize: SELECTION.anchorSize,
+      anchorCornerRadius: SELECTION.anchorCornerRadius,
+      padding: SELECTION.padding,
     });
     layer.add(transformer);
 
@@ -408,8 +409,8 @@ export default function Board() {
             y: cy - h / 2 + off,
             width: w,
             height: h,
-            fill: "#1e1e2e",
-            stroke: "#6b6b8a",
+            fill: COLORS.mediaFill,
+            stroke: COLORS.mediaStroke,
             strokeWidth: 1.5,
             cornerRadius: 8,
             name: "selectable",

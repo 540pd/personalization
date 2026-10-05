@@ -6,8 +6,7 @@
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useViewport } from "@/store/viewport.store";
 import { useConnectionStore } from "@/store/connection.store";
-
-const PORT_D = 10;
+import { PORT_FRACTION, PORT_STYLE } from "@/constants/canvas.constants";
 
 export default function KonvaNodePorts() {
   const nodes = useKonvaNodes((s) => s.nodes);
@@ -30,18 +29,9 @@ export default function KonvaNodePorts() {
               useConnectionStore.getState().startDrag(n.id, "konva", e.clientX, e.clientY);
             }}
             style={{
-              position: "fixed",
-              left:   screenX + screenW,
-              top:    screenY + screenH * 0.3,
-              width:  PORT_D,
-              height: PORT_D,
-              background:    "#fff",
-              border:        "1.5px solid #000",
-              borderRadius:  "50%",
-              transform:     "translate(-50%, -50%)",
-              cursor:        "crosshair",
-              pointerEvents: "auto",
-              zIndex:        51,
+              ...PORT_STYLE,
+              left: screenX + screenW,
+              top:  screenY + screenH * PORT_FRACTION,
             }}
           />
         );
