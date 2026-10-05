@@ -106,6 +106,21 @@ export default function Board() {
     // Snapshot initial state (demo node).
     saveSnapshot();
 
+    // Publish a node's geometry to konvaNodes — the single source the port
+    // overlays and connection wires read. Called on every move/resize frame so
+    // the overlays track the shape live, not just on gesture end.
+    const syncNodeGeometry = (n: Konva.Shape) => {
+      const id = n.id();
+      if (!id) return;
+      useKonvaNodes.getState().upsert({
+        id,
+        canvasX: n.x(),
+        canvasY: n.y(),
+        canvasW: n.width()  * n.scaleX(),
+        canvasH: n.height() * n.scaleY(),
+      });
+    };
+
     // --- Stage events ---
 
     // Click to select / deselect.
@@ -119,8 +134,6 @@ export default function Board() {
         }
         const n  = e.target as Konva.Shape;
         const id = n.id() || String(n._id);
-        const nw = n.width()  * n.scaleX();
-        const nh = n.height() * n.scaleY();
         const isMulti = e.evt.ctrlKey || e.evt.metaKey;
 
         if (isMulti) {
@@ -132,12 +145,12 @@ export default function Board() {
             useKonvaSelection.getState().removeFromSelection(id);
           } else {
             transformer.nodes([...current, n]);
-            useKonvaSelection.getState().addToSelection(id, n.x(), n.y(), nw, nh);
+            useKonvaSelection.getState().addToSelection(id);
           }
         } else {
           // Normal click: single-select, clear everything else.
           transformer.nodes([n]);
-          useKonvaSelection.getState().select(id, n.x(), n.y(), nw, nh);
+          useKonvaSelection.getState().select(id);
           useNodePanel.getState().closeAllPanels();
           useConnectionStore.getState().deselectConnection();
         }
@@ -172,12 +185,7 @@ export default function Board() {
       }
       // Konva node drag: keep port overlay in sync.
       if (e.target.hasName("selectable")) {
-        const n = e.target as Konva.Shape;
-        useKonvaSelection.getState().update(
-          n.x(), n.y(),
-          n.width()  * n.scaleX(),
-          n.height() * n.scaleY(),
-        );
+        syncNodeGeometry(e.target as Konva.Shape);
       }
     });
 
@@ -187,46 +195,20 @@ export default function Board() {
         useViewport.getState().setPosition(stage.x(), stage.y());
       } else if (e.target.hasName("selectable")) {
         saveSnapshot();
-        const draggedId = (e.target as Konva.Shape).id();
-        if (draggedId) {
-          const n = e.target as Konva.Shape;
-          useKonvaNodes.getState().upsert({
-            id: draggedId,
-            canvasX: n.x(), canvasY: n.y(),
-            canvasW: n.width() * n.scaleX(), canvasH: n.height() * n.scaleY(),
-          });
-        }
+        syncNodeGeometry(e.target as Konva.Shape);
       }
     });
 
-    // Keep port overlay in sync during transformer resize.
+    // Keep port overlays in sync during transformer resize. Every selected node
+    // moves under a multi-select resize, so sync all of them, not just the first.
     transformer.on("transform", () => {
-      const nodes = transformer.nodes() as Konva.Shape[];
-      if (nodes.length > 0) {
-        const n = nodes[0];
-        useKonvaSelection.getState().update(
-          n.x(), n.y(),
-          n.width()  * n.scaleX(),
-          n.height() * n.scaleY(),
-        );
-      }
+      (transformer.nodes() as Konva.Shape[]).forEach(syncNodeGeometry);
     });
 
     // Save snapshot after transformer resize / rotate commit.
     transformer.on("transformend", () => {
       saveSnapshot();
-      const tNodes = transformer.nodes() as Konva.Shape[];
-      if (tNodes.length > 0) {
-        const n = tNodes[0];
-        const nId = n.id();
-        if (nId) {
-          useKonvaNodes.getState().upsert({
-            id: nId,
-            canvasX: n.x(), canvasY: n.y(),
-            canvasW: n.width() * n.scaleX(), canvasH: n.height() * n.scaleY(),
-          });
-        }
-      }
+      (transformer.nodes() as Konva.Shape[]).forEach(syncNodeGeometry);
     });
 
     // Cursor: move over selectable nodes in pointer mode.
