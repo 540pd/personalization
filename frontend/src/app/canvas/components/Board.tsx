@@ -12,6 +12,15 @@ import { useConnectionStore } from "@/store/connection.store";
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
 
+// Nodes are draggable only in pointer mode. Sole owner of that rule: call it
+// after adding a node and whenever the active tool changes. Reading the tool
+// here rather than capturing it at construction is what keeps a node created
+// under another tool from staying permanently undraggable.
+function applyDraggability(layer: Konva.Layer) {
+  const draggable = useToolStore.getState().activeTool === "pointer";
+  (layer.find(".selectable") as Konva.Shape[]).forEach((n) => n.draggable(draggable));
+}
+
 type Snapshot = Array<{ node: Konva.Shape; attrs: Record<string, unknown> }>;
 
 export default function Board() {
@@ -19,6 +28,7 @@ export default function Board() {
   const stageRef = useRef<Konva.Stage | null>(null);
   const layerRef = useRef<Konva.Layer | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
+  const hoverOutlineRef = useRef<Konva.Rect | null>(null);
   const isSpacePanning = useRef(false);
 
   const { x, y, scale } = useViewport();
@@ -52,9 +62,44 @@ export default function Board() {
     });
     layer.add(transformer);
 
+    // Hover affordance: a borrowed outline that follows whichever node the
+    // cursor is over. Kept as its own node (not a stroke on the shape) so it
+    // never lands in undo snapshots or the copy/paste clipboard.
+    const hoverOutline = new Konva.Rect({
+      name: "hover-outline",
+      stroke: "#000000",
+      strokeWidth: 1.5,
+      strokeScaleEnabled: false, // constant 1.5px at every zoom level
+      listening: false,
+      visible: false,
+    });
+    layer.add(hoverOutline);
+
     stageRef.current = stage;
     layerRef.current = layer;
     transformerRef.current = transformer;
+    hoverOutlineRef.current = hoverOutline;
+
+    const hideHover = () => {
+      if (!hoverOutline.visible()) return;
+      hoverOutline.visible(false);
+      layer.batchDraw();
+    };
+
+    const showHover = (n: Konva.Shape) => {
+      // A selected node already draws the transformer border — showing this on
+      // top would double it, so hover stays the unselected-only affordance.
+      if (useToolStore.getState().activeTool !== "pointer" || transformer.nodes().includes(n)) {
+        hideHover();
+        return;
+      }
+      hoverOutline.position({ x: n.x(), y: n.y() });
+      hoverOutline.size({ width: n.width() * n.scaleX(), height: n.height() * n.scaleY() });
+      hoverOutline.cornerRadius((n.getAttr("cornerRadius") as number) ?? 0);
+      hoverOutline.visible(true);
+      hoverOutline.moveToTop(); // shapes are added after the layer's chrome
+      layer.batchDraw();
+    };
 
     // --- Undo / redo (snapshot-based, reference-safe for Konva.Image) ---
     const historySnaps: Snapshot[] = [];
@@ -83,11 +128,8 @@ export default function Board() {
         if (!node.getParent()) layer.add(node);
         node.setAttrs(attrs);
       });
-      // Re-apply draggable per active tool.
-      const tool = useToolStore.getState().activeTool;
-      (layer.find(".selectable") as Konva.Shape[]).forEach((n) => {
-        n.draggable(tool === "pointer");
-      });
+      applyDraggability(layer);
+      hideHover(); // the hovered node may no longer exist in this snapshot
       layer.batchDraw();
     };
 
@@ -130,7 +172,6 @@ export default function Board() {
       if (e.target !== stage && e.target.hasName("selectable")) {
         if (useToolStore.getState().activeTool !== "pointer") {
           useToolStore.getState().setTool("pointer");
-          stage.container().style.cursor = "move";
         }
         const n  = e.target as Konva.Shape;
         const id = n.id() || String(n._id);
@@ -145,11 +186,13 @@ export default function Board() {
             useKonvaSelection.getState().removeFromSelection(id);
           } else {
             transformer.nodes([...current, n]);
+            hideHover();
             useKonvaSelection.getState().addToSelection(id);
           }
         } else {
           // Normal click: single-select, clear everything else.
           transformer.nodes([n]);
+          hideHover(); // transformer border takes over from here
           useKonvaSelection.getState().select(id);
           useNodePanel.getState().closeAllPanels();
           useConnectionStore.getState().deselectConnection();
@@ -176,6 +219,14 @@ export default function Board() {
       useViewport.getState().zoomToPoint(e.evt.deltaY, pointer.x, pointer.y);
     });
 
+    // Drag begins: show the move cursor. Konva fires this only after the drag
+    // threshold is passed, so a plain click never flashes it.
+    stage.on("dragstart", (e) => {
+      if (e.target !== stage && e.target.hasName("selectable")) {
+        stage.container().style.cursor = "move";
+      }
+    });
+
     // While dragging: sync viewport store so the NodePanel tracks in real-time.
     stage.on("dragmove", (e) => {
       if (e.target === stage) {
@@ -183,8 +234,9 @@ export default function Board() {
         useViewport.getState().setPosition(stage.x(), stage.y());
         return;
       }
-      // Konva node drag: keep port overlay in sync.
+      // Konva node drag: keep the hover outline and port overlay in sync.
       if (e.target.hasName("selectable")) {
+        showHover(e.target as Konva.Shape);
         syncNodeGeometry(e.target as Konva.Shape);
       }
     });
@@ -194,6 +246,7 @@ export default function Board() {
       if (e.target === stage) {
         useViewport.getState().setPosition(stage.x(), stage.y());
       } else if (e.target.hasName("selectable")) {
+        stage.container().style.cursor = "default";
         saveSnapshot();
         syncNodeGeometry(e.target as Konva.Shape);
       }
@@ -215,12 +268,15 @@ export default function Board() {
     stage.on("mouseover", (e) => {
       if (useToolStore.getState().activeTool !== "pointer") return;
       if (e.target !== stage && e.target.hasName("selectable")) {
-        stage.container().style.cursor = "move";
+        // Outline is the hover affordance; the move cursor is reserved for an
+        // actual drag so it never claims "moving" while the node is at rest.
+        showHover(e.target as Konva.Shape);
       }
     });
     stage.on("mouseout", (e) => {
       if (e.target !== stage && e.target.hasName("selectable")) {
         stage.container().style.cursor = "default";
+        hideHover();
       }
     });
 
@@ -311,13 +367,13 @@ export default function Board() {
           y: ((clipboard.attrs.y as number) ?? 0) + 20,
           id: undefined,
           name: "selectable",
-          draggable: useToolStore.getState().activeTool === "pointer",
         };
         const node: Konva.Shape =
           clipboard.className === "Image"
             ? new Konva.Image(pasteAttrs as Konva.ImageConfig)
             : new Konva.Rect(pasteAttrs as Konva.RectConfig);
         layer.add(node);
+        applyDraggability(layer);
         transformer.nodes([node]);
         layer.batchDraw();
         saveSnapshot();
@@ -328,6 +384,11 @@ export default function Board() {
     // Place uploaded files on the canvas, centered in the current viewport.
     const handleUpload = (e: Event) => {
       const { files } = (e as CustomEvent<{ files: File[] }>).detail as { files: File[] };
+      // Return to pointer so the just-added node can be moved straight away.
+      // Without this an upload under a link/shape tool lands a node that cannot
+      // be dragged, and the press pans the board instead — matches the dock's
+      // generate-image behaviour.
+      useToolStore.getState().setTool("pointer");
       const { x: sx, y: sy, scale: s } = useViewport.getState();
       const cx = -sx / s + window.innerWidth  / (2 * s);
       const cy = -sy / s + window.innerHeight / (2 * s);
@@ -351,7 +412,6 @@ export default function Board() {
               width: w,
               height: h,
               name: "selectable",
-              draggable: useToolStore.getState().activeTool === "pointer",
               // Force bounding-rect hit detection so clicks on transparent PNG
               // areas still register (Konva default uses per-pixel alpha for images).
               hitFunc(ctx: Konva.Context, shape: Konva.Shape) {
@@ -375,6 +435,7 @@ export default function Board() {
               imageUrl,
             });
             layer.add(node);
+            applyDraggability(layer);
             layer.batchDraw();
             saveSnapshot();
           };
@@ -395,7 +456,6 @@ export default function Board() {
             strokeWidth: 1.5,
             cornerRadius: 8,
             name: "selectable",
-            draggable: useToolStore.getState().activeTool === "pointer",
           });
           useKonvaNodes.getState().upsert({
             id: rectNodeId,
@@ -405,6 +465,7 @@ export default function Board() {
             canvasH: h,
           });
           layer.add(node);
+          applyDraggability(layer);
           layer.batchDraw();
           saveSnapshot();
         }
@@ -462,12 +523,13 @@ export default function Board() {
     if (activeTool === "pointer") {
       stage.draggable(false);
       stage.container().style.cursor = "default";
-      (stage.find(".selectable") as Konva.Shape[]).forEach((n) => n.draggable(true));
+      applyDraggability(layer);
     } else {
       stage.draggable(true);
       stage.container().style.cursor = "default";
       transformer.nodes([]);
-      (stage.find(".selectable") as Konva.Shape[]).forEach((n) => n.draggable(false));
+      hoverOutlineRef.current?.visible(false);
+      applyDraggability(layer);
       layer.batchDraw();
     }
   }, [activeTool]);
