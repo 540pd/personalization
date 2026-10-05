@@ -1,0 +1,61 @@
+@reference "../../../globals.css";
+
+.minimap-container {
+  @apply fixed bottom-6 left-6 z-50;
+}
+
+.minimap-zoom-menu {
+  @apply absolute rounded-xl shadow-xl overflow-hidden;
+}
+
+.minimap-zoom-menu-item {
+  @apply w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors;
+}
+
+.minimap-zoom-menu-item-enabled {
+  @apply hover:bg-black/5;
+}
+
+.minimap-zoom-menu-item-disabled {
+  @apply cursor-default;
+}
+
+.minimap-panel {
+  @apply rounded-xl overflow-hidden shadow-lg;
+}
+
+.minimap-zoom-bar {
+  @apply flex items-center h-9 px-1.5 gap-0.5;
+}
+
+.minimap-zoom-button {
+  @apply w-7 h-7 flex items-center justify-center rounded-lg text-lg font-light leading-none transition-colors hover:bg-black/10;
+}
+
+.minimap-zoom-percentage {
+  @apply h-7 rounded-lg text-xs font-semibold tabular-nums transition-colors hover:bg-black/10;
+}
+
+.minimap-zoom-percentage-expanded {
+  @apply flex-1;
+}
+
+.minimap-zoom-percentage-collapsed {
+  @apply px-3;
+}
+
+.minimap-divider {
+  @apply w-px h-4 mx-0.5;
+}
+
+.minimap-toggle-button {
+  @apply w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:bg-black/10;
+}
+
+.minimap-canvas {
+  @apply relative overflow-hidden cursor-crosshair;
+}
+
+.minimap-viewport-indicator {
+  @apply absolute cursor-grab active:cursor-grabbing rounded-sm;
+}

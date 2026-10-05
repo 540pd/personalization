@@ -1,12 +1,10 @@
 "use client";
 
-// Luma reference: BOARD-01 §5 — Right panel with Chat, Assets, Skills tabs.
-// Fixed to the right edge of the viewport. Collapsible.
-
 import { useState } from "react";
-import ChatPanel from "./ChatPanel";
-import AssetsPanel from "./AssetsPanel";
-import SkillsPanel from "./SkillsPanel";
+import ChatPanel from "../ChatPanel";
+import AssetsPanel from "../AssetsPanel";
+import SkillsPanel from "../SkillsPanel";
+import "./RightPanel.scss";
 
 type TabId = "chat" | "assets" | "skills";
 
@@ -22,10 +20,10 @@ export default function RightPanel() {
 
   if (collapsed) {
     return (
-      <div className="fixed right-0 top-0 h-full flex items-start pt-4 z-40">
+      <div className="right-panel-collapsed">
         <button
           onClick={() => setCollapsed(false)}
-          className="bg-neutral-900 border border-neutral-700 text-neutral-300 rounded-l-lg px-2 py-3 text-xs hover:bg-neutral-800"
+          className="right-panel-expand-button"
           title="Expand panel"
         >
           ‹
@@ -35,26 +33,24 @@ export default function RightPanel() {
   }
 
   return (
-    <div className="fixed right-0 top-0 h-full w-80 bg-neutral-950 border-l border-neutral-800 z-40 flex flex-col">
+    <div className="right-panel">
       {/* Tab bar */}
-      <div className="flex items-center border-b border-neutral-800">
+      <div className="right-panel-tab-bar">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={[
-              "flex-1 py-3 text-sm font-medium transition-colors",
-              activeTab === tab.id
-                ? "text-white border-b-2 border-white"
-                : "text-neutral-400 hover:text-neutral-200",
-            ].join(" ")}
+            className={`right-panel-tab ${
+              activeTab === tab.id ? "right-panel-tab-active" : ""
+            }`}
           >
             {tab.label}
           </button>
         ))}
+
         <button
           onClick={() => setCollapsed(true)}
-          className="px-3 py-3 text-neutral-400 hover:text-white text-xs"
+          className="right-panel-collapse-button"
           title="Collapse panel"
         >
           ›
@@ -62,7 +58,7 @@ export default function RightPanel() {
       </div>
 
       {/* Panel content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="right-panel-content">
         {activeTab === "chat" && <ChatPanel />}
         {activeTab === "assets" && <AssetsPanel />}
         {activeTab === "skills" && <SkillsPanel />}
