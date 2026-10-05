@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuthMode } from "../middleware/requireIdentity.js";
+import { getAuthenticationConfig } from "../services/authService.js";
 
 // GET /api/auth-config — NOT gated by requireIdentity (circular dependency:
 // the frontend needs this to know whether to attempt sign-in at all).
@@ -7,5 +7,5 @@ import { getAuthMode } from "../middleware/requireIdentity.js";
 export const authConfigRouter = Router();
 
 authConfigRouter.get("/auth-config", (_req, res) => {
-  res.json({ mode: getAuthMode() });
+  res.json(getAuthenticationConfig());
 });
