@@ -433,7 +433,15 @@ export default function Board() {
     window.addEventListener("keydown", handleUndoRedo);
 
     // --- Delete / Copy / Paste ---
-    let clipboard: { className: string; attrs: Record<string, unknown> } | null = null;
+    // One entry per copied node, so a multi-selection round-trips intact.
+    // imageUrl is carried alongside the Konva attrs because it lives in
+    // konvaNodes, not on the shape — without it a pasted image cannot be used
+    // as a generation reference.
+    let clipboard: Array<{
+      className: string;
+      attrs: Record<string, unknown>;
+      imageUrl?: string;
+    }> = [];
 
     const handleEditKeys = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -457,32 +465,57 @@ export default function Board() {
         return;
       }
 
-      // Ctrl+C → copy attrs of the first selected node.
+      // Ctrl+C → copy every selected node.
       if (mod && e.code === "KeyC") {
         if (!selected.length) return;
-        clipboard = { className: selected[0].getClassName(), attrs: { ...selected[0].getAttrs() } };
+        const registered = useKonvaNodes.getState().nodes;
+        clipboard = selected.map((n) => ({
+          className: n.getClassName(),
+          attrs: { ...n.getAttrs() },
+          imageUrl: registered[n.id()]?.imageUrl,
+        }));
         return;
       }
 
-      // Ctrl+V → paste with +20px offset, select the new node.
+      // Ctrl+V → paste every copied node at a +20px offset, all left selected.
       if (mod && e.code === "KeyV") {
-        if (!clipboard) return;
+        if (!clipboard.length) return;
         e.preventDefault();
-        const pasteAttrs = {
-          ...clipboard.attrs,
-          x: ((clipboard.attrs.x as number) ?? 0) + 20,
-          y: ((clipboard.attrs.y as number) ?? 0) + 20,
-          id: undefined,
-          name: "selectable",
-        };
-        const node: Konva.Shape =
-          clipboard.className === "Image"
-            ? new Konva.Image(pasteAttrs as Konva.ImageConfig)
-            : new Konva.Rect(pasteAttrs as Konva.RectConfig);
-        layer.add(node);
+        const pasted = clipboard.map((entry) => {
+          // A fresh id, never undefined: syncNodeGeometry skips id-less nodes,
+          // so an id-less paste would never reach konvaNodes and would end up
+          // with no port and no way to connect it to anything.
+          const id = crypto.randomUUID();
+          const attrs = {
+            ...entry.attrs,
+            x: ((entry.attrs.x as number) ?? 0) + 20,
+            y: ((entry.attrs.y as number) ?? 0) + 20,
+            id,
+            name: "selectable",
+          };
+          const node: Konva.Shape =
+            entry.className === "Image"
+              ? new Konva.Image(attrs as Konva.ImageConfig)
+              : new Konva.Rect(attrs as Konva.RectConfig);
+          layer.add(node);
+          if (entry.imageUrl) {
+            useKonvaNodes.getState().upsert({
+              id,
+              canvasX: node.x(),
+              canvasY: node.y(),
+              canvasW: node.width()  * node.scaleX(),
+              canvasH: node.height() * node.scaleY(),
+              imageUrl: entry.imageUrl,
+            });
+          }
+          return node;
+        });
         applyDraggability(layer);
         syncAllNodeGeometry();
-        transformer.nodes([node]);
+        transformer.nodes(pasted);
+        const sel = useKonvaSelection.getState();
+        sel.select(pasted[0].id());
+        pasted.slice(1).forEach((n) => sel.addToSelection(n.id()));
         updateSelectionChrome();
         layer.batchDraw();
         saveSnapshot();
