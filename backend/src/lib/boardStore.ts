@@ -2,7 +2,16 @@
 // in-memory stub otherwise (local dev without GCP).
 // TODO: wire Firestore in each function below.
 
-import type { Board } from "../routes/boards.js";
+import { currentIsoDate } from "../utils/date.js";
+import { createId } from "../utils/id.js";
+
+export interface Board {
+  id: string;
+  userId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const _boards: Board[] = [];
 
@@ -19,11 +28,11 @@ export async function getBoard(id: string, userId: string): Promise<Board | null
 export async function createBoard(userId: string, name: string): Promise<Board> {
   // TODO: write new Firestore document
   const board: Board = {
-    id: crypto.randomUUID(),
+    id: createId(),
     userId,
     name,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: currentIsoDate(),
+    updatedAt: currentIsoDate(),
   };
   _boards.push(board);
   return board;

@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { requireIdentity } from "../middleware/requireIdentity.js";
-import { getCapability } from "../capabilities/index.js";
 import type { AspectRatioV2 } from "../capabilities/types.js";
+import { generateImage, generateImageV2 } from "../services/generationService.js";
+import { sendValidationError } from "../common/errors.js";
+import { isNonEmptyString, isOneOf } from "../common/validation.js";
+import { createId } from "../utils/id.js";
 
 export const generateRouter = Router();
 
@@ -15,27 +18,22 @@ generateRouter.post("/generate", requireIdentity(), async (req, res, next) => {
       aspectRatio?: unknown;
     };
 
-    if (typeof prompt !== "string" || !prompt.trim()) {
-      res.status(400).json({ error: "validation_error", message: "prompt is required." });
+    if (!isNonEmptyString(prompt)) {
+      sendValidationError(res, "prompt is required.");
       return;
     }
 
     const validAspectRatios = ["1:1", "16:9", "9:16", "4:3"] as const;
-    type AspectRatio = (typeof validAspectRatios)[number];
-    const ratio: AspectRatio =
-      validAspectRatios.includes(aspectRatio as AspectRatio)
-        ? (aspectRatio as AspectRatio)
-        : "1:1";
+    const ratio = isOneOf(aspectRatio, validAspectRatios) ? aspectRatio : "1:1";
 
-    const capability = getCapability();
-    const result = await capability.generate({
+    const result = await generateImage({
       prompt: prompt.trim(),
       aspectRatio: ratio,
       userId: req.identity.email,
     });
 
     res.json({
-      jobId: crypto.randomUUID(),
+      jobId: createId(),
       status: "done",
       imageUrl: result.imageUrl,
       modelUsed: result.modelUsed,
@@ -69,25 +67,21 @@ generateRouter.post("/generate/image", requireIdentity(), async (req, res, next)
         referenceImages?: unknown;
       };
 
-    if (typeof modelId !== "string" || !VALID_MODELS.has(modelId)) {
-      res.status(400).json({
-        error: "validation_error",
-        message: `modelId must be one of: ${[...VALID_MODELS].join(", ")}.`,
-      });
+    if (!isOneOf(modelId, [...VALID_MODELS])) {
+      sendValidationError(res, `modelId must be one of: ${[...VALID_MODELS].join(", ")}.`);
       return;
     }
 
-    if (typeof instruction !== "string" || !instruction.trim()) {
-      res.status(400).json({ error: "validation_error", message: "instruction is required." });
+    if (!isNonEmptyString(instruction)) {
+      sendValidationError(res, "instruction is required.");
       return;
     }
 
-    const ratio: AspectRatioV2 = VALID_ASPECT_RATIOS_V2.includes(aspectRatio as AspectRatioV2)
-      ? (aspectRatio as AspectRatioV2)
+    const ratio: AspectRatioV2 = isOneOf(aspectRatio, VALID_ASPECT_RATIOS_V2)
+      ? aspectRatio
       : "1:1";
 
-    const capability = getCapability();
-    const result = await capability.generateV2({
+    const result = await generateImageV2({
       modelId,
       instruction: instruction.trim(),
       aspectRatio: ratio,
@@ -102,7 +96,7 @@ generateRouter.post("/generate/image", requireIdentity(), async (req, res, next)
     });
 
     res.json({
-      jobId: crypto.randomUUID(),
+      jobId: createId(),
       status: "done",
       imageUrl: result.imageUrl,
       modelUsed: result.modelUsed,

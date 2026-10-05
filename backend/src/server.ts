@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { pathToFileURL } from "url";
-import express, { type ErrorRequestHandler } from "express";
+import express from "express";
 import cors from "cors";
 import { requestLogger } from "./middleware/requestLogger.js";
 import { authConfigRouter } from "./routes/authConfig.js";
@@ -10,6 +10,7 @@ import { generateRouter } from "./routes/generate.js";
 import { assetsRouter } from "./routes/assets.js";
 import { isFirestoreMode, getFirestoreClient } from "./lib/firestore.js";
 import { isGcsMode, getBucket } from "./lib/gcs.js";
+import { globalErrorHandler } from "./common/errors.js";
 
 const PORT = process.env.PORT ?? 4000;
 
@@ -123,10 +124,6 @@ export function createApp(): express.Express {
   app.use("/api", generateRouter);
   app.use("/api", assetsRouter);
 
-  const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
-    console.error(`[error] ${req.method} ${req.path}`, err instanceof Error ? err : new Error(String(err)));
-    res.status(500).json({ error: "internal_error", message: "An unexpected error occurred." });
-  };
   app.use(globalErrorHandler);
 
   return app;

@@ -1,14 +1,10 @@
 import { Router } from "express";
 import { requireIdentity } from "../middleware/requireIdentity.js";
-import { listBoards, getBoard, createBoard, deleteBoard } from "../lib/boardStore.js";
+import { createBoard, deleteBoard, getBoard, listBoards } from "../services/boardService.js";
+import { sendValidationError } from "../common/errors.js";
+import { isNonEmptyString } from "../common/validation.js";
 
-export interface Board {
-  id: string;
-  userId: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type { Board } from "../lib/boardStore.js";
 
 export const boardsRouter = Router();
 
@@ -26,8 +22,8 @@ boardsRouter.get("/boards", requireIdentity(), async (req, res, next) => {
 boardsRouter.post("/boards", requireIdentity(), async (req, res, next) => {
   try {
     const { name } = req.body as { name?: unknown };
-    if (typeof name !== "string" || !name.trim()) {
-      res.status(400).json({ error: "validation_error", message: "name is required." });
+    if (!isNonEmptyString(name)) {
+      sendValidationError(res, "name is required.");
       return;
     }
     const board = await createBoard(req.identity.email, name.trim());
