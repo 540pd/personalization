@@ -192,7 +192,9 @@ export default function Board() {
         }
         const n  = e.target as Konva.Shape;
         const id = n.id() || String(n._id);
-        const isMulti = e.evt.ctrlKey || e.evt.metaKey;
+        // Shift is the additive modifier in Figma/Illustrator/Sketch, so accept
+        // it alongside Ctrl/Cmd — it is the one most people reach for first.
+        const isMulti = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
 
         if (isMulti) {
           // Ctrl+click: toggle this node in/out of the selection.
