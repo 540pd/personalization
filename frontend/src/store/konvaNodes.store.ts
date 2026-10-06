@@ -6,6 +6,9 @@ export interface KonvaNodeRecord {
   canvasY: number;
   canvasW: number;
   canvasH: number;
+  // Konva stacking index. Published so DOM overlays can tell which nodes sit
+  // above which — a port is hidden when a higher node covers it.
+  z?: number;
   imageUrl?: string; // object URL for uploaded images — used as reference by downstream nodes
 }
 
