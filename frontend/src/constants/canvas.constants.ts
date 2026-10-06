@@ -27,7 +27,9 @@ export const MIN_NODE_SIZE = 60; // canvas units
 export const MAX_UPLOAD_SIZE = 480;
 
 export const SELECTION = {
-  padding:            4,
+  // 0: the selection border sits flush on the node edge rather than floating
+  // clear of it.
+  padding:            0,
   borderWidth:        1.5,
   anchorSize:         8,
   anchorCornerRadius: 2,
