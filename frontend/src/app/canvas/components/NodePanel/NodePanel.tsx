@@ -125,14 +125,18 @@ function SinglePanel({
     useNodePanel.getState().setSize(instance.id, sizeW, sizeH);
   }, [instance.id, sizeW, sizeH]);
 
+  // pw/ph are canvas units; sw/sh are their on-screen size at the current zoom.
+  // Node geometry uses sw/sh; chrome (ports, anchors, panel) keeps a fixed pixel size.
   const pw = sizeW;
   const ph = sizeH;
+  const sw = pw * scale;
+  const sh = ph * scale;
 
   const screenLeft    = stageX + canvasX * scale;
   const screenCenterY = stageY + canvasY * scale;
   const placeholderLeft = screenLeft;
-  const placeholderTop  = screenCenterY - ph / 2;
-  const panelLeft       = screenLeft + pw + GAP;
+  const placeholderTop  = screenCenterY - sh / 2;
+  const panelLeft       = screenLeft + sw + GAP;
 
   const onPointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -183,19 +187,19 @@ function SinglePanel({
   const onAnchorPointerMove = (e: React.PointerEvent, idx: number) => {
     if (e.buttons === 0 || !anchorDrag.current || anchorDrag.current.idx !== idx) return;
     const { startPx, startW, startH, startCx, startCy } = anchorDrag.current;
-    const mdx    = e.clientX - startPx;
+    const mdx    = (e.clientX - startPx) / scale; // screen px → canvas units
     const isLeft = idx === 0 || idx === 2;
     const isTop  = idx === 0 || idx === 1;
     // Width is the driver; height follows to preserve aspect ratio.
-    const newW   = Math.max(MIN_SIZE, isLeft ? startW - mdx : startW + mdx);
+    const newW   = Math.round(Math.max(MIN_SIZE, isLeft ? startW - mdx : startW + mdx));
     const newH   = Math.round(newW * (startH / startW));
     setSizeW(newW);
     setSizeH(newH);
-    // Keep the opposite corner fixed.
-    const newCx  = isLeft ? startCx + (startW - newW) / scale : startCx;
+    // Keep the opposite corner fixed — every term here is already canvas units.
+    const newCx  = isLeft ? startCx + (startW - newW) : startCx;
     const newCy  = isTop
-      ? startCy + (startH - newH) / (2 * scale)   // bottom edge fixed
-      : startCy + (newH - startH) / (2 * scale);  // top edge fixed
+      ? startCy + (startH - newH) / 2   // bottom edge fixed
+      : startCy + (newH - startH) / 2;  // top edge fixed
     onSetCanvasPos(newCx, newCy);
   };
 
@@ -247,8 +251,8 @@ function SinglePanel({
             position: "fixed",
             left: placeholderLeft - TR_PADDING,
             top:  placeholderTop  - TR_PADDING,
-            width:  pw + TR_PADDING * 2,
-            height: ph + TR_PADDING * 2,
+            width:  sw + TR_PADDING * 2,
+            height: sh + TR_PADDING * 2,
             border: "1.5px solid #000",
             borderRadius: 6,
             zIndex: 51,
@@ -286,7 +290,7 @@ function SinglePanel({
         style={{
           position: "fixed",
           left: placeholderLeft,
-          top:  placeholderTop + ph * 0.3,
+          top:  placeholderTop + sh * 0.3,
           width:  PORT_D,
           height: PORT_D,
           background: "#fff",
@@ -308,8 +312,8 @@ function SinglePanel({
         }}
         style={{
           position: "fixed",
-          left: placeholderLeft + pw,
-          top:  placeholderTop + ph * 0.3,
+          left: placeholderLeft + sw,
+          top:  placeholderTop + sh * 0.3,
           width:  PORT_D,
           height: PORT_D,
           background: "#fff",
@@ -334,6 +338,10 @@ function SinglePanel({
     top: placeholderTop,
     width: pw,
     height: ph,
+    // Laid out in canvas units, then scaled — keeps the icon and label
+    // proportional to the node instead of clipping at low zoom.
+    transform: `scale(${scale})`,
+    transformOrigin: "top left",
     zIndex: 50,
     background: "#f5f5f5",
     cursor: isPanelOpen ? "pointer" : dragging ? "grabbing" : "move",
@@ -362,8 +370,7 @@ function SinglePanel({
         strokeWidth="1.4"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="node-panel-image-icon"
-      >
+        className="node-panel-image-icon"      >
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <circle cx="8.5" cy="8.5" r="1.5" />
         <path d="M21 15l-5-5L5 21" />
