@@ -16,6 +16,13 @@ const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
 // MIN_SIZE so both node kinds bottom out at the same place.
 const MIN_NODE_SIZE = 60;
 
+// Uploaded images are fitted inside a square box, in canvas units. Capping
+// only the width let a tall image through at any height — a 1000x3000 upload
+// became 480x1440, taller than the viewport. Aspect ratio is preserved and
+// images already smaller than the box keep their natural size; scaling them up
+// would only blur them.
+const MAX_UPLOAD_SIZE = 480;
+
 // Nodes are draggable only in pointer mode. Sole owner of that rule: call it
 // after adding a node and whenever the active tool changes. Reading the tool
 // here rather than capturing it at construction is what keeps a node created
@@ -541,8 +548,11 @@ export default function Board() {
           const url = URL.createObjectURL(file);
           const img = new window.Image() as HTMLImageElement;
           img.onload = () => {
-            const maxW = 480;
-            const ratio = Math.min(1, maxW / img.naturalWidth);
+            const ratio = Math.min(
+              1,
+              MAX_UPLOAD_SIZE / img.naturalWidth,
+              MAX_UPLOAD_SIZE / img.naturalHeight
+            );
             const w = img.naturalWidth  * ratio;
             const h = img.naturalHeight * ratio;
             const imgNodeId = crypto.randomUUID();
