@@ -21,6 +21,11 @@ export const Z_INDEX = {
 
 export const MIN_NODE_SIZE = 60; // canvas units
 
+// Uploaded images are fitted inside a square box of this size, in canvas
+// units. Capping only the width let a tall image through at any height — a
+// 1000x3000 upload became 480x1440, taller than the viewport.
+export const MAX_UPLOAD_SIZE = 480;
+
 export const SELECTION = {
   padding:            4,
   borderWidth:        1.5,
