@@ -10,6 +10,10 @@ export interface PanelInstance {
   w: number;       // placeholder width in screen px (synced from SinglePanel)
   h: number;       // placeholder height in screen px (synced from SinglePanel)
   preview?: string; // generated image data URL — used as reference by downstream nodes
+  // Display name shown above the node when selected, and the name this node is
+  // referred to by when it feeds a downstream generation. Derived from the
+  // instruction on first generate; renameable.
+  label?: string;
 }
 
 // Snapshot type for position undo/redo.
@@ -35,6 +39,7 @@ interface NodePanelState {
   clearAll:        () => void;
   setSize:         (id: string, w: number, h: number) => void;
   setPreview:      (id: string, url: string) => void;
+  setLabel:        (id: string, label: string) => void;
 }
 
 let _nextId = 1;
@@ -166,5 +171,10 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
   setPreview: (id, url) =>
     set((s) => ({
       panels: s.panels.map((p) => p.id === id ? { ...p, preview: url } : p),
+    })),
+
+  setLabel: (id, label) =>
+    set((s) => ({
+      panels: s.panels.map((p) => p.id === id ? { ...p, label } : p),
     })),
 }));
