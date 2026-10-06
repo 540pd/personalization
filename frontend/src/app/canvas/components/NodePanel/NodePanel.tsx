@@ -46,7 +46,13 @@ const PANEL_W    = 320;
 const GAP        = 12;
 const TR_PADDING = 4;   // matches Konva Transformer padding
 const ANCHOR_SZ  = 8;   // matches Konva anchorSize
-const PORT_D     = 10;  // port circle diameter in px
+const PORT_D     = 10;  // port height in px
+// Ports are a half-disc arc carved into the body, mouth facing the wire: the
+// input opens left toward its incoming wire, the output opens right toward its
+// outgoing one. The chord on the mouth side is hidden so nothing crosses the
+// wire. Endpoints stay on the node edge, so ConnectionOverlay is unaffected.
+const PORT_W     = PORT_D / 2;
+const HIT_PAD    = 5;   // transparent padding keeping the grab target large
 
 // Corner anchor positions + resize cursor. idx: 0=TL, 1=TR, 2=BL, 3=BR.
 const ANCHORS = [
@@ -291,12 +297,16 @@ function SinglePanel({
           position: "fixed",
           left: placeholderLeft,
           top:  placeholderTop + sh * 0.3,
-          width:  PORT_D,
+          width:  PORT_W,
           height: PORT_D,
+          // Canvas-coloured fill with no line on the flat side, so the dome
+          // reads as a notch bitten out of the body rather than a blob sitting
+          // on it — this is what separates the socket from the plug.
           background: "#fff",
           border: "1.5px solid #000",
-          borderRadius: "50%",
-          transform: "translate(-50%, -50%)",
+          borderLeftColor: "transparent",
+          borderRadius: "0 999px 999px 0",
+          transform: "translateY(-50%)",
           cursor: "crosshair",
           pointerEvents: "auto",
           zIndex: 51,
@@ -312,19 +322,30 @@ function SinglePanel({
         }}
         style={{
           position: "fixed",
-          left: placeholderLeft + sw,
+          left: placeholderLeft + sw - PORT_W - HIT_PAD,
           top:  placeholderTop + sh * 0.3,
-          width:  PORT_D,
-          height: PORT_D,
-          background: "#fff",
-          border: "1.5px solid #000",
-          borderRadius: "50%",
-          transform: "translate(-50%, -50%)",
+          width:  PORT_W + HIT_PAD * 2,
+          height: PORT_D + HIT_PAD * 2,
+          transform: "translateY(-50%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           cursor: "crosshair",
           pointerEvents: "auto",
           zIndex: 51,
         }}
-      />
+      >
+        <div
+          style={{
+            width:  PORT_W,
+            height: PORT_D,
+            background: "#fff",
+            border: "1.5px solid #000",
+            borderRightColor: "transparent", // mouth faces the outgoing wire
+            borderRadius: "999px 0 0 999px",
+          }}
+        />
+      </div>
 
       {/* ── Placeholder ── */}
       <button
