@@ -178,7 +178,20 @@ function SinglePanel({
     const dx = e.clientX - dragStart.current.px;
     const dy = e.clientY - dragStart.current.py;
     if (Math.hypot(dx, dy) > 4) {
-      if (!isDragging.current) { isDragging.current = true; setDragging(true); }
+      if (!isDragging.current) {
+        isDragging.current = true;
+        setDragging(true);
+        // A press-drag never reaches onPointerUp's selection branch, so
+        // without this the dragged node is not selected and the previously
+        // selected one never lets go — two nodes selected at once, with the
+        // keyboard handlers aimed at the wrong one. Same hole #24 fixed for
+        // uploaded images. activatePanel clears every other panel.
+        if (!isActive) {
+          onActivate();
+          useKonvaSelection.getState().deselect();
+          useConnectionStore.getState().deselectConnection();
+        }
+      }
       onSetCanvasPos(dragStart.current.cx + dx / scale, dragStart.current.cy + dy / scale);
     }
   };
