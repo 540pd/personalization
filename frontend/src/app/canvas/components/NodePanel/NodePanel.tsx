@@ -86,6 +86,32 @@ const ANCHORS = [
 
 // ── Per-instance component ────────────────────────────────────────────────────
 
+// A port drawn over a node that covers it reads as belonging to that node, so
+// hide it -- the same rule KonvaNodePorts applies to uploaded images. Panels
+// all render at one z-index, so array order is paint order: only a panel LATER
+// in the array can cover this one. Each port is tested on its own, since a
+// neighbour overlapping the left edge should not blank the output port too.
+// Ports sit at PORT_FRACTION down the placeholder, whose canvasY is its
+// vertical CENTRE. The half-disc bulges inward, so its centre is just inside
+// the node's own edge.
+function portsCovered(
+  p: PanelInstance,
+  above: PanelInstance[],
+  scale: number
+): { input: boolean; output: boolean } {
+  const inset = PORT_WIDTH / (2 * scale);
+  const py = p.canvasY - p.h / 2 + p.h * PORT_FRACTION;
+  const hits = (px: number) =>
+    above.some(
+      (q) =>
+        px >= q.canvasX &&
+        px <= q.canvasX + q.w &&
+        py >= q.canvasY - q.h / 2 &&
+        py <= q.canvasY + q.h / 2
+    );
+  return { input: hits(p.canvasX + inset), output: hits(p.canvasX + p.w - inset) };
+}
+
 interface SinglePanelProps {
   instance:       PanelInstance;
   stageX:         number;
@@ -96,11 +122,14 @@ interface SinglePanelProps {
   onClosePanel:   () => void; // panel-open → active (X button)
   onRemove:       () => void;
   onSetCanvasPos: (x: number, y: number) => void;
+  hideInputPort:  boolean;
+  hideOutputPort: boolean;
 }
 
 function SinglePanel({
   instance, stageX, stageY, scale,
   onActivate, onOpenPanel, onClosePanel, onRemove, onSetCanvasPos,
+  hideInputPort, hideOutputPort,
 }: SinglePanelProps) {
   const { canvasX, canvasY, isActive, isPanelOpen } = instance;
 
@@ -191,6 +220,9 @@ function SinglePanel({
           useKonvaSelection.getState().deselect();
           useConnectionStore.getState().deselectConnection();
         }
+        // Outside the isActive guard: an already-selected node still has to
+        // come forward, or dragging it across a newer one buries it.
+        useNodePanel.getState().raisePanel(instance.id);
       }
       onSetCanvasPos(dragStart.current.cx + dx / scale, dragStart.current.cy + dy / scale);
     }
@@ -364,32 +396,36 @@ function SinglePanel({
         />
       )}
 
-      {/* ── Ports — always visible ── */}
+      {/* ── Ports — visible unless another panel covers them ── */}
       {/* Input port — left edge, PORT_FRACTION from top */}
-      <div
-        title="Input"
-        style={{
-          ...INPUT_PORT_STYLE,
-          left: placeholderLeft,
-          top:  placeholderTop + sh * PORT_FRACTION,
-        }}
-      />
+      {!hideInputPort && (
+        <div
+          title="Input"
+          style={{
+            ...INPUT_PORT_STYLE,
+            left: placeholderLeft,
+            top:  placeholderTop + sh * PORT_FRACTION,
+          }}
+        />
+      )}
 
       {/* Output port — right edge, PORT_FRACTION from top */}
-      <div
-        title="Output"
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          useConnectionStore.getState().startDrag(instance.id, "panel", e.clientX, e.clientY);
-        }}
-        style={{
-          ...OUTPUT_PORT_HIT_STYLE,
-          left: placeholderLeft + sw - PORT_WIDTH - PORT_HIT_PAD,
-          top:  placeholderTop + sh * PORT_FRACTION,
-        }}
-      >
-        <div style={OUTPUT_PORT_STYLE} />
-      </div>
+      {!hideOutputPort && (
+        <div
+          title="Output"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            useConnectionStore.getState().startDrag(instance.id, "panel", e.clientX, e.clientY);
+          }}
+          style={{
+            ...OUTPUT_PORT_HIT_STYLE,
+            left: placeholderLeft + sw - PORT_WIDTH - PORT_HIT_PAD,
+            top:  placeholderTop + sh * PORT_FRACTION,
+          }}
+        >
+          <div style={OUTPUT_PORT_STYLE} />
+        </div>
+      )}
 
       {/* ── Placeholder ── */}
       <button
@@ -757,7 +793,9 @@ export default function NodePanel() {
 
   return (
     <>
-      {panels.map((p) => (
+      {panels.map((p, i) => {
+        const covered = portsCovered(p, panels.slice(i + 1), scale);
+        return (
         <SinglePanel
           key={p.id}
           instance={p}
@@ -769,8 +807,11 @@ export default function NodePanel() {
           onClosePanel={()       => closePanel(p.id)}
           onRemove={()           => removePanel(p.id)}
           onSetCanvasPos={(x, y) => setCanvasPos(p.id, x, y)}
+          hideInputPort={covered.input}
+          hideOutputPort={covered.output}
         />
-      ))}
+        );
+      })}
     </>
   );
 }
