@@ -2,7 +2,7 @@
 
 // Full-screen SVG overlay that renders committed connection wires and
 // the live drag-preview wire while the user is dragging from an output port.
-// Sits at zIndex 49 — below ports (51) but above the Konva canvas.
+// Sits on the Z_INDEX.wires layer — below nodes and ports, above the Konva canvas.
 
 import { useEffect, useRef } from "react";
 import { useConnectionStore, type Connection } from "@/store/connection.store";
@@ -13,9 +13,7 @@ import { useViewport } from "@/store/viewport.store";
 import { useToolStore } from "@/store/tool.store";
 import type { PanelInstance } from "@/store/nodePanel.store";
 import type { KonvaNodeRecord } from "@/store/konvaNodes.store";
-
-const PORT_FRACTION = 0.3; // 30% from top — must match NodePanel.tsx and KonvaNodePorts.tsx
-const SNAP_RADIUS   = 16;  // px — cursor snaps to input port within this radius
+import { COLORS, PORT_FRACTION, SNAP_RADIUS, Z_INDEX } from "@/constants/canvas.constants";
 
 // ── Port position helpers ─────────────────────────────────────────────────────
 // Convention (standard, matches ComfyUI/Blueprint): output = RIGHT edge, input = LEFT edge.
@@ -186,7 +184,7 @@ export default function ConnectionOverlay() {
         <path
           d={buildPath(fromPt.x, fromPt.y, toX, toY, linkStyle)}
           fill="none"
-          stroke="#000"
+          stroke={COLORS.ink}
           strokeWidth={1.5}
           strokeLinecap="round"
           strokeDasharray="5 3"
@@ -204,7 +202,7 @@ export default function ConnectionOverlay() {
         width: "100%",
         height: "100%",
         pointerEvents: "none",
-        zIndex: 49,
+        zIndex: Z_INDEX.wires,
         overflow: "visible",
       }}
     >
@@ -221,7 +219,7 @@ export default function ConnectionOverlay() {
             <path
               d={d}
               fill="none"
-              stroke="#000"
+              stroke={COLORS.ink}
               strokeWidth={12}
               strokeLinecap="round"
               opacity={0}
@@ -241,7 +239,7 @@ export default function ConnectionOverlay() {
             <path
               d={d}
               fill="none"
-              stroke={isSelected ? "#2563eb" : "#000"}
+              stroke={isSelected ? COLORS.selected : COLORS.ink}
               strokeWidth={isSelected ? 2 : 1.5}
               strokeLinecap="round"
               style={{ pointerEvents: "none" }}
@@ -259,8 +257,8 @@ export default function ConnectionOverlay() {
           cx={snapTarget.x}
           cy={snapTarget.y}
           r={8}
-          fill="rgba(0,0,0,0.1)"
-          stroke="#000"
+          fill={COLORS.snapFill}
+          stroke={COLORS.ink}
           strokeWidth={1.5}
         />
       )}

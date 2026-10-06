@@ -13,6 +13,18 @@ import type { AspectRatioV2 } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
+import {
+  COLORS,
+  INPUT_PORT_STYLE,
+  MIN_NODE_SIZE,
+  OUTPUT_PORT_HIT_STYLE,
+  OUTPUT_PORT_STYLE,
+  PORT_FRACTION,
+  PORT_HIT_PAD,
+  PORT_WIDTH,
+  SELECTION,
+  Z_INDEX,
+} from "@/constants/canvas.constants";
 import "./NodePanel.scss";
 
 // ── Image generation models ───────────────────────────────────────────────────
@@ -44,15 +56,6 @@ function placeholderSize(ratio: string): { w: number; h: number } {
 
 const PANEL_W    = 320;
 const GAP        = 12;
-const TR_PADDING = 4;   // matches Konva Transformer padding
-const ANCHOR_SZ  = 8;   // matches Konva anchorSize
-const PORT_D     = 10;  // port height in px
-// Ports are a half-disc arc carved into the body, mouth facing the wire: the
-// input opens left toward its incoming wire, the output opens right toward its
-// outgoing one. The chord on the mouth side is hidden so nothing crosses the
-// wire. Endpoints stay on the node edge, so ConnectionOverlay is unaffected.
-const PORT_W     = PORT_D / 2;
-const HIT_PAD    = 5;   // transparent padding keeping the grab target large
 
 // Corner anchor positions + resize cursor. idx: 0=TL, 1=TR, 2=BL, 3=BR.
 const ANCHORS = [
@@ -179,8 +182,6 @@ function SinglePanel({
     setDragging(false);
   };
 
-  const MIN_SIZE = 60;
-
   const onAnchorPointerDown = (e: React.PointerEvent, idx: number) => {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -197,7 +198,7 @@ function SinglePanel({
     const isLeft = idx === 0 || idx === 2;
     const isTop  = idx === 0 || idx === 1;
     // Width is the driver; height follows to preserve aspect ratio.
-    const newW   = Math.round(Math.max(MIN_SIZE, isLeft ? startW - mdx : startW + mdx));
+    const newW   = Math.round(Math.max(MIN_NODE_SIZE, isLeft ? startW - mdx : startW + mdx));
     const newH   = Math.round(newW * (startH / startW));
     setSizeW(newW);
     setSizeH(newH);
@@ -255,13 +256,13 @@ function SinglePanel({
         <div
           style={{
             position: "fixed",
-            left: placeholderLeft - TR_PADDING,
-            top:  placeholderTop  - TR_PADDING,
-            width:  sw + TR_PADDING * 2,
-            height: sh + TR_PADDING * 2,
-            border: "1.5px solid #000",
+            left: placeholderLeft - SELECTION.padding,
+            top:  placeholderTop  - SELECTION.padding,
+            width:  sw + SELECTION.padding * 2,
+            height: sh + SELECTION.padding * 2,
+            border: `${SELECTION.borderWidth}px solid ${COLORS.ink}`,
             borderRadius: 6,
-            zIndex: 51,
+            zIndex: Z_INDEX.ports,
             pointerEvents: "none",
           }}
         >
@@ -275,11 +276,11 @@ function SinglePanel({
                 position: "absolute",
                 left: pos.left,
                 top:  pos.top,
-                width:  ANCHOR_SZ,
-                height: ANCHOR_SZ,
-                background: "#fff",
-                border: "1px solid #000",
-                borderRadius: 2,
+                width:  SELECTION.anchorSize,
+                height: SELECTION.anchorSize,
+                background: COLORS.paper,
+                border: `1px solid ${COLORS.ink}`,
+                borderRadius: SELECTION.anchorCornerRadius,
                 transform: "translate(-50%, -50%)",
                 cursor: pos.cursor,
                 pointerEvents: "auto",
@@ -290,30 +291,17 @@ function SinglePanel({
       )}
 
       {/* ── Ports — always visible ── */}
-      {/* Input port — left edge, 30% from top */}
+      {/* Input port — left edge, PORT_FRACTION from top */}
       <div
         title="Input"
         style={{
-          position: "fixed",
+          ...INPUT_PORT_STYLE,
           left: placeholderLeft,
-          top:  placeholderTop + sh * 0.3,
-          width:  PORT_W,
-          height: PORT_D,
-          // Canvas-coloured fill with no line on the flat side, so the dome
-          // reads as a notch bitten out of the body rather than a blob sitting
-          // on it — this is what separates the socket from the plug.
-          background: "#fff",
-          border: "1.5px solid #000",
-          borderLeftColor: "transparent",
-          borderRadius: "0 999px 999px 0",
-          transform: "translateY(-50%)",
-          cursor: "crosshair",
-          pointerEvents: "auto",
-          zIndex: 51,
+          top:  placeholderTop + sh * PORT_FRACTION,
         }}
       />
 
-      {/* Output port — right edge, 30% from top */}
+      {/* Output port — right edge, PORT_FRACTION from top */}
       <div
         title="Output"
         onPointerDown={(e) => {
@@ -321,30 +309,12 @@ function SinglePanel({
           useConnectionStore.getState().startDrag(instance.id, "panel", e.clientX, e.clientY);
         }}
         style={{
-          position: "fixed",
-          left: placeholderLeft + sw - PORT_W - HIT_PAD,
-          top:  placeholderTop + sh * 0.3,
-          width:  PORT_W + HIT_PAD * 2,
-          height: PORT_D + HIT_PAD * 2,
-          transform: "translateY(-50%)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "crosshair",
-          pointerEvents: "auto",
-          zIndex: 51,
+          ...OUTPUT_PORT_HIT_STYLE,
+          left: placeholderLeft + sw - PORT_WIDTH - PORT_HIT_PAD,
+          top:  placeholderTop + sh * PORT_FRACTION,
         }}
       >
-        <div
-          style={{
-            width:  PORT_W,
-            height: PORT_D,
-            background: "#fff",
-            border: "1.5px solid #000",
-            borderRightColor: "transparent", // mouth faces the outgoing wire
-            borderRadius: "999px 0 0 999px",
-          }}
-        />
+        <div style={OUTPUT_PORT_STYLE} />
       </div>
 
       {/* ── Placeholder ── */}
@@ -363,8 +333,8 @@ function SinglePanel({
     // proportional to the node instead of clipping at low zoom.
     transform: `scale(${scale})`,
     transformOrigin: "top left",
-    zIndex: 50,
-    background: "#f5f5f5",
+    zIndex: Z_INDEX.nodes,
+    background: COLORS.placeholder,
     cursor: isPanelOpen ? "pointer" : dragging ? "grabbing" : "move",
     pointerEvents: "auto",
   }}
@@ -417,8 +387,8 @@ function SinglePanel({
     left: panelLeft,
     top: screenCenterY,
     transform: "translateY(-50%)",
-    zIndex: 50,
-    border: "1px solid rgba(0,0,0,0.08)",
+    zIndex: Z_INDEX.nodes,
+    border: `1px solid ${COLORS.panelBorder}`,
     maxHeight: "calc(100vh - 2rem)",
     pointerEvents: "auto",
   }}

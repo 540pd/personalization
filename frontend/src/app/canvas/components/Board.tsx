@@ -8,13 +8,10 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
+import { COLORS, MIN_NODE_SIZE, SELECTION } from "@/constants/canvas.constants";
 
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
-
-// Smallest a node may be resized to, in canvas units. Matches NodePanel's
-// MIN_SIZE so both node kinds bottom out at the same place.
-const MIN_NODE_SIZE = 60;
 
 // Nodes are draggable only in pointer mode. Sole owner of that rule: call it
 // after adding a node and whenever the active tool changes. Reading the tool
@@ -55,8 +52,8 @@ export default function Board() {
       layer.add(
         new Konva.Rect({
           name: "selection-outline",
-          stroke: "#000000",
-          strokeWidth: 1.5,
+          stroke: COLORS.ink,
+          strokeWidth: SELECTION.borderWidth,
           strokeScaleEnabled: false, // constant 1.5px at every zoom
           listening: false,
         })
@@ -105,13 +102,13 @@ export default function Board() {
       // its port and wires stranded a full width away.
       flipEnabled: false,
       enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"],
-      borderStroke: "#000000",
-      borderStrokeWidth: 1.5,
-      anchorStroke: "#000000",
-      anchorFill: "#ffffff",
-      anchorSize: 8,
-      anchorCornerRadius: 2,
-      padding: 4,
+      borderStroke: COLORS.ink,
+      borderStrokeWidth: SELECTION.borderWidth,
+      anchorStroke: COLORS.ink,
+      anchorFill: COLORS.paper,
+      anchorSize: SELECTION.anchorSize,
+      anchorCornerRadius: SELECTION.anchorCornerRadius,
+      padding: SELECTION.padding,
       // Without a floor, an over-drag collapses the node to ~0 and it becomes
       // impossible to grab again. Boxes arrive in absolute (post-zoom) coords,
       // so divide by the stage scale to keep the floor zoom-independent.
@@ -128,8 +125,8 @@ export default function Board() {
     // never lands in undo snapshots or the copy/paste clipboard.
     const hoverOutline = new Konva.Rect({
       name: "hover-outline",
-      stroke: "#000000",
-      strokeWidth: 1.5,
+      stroke: COLORS.ink,
+      strokeWidth: SELECTION.borderWidth,
       strokeScaleEnabled: false, // constant 1.5px at every zoom level
       listening: false,
       visible: false,
@@ -594,8 +591,8 @@ export default function Board() {
             y: cy - h / 2 + off,
             width: w,
             height: h,
-            fill: "#1e1e2e",
-            stroke: "#6b6b8a",
+            fill: COLORS.mediaFill,
+            stroke: COLORS.mediaStroke,
             strokeWidth: 1.5,
             cornerRadius: 8,
             name: "selectable",
