@@ -8,6 +8,7 @@ const FloatingDock = dynamic(() => import("@/app/canvas/components/FloatingDock/
 const Minimap = dynamic(() => import("@/app/canvas/components/Minimap/Minimap"), { ssr: false });
 const NodePanel = dynamic(() => import("@/app/canvas/components/NodePanel/NodePanel"), { ssr: false });
 const KonvaNodePorts = dynamic(() => import("@/app/canvas/components/KonvaNodePorts"), { ssr: false });
+const KonvaNodeLabels = dynamic(() => import("@/app/canvas/components/KonvaNodeLabels"), { ssr: false });
 const ConnectionOverlay = dynamic(() => import("@/app/canvas/components/ConnectionOverlay"), { ssr: false });
 
 export default function CanvasPage() {
@@ -19,6 +20,7 @@ export default function CanvasPage() {
       <Minimap />
       <NodePanel />
       <KonvaNodePorts />
+      <KonvaNodeLabels />
     </>
   );
 }
