@@ -7,8 +7,11 @@ export interface PanelInstance {
   // 3-state: inactive → active (transformer) → panel-open (transformer + panel)
   isActive:    boolean;
   isPanelOpen: boolean;
-  w: number;       // placeholder width in screen px (synced from SinglePanel)
-  h: number;       // placeholder height in screen px (synced from SinglePanel)
+  // Placeholder size in CANVAS units (synced from SinglePanel). Note canvasY
+  // is the vertical CENTRE of the placeholder, not its top edge — unlike
+  // KonvaNodeRecord, where canvasY is the top.
+  w: number;
+  h: number;
   preview?: string; // generated image data URL — used as reference by downstream nodes
   // Display name shown above the node when selected, and the name this node is
   // referred to by when it feeds a downstream generation. Derived from the

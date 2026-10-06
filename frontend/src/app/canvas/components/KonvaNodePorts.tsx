@@ -4,6 +4,7 @@
 // (uploaded images, demo node, etc.), except where another node covers it.
 
 import { useKonvaNodes, type KonvaNodeRecord } from "@/store/konvaNodes.store";
+import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
 import { useConnectionStore } from "@/store/connection.store";
 import {
@@ -20,12 +21,19 @@ import {
 // appears detached from its own node. Rectangle containment rather than pixel
 // hit-testing: predictable, and no per-frame canvas reads. A transparent PNG
 // on top therefore still counts as covering.
-function isPortCovered(n: KonvaNodeRecord, all: KonvaNodeRecord[], scale: number): boolean {
+function isPortCovered(
+  n: KonvaNodeRecord,
+  all: KonvaNodeRecord[],
+  panels: PanelInstance[],
+  scale: number
+): boolean {
   // The arc bulges inward, so the port's centre lies just inside its own node.
   const px = n.canvasX + n.canvasW - PORT_WIDTH / (2 * scale);
   const py = n.canvasY + n.canvasH * PORT_FRACTION;
+
+  // Another Konva node covers it only if it stacks above this one.
   const nz = n.z ?? 0;
-  return all.some(
+  const underNode = all.some(
     (m) =>
       m.id !== n.id &&
       (m.z ?? 0) > nz &&
@@ -34,17 +42,30 @@ function isPortCovered(n: KonvaNodeRecord, all: KonvaNodeRecord[], scale: number
       py >= m.canvasY &&
       py <= m.canvasY + m.canvasH
   );
+  if (underNode) return true;
+
+  // A Create Image node is a DOM overlay above the single <canvas>, so it
+  // covers every Konva node unconditionally — no stacking comparison applies.
+  // Its canvasY is the placeholder's vertical CENTRE, not its top edge.
+  return panels.some(
+    (p) =>
+      px >= p.canvasX &&
+      px <= p.canvasX + p.w &&
+      py >= p.canvasY - p.h / 2 &&
+      py <= p.canvasY + p.h / 2
+  );
 }
 
 export default function KonvaNodePorts() {
   const nodes = useKonvaNodes((s) => s.nodes);
+  const panels = useNodePanel((s) => s.panels);
   const { x: stageX, y: stageY, scale } = useViewport();
   const all = Object.values(nodes);
 
   return (
     <>
       {all.map((n) => {
-        if (isPortCovered(n, all, scale)) return null;
+        if (isPortCovered(n, all, panels, scale)) return null;
         const screenX = stageX + n.canvasX * scale;
         const screenY = stageY + n.canvasY * scale;
         const screenW = n.canvasW * scale;
