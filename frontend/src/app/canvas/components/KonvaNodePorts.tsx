@@ -63,7 +63,7 @@ export default function KonvaNodePorts() {
             style={{
               position: "fixed",
               left:   screenX + screenW - PORT_W - HIT_PAD,
-              top:    screenY + screenH * 0.3,
+              top:    screenY + screenH * PORT_FRACTION,
               width:  PORT_W + HIT_PAD * 2,
               height: PORT_D + HIT_PAD * 2,
               transform:      "translateY(-50%)",
