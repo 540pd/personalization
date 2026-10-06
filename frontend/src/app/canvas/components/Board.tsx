@@ -13,6 +13,12 @@ import { COLORS, MAX_UPLOAD_SIZE, MIN_NODE_SIZE, SELECTION } from "@/constants/c
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
 
+// "photo-2024.final.png" -> "photo-2024.final". Only the last segment is an
+// extension; names with dots in them keep them.
+function stripExtension(fileName: string): string {
+  const dot = fileName.lastIndexOf(".");
+  return dot > 0 ? fileName.slice(0, dot) : fileName;
+}
 // Nodes are draggable only in pointer mode. Sole owner of that rule: call it
 // after adding a node and whenever the active tool changes. Reading the tool
 // here rather than capturing it at construction is what keeps a node created
@@ -578,6 +584,7 @@ export default function Board() {
               canvasW: w,
               canvasH: h,
               imageUrl,
+              label: stripExtension(file.name),
             });
             layer.add(node);
             applyDraggability(layer);
