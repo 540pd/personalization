@@ -13,6 +13,7 @@ import type { AspectRatioV2 } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
+import NodeLabel, { LABEL_GAP, LABEL_MIN_NODE_W } from "../NodeLabel";
 import {
   COLORS,
   INPUT_PORT_STYLE,
@@ -55,6 +56,25 @@ function placeholderSize(ratio: string): { w: number; h: number } {
 }
 
 const PANEL_W    = 320;
+// A generated node needs a name before it can be referenced by a downstream
+// one, so derive a readable default from the instruction. Natural words rather
+// than a slug: this string is also what a downstream generation refers to it
+// by, and "Image 3" would be useless as context.
+function labelFromInstruction(instruction: string): string {
+  const words = instruction.trim().split(/\s+/).slice(0, 6).join(" ");
+  return words.length > 40 ? `${words.slice(0, 40).trimEnd()}…` : words;
+}
+
+// Prompts usually open with boilerplate ("a highly detailed photorealistic
+// image of a …"), so first-N-words collides often. Two nodes sharing a name is
+// merely confusing on screen but genuinely ambiguous as model context.
+function uniqueLabel(base: string, taken: string[]): string {
+  if (!taken.includes(base)) return base;
+  let n = 2;
+  while (taken.includes(`${base} (${n})`)) n += 1;
+  return `${base} (${n})`;
+}
+
 const GAP        = 12;
 
 // Corner anchor positions + resize cursor. idx: 0=TL, 1=TR, 2=BL, 3=BR.
@@ -290,6 +310,17 @@ function SinglePanel({
         </div>
       )}
 
+      {/* ── Name — shown while selected, same rules as uploaded images ── */}
+      {isActive && instance.label && sw >= LABEL_MIN_NODE_W && (
+        <NodeLabel
+          value={instance.label}
+          left={placeholderLeft}
+          bottom={placeholderTop - LABEL_GAP}
+          maxWidth={sw}
+          onCommit={(next) => useNodePanel.getState().setLabel(instance.id, next)}
+        />
+      )}
+
       {/* ── Ports — always visible ── */}
       {/* Input port — left edge, PORT_FRACTION from top */}
       <div
@@ -464,6 +495,19 @@ function SinglePanel({
       <textarea
         value={instruction}
         onChange={(e) => setInstruction(e.target.value)}
+        onBlur={() => {
+          // Seed the name as soon as there is an instruction rather than
+          // waiting for a result — a node needs identifying while you are
+          // still configuring it. Never overwrite a name the user chose.
+          if (instance.label || !instruction.trim()) return;
+          const taken = useNodePanel.getState().panels
+            .map((p) => p.label)
+            .filter((l): l is string => !!l);
+          useNodePanel.getState().setLabel(
+            instance.id,
+            uniqueLabel(labelFromInstruction(instruction), taken)
+          );
+        }}
         placeholder="Describe the image..."
         rows={3}
         className="node-panel-instruction"
