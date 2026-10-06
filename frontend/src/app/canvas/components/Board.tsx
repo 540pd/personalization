@@ -11,6 +11,8 @@ import { useConnectionStore } from "@/store/connection.store";
 
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
+// Smallest on-screen size (px) a node can be resized to.
+const MIN_NODE_SIZE = 20;
 
 type Snapshot = Array<{ node: Konva.Shape; attrs: Record<string, unknown> }>;
 
@@ -41,6 +43,12 @@ export default function Board() {
 
     const transformer = new Konva.Transformer({
       rotateEnabled: false,
+      // A flip makes scaleX/scaleY negative, so the geometry synced to
+      // konvaNodes no longer matches the shape and its ports detach.
+      flipEnabled: false,
+      // Stop shrinking at a minimum size instead of collapsing to zero.
+      boundBoxFunc: (oldBox, newBox) =>
+        newBox.width < MIN_NODE_SIZE || newBox.height < MIN_NODE_SIZE ? oldBox : newBox,
       enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"],
       borderStroke: "#000000",
       borderStrokeWidth: 1.5,
