@@ -11,6 +11,8 @@ import { Video, Image, SquareText, Upload } from "lucide-react";
 import { useToolStore, type Tool } from "@/store/tool.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
+import { useKonvaSelection } from "@/store/konvaSelection.store";
+import { useConnectionStore } from "@/store/connection.store";
 
 import "./FloatingDock.scss";
 
@@ -447,6 +449,14 @@ export default function FloatingDock() {
                     onClick={() => {
                       setTool(item.id);
                       setIsGenerateMenuOpen(false);
+
+                      // Creating a node makes it the selection, so clear the
+                      // others. Without this an uploaded image stayed selected
+                      // alongside the new node, and because each selection
+                      // system has its own Delete handler, one keypress
+                      // destroyed both.
+                      useKonvaSelection.getState().deselect();
+                      useConnectionStore.getState().deselectConnection();
 
                       if (item.id === "generate-image") {
                         const { x: sx, y: sy, scale: sc } = viewport;
