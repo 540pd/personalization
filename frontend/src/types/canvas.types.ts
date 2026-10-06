@@ -18,6 +18,11 @@ export interface GenerateImageResult {
 
 export type AspectRatioV2 = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
 
+export interface ReferenceImage {
+  url: string;
+  name?: string;
+}
+
 export interface GenerateImageV2Params {
   modelId: string;
   instruction: string;
@@ -26,7 +31,9 @@ export interface GenerateImageV2Params {
   thinking?: boolean;
   temperature?: number;
   grounding?: boolean;
-  referenceImages?: string[]; // data URLs from upstream nodes in the canvas graph
+  // Upstream nodes feeding this generation. The name is how the model is told
+  // one reference from another.
+  referenceImages?: ReferenceImage[];
 }
 
 export interface GenerateImageV2Result {
