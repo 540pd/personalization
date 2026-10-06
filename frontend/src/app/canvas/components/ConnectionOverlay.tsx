@@ -21,14 +21,14 @@ import { COLORS, PORT_FRACTION, SNAP_RADIUS, Z_INDEX } from "@/constants/canvas.
 
 function panelOutputPt(p: PanelInstance, sx: number, sy: number, sc: number) {
   const left = sx + p.canvasX * sc;
-  const top  = sy + p.canvasY * sc - p.h / 2;
-  return { x: left + p.w, y: top + p.h * PORT_FRACTION };
+  const top  = sy + p.canvasY * sc - (p.h * sc) / 2;
+  return { x: left + p.w * sc, y: top + p.h * sc * PORT_FRACTION };
 }
 
 function panelInputPt(p: PanelInstance, sx: number, sy: number, sc: number) {
   const left = sx + p.canvasX * sc;
-  const top  = sy + p.canvasY * sc - p.h / 2;
-  return { x: left, y: top + p.h * PORT_FRACTION };
+  const top  = sy + p.canvasY * sc - (p.h * sc) / 2;
+  return { x: left, y: top + p.h * sc * PORT_FRACTION };
 }
 
 function konvaOutputPt(n: KonvaNodeRecord, sx: number, sy: number, sc: number) {

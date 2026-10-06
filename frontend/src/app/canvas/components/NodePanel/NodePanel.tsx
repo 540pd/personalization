@@ -13,7 +13,19 @@ import type { AspectRatioV2 } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
-import { COLORS, PORT_FRACTION, PORT_STYLE, SELECTION, Z_INDEX } from "@/constants/canvas.constants";
+import {
+  COLORS,
+  INPUT_PORT_STYLE,
+  MIN_NODE_SIZE,
+  OUTPUT_PORT_HIT_STYLE,
+  OUTPUT_PORT_STYLE,
+  PORT_FRACTION,
+  PORT_HIT_PAD,
+  PORT_WIDTH,
+  SELECTION,
+  Z_INDEX,
+} from "@/constants/canvas.constants";
+import "./NodePanel.scss";
 
 // ── Image generation models ───────────────────────────────────────────────────
 // To add a new model: append an entry with the Vertex AI model ID as `id` and
@@ -122,14 +134,18 @@ function SinglePanel({
     useNodePanel.getState().setSize(instance.id, sizeW, sizeH);
   }, [instance.id, sizeW, sizeH]);
 
+  // pw/ph are canvas units; sw/sh are their on-screen size at the current zoom.
+  // Node geometry uses sw/sh; chrome (ports, anchors, panel) keeps a fixed pixel size.
   const pw = sizeW;
   const ph = sizeH;
+  const sw = pw * scale;
+  const sh = ph * scale;
 
   const screenLeft    = stageX + canvasX * scale;
   const screenCenterY = stageY + canvasY * scale;
   const placeholderLeft = screenLeft;
-  const placeholderTop  = screenCenterY - ph / 2;
-  const panelLeft       = screenLeft + pw + GAP;
+  const placeholderTop  = screenCenterY - sh / 2;
+  const panelLeft       = screenLeft + sw + GAP;
 
   const onPointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -166,8 +182,6 @@ function SinglePanel({
     setDragging(false);
   };
 
-  const MIN_SIZE = 60;
-
   const onAnchorPointerDown = (e: React.PointerEvent, idx: number) => {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -180,19 +194,19 @@ function SinglePanel({
   const onAnchorPointerMove = (e: React.PointerEvent, idx: number) => {
     if (e.buttons === 0 || !anchorDrag.current || anchorDrag.current.idx !== idx) return;
     const { startPx, startW, startH, startCx, startCy } = anchorDrag.current;
-    const mdx    = e.clientX - startPx;
+    const mdx    = (e.clientX - startPx) / scale; // screen px → canvas units
     const isLeft = idx === 0 || idx === 2;
     const isTop  = idx === 0 || idx === 1;
     // Width is the driver; height follows to preserve aspect ratio.
-    const newW   = Math.max(MIN_SIZE, isLeft ? startW - mdx : startW + mdx);
+    const newW   = Math.round(Math.max(MIN_NODE_SIZE, isLeft ? startW - mdx : startW + mdx));
     const newH   = Math.round(newW * (startH / startW));
     setSizeW(newW);
     setSizeH(newH);
-    // Keep the opposite corner fixed.
-    const newCx  = isLeft ? startCx + (startW - newW) / scale : startCx;
+    // Keep the opposite corner fixed — every term here is already canvas units.
+    const newCx  = isLeft ? startCx + (startW - newW) : startCx;
     const newCy  = isTop
-      ? startCy + (startH - newH) / (2 * scale)   // bottom edge fixed
-      : startCy + (newH - startH) / (2 * scale);  // top edge fixed
+      ? startCy + (startH - newH) / 2   // bottom edge fixed
+      : startCy + (newH - startH) / 2;  // top edge fixed
     onSetCanvasPos(newCx, newCy);
   };
 
@@ -244,8 +258,8 @@ function SinglePanel({
             position: "fixed",
             left: placeholderLeft - SELECTION.padding,
             top:  placeholderTop  - SELECTION.padding,
-            width:  pw + SELECTION.padding * 2,
-            height: ph + SELECTION.padding * 2,
+            width:  sw + SELECTION.padding * 2,
+            height: sh + SELECTION.padding * 2,
             border: `${SELECTION.borderWidth}px solid ${COLORS.ink}`,
             borderRadius: 6,
             zIndex: Z_INDEX.ports,
@@ -281,9 +295,9 @@ function SinglePanel({
       <div
         title="Input"
         style={{
-          ...PORT_STYLE,
+          ...INPUT_PORT_STYLE,
           left: placeholderLeft,
-          top:  placeholderTop + ph * PORT_FRACTION,
+          top:  placeholderTop + sh * PORT_FRACTION,
         }}
       />
 
@@ -295,250 +309,313 @@ function SinglePanel({
           useConnectionStore.getState().startDrag(instance.id, "panel", e.clientX, e.clientY);
         }}
         style={{
-          ...PORT_STYLE,
-          left: placeholderLeft + pw,
-          top:  placeholderTop + ph * PORT_FRACTION,
+          ...OUTPUT_PORT_HIT_STYLE,
+          left: placeholderLeft + sw - PORT_WIDTH - PORT_HIT_PAD,
+          top:  placeholderTop + sh * PORT_FRACTION,
         }}
-      />
+      >
+        <div style={OUTPUT_PORT_STYLE} />
+      </div>
 
       {/* ── Placeholder ── */}
       <button
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        className="rounded-2xl flex flex-col items-center justify-center overflow-hidden relative"
-        style={{
-          position: "fixed",
-          left: placeholderLeft,
-          top: placeholderTop,
-          width: pw,
-          height: ph,
-          zIndex: Z_INDEX.nodes,
-          background: COLORS.placeholder,
-          cursor: isPanelOpen ? "pointer" : dragging ? "grabbing" : "move",
-          pointerEvents: "auto",
-        }}
-        title={isPanelOpen ? "Drag to move · Click to collapse" : "Drag to move · Click to open panel"}
-      >
-        {instance.preview ? (
-          <img src={instance.preview} alt="Generated preview" className="w-full h-full object-cover rounded-2xl" />
-        ) : (
-          <div className="flex flex-col items-center gap-2 select-none">
-            <svg
-              width="28" height="28" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" strokeWidth="1.4"
-              strokeLinecap="round" strokeLinejoin="round"
-              className="text-neutral-300"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M21 15l-5-5L5 21" />
-            </svg>
-            <span className="text-[11px] text-neutral-400 text-center px-3 leading-tight">
-              Image will<br />appear here
-            </span>
-          </div>
-        )}
-        {dragging && (
-          <div className="absolute inset-0 rounded-2xl bg-black/[0.04] ring-2 ring-neutral-400 ring-offset-1" />
-        )}
-      </button>
+  onPointerDown={onPointerDown}
+  onPointerMove={onPointerMove}
+  onPointerUp={onPointerUp}
+  className="node-panel-placeholder"
+  style={{
+    position: "fixed",
+    left: placeholderLeft,
+    top: placeholderTop,
+    width: pw,
+    height: ph,
+    // Laid out in canvas units, then scaled — keeps the icon and label
+    // proportional to the node instead of clipping at low zoom.
+    transform: `scale(${scale})`,
+    transformOrigin: "top left",
+    zIndex: Z_INDEX.nodes,
+    background: COLORS.placeholder,
+    cursor: isPanelOpen ? "pointer" : dragging ? "grabbing" : "move",
+    pointerEvents: "auto",
+  }}
+  title={
+    isPanelOpen
+      ? "Drag to move · Click to collapse"
+      : "Drag to move · Click to open panel"
+  }
+>
+  {instance.preview ? (
+    <img
+      src={instance.preview}
+      alt="Generated preview"
+      className="node-panel-preview"
+    />
+  ) : (
+    <div className="node-panel-placeholder-content">
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="node-panel-image-icon"      >
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <path d="M21 15l-5-5L5 21" />
+      </svg>
+
+      <span className="node-panel-placeholder-text">
+        Image will
+        <br />
+        appear here
+      </span>
+    </div>
+  )}
+
+  {dragging && <div className="node-panel-drag-overlay" />}
+</button>
 
       {/* ── Create Image panel ── */}
       {isPanelOpen && (
         <div
-          className="w-80 bg-white rounded-2xl shadow-xl flex flex-col"
-          style={{
-            position: "fixed",
-            left: panelLeft,
-            top: screenCenterY,
-            transform: "translateY(-50%)",
-            zIndex: Z_INDEX.nodes,
-            border: `1px solid ${COLORS.panelBorder}`,
-            maxHeight: "calc(100vh - 2rem)",
-            pointerEvents: "auto",
-          }}
+  className="node-panel-create"
+  style={{
+    position: "fixed",
+    left: panelLeft,
+    top: screenCenterY,
+    transform: "translateY(-50%)",
+    zIndex: Z_INDEX.nodes,
+    border: `1px solid ${COLORS.panelBorder}`,
+    maxHeight: "calc(100vh - 2rem)",
+    pointerEvents: "auto",
+  }}
+>
+  {/* Header */}
+  <div className="node-panel-header">
+    <div>
+      <h2 className="node-panel-title">Create Image</h2>
+
+      <div className="node-panel-model-wrapper" ref={modelPickerRef}>
+        <button
+          onClick={() => setIsModelOpen((v) => !v)}
+          className="node-panel-model-trigger"
         >
-          {/* Header */}
-          <div className="flex items-start justify-between px-5 pt-5 pb-1 shrink-0">
-            <div>
-              <h2 className="text-base font-semibold text-neutral-900">Create Image</h2>
-              <div className="relative mt-0.5" ref={modelPickerRef}>
-                {/* Trigger */}
-                <button
-                  onClick={() => setIsModelOpen((v) => !v)}
-                  className="flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-600 transition-colors"
-                >
-                  <span>{MODELS.find((m) => m.id === model)?.label ?? model}</span>
-                  <ChevronDown
-                    size={12}
-                    className={`transition-transform duration-150 ${isModelOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
+          <span>
+            {MODELS.find((m) => m.id === model)?.label ?? model}
+          </span>
 
-                {/* Dropdown */}
-                {isModelOpen && (
-                  <div className="absolute top-full left-0 mt-1.5 w-48 bg-white rounded-xl border border-black/[0.08] shadow-lg z-10 overflow-hidden">
-                    {MODELS.map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => { setModel(m.id); setIsModelOpen(false); }}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
-                          model === m.id
-                            ? "bg-neutral-50 text-neutral-900 font-medium"
-                            : "text-neutral-600 hover:bg-black/5"
-                        }`}
-                      >
-                        <span>{m.label}</span>
-                        {model === m.id && <Check size={13} className="text-neutral-700 shrink-0" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={onClosePanel}
-              className="w-7 h-7 flex items-center justify-center rounded-full text-neutral-400 hover:bg-black/5 hover:text-neutral-700 transition-colors mt-0.5"
-            >
-              <X size={15} />
-            </button>
-          </div>
+          <ChevronDown
+            size={12}
+            className={`node-panel-chevron ${
+              isModelOpen ? "node-panel-chevron-open" : ""
+            }`}
+          />
+        </button>
 
-          {/* Scrollable body */}
-          <div className="overflow-y-auto flex flex-col gap-4 px-5 pb-5 pt-3">
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">
-                Instruction
-              </p>
-              <textarea
-                value={instruction}
-                onChange={(e) => setInstruction(e.target.value)}
-                placeholder="Describe the image..."
-                rows={3}
-                className="w-full resize-none rounded-xl bg-neutral-100 px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:ring-2 focus:ring-black/10"
-              />
-            </div>
-
-            <div>
+        {isModelOpen && (
+          <div className="node-panel-model-dropdown">
+            {MODELS.map((m) => (
               <button
-                onClick={() => setAdvancedOpen((v) => !v)}
-                className="flex items-center gap-1.5 text-sm font-medium text-neutral-700"
+                key={m.id}
+                onClick={() => {
+                  setModel(m.id);
+                  setIsModelOpen(false);
+                }}
+                className={`node-panel-model-option ${
+                  model === m.id
+                    ? "node-panel-model-option-active"
+                    : "node-panel-model-option-inactive"
+                }`}
               >
-                Advanced
-                <ChevronDown
-                  size={13}
-                  className={`transition-transform duration-150 ${advancedOpen ? "rotate-180" : ""}`}
+                <span>{m.label}</span>
+
+                {model === m.id && (
+                  <Check
+                    size={13}
+                    className="node-panel-model-check"
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+
+    <button
+      onClick={onClosePanel}
+      className="node-panel-close-button"
+    >
+      <X size={15} />
+    </button>
+  </div>
+
+  {/* Scrollable body */}
+  <div className="node-panel-body">
+
+    <div>
+      <p className="node-panel-section-label">
+        Instruction
+      </p>
+
+      <textarea
+        value={instruction}
+        onChange={(e) => setInstruction(e.target.value)}
+        placeholder="Describe the image..."
+        rows={3}
+        className="node-panel-instruction"
+      />
+    </div>
+
+    <div>
+      <button
+        onClick={() => setAdvancedOpen((v) => !v)}
+        className="node-panel-advanced-trigger"
+      >
+        Advanced
+
+        <ChevronDown
+          size={13}
+          className={`node-panel-chevron ${
+            advancedOpen ? "node-panel-chevron-open" : ""
+          }`}
+        />
+      </button>
+
+      {advancedOpen && (
+        <div className="node-panel-advanced-content">
+          <div className="node-panel-advanced-row">
+
+            <div className="node-panel-setting">
+              <p className="node-panel-setting-label">
+                Thinking
+              </p>
+
+              <select
+                value={thinking}
+                onChange={(e) => setThinking(e.target.value)}
+                className="node-panel-select"
+              >
+                {THINKING_OPTS.map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="node-panel-setting node-panel-grounding">
+              <p className="node-panel-setting-label">
+                Grounding
+              </p>
+
+              <button
+                onClick={() => setGrounding((v) => !v)}
+                className={`node-panel-toggle ${
+                  grounding
+                    ? "node-panel-toggle-on"
+                    : "node-panel-toggle-off"
+                }`}
+              >
+                <span
+                  className={`node-panel-toggle-thumb ${
+                    grounding
+                      ? "node-panel-toggle-thumb-on"
+                      : "node-panel-toggle-thumb-off"
+                  }`}
                 />
               </button>
-
-              {advancedOpen && (
-                <div className="mt-3 flex flex-col gap-2.5">
-                  <div className="flex gap-2">
-                    <div className="flex-1 rounded-xl bg-neutral-100 px-3 py-2.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-1">
-                        Thinking
-                      </p>
-                      <select
-                        value={thinking}
-                        onChange={(e) => setThinking(e.target.value)}
-                        className="w-full bg-transparent text-sm text-neutral-700 outline-none cursor-pointer"
-                      >
-                        {THINKING_OPTS.map((t) => <option key={t}>{t}</option>)}
-                      </select>
-                    </div>
-                    <div className="rounded-xl bg-neutral-100 px-3 py-2.5 flex flex-col">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-2">
-                        Grounding
-                      </p>
-                      <button
-                        onClick={() => setGrounding((v) => !v)}
-                        className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${
-                          grounding ? "bg-neutral-900" : "bg-neutral-300"
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                            grounding ? "translate-x-[18px]" : "translate-x-0.5"
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-neutral-100 px-3 py-2.5">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                        Temperature
-                      </p>
-                      <span className="text-xs text-neutral-500 tabular-nums">
-                        {temperature.toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-neutral-400">0</span>
-                      <input
-                        type="range" min={0} max={2} step={0.1}
-                        value={temperature}
-                        onChange={(e) => setTemperature(Number(e.target.value))}
-                        className="flex-1 accent-neutral-900"
-                      />
-                      <span className="text-[10px] text-neutral-400">2</span>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 rounded-lg bg-neutral-100 px-2.5 py-1.5">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <rect x="1" y="2.5" width="10" height="7" rx="1" />
-                </svg>
-                <select
-                  value={aspectRatio}
-                  onChange={(e) => setAspectRatio(e.target.value)}
-                  className="bg-transparent text-xs text-neutral-700 outline-none cursor-pointer"
-                >
-                  {ASPECT_RATIOS.map((r) => <option key={r}>{r}</option>)}
-                </select>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-lg bg-neutral-100 px-2.5 py-1.5">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 3h2.5v6H1M5.5 3H8a1 1 0 011 1v1a1 1 0 01-1 1H5.5M5.5 6H8.5a1 1 0 011 1v1a1 1 0 01-1 1H5.5" />
-                </svg>
-                <select
-                  value={quality}
-                  onChange={(e) => setQuality(e.target.value)}
-                  className="bg-transparent text-xs text-neutral-700 outline-none cursor-pointer"
-                >
-                  {QUALITIES.map((q) => <option key={q}>{q}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {genError && (
-              <p className="text-xs text-red-500 text-center -mt-1 leading-snug">
-                {genError}
+          <div className="node-panel-temperature">
+            <div className="node-panel-temperature-header">
+              <p className="node-panel-setting-label">
+                Temperature
               </p>
-            )}
 
-            <button
-              onClick={handleCreate}
-              disabled={!instruction.trim() || isGenerating}
-              className={`w-full rounded-xl py-3 text-sm font-medium text-white select-none flex items-center justify-center gap-2 transition-opacity ${
-                !instruction.trim() || isGenerating
-                  ? "bg-neutral-900 cursor-not-allowed opacity-40"
-                  : "bg-neutral-900 cursor-pointer hover:opacity-90 active:opacity-80"
-              }`}
-            >
-              {isGenerating && <Loader2 size={14} className="animate-spin shrink-0" />}
-              {isGenerating ? "Creating…" : "Create"}
-            </button>
+              <span className="node-panel-temperature-value">
+                {temperature.toFixed(1)}
+              </span>
+            </div>
 
+            <div className="node-panel-temperature-slider">
+              <span className="node-panel-range-label">0</span>
+
+              <input
+                type="range"
+                min={0}
+                max={2}
+                step={0.1}
+                value={temperature}
+                onChange={(e) =>
+                  setTemperature(Number(e.target.value))
+                }
+                className="node-panel-range"
+              />
+
+              <span className="node-panel-range-label">2</span>
+            </div>
           </div>
         </div>
+      )}
+    </div>
+
+    <div className="node-panel-options">
+      <div className="node-panel-option">
+        {/* existing aspect-ratio SVG */}
+        <select
+          value={aspectRatio}
+          onChange={(e) => setAspectRatio(e.target.value)}
+          className="node-panel-option-select"
+        >
+          {ASPECT_RATIOS.map((r) => (
+            <option key={r}>{r}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="node-panel-option">
+        {/* existing quality SVG */}
+        <select
+          value={quality}
+          onChange={(e) => setQuality(e.target.value)}
+          className="node-panel-option-select"
+        >
+          {QUALITIES.map((q) => (
+            <option key={q}>{q}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+
+    {genError && (
+      <p className="node-panel-error">
+        {genError}
+      </p>
+    )}
+
+    <button
+      onClick={handleCreate}
+      disabled={!instruction.trim() || isGenerating}
+      className={`node-panel-create-button ${
+        !instruction.trim() || isGenerating
+          ? "node-panel-create-button-disabled"
+          : "node-panel-create-button-enabled"
+      }`}
+    >
+      {isGenerating && (
+        <Loader2
+          size={14}
+          className="node-panel-loader"
+        />
+      )}
+
+      {isGenerating ? "Creating…" : "Create"}
+    </button>
+  </div>
+</div>
       )}
     </>
   );

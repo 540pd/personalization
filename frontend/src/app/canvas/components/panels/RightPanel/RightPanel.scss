@@ -1,0 +1,36 @@
+.right-panel {
+  @apply fixed right-0 top-0 z-40 flex h-full w-80 flex-col
+    border-l border-neutral-800 bg-neutral-950;
+}
+
+.right-panel-collapsed {
+  @apply fixed right-0 top-0 z-40 flex h-full items-start pt-4;
+}
+
+.right-panel-expand-button {
+  @apply rounded-l-lg border border-neutral-700 border-r-0
+    bg-neutral-900 px-2 py-3 text-xs text-neutral-300
+    hover:bg-neutral-800;
+}
+
+.right-panel-tab-bar {
+  @apply flex items-center border-b border-neutral-800;
+}
+
+.right-panel-tab {
+  @apply flex-1 border-b-2 border-transparent py-3
+    text-sm font-medium text-neutral-400 transition-colors
+    hover:text-neutral-200;
+}
+
+.right-panel-tab-active {
+  @apply border-white text-white;
+}
+
+.right-panel-collapse-button {
+  @apply px-3 py-3 text-xs text-neutral-400 hover:text-white;
+}
+
+.right-panel-content {
+  @apply flex-1 overflow-y-auto;
+}
