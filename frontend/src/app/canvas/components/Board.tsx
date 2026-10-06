@@ -8,7 +8,7 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
-import { COLORS, MAX_UPLOAD_SIZE, MIN_NODE_SIZE, SELECTION } from "@/constants/canvas.constants";
+import { COLORS, MAX_UPLOAD_SIZE, MIN_NODE_SIZE, NODE_CORNER_RADIUS, SELECTION } from "@/constants/canvas.constants";
 
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
@@ -563,6 +563,7 @@ export default function Board() {
               width: w,
               height: h,
               name: "selectable",
+              cornerRadius: NODE_CORNER_RADIUS,
               // Force bounding-rect hit detection so clicks on transparent PNG
               // areas still register (Konva default uses per-pixel alpha for images).
               hitFunc(ctx: Konva.Context, shape: Konva.Shape) {
