@@ -8,7 +8,7 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
-import { COLORS, MIN_NODE_SIZE, SELECTION } from "@/constants/canvas.constants";
+import { COLORS, MAX_UPLOAD_SIZE, MIN_NODE_SIZE, SELECTION } from "@/constants/canvas.constants";
 
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
@@ -538,8 +538,14 @@ export default function Board() {
           const url = URL.createObjectURL(file);
           const img = new window.Image() as HTMLImageElement;
           img.onload = () => {
-            const maxW = 480;
-            const ratio = Math.min(1, maxW / img.naturalWidth);
+            // Fit inside the box in both directions. Aspect ratio is
+            // preserved, and images already smaller than it keep their natural
+            // size — scaling them up would only blur them.
+            const ratio = Math.min(
+              1,
+              MAX_UPLOAD_SIZE / img.naturalWidth,
+              MAX_UPLOAD_SIZE / img.naturalHeight
+            );
             const w = img.naturalWidth  * ratio;
             const h = img.naturalHeight * ratio;
             const imgNodeId = crypto.randomUUID();
