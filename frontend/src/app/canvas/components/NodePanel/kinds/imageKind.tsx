@@ -160,9 +160,13 @@ export const imageKind: NodeKindSpec = {
   title: "Create Image",
   prompt: "Describe the image...",
   models: MODELS,
+  // Cheapest model and smallest size by default. A node is usually created to
+  // try an idea, and the picker is right there when a draft is worth a better
+  // render.
+  defaultModel: "gemini-3.1-flash-lite-image",
   defaultSettings: {
     aspectRatio: DEFAULT_ASPECT_RATIO,
-    quality: "2K",
+    quality: "1K",
     thinking: "Minimal",
     temperature: 0.5,
     grounding: false,

@@ -138,7 +138,9 @@ export const videoKind: NodeKindSpec = {
   title: "Create Video",
   prompt: "Describe the video...",
   models: MODELS,
-  defaultSettings: { durationSeconds: 6, resolution: "720p" },
+  // Shortest clip and smallest resolution the picker offers. Video is the
+  // slowest and most expensive kind, so the default should be a quick look.
+  defaultSettings: { durationSeconds: Number(DURATIONS[0]), resolution: RESOLUTIONS[0] },
   sizeFor: () => VIDEO_NODE_SIZE,
   EmptyState,
   Output,

@@ -116,7 +116,7 @@ function SinglePanel({
   // unmounts whenever the panel collapses, and a half-written prompt must
   // survive that.
   const [draft, setDraft] = useState<GenerateDraft>({
-    model: spec.models[0]?.id ?? "",
+    model: spec.defaultModel ?? spec.models[0]?.id ?? "",
     instruction: "",
   });
   const [busy, setBusy] = useState(false);

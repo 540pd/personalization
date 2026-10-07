@@ -564,6 +564,20 @@ export default function Board() {
               height: h,
               name: "selectable",
               cornerRadius: NODE_CORNER_RADIUS,
+              // A light hairline, matching the Create Image placeholder. Without
+              // an edge, an image dragged over another node is just a colour
+              // change where the two meet -- they read as one stitched shape.
+              // Light rather than dark because a dark hairline disappears
+              // against mid-tone photo content, which is the failing case.
+              //
+              // Deliberately a stroke and NOT a shadow: shadowBlur on a
+              // Konva.Image forces an offscreen blur pass per node per frame.
+              // Measured with 10 images redrawing every frame, it took the
+              // canvas from 60fps to 4. The DOM placeholders can afford a
+              // real shadow because the compositor handles those.
+              stroke: "rgba(255,255,255,0.95)",
+              strokeWidth: 1.5,
+              strokeScaleEnabled: false,
               // Force bounding-rect hit detection so clicks on transparent PNG
               // areas still register (Konva default uses per-pixel alpha for images).
               hitFunc(ctx: Konva.Context, shape: Konva.Shape) {

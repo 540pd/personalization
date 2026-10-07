@@ -64,6 +64,12 @@ export interface NodeKindSpec {
   /** Instruction textarea placeholder. */
   prompt: string;
   models: ModelOption[];
+  /**
+   * Model selected on a new node. Explicit rather than models[0], so the
+   * picker can list models in a sensible reading order while still
+   * defaulting to the cheapest one.
+   */
+  defaultModel?: string;
   defaultSettings: NodeSettings;
   /**
    * The node's footprint for a given settings value, in canvas units.
