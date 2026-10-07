@@ -21,10 +21,30 @@ export const Z_INDEX = {
 
 export const MIN_NODE_SIZE = 60; // canvas units
 
-// Uploaded images are fitted inside a square box of this size, in canvas
-// units. Capping only the width let a tall image through at any height — a
-// 1000x3000 upload became 480x1440, taller than the viewport.
-export const MAX_UPLOAD_SIZE = 480;
+// The longest edge of a node's default footprint, in canvas units. Shared by
+// both node types so an imported image and a generated one land at the same
+// size — a generated node used to default to 200, rendering your own output at
+// 42% the size of content you brought in. Capping only the width let a tall
+// image through at any height: a 1000x3000 upload became 480x1440.
+export const DEFAULT_NODE_MAX_EDGE = 480;
+
+// Aspect ratios offered by the Create Image panel, and the default.
+export const ASPECT_MAP: Record<string, [number, number]> = {
+  "16:9": [16, 9], "1:1": [1, 1], "9:16": [9, 16], "4:3": [4, 3], "3:4": [3, 4],
+};
+export const DEFAULT_ASPECT_RATIO = "16:9";
+
+// A Create Image node has no natural size, so its footprint comes from the
+// chosen ratio with the long edge pinned to DEFAULT_NODE_MAX_EDGE. Lives here
+// rather than in NodePanel so nodePanel.store can seed a new node with the
+// same numbers instead of repeating them as literals.
+export function placeholderSize(ratio: string): { w: number; h: number } {
+  const [aw, ah] = ASPECT_MAP[ratio] ?? ASPECT_MAP[DEFAULT_ASPECT_RATIO];
+  if (aw >= ah) {
+    return { w: DEFAULT_NODE_MAX_EDGE, h: Math.round(DEFAULT_NODE_MAX_EDGE * ah / aw) };
+  }
+  return { w: Math.round(DEFAULT_NODE_MAX_EDGE * aw / ah), h: DEFAULT_NODE_MAX_EDGE };
+}
 
 // Corner radius for canvas nodes, in canvas units. Matches the Create Image
 // placeholder's Tailwind rounded-2xl (1rem = 16px); that element is scaled by

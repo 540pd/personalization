@@ -14,7 +14,9 @@ import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import {
+  ASPECT_MAP,
   COLORS,
+  DEFAULT_ASPECT_RATIO,
   INPUT_PORT_STYLE,
   MIN_NODE_SIZE,
   OUTPUT_PORT_HIT_STYLE,
@@ -24,6 +26,7 @@ import {
   PORT_WIDTH,
   SELECTION,
   Z_INDEX,
+  placeholderSize,
 } from "@/constants/canvas.constants";
 import NodeLabel, { LABEL_GAP, LABEL_MIN_NODE_W } from "../NodeLabel";
 import "./NodePanel.scss";
@@ -43,17 +46,6 @@ const MODELS = [
 const ASPECT_RATIOS = ["16:9", "1:1", "9:16", "4:3", "3:4"];
 const QUALITIES     = ["1K", "2K", "4K"];
 const THINKING_OPTS = ["None", "Minimal", "Full"];
-
-const ASPECT_MAP: Record<string, [number, number]> = {
-  "16:9": [16, 9], "1:1": [1, 1], "9:16": [9, 16], "4:3": [4, 3], "3:4": [3, 4],
-};
-const MAX_DIM = 200;
-
-function placeholderSize(ratio: string): { w: number; h: number } {
-  const [aw, ah] = ASPECT_MAP[ratio] ?? [16, 9];
-  if (aw >= ah) return { w: MAX_DIM, h: Math.round(MAX_DIM * ah / aw) };
-  return { w: Math.round(MAX_DIM * aw / ah), h: MAX_DIM };
-}
 
 const PANEL_W    = 320;
 // A generated node needs a name before it can be referenced by a downstream
@@ -143,7 +135,7 @@ function SinglePanel({
   const [thinking,     setThinking]     = useState("Minimal");
   const [temperature,  setTemperature]  = useState(0.5);
   const [grounding,    setGrounding]    = useState(false);
-  const [aspectRatio,  setAspectRatio]  = useState("16:9");
+  const [aspectRatio,  setAspectRatio]  = useState(DEFAULT_ASPECT_RATIO);
   const [quality,      setQuality]      = useState("2K");
   const [isGenerating, setIsGenerating] = useState(false);
   const [genError,     setGenError]     = useState<string | null>(null);

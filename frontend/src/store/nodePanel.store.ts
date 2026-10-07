@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 
 export interface PanelInstance {
   id: string;
@@ -72,7 +73,10 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
       const newId = `panel-${_nextId++}`;
       const newPanels = [
         ...s.panels.map((p) => ({ ...p, isActive: false, isPanelOpen: false })),
-        { id: newId, canvasX: cx, canvasY: cy, isActive: true, isPanelOpen: true, w: 200, h: 113 },
+        // Seeded from the same helper SinglePanel uses, so the node does not
+        // flash at one size then resize on mount.
+        { id: newId, canvasX: cx, canvasY: cy, isActive: true, isPanelOpen: true,
+          ...placeholderSize(DEFAULT_ASPECT_RATIO) },
       ];
       const snap = makeSnap(newPanels);
       const history = [...s.posHistory.slice(0, s.posHistoryIdx + 1), snap];
