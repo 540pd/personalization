@@ -9,14 +9,12 @@
 // point.
 
 import { useEffect, useRef, useState } from "react";
+import { LABEL_FONT_SIZE, LABEL_LINE_HEIGHT } from "@/constants/canvas.constants";
 
-// Clearance above the node. The transformer's top-left anchor sits on the
-// corner and extends ~8px outward, so the label has to clear it.
-export const LABEL_GAP = 10;
-// Below this on-screen node width no useful amount of text fits, so the label
-// is dropped entirely. Keyed off rendered width rather than zoom, which covers
-// both zooming far out and a node that is simply small.
-export const LABEL_MIN_NODE_W = 100;
+// A line box is taller than the glyphs it holds; the surplus sits half above
+// and half below. Without allowing for it the rendered gap is this much wider
+// than LABEL_GAP asks for, so the knob would not mean what it looks like.
+const HALF_LEADING = (LABEL_LINE_HEIGHT - LABEL_FONT_SIZE) / 2;
 // Floor for the rename field so an emptied one stays clickable.
 const MIN_INPUT_W = 40;
 // Must match between the input and its sizing mirror, or the two drift apart.
@@ -27,7 +25,7 @@ interface NodeLabelProps {
   value: string;
   /** Screen x of the node's left edge — the label is left-aligned to it. */
   left: number;
-  /** Screen y the label's bottom edge should sit on. */
+  /** Screen y the bottom of the label's TEXT should sit on. */
   bottom: number;
   /** The node's on-screen width; the label never exceeds it. */
   maxWidth: number;
@@ -68,11 +66,13 @@ export default function NodeLabel({ value, left, bottom, maxWidth, onCommit }: N
   const base: React.CSSProperties = {
     position: "fixed",
     left,
-    top: bottom,
-    transform: "translateY(-100%)", // sit the label's bottom edge on `bottom`
+    // translateY(-100%) puts the box's bottom edge on `top`; pushing it down
+    // by the half-leading lands the glyph bottoms on `bottom` instead.
+    top: bottom + HALF_LEADING,
+    transform: "translateY(-100%)",
     maxWidth,
-    fontSize: 12,
-    lineHeight: "16px",
+    fontSize: LABEL_FONT_SIZE,
+    lineHeight: `${LABEL_LINE_HEIGHT}px`,
     fontFamily: "inherit",
     color: "#404040",
     pointerEvents: "auto",
@@ -105,8 +105,8 @@ export default function NodeLabel({ value, left, bottom, maxWidth, onCommit }: N
   const fieldText: React.CSSProperties = {
     gridArea: "1 / 1",
     font: "inherit",
-    fontSize: 12,
-    lineHeight: "16px",
+    fontSize: LABEL_FONT_SIZE,
+    lineHeight: `${LABEL_LINE_HEIGHT}px`,
     padding: FIELD_PAD,
     border: FIELD_BORDER,
     borderRadius: 3,

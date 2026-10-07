@@ -59,6 +59,25 @@ export function placeholderSize(ratio: string): { w: number; h: number } {
 // holding the radius fixed had pushed it from 3.3% to 5% of the node's width.
 export const NODE_CORNER_RADIUS = 10;
 
+// --- Node name label -------------------------------------------------------
+// Font of the name shown above a selected node. The line box is taller than
+// the glyphs, and NodeLabel subtracts that difference so LABEL_GAP below means
+// the gap you actually see rather than the gap to an invisible box edge.
+export const LABEL_FONT_SIZE  = 12;
+export const LABEL_LINE_HEIGHT = 16;
+
+// Visible clearance between a node's top edge and the bottom of its name, in
+// screen px (chrome keeps a fixed pixel size, so this does not scale with
+// zoom). Floor is about 5: the transformer's top-left anchor reaches
+// SELECTION.anchorSize / 2 above the node edge and the label is left-aligned
+// to that same corner, so a smaller value collides with the handle.
+export const LABEL_GAP = 8;
+
+// Below this on-screen node width no useful amount of text fits, so the label
+// is dropped entirely. Keyed off rendered width rather than zoom, which covers
+// both zooming far out and a node that is simply small.
+export const LABEL_MIN_NODE_W = 100;
+
 export const SELECTION = {
   // 0: the selection border sits flush on the node edge rather than floating
   // clear of it.

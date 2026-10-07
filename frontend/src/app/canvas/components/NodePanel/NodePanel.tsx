@@ -18,6 +18,8 @@ import {
   COLORS,
   DEFAULT_ASPECT_RATIO,
   INPUT_PORT_STYLE,
+  LABEL_GAP,
+  LABEL_MIN_NODE_W,
   MIN_NODE_SIZE,
   NODE_CORNER_RADIUS,
   OUTPUT_PORT_HIT_STYLE,
@@ -29,7 +31,7 @@ import {
   Z_INDEX,
   placeholderSize,
 } from "@/constants/canvas.constants";
-import NodeLabel, { LABEL_GAP, LABEL_MIN_NODE_W } from "../NodeLabel";
+import NodeLabel from "../NodeLabel";
 import "./NodePanel.scss";
 
 // ── Image generation models ───────────────────────────────────────────────────
