@@ -11,7 +11,7 @@ import { useViewport } from "@/store/viewport.store";
 import type { Reference } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
-import { useKonvaNodes } from "@/store/konvaNodes.store";
+import { useKonvaNodes, type KonvaNodeRecord } from "@/store/konvaNodes.store";
 import {
   COLORS,
   INPUT_PORT_STYLE,
@@ -26,8 +26,9 @@ import {
   SELECTION,
   Z_INDEX,
 } from "@/constants/canvas.constants";
-import { isCovered, portProbe, type Blocker } from "@/lib/canvas/occlusion";
+import { isCovered, portProbe, type Blocker, type TopLayer } from "@/lib/canvas/occlusion";
 import { canvasHistory } from "@/lib/canvas/history";
+import { useLayerOrder } from "@/store/layerOrder.store";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen } from "@/lib/canvas/coords";
 import NodeLabel from "../NodeLabel";
@@ -76,13 +77,19 @@ const ANCHORS = [
 function portsCovered(
   p: PanelInstance,
   above: PanelInstance[],
+  konvaNodes: KonvaNodeRecord[],
+  topLayer: TopLayer,
   scale: number
 ): { input: boolean; output: boolean } {
   const self: Blocker = { id: p.id, box: p, layer: "dom" };
-  const blockers: Blocker[] = above.map((q) => ({ id: q.id, box: q, layer: "dom" }));
+  const blockers: Blocker[] = [
+    ...above.map((q): Blocker => ({ id: q.id, box: q, layer: "dom" })),
+    // Uploaded images only block when the canvas is the front layer.
+    ...konvaNodes.map((n): Blocker => ({ id: n.id, box: n, layer: "canvas", z: n.z })),
+  ];
   return {
-    input:  isCovered(portProbe(p, "input", scale), self, blockers),
-    output: isCovered(portProbe(p, "output", scale), self, blockers),
+    input:  isCovered(portProbe(p, "input", scale), self, blockers, topLayer),
+    output: isCovered(portProbe(p, "output", scale), self, blockers, topLayer),
   };
 }
 
@@ -217,6 +224,10 @@ function SinglePanel({
         // Outside the isActive guard: an already-selected node still has to
         // come forward, or dragging it across a newer one buries it.
         useNodePanel.getState().raisePanel(instance.id);
+        // raisePanel only reorders within the DOM layer. Bringing that layer
+        // forward is what lets a panel come back over an uploaded image after
+        // the image was last dragged.
+        useLayerOrder.getState().raiseDom();
       }
       onSetCanvasPos(dragStart.current.cx + dx / scale, dragStart.current.cy + dy / scale);
     }
@@ -557,6 +568,8 @@ function SinglePanel({
 export default function NodePanel() {
   const { panels, removePanel, activatePanel, openPanel, closePanel, closeAllPanels, setCanvasPos, selectPanel } = useNodePanel();
   const { x: stageX, y: stageY, scale } = useViewport();
+  const topLayer = useLayerOrder((s) => s.topLayer);
+  const konvaNodes = Object.values(useKonvaNodes((s) => s.nodes));
 
   // The panels half of the shared undo timeline. Every store setter rebuilds
   // the objects it touches, so holding the array is a valid snapshot --
@@ -598,7 +611,7 @@ export default function NodePanel() {
   return (
     <>
       {panels.map((p, i) => {
-        const covered = portsCovered(p, panels.slice(i + 1), scale);
+        const covered = portsCovered(p, panels.slice(i + 1), konvaNodes, topLayer, scale);
         return (
         <SinglePanel
           key={p.id}

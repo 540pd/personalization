@@ -66,19 +66,42 @@ describe("isCovered — canvas over canvas", () => {
   });
 });
 
-describe("isCovered — dom over canvas", () => {
+describe("isCovered — across layers", () => {
   const pt = portProbe(konvaBox, "output", 1);
 
-  it("a panel always covers a Konva node, whatever its z", () => {
-    // The rule that is easy to get wrong: Konva shapes share one <canvas> and
-    // panels are DOM siblings above it, so no z comparison applies.
-    const self = konva("self", 999);
-    expect(isCovered(pt, self, [panel("p")])).toBe(true);
+  // Konva shapes share one <canvas> and panels are DOM siblings of it, so
+  // there is no per-node answer here: the whole canvas is in front or behind.
+  describe("with the DOM layer in front", () => {
+    it("a panel covers a Konva node whatever its z", () => {
+      expect(isCovered(pt, konva("self", 999), [panel("p")], "dom")).toBe(true);
+    });
+
+    it("a Konva node does not cover a panel", () => {
+      expect(isCovered(pt, panel("self"), [konva("n", 999)], "dom")).toBe(false);
+    });
   });
 
-  it("a Konva node never covers a panel, whatever its z", () => {
-    const self = panel("self");
-    expect(isCovered(pt, self, [konva("n", 999)])).toBe(false);
+  describe("with the canvas in front", () => {
+    it("a Konva node covers a panel", () => {
+      // The case that used to be impossible: a dragged image vanished behind
+      // a Create Image node instead of coming to the front.
+      expect(isCovered(pt, panel("self"), [konva("n", 0)], "canvas")).toBe(true);
+    });
+
+    it("a panel does not cover a Konva node", () => {
+      expect(isCovered(pt, konva("self", 0), [panel("p")], "canvas")).toBe(false);
+    });
+  });
+
+  it("defaults to the DOM layer in front, as before the flip existed", () => {
+    expect(isCovered(pt, konva("self", 0), [panel("p")])).toBe(true);
+  });
+
+  it("leaves same-layer rules alone whichever layer is in front", () => {
+    // Konva-vs-Konva still obeys z, and panel-vs-panel still obeys order.
+    expect(isCovered(pt, konva("self", 5), [konva("other", 1)], "canvas")).toBe(false);
+    expect(isCovered(pt, konva("self", 1), [konva("other", 5)], "dom")).toBe(true);
+    expect(isCovered(portProbe(panelBox, "output", 1), panel("a"), [panel("b")], "canvas")).toBe(true);
   });
 });
 

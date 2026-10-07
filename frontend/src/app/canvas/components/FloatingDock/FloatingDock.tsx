@@ -15,6 +15,7 @@ import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { viewportCentre } from "@/lib/canvas/coords";
 import { canvasHistory } from "@/lib/canvas/history";
+import { useLayerOrder } from "@/store/layerOrder.store";
 import { NODE_KINDS } from "@/app/canvas/components/NodePanel/kinds";
 import type { NodeKind } from "@/store/nodePanel.store";
 
@@ -498,6 +499,8 @@ export default function FloatingDock() {
                         const cy = centre.y + offset;
 
                         addPanel(cx, cy, kind);
+                        // A new node must not land behind an uploaded image.
+                        useLayerOrder.getState().raiseDom();
                         // Creating a node is an edit, so it belongs on the
                         // timeline. It was not undoable before the merge.
                         canvasHistory.commit();

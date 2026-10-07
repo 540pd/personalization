@@ -50,26 +50,40 @@ export function portProbe(box: NodeBox, side: PortSide, scale: number): Point {
   };
 }
 
+/** Which paint layer is currently in front. Mirrors layerOrder.store. */
+export type TopLayer = "canvas" | "dom";
+
 /**
  * Is `point` hidden by any blocker that paints above `self`?
  *
- * The three rules, in one place:
+ * The rules, in one place:
  *   canvas over canvas — covered only when the blocker's z is strictly greater
- *   dom over canvas    — always covers; DOM sits above the single <canvas>
  *   dom over dom       — the caller passes only the blockers painted later,
  *                        because panels share one z-index and array order IS
  *                        paint order
+ *   across layers      — decided entirely by topLayer. Every Konva shape
+ *                        shares one <canvas>, so the whole canvas is above
+ *                        the placeholders or below them; there is no
+ *                        per-node answer. This used to be hardcoded as
+ *                        "dom always wins", which is why a dragged image
+ *                        vanished behind a Create Image node.
  */
-export function isCovered(point: Point, self: Blocker, blockers: Blocker[]): boolean {
+export function isCovered(
+  point: Point,
+  self: Blocker,
+  blockers: Blocker[],
+  topLayer: TopLayer = "dom"
+): boolean {
   return blockers.some((b) => {
     if (b.id === self.id) return false;
-    if (self.layer === "canvas" && b.layer === "canvas" && (b.z ?? 0) <= (self.z ?? 0)) {
+
+    if (b.layer !== self.layer) {
+      // Cross-layer: the blocker only covers if its layer is the front one.
+      if (b.layer !== topLayer) return false;
+    } else if (self.layer === "canvas" && (b.z ?? 0) <= (self.z ?? 0)) {
       return false;
     }
-    if (self.layer === "dom" && b.layer === "canvas") {
-      // A canvas shape can never cover a DOM overlay.
-      return false;
-    }
+
     return contains(boundsOf(b.box) as Bounds, point);
   });
 }
