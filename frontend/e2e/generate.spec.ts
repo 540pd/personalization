@@ -72,7 +72,7 @@ test.describe("generation and references", () => {
     await generateInOpenPanel(page, "lone node");
 
     expect(bodies).toHaveLength(1);
-    expect(bodies[0].referenceImages).toBeUndefined();
+    expect(bodies[0].references).toBeUndefined();
   });
 
   test("an upstream image output travels as a named reference", async ({ page }) => {
@@ -113,11 +113,16 @@ test.describe("generation and references", () => {
     await page.waitForTimeout(600);
     await generateInOpenPanel(page, "put the helmet on the quay");
 
-    const last = bodies[bodies.length - 1] as { referenceImages?: { url: string; name?: string }[] };
-    expect(last.referenceImages).toBeDefined();
-    expect(last.referenceImages).toHaveLength(1);
-    expect(last.referenceImages![0].url).toBe(FAKE_IMAGE);
+    const last = bodies[bodies.length - 1] as {
+      references?: { kind: string; url?: string; name?: string }[];
+    };
+    expect(last.references).toBeDefined();
+    expect(last.references).toHaveLength(1);
+    // Discriminated: an image reference points at a data URL, a text one
+    // carries its content.
+    expect(last.references![0].kind).toBe("image");
+    expect(last.references![0].url).toBe(FAKE_IMAGE);
     // The name is what lets an instruction say which reference it means.
-    expect(last.referenceImages![0].name).toBe("harbour at dusk");
+    expect(last.references![0].name).toBe("harbour at dusk");
   });
 });

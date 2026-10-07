@@ -13,8 +13,16 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useConnectionStore } from "@/store/connection.store";
-import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 import { viewportCentre } from "@/lib/canvas/coords";
+import { NODE_KINDS } from "@/app/canvas/components/NodePanel/kinds";
+import type { NodeKind } from "@/store/nodePanel.store";
+
+// Which node kind each Create submenu item makes.
+const DOCK_ITEM_KIND: Partial<Record<string, NodeKind>> = {
+  "generate-image": "image",
+  "generate-instruction": "instruction",
+  "generate-video": "video",
+};
 
 import "./FloatingDock.scss";
 
@@ -460,7 +468,12 @@ export default function FloatingDock() {
                       useKonvaSelection.getState().deselect();
                       useConnectionStore.getState().deselectConnection();
 
-                      if (item.id === "generate-image") {
+                      // Dock item -> node kind. A kind with no registered
+                      // spec (video) still no-ops rather than creating a node
+                      // the panel cannot render.
+                      const kind = DOCK_ITEM_KIND[item.id];
+                      const spec = kind ? NODE_KINDS[kind] : undefined;
+                      if (kind && spec) {
                         const { x: sx, y: sy, scale: sc } = viewport;
 
                         const existing = useNodePanel.getState().panels.length;
@@ -476,11 +489,14 @@ export default function FloatingDock() {
                           { x: sx, y: sy, scale: sc },
                           { width: window.innerWidth, height: window.innerHeight }
                         );
-                        const cx =
-                          centre.x - placeholderSize(DEFAULT_ASPECT_RATIO).w / 2 + offset;
+                        // canvasX is the node's LEFT edge but canvasY is its
+                        // vertical centre, so only x needs the half-width
+                        // shift. The width comes from the kind's own spec --
+                        // an instruction node is not sized like an image one.
+                        const cx = centre.x - spec.sizeFor(spec.defaultSettings).w / 2 + offset;
                         const cy = centre.y + offset;
 
-                        addPanel(cx, cy, "image");
+                        addPanel(cx, cy, kind);
 
                         setTool("pointer");
                       } else {

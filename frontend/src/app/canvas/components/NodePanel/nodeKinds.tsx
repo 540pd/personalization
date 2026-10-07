@@ -10,7 +10,7 @@
 
 import type { FC } from "react";
 import type { NodeKind, PanelOutput } from "@/store/nodePanel.store";
-import type { ReferenceImage } from "@/types/canvas.types";
+import type { Reference } from "@/types/canvas.types";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 
 export interface ModelOption {
@@ -28,7 +28,11 @@ export interface ImageSettings {
   grounding: boolean;
 }
 
-export type NodeSettings = ImageSettings;
+export interface InstructionSettings {
+  temperature: number;
+}
+
+export type NodeSettings = ImageSettings | InstructionSettings;
 
 export interface SettingsProps {
   value: NodeSettings;
@@ -39,7 +43,7 @@ export interface GenerateArgs {
   modelId: string;
   instruction: string;
   settings: NodeSettings;
-  references: ReferenceImage[];
+  references: Reference[];
 }
 
 export interface NodeKindSpec {

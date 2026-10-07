@@ -18,6 +18,27 @@ export interface GenerateImageResult {
 
 export type AspectRatioV2 = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
 
+// An upstream node feeding a generation. Discriminated because a text node
+// has no payload to point at -- its content IS the reference.
+export type Reference =
+  | { kind: "image"; url: string; name?: string }
+  | { kind: "text"; text: string; name?: string };
+
+export interface GenerateTextParams {
+  modelId: string;
+  instruction: string;
+  temperature?: number;
+  references?: Reference[];
+}
+
+export interface GenerateTextResult {
+  jobId: string;
+  status: string;
+  text: string;
+  modelUsed: string;
+}
+
+/** @deprecated Use Reference. */
 export interface ReferenceImage {
   url: string;
   name?: string;
@@ -33,7 +54,7 @@ export interface GenerateImageV2Params {
   grounding?: boolean;
   // Upstream nodes feeding this generation. The name is how the model is told
   // one reference from another.
-  referenceImages?: ReferenceImage[];
+  references?: Reference[];
 }
 
 export interface GenerateImageV2Result {

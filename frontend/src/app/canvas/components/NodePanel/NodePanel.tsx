@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
-import type { ReferenceImage } from "@/types/canvas.types";
+import type { Reference } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
@@ -290,19 +290,21 @@ function SinglePanel({
       // which reference it means.
       const references = connections
         .filter((c) => c.toNodeId === instance.id)
-        .map((c): ReferenceImage | null => {
+        .map((c): Reference | null => {
           if (c.fromNodeType === "konva") {
             const n = konvaNodes[c.fromNodeId];
-            return n?.imageUrl ? { url: n.imageUrl, name: n.label } : null;
+            return n?.imageUrl ? { kind: "image", url: n.imageUrl, name: n.label } : null;
           }
           const p = panels.find((pp) => pp.id === c.fromNodeId);
-          // TODO(node-03): a text output should travel as a text reference.
-          // The backend Reference type is image-only today, so an instruction
-          // node upstream currently contributes nothing rather than silently
-          // sending its text as an image URL.
-          return p?.output?.type === "image" ? { url: p.output.value, name: p.label } : null;
+          if (!p?.output) return null;
+          // A text node's content IS its reference; an image node points at a
+          // data URL. Video has no reference form yet, so it contributes
+          // nothing rather than arriving as an unusable URL.
+          if (p.output.type === "text") return { kind: "text", text: p.output.value, name: p.label };
+          if (p.output.type === "image") return { kind: "image", url: p.output.value, name: p.label };
+          return null;
         })
-        .filter((r): r is ReferenceImage => r !== null);
+        .filter((r): r is Reference => r !== null);
 
       const output = await spec.generate({
         modelId: draft.model,

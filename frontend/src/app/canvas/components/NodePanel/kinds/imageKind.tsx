@@ -181,7 +181,7 @@ export const imageKind: NodeKindSpec = {
       thinking: s.thinking !== "None",
       temperature: s.temperature,
       grounding: s.grounding,
-      referenceImages: references.length ? references : undefined,
+      references: references.length ? references : undefined,
     });
     if (!result.imageUrl) throw new Error("Generation returned no image.");
     return { type: "image", value: result.imageUrl };

@@ -9,6 +9,12 @@
   @apply h-full w-full rounded-[inherit] object-cover;
 }
 
+/* A text node is resizable, so long output scrolls inside whatever box the
+   user has dragged rather than spilling past the node edge. */
+.node-panel-text-output {
+  @apply h-full w-full overflow-y-auto rounded-[inherit] px-3 py-2.5 text-left text-[11px] leading-snug text-neutral-700 whitespace-pre-wrap;
+}
+
 .node-panel-placeholder-content {
   @apply flex select-none flex-col items-center gap-2;
 }
