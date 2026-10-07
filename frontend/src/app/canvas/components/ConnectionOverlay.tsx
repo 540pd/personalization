@@ -13,29 +13,27 @@ import { useViewport } from "@/store/viewport.store";
 import { useToolStore } from "@/store/tool.store";
 import type { PanelInstance } from "@/store/nodePanel.store";
 import type { KonvaNodeRecord } from "@/store/konvaNodes.store";
-import { COLORS, PORT_FRACTION, SNAP_RADIUS, Z_INDEX } from "@/constants/canvas.constants";
+import { COLORS, SNAP_RADIUS, Z_INDEX } from "@/constants/canvas.constants";
+import { toScreen } from "@/lib/canvas/coords";
+import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 
 // ── Port position helpers ─────────────────────────────────────────────────────
 // Convention (standard, matches ComfyUI/Blueprint): output = RIGHT edge, input = LEFT edge.
 // Konva nodes (uploaded images) are source-only: right-edge output port, no input port.
 
+// Port geometry is shared (lib/canvas/ports); these just place it on screen.
+// Keeping the conversion out of the port maths is what makes the same
+// functions usable by the occlusion tests, which work in canvas units.
 function panelOutputPt(p: PanelInstance, sx: number, sy: number, sc: number) {
-  const left = sx + p.canvasX * sc;
-  const top  = sy + p.canvasY * sc - (p.h * sc) / 2;
-  return { x: left + p.w * sc, y: top + p.h * sc * PORT_FRACTION };
+  return toScreen(outputPoint(p), { x: sx, y: sy, scale: sc });
 }
 
 function panelInputPt(p: PanelInstance, sx: number, sy: number, sc: number) {
-  const left = sx + p.canvasX * sc;
-  const top  = sy + p.canvasY * sc - (p.h * sc) / 2;
-  return { x: left, y: top + p.h * sc * PORT_FRACTION };
+  return toScreen(inputPoint(p), { x: sx, y: sy, scale: sc });
 }
 
 function konvaOutputPt(n: KonvaNodeRecord, sx: number, sy: number, sc: number) {
-  return {
-    x: sx + n.canvasX * sc + n.canvasW * sc,
-    y: sy + n.canvasY * sc + n.canvasH * sc * PORT_FRACTION,
-  };
+  return toScreen(outputPoint(n), { x: sx, y: sy, scale: sc });
 }
 
 // ── Wire path builders ────────────────────────────────────────────────────────
