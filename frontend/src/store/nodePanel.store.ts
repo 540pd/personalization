@@ -35,6 +35,9 @@ export interface PanelInstance {
   h: number;
   // Set once a generation lands. Used as a reference by downstream nodes.
   output?: PanelOutput;
+  // Id of an in-flight asynchronous generation. Persisted on the node so a
+  // page reload resumes polling instead of losing the job.
+  job?: string;
   // Display name shown above the node when selected, and the name this node is
   // referred to by when it feeds a downstream generation. Derived from the
   // instruction on first generate; renameable.
@@ -58,6 +61,8 @@ interface NodePanelState {
   clearAll:        () => void;
   setSize:         (id: string, w: number, h: number) => void;
   setOutput:       (id: string, output: PanelOutput) => void;
+  /** Record or clear an in-flight job. */
+  setJob:          (id: string, job: string | undefined) => void;
   setLabel:        (id: string, label: string) => void;
 }
 
@@ -161,7 +166,13 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
 
   setOutput: (id, output) =>
     set((s) => ({
-      panels: s.panels.map((p) => p.id === id ? { ...p, output } : p),
+      // An arriving result ends the job it came from.
+      panels: s.panels.map((p) => p.id === id ? { ...p, output, job: undefined } : p),
+    })),
+
+  setJob: (id, job) =>
+    set((s) => ({
+      panels: s.panels.map((p) => p.id === id ? { ...p, job } : p),
     })),
 
   setLabel: (id, label) =>

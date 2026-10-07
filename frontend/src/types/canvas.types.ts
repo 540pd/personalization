@@ -38,6 +38,28 @@ export interface GenerateTextResult {
   modelUsed: string;
 }
 
+export interface GenerateVideoParams {
+  modelId: string;
+  instruction: string;
+  durationSeconds?: number;
+  resolution?: string;
+  references?: Reference[];
+}
+
+/** Async generation: the POST returns a job, the result arrives by polling. */
+export interface JobAccepted {
+  jobId: string;
+  status: "pending";
+}
+
+export interface JobState {
+  jobId?: string;
+  status: "pending" | "done" | "failed";
+  videoUrl?: string;
+  modelUsed?: string;
+  message?: string;
+}
+
 /** @deprecated Use Reference. */
 export interface ReferenceImage {
   url: string;

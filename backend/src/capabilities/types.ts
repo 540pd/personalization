@@ -57,6 +57,24 @@ export interface TextCapability {
   generateText(params: TextGenerationParams): Promise<TextGenerationResult>;
 }
 
+export interface VideoGenerationParams {
+  modelId: string;
+  instruction: string;
+  userId: string;
+  durationSeconds?: number;
+  resolution?: string;
+  references?: Reference[];
+}
+
+export interface VideoGenerationResult {
+  videoUrl: string;
+  modelUsed: string;
+}
+
+export interface VideoCapability {
+  generateVideo(params: VideoGenerationParams): Promise<VideoGenerationResult>;
+}
+
 export interface ImageCapability {
   generate(params: ImageGenerationParams): Promise<ImageGenerationResult>;
   generateV2(params: ImageGenerationV2Params): Promise<ImageGenerationResult>;

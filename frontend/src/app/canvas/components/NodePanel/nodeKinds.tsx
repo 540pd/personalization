@@ -32,7 +32,12 @@ export interface InstructionSettings {
   temperature: number;
 }
 
-export type NodeSettings = ImageSettings | InstructionSettings;
+export interface VideoSettings {
+  durationSeconds: number;
+  resolution: string;
+}
+
+export type NodeSettings = ImageSettings | InstructionSettings | VideoSettings;
 
 export interface SettingsProps {
   value: NodeSettings;
@@ -44,6 +49,12 @@ export interface GenerateArgs {
   instruction: string;
   settings: NodeSettings;
   references: Reference[];
+  /**
+   * Asynchronous kinds call this as soon as the backend hands back a job id,
+   * so it is persisted before the wait begins. Without it a reload during a
+   * multi-minute generation loses the job.
+   */
+  onJobStarted?: (jobId: string) => void;
 }
 
 export interface NodeKindSpec {
@@ -73,4 +84,10 @@ export interface NodeKindSpec {
   Options?: FC<SettingsProps>;
   /** Performs the generation. Throws on failure; the form surfaces the message. */
   generate(args: GenerateArgs): Promise<PanelOutput>;
+  /**
+   * Re-attach to a job still running after a reload. Only asynchronous kinds
+   * need it; omitting it means this kind's generations cannot outlive a page
+   * load, which is true of image and instruction.
+   */
+  resume?(jobId: string): Promise<PanelOutput>;
 }

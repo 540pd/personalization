@@ -5,6 +5,7 @@
 // Instances are stored in the nodePanelStore array and rendered here.
 
 import { useState, useRef, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
 import type { Reference } from "@/types/canvas.types";
@@ -314,17 +315,57 @@ function SinglePanel({
         instruction: draft.instruction.trim(),
         settings,
         references,
+        // Persisted the moment the backend hands it back, so a reload during
+        // a multi-minute video generation resumes rather than loses it.
+        onJobStarted: (jobId) => useNodePanel.getState().setJob(instance.id, jobId),
       });
       const store = useNodePanel.getState();
       store.setOutput(instance.id, output);
       // Only seed the default — never overwrite a name the user chose.
       if (!instance.label) store.setLabel(instance.id, labelFromInstruction(draft.instruction));
     } catch (err) {
+      // Drop the job: it settled as failed, or we stopped waiting on it.
+      // Leaving it would make the node resume a dead job on every reload.
+      useNodePanel.getState().setJob(instance.id, undefined);
       setGenError(err instanceof Error ? err.message : "Generation failed. Please try again.");
     } finally {
       setBusy(false);
     }
   };
+
+  // A generation still running from before this mount -- a reload, or a
+  // remount. Only asynchronous kinds supply resume(); for the others a job id
+  // can never outlive the page, so there is nothing to pick up.
+  const resumedJob = useRef<string | null>(null);
+  useEffect(() => {
+    const jobId = instance.job;
+    if (!jobId || instance.output || !spec.resume) return;
+    if (resumedJob.current === jobId) return;
+    resumedJob.current = jobId;
+
+    let cancelled = false;
+    setBusy(true);
+    spec
+      .resume(jobId)
+      .then((output) => {
+        if (cancelled) return;
+        useNodePanel.getState().setOutput(instance.id, output);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        useNodePanel.getState().setJob(instance.id, undefined);
+        setGenError(err instanceof Error ? err.message : "Generation failed.");
+      })
+      .finally(() => {
+        // Deleting the node mid-job unmounts this; without the guard the
+        // poll would keep writing to a store entry that no longer exists.
+        if (!cancelled) setBusy(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [instance.job, instance.output, instance.id, spec]);
 
   // Seed the name as soon as there is an instruction rather than waiting for
   // a result — a node needs identifying while you are still configuring it.
@@ -473,7 +514,19 @@ function SinglePanel({
     pointerEvents: "auto",
   }}
 >
-  {instance.output ? <spec.Output value={instance.output.value} /> : <spec.EmptyState />}
+  {instance.output ? (
+    <spec.Output value={instance.output.value} />
+  ) : busy ? (
+    // Shown on the node itself, not only in the panel: a video generation
+    // runs for minutes and the panel is usually closed by then. The rest of
+    // the canvas stays interactive throughout.
+    <div className="node-panel-placeholder-content">
+      <Loader2 size={22} aria-hidden className="node-panel-loader" />
+      <span className="node-panel-placeholder-text">Generating…</span>
+    </div>
+  ) : (
+    <spec.EmptyState />
+  )}
 
   {dragging && <div className="node-panel-drag-overlay" />}
 </button>
