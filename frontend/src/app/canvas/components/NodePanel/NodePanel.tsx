@@ -132,6 +132,8 @@ function SinglePanel({
   const [hovered,     setHovered]     = useState(false);
 
   const isDragging = useRef(false);
+  /** True only between a pointerdown on THIS node and its pointerup. */
+  const pointerDownHere = useRef(false);
   const dragStart  = useRef({ px: 0, py: 0, cx: 0, cy: 0 });
   const anchorDrag = useRef<{
     idx: number; startPx: number; startPy: number;
@@ -200,11 +202,20 @@ function SinglePanel({
   const onPointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     isDragging.current = false;
+    // Records that the gesture began HERE. Without it, onPointerMove fires
+    // for any pointer that merely passes over this node with a button held
+    // -- dragging an uploaded image across it moved the node too, as if the
+    // two were glued.
+    pointerDownHere.current = true;
     dragStart.current = { px: e.clientX, py: e.clientY, cx: canvasX, cy: canvasY };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (e.buttons === 0 || isPanelOpen) return;
+    // A held button is not enough: the press has to have started on this
+    // node. Otherwise a drag belonging to something else -- an uploaded
+    // image passing over -- is read as a drag of this one, using whatever
+    // stale dragStart was left from last time.
+    if (!pointerDownHere.current || e.buttons === 0 || isPanelOpen) return;
     const dx = e.clientX - dragStart.current.px;
     const dy = e.clientY - dragStart.current.py;
     if (Math.hypot(dx, dy) > 4) {
@@ -234,6 +245,9 @@ function SinglePanel({
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
+    // Nothing to finish if the gesture never began here.
+    if (!pointerDownHere.current) return;
+    pointerDownHere.current = false;
     if (!isDragging.current) {
       if (!(e.ctrlKey || e.metaKey)) {
         // Normal click: clear other selection types.
@@ -500,6 +514,11 @@ function SinglePanel({
   onPointerDown={onPointerDown}
   onPointerMove={onPointerMove}
   onPointerUp={onPointerUp}
+  onPointerCancel={() => {
+    pointerDownHere.current = false;
+    isDragging.current = false;
+    setDragging(false);
+  }}
   onPointerEnter={() => setHovered(true)}
   onPointerLeave={() => setHovered(false)}
   className="node-panel-placeholder"

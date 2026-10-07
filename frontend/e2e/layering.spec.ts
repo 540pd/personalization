@@ -49,22 +49,25 @@ test.describe("layering between uploaded images and node panels", () => {
     await uploadImage(page, 1600, 900);
     const img = await imageBox(page);
 
-    // Drag the image squarely onto the panel.
-    await dragTo(page, { x: img.x + img.w / 2, y: img.y + img.h / 2 }, centre);
+    // Overlap the right half of the panel, leaving its left edge exposed.
+    // A full cover would make the panel genuinely unreachable -- which is
+    // correct, but then there is nothing left to press to bring it back.
+    await dragTo(page, { x: img.x + img.w / 2, y: img.y + img.h / 2 },
+                       { x: centre.x + panel.w * 0.6, y: centre.y });
     expect(await frontLayer(page)).toBe("canvas");
 
     // Now drag the panel; it should come back to the front.
     // Drag the panel from a corner the image does not cover, so the gesture
     // lands on the placeholder rather than the canvas in front of it.
     const [p2] = await panelBoxes(page);
-    await dragTo(page, { x: p2.x + 6, y: p2.y + 6 }, { x: p2.x + 6, y: p2.y + 16 });
+    await dragTo(page, { x: p2.x + 20, y: p2.y + 20 }, { x: p2.x + 20, y: p2.y + 30 });
     expect(await frontLayer(page)).toBe("dom");
 
     // And back again. Move the panel clear first: it is in front now, so a
     // press on the overlap would grab the panel, not the image -- which is
     // itself correct behaviour.
     const [p3] = await panelBoxes(page);
-    await dragTo(page, { x: p3.x + 6, y: p3.y + 6 }, { x: p3.x + 6, y: p3.y + 300 });
+    await dragTo(page, { x: p3.x + 20, y: p3.y + 20 }, { x: p3.x + 20, y: p3.y + 300 });
     const img2 = await imageBox(page);
     await dragTo(page, { x: img2.x + img2.w / 2, y: img2.y + img2.h / 2 },
                        { x: img2.x + img2.w / 2 + 20, y: img2.y + img2.h / 2 });
@@ -115,5 +118,49 @@ test.describe("layering between uploaded images and node panels", () => {
       };
     });
     expect(z.port).toBeGreaterThan(z.canvas);
+  });
+
+  // Dragging one node must not carry another along. The panel's pointermove
+  // handler used to fire for any pointer crossing it with a button held, so
+  // dragging an uploaded image past a Create Image node dragged that too --
+  // using whatever stale dragStart was left over. Measured 172px of drift.
+  test("dragging an image does not carry an unselected node with it", async ({ page }) => {
+    await openBoard(page);
+    await addPanel(page);
+    await collapsePanels(page);
+    const [p0] = await panelBoxes(page);
+    await dragTo(page, { x: p0.x + p0.w / 2, y: p0.y + p0.h / 2 },
+                       { x: p0.x + p0.w / 2 + 260, y: p0.y + p0.h / 2 });
+    const before = (await panelBoxes(page))[0];
+
+    await uploadImage(page, 1600, 900);
+    const img = await imageBox(page);
+
+    // Drag the image straight across the panel, in small steps so every
+    // intermediate pointermove lands on it.
+    await page.mouse.move(img.x + img.w / 2, img.y + img.h / 2);
+    await page.mouse.down();
+    for (let i = 1; i <= 24; i++) {
+      await page.mouse.move(img.x + img.w / 2 + i * 18, img.y + img.h / 2, { steps: 1 });
+    }
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const after = (await panelBoxes(page))[0];
+    expect(Math.round(after.x)).toBe(Math.round(before.x));
+    expect(Math.round(after.y)).toBe(Math.round(before.y));
+  });
+
+  test("dragging a node still moves that node", async ({ page }) => {
+    // The guard must not break the thing it is guarding.
+    await openBoard(page);
+    await addPanel(page);
+    await collapsePanels(page);
+    const [before] = await panelBoxes(page);
+    await dragTo(page, { x: before.x + before.w / 2, y: before.y + before.h / 2 },
+                       { x: before.x + before.w / 2 + 120, y: before.y + before.h / 2 + 40 });
+    const [after] = await panelBoxes(page);
+    expect(Math.round(after.x - before.x)).toBe(120);
+    expect(Math.round(after.y - before.y)).toBe(40);
   });
 });
