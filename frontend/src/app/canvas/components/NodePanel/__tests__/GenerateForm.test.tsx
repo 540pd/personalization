@@ -15,7 +15,7 @@ const baseSpec: NodeKindSpec = {
     { id: "model-a", label: "Model A" },
     { id: "model-b", label: "Model B" },
   ],
-  defaultSettings: { aspectRatio: "16:9", quality: "2K", thinking: "Minimal", temperature: 0.5, grounding: false },
+  defaultSettings: { aspectRatio: "16:9", quality: "1K", thinking: "Minimal", temperature: 0.5 },
   sizeFor: () => ({ w: 320, h: 180 }),
   EmptyState: () => <div>empty</div>,
   Output: ({ value }) => <div>{value}</div>,
@@ -118,5 +118,64 @@ describe("GenerateForm", () => {
     fireEvent.click(screen.getByText("Model A"));      // open the picker
     fireEvent.click(screen.getByText("Model B"));
     expect(onDraftChange).toHaveBeenCalledWith({ model: "model-b", instruction: "" });
+  });
+
+  // Options vary by model: the panel used to show the same controls for all
+  // of them, so Nano Banana Pro offered a Thinking setting it has no config
+  // for and 2.1 offered a Temperature it does not set.
+  describe("per-model capabilities", () => {
+    const Advanced = ({ supports }: SettingsProps) => (
+      <div>
+        {supports.thinking && <span>thinking-control</span>}
+        {supports.temperature && <span>temperature-control</span>}
+      </div>
+    );
+    const capSpec: NodeKindSpec = {
+      ...baseSpec,
+      Advanced,
+      models: [
+        { id: "full", label: "Full", supports: { temperature: true, thinking: true } },
+        { id: "no-think", label: "No Think", supports: { temperature: true, thinking: false } },
+        { id: "no-temp", label: "No Temp", supports: { temperature: false, thinking: true } },
+        { id: "neither", label: "Neither", supports: {} },
+      ],
+    };
+
+    const open = (model: string) => {
+      setup({ spec: capSpec, draft: { model, instruction: "x" } });
+      const adv = screen.queryByText("Advanced");
+      if (adv) fireEvent.click(adv);
+    };
+
+    it("shows both controls for a model that takes both", () => {
+      open("full");
+      expect(screen.getByText("thinking-control")).toBeInTheDocument();
+      expect(screen.getByText("temperature-control")).toBeInTheDocument();
+    });
+
+    it("hides Thinking for a model with no thinking config", () => {
+      open("no-think");
+      expect(screen.queryByText("thinking-control")).not.toBeInTheDocument();
+      expect(screen.getByText("temperature-control")).toBeInTheDocument();
+    });
+
+    it("hides Temperature for a model that does not set one", () => {
+      open("no-temp");
+      expect(screen.getByText("thinking-control")).toBeInTheDocument();
+      expect(screen.queryByText("temperature-control")).not.toBeInTheDocument();
+    });
+
+    it("hides the Advanced section entirely when nothing in it applies", () => {
+      // An empty collapsible box is worse than no box.
+      open("neither");
+      expect(screen.queryByText("Advanced")).not.toBeInTheDocument();
+    });
+
+    it("treats a model with no declared capabilities as supporting everything", () => {
+      setup({ spec: { ...baseSpec, Advanced }, draft: { model: "model-a", instruction: "x" } });
+      fireEvent.click(screen.getByText("Advanced"));
+      expect(screen.getByText("thinking-control")).toBeInTheDocument();
+      expect(screen.getByText("temperature-control")).toBeInTheDocument();
+    });
   });
 });

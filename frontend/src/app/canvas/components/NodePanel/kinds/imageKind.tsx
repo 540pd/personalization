@@ -14,82 +14,79 @@ import type { ImageSettings, NodeKindSpec, SettingsProps } from "../nodeKinds";
 // POST /api/generate/image as the `modelId` field.
 // Example:
 //   { id: "gemini-3.2-flash-image", label: "Nano Banana 3" },
+// Capabilities transcribed from docs/llm_parameter. Grounding is absent from
+// every image sample -- only the text models use google_search -- so no image
+// model offers it.
 const MODELS = [
-  { id: "gemini-3.1-flash-image",      label: "Nano Banana 2" },
-  { id: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite" },
-  { id: "gemini-3-pro-image",          label: "Nano Banana Pro" },
-  { id: "gemini-nano-banana-2.1",      label: "Nano Banana 2.1" },
+  { id: "gemini-3.1-flash-image",      label: "Nano Banana 2",
+    supports: { temperature: true,  thinking: true,  imageSize: true, aspectRatio: true } },
+  { id: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite",
+    supports: { temperature: true,  thinking: true,  imageSize: true, aspectRatio: true } },
+  // Pro sets no thinking_config.
+  { id: "gemini-3-pro-image",          label: "Nano Banana Pro",
+    supports: { temperature: true,  thinking: false, imageSize: true, aspectRatio: true } },
+  // 2.1 sets no temperature.
+  { id: "gemini-nano-banana-2.1",      label: "Nano Banana 2.1",
+    supports: { temperature: false, thinking: true,  imageSize: true, aspectRatio: true } },
 ];
 
 const ASPECT_RATIOS = ["16:9", "1:1", "9:16", "4:3", "3:4"];
 const QUALITIES     = ["1K", "2K", "4K"];
 const THINKING_OPTS = ["None", "Minimal", "Full"];
 
-function Advanced({ value, onChange }: SettingsProps) {
+function Advanced({ value, onChange, supports }: SettingsProps) {
   const s = value as ImageSettings;
   return (
     <div className="node-panel-advanced-content">
-      <div className="node-panel-advanced-row">
-        <div className="node-panel-setting">
-          <p className="node-panel-setting-label">Thinking</p>
-          <select
-            value={s.thinking}
-            onChange={(e) => onChange({ ...s, thinking: e.target.value })}
-            className="node-panel-select"
-          >
-            {THINKING_OPTS.map((t) => (
-              <option key={t}>{t}</option>
-            ))}
-          </select>
+      {supports.thinking && (
+        <div className="node-panel-advanced-row">
+          <div className="node-panel-setting">
+            <p className="node-panel-setting-label">Thinking</p>
+            <select
+              value={s.thinking}
+              onChange={(e) => onChange({ ...s, thinking: e.target.value })}
+              className="node-panel-select"
+            >
+              {THINKING_OPTS.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </div>
         </div>
+      )}
 
-        <div className="node-panel-setting node-panel-grounding">
-          <p className="node-panel-setting-label">Grounding</p>
-          <button
-            aria-label="Grounding"
-            onClick={() => onChange({ ...s, grounding: !s.grounding })}
-            className={`node-panel-toggle ${
-              s.grounding ? "node-panel-toggle-on" : "node-panel-toggle-off"
-            }`}
-          >
-            <span
-              className={`node-panel-toggle-thumb ${
-                s.grounding ? "node-panel-toggle-thumb-on" : "node-panel-toggle-thumb-off"
-              }`}
+      {supports.temperature && (
+        <div className="node-panel-temperature">
+          <div className="node-panel-temperature-header">
+            <p className="node-panel-setting-label">Temperature</p>
+            <span className="node-panel-temperature-value">{s.temperature.toFixed(1)}</span>
+          </div>
+
+          <div className="node-panel-temperature-slider">
+            <span className="node-panel-range-label">0</span>
+            <input
+              type="range"
+              aria-label="Temperature"
+              min={0}
+              max={2}
+              step={0.1}
+              value={s.temperature}
+              onChange={(e) => onChange({ ...s, temperature: Number(e.target.value) })}
+              className="node-panel-range"
             />
-          </button>
+            <span className="node-panel-range-label">2</span>
+          </div>
         </div>
-      </div>
-
-      <div className="node-panel-temperature">
-        <div className="node-panel-temperature-header">
-          <p className="node-panel-setting-label">Temperature</p>
-          <span className="node-panel-temperature-value">{s.temperature.toFixed(1)}</span>
-        </div>
-
-        <div className="node-panel-temperature-slider">
-          <span className="node-panel-range-label">0</span>
-          <input
-            type="range"
-            aria-label="Temperature"
-            min={0}
-            max={2}
-            step={0.1}
-            value={s.temperature}
-            onChange={(e) => onChange({ ...s, temperature: Number(e.target.value) })}
-            className="node-panel-range"
-          />
-          <span className="node-panel-range-label">2</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
-function Options({ value, onChange }: SettingsProps) {
+function Options({ value, onChange, supports }: SettingsProps) {
   const s = value as ImageSettings;
   return (
     <div className="node-panel-options">
+      {supports.aspectRatio && (
       <div className="node-panel-option">
         <select
           aria-label="Aspect ratio"
@@ -102,7 +99,9 @@ function Options({ value, onChange }: SettingsProps) {
           ))}
         </select>
       </div>
+      )}
 
+      {supports.imageSize && (
       <div className="node-panel-option">
         <select
           aria-label="Quality"
@@ -115,6 +114,7 @@ function Options({ value, onChange }: SettingsProps) {
           ))}
         </select>
       </div>
+      )}
     </div>
   );
 }
@@ -169,7 +169,6 @@ export const imageKind: NodeKindSpec = {
     quality: "1K",
     thinking: "Minimal",
     temperature: 0.5,
-    grounding: false,
   },
   sizeFor: (s) => placeholderSize((s as ImageSettings).aspectRatio),
   EmptyState,
@@ -188,7 +187,6 @@ export const imageKind: NodeKindSpec = {
       quality: s.quality,
       thinking: s.thinking,
       temperature: s.temperature,
-      grounding: s.grounding,
       references: references.length ? references : undefined,
     });
     if (!result.imageUrl) throw new Error("Generation returned no image.");
