@@ -76,6 +76,8 @@ function uniqueLabel(base: string, taken: string[]): string {
 }
 
 const GAP        = 12;
+// Keep the panel this far clear of the window edge when it has to flip or clamp.
+const VIEWPORT_MARGIN = 12;
 // Corner anchor positions + resize cursor. idx: 0=TL, 1=TR, 2=BL, 3=BR.
 const ANCHORS = [
   { left: 0,      top: 0,      cursor: "nw-resize" },
@@ -178,6 +180,18 @@ function SinglePanel({
     return () => document.removeEventListener("mousedown", handler);
   }, [isModelOpen]);
 
+  // The panel is placed relative to the node, so it has to know how much room
+  // is left on screen. Same pattern as Minimap.
+  const [viewW, setViewW] = useState(() =>
+    typeof window === "undefined" ? 0 : window.innerWidth
+  );
+  useEffect(() => {
+    const update = () => setViewW(window.innerWidth);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   // Sync rendered size to nodePanelStore so ConnectionOverlay can compute port positions.
   useEffect(() => {
     useNodePanel.getState().setSize(instance.id, sizeW, sizeH);
@@ -194,7 +208,18 @@ function SinglePanel({
   const screenCenterY = stageY + canvasY * scale;
   const placeholderLeft = screenLeft;
   const placeholderTop  = screenCenterY - sh / 2;
-  const panelLeft       = screenLeft + sw + GAP;
+  // Prefer the node's right, but fall back to its left when the panel would
+  // run off the viewport -- creating a node near the right edge used to push
+  // the panel hundreds of px out of view. If neither side fits (very narrow
+  // window) keep it on the right and clamp, so it stays reachable.
+  const rightLeft = screenLeft + sw + GAP;
+  const leftLeft  = screenLeft - GAP - PANEL_W;
+  const panelLeft =
+    rightLeft + PANEL_W <= viewW - VIEWPORT_MARGIN
+      ? rightLeft
+      : leftLeft >= VIEWPORT_MARGIN
+        ? leftLeft
+        : Math.max(VIEWPORT_MARGIN, viewW - PANEL_W - VIEWPORT_MARGIN);
 
   const onPointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
