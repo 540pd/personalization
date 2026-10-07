@@ -50,10 +50,14 @@ export function placeholderSize(ratio: string): { w: number; h: number } {
   return { w: Math.round(DEFAULT_NODE_MAX_EDGE * aw / ah), h: DEFAULT_NODE_MAX_EDGE };
 }
 
-// Corner radius for canvas nodes, in canvas units. Matches the Create Image
-// placeholder's Tailwind rounded-2xl (1rem = 16px); that element is scaled by
-// the viewport transform, so both shrink with zoom in step.
-export const NODE_CORNER_RADIUS = 16;
+// Corner radius for canvas nodes, in canvas units. The single source for both
+// node types: Konva reads it as cornerRadius, and the Create Image placeholder
+// sets it inline so its children can inherit. It used to be duplicated here
+// and as Tailwind rounded-2xl in NodePanel.scss, which only agreed by hand.
+// The placeholder is scaled by the viewport transform, so both shrink with
+// zoom in step. 10 rather than 16 because the node itself shrank to 320 --
+// holding the radius fixed had pushed it from 3.3% to 5% of the node's width.
+export const NODE_CORNER_RADIUS = 10;
 
 export const SELECTION = {
   // 0: the selection border sits flush on the node edge rather than floating

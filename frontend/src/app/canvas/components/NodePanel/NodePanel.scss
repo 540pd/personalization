@@ -1,11 +1,12 @@
 @reference "../../../globals.css";
 
 .node-panel-placeholder {
-  @apply relative flex flex-col items-center justify-center overflow-hidden rounded-2xl;
+  /* Radius comes from NODE_CORNER_RADIUS, set inline by SinglePanel. */
+  @apply relative flex flex-col items-center justify-center overflow-hidden;
 }
 
 .node-panel-preview {
-  @apply h-full w-full rounded-2xl object-cover;
+  @apply h-full w-full rounded-[inherit] object-cover;
 }
 
 .node-panel-placeholder-content {
@@ -21,7 +22,7 @@
 }
 
 .node-panel-drag-overlay {
-  @apply absolute inset-0 rounded-2xl bg-black/[0.04] ring-2 ring-neutral-400 ring-offset-1;
+  @apply absolute inset-0 rounded-[inherit] bg-black/[0.04] ring-2 ring-neutral-400 ring-offset-1;
 }
 
 /* Create Image panel */

@@ -19,6 +19,7 @@ import {
   DEFAULT_ASPECT_RATIO,
   INPUT_PORT_STYLE,
   MIN_NODE_SIZE,
+  NODE_CORNER_RADIUS,
   OUTPUT_PORT_HIT_STYLE,
   OUTPUT_PORT_STYLE,
   PORT_FRACTION,
@@ -464,6 +465,7 @@ function SinglePanel({
     transformOrigin: "top left",
     zIndex: Z_INDEX.nodes,
     background: COLORS.placeholder,
+    borderRadius: NODE_CORNER_RADIUS,
     // "move" only while a drag is actually in progress — at rest it would
     // claim the node is moving when it is not. Matches uploaded images, where
     // the hover outline carries the "you can move this" signal instead.
