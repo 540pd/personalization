@@ -21,15 +21,62 @@ export const Z_INDEX = {
 
 export const MIN_NODE_SIZE = 60; // canvas units
 
-// Uploaded images are fitted inside a square box of this size, in canvas
-// units. Capping only the width let a tall image through at any height — a
-// 1000x3000 upload became 480x1440, taller than the viewport.
-export const MAX_UPLOAD_SIZE = 480;
+// The longest edge of a node's default footprint, in canvas units. Shared by
+// both node types so an imported image and a generated one land at the same
+// size — a generated node used to default to 200, rendering your own output at
+// 42% the size of content you brought in. Capping only the width let a tall
+// image through at any height: a 1000x3000 upload became 480x1440.
+//
+// Matched to PANEL_W so an open Create Image panel is exactly as wide as its
+// node. That also keeps the panel on the node's preferred right-hand side on
+// any window down to ~1008px: it needs edge <= viewportWidth - 688.
+export const DEFAULT_NODE_MAX_EDGE = 320;
 
-// Corner radius for canvas nodes, in canvas units. Matches the Create Image
-// placeholder's Tailwind rounded-2xl (1rem = 16px); that element is scaled by
-// the viewport transform, so both shrink with zoom in step.
-export const NODE_CORNER_RADIUS = 16;
+// Aspect ratios offered by the Create Image panel, and the default.
+export const ASPECT_MAP: Record<string, [number, number]> = {
+  "16:9": [16, 9], "1:1": [1, 1], "9:16": [9, 16], "4:3": [4, 3], "3:4": [3, 4],
+};
+export const DEFAULT_ASPECT_RATIO = "16:9";
+
+// A Create Image node has no natural size, so its footprint comes from the
+// chosen ratio with the long edge pinned to DEFAULT_NODE_MAX_EDGE. Lives here
+// rather than in NodePanel so nodePanel.store can seed a new node with the
+// same numbers instead of repeating them as literals.
+export function placeholderSize(ratio: string): { w: number; h: number } {
+  const [aw, ah] = ASPECT_MAP[ratio] ?? ASPECT_MAP[DEFAULT_ASPECT_RATIO];
+  if (aw >= ah) {
+    return { w: DEFAULT_NODE_MAX_EDGE, h: Math.round(DEFAULT_NODE_MAX_EDGE * ah / aw) };
+  }
+  return { w: Math.round(DEFAULT_NODE_MAX_EDGE * aw / ah), h: DEFAULT_NODE_MAX_EDGE };
+}
+
+// Corner radius for canvas nodes, in canvas units. The single source for both
+// node types: Konva reads it as cornerRadius, and the Create Image placeholder
+// sets it inline so its children can inherit. It used to be duplicated here
+// and as Tailwind rounded-2xl in NodePanel.scss, which only agreed by hand.
+// The placeholder is scaled by the viewport transform, so both shrink with
+// zoom in step. 10 rather than 16 because the node itself shrank to 320 --
+// holding the radius fixed had pushed it from 3.3% to 5% of the node's width.
+export const NODE_CORNER_RADIUS = 10;
+
+// --- Node name label -------------------------------------------------------
+// Font of the name shown above a selected node. The line box is taller than
+// the glyphs, and NodeLabel subtracts that difference so LABEL_GAP below means
+// the gap you actually see rather than the gap to an invisible box edge.
+export const LABEL_FONT_SIZE  = 12;
+export const LABEL_LINE_HEIGHT = 16;
+
+// Visible clearance between a node's top edge and the bottom of its name, in
+// screen px (chrome keeps a fixed pixel size, so this does not scale with
+// zoom). Floor is about 5: the transformer's top-left anchor reaches
+// SELECTION.anchorSize / 2 above the node edge and the label is left-aligned
+// to that same corner, so a smaller value collides with the handle.
+export const LABEL_GAP = 8;
+
+// Below this on-screen node width no useful amount of text fits, so the label
+// is dropped entirely. Keyed off rendered width rather than zoom, which covers
+// both zooming far out and a node that is simply small.
+export const LABEL_MIN_NODE_W = 100;
 
 export const SELECTION = {
   // 0: the selection border sits flush on the node edge rather than floating

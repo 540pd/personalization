@@ -14,9 +14,14 @@ import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import {
+  ASPECT_MAP,
   COLORS,
+  DEFAULT_ASPECT_RATIO,
   INPUT_PORT_STYLE,
+  LABEL_GAP,
+  LABEL_MIN_NODE_W,
   MIN_NODE_SIZE,
+  NODE_CORNER_RADIUS,
   OUTPUT_PORT_HIT_STYLE,
   OUTPUT_PORT_STYLE,
   PORT_FRACTION,
@@ -24,8 +29,9 @@ import {
   PORT_WIDTH,
   SELECTION,
   Z_INDEX,
+  placeholderSize,
 } from "@/constants/canvas.constants";
-import NodeLabel, { LABEL_GAP, LABEL_MIN_NODE_W } from "../NodeLabel";
+import NodeLabel from "../NodeLabel";
 import "./NodePanel.scss";
 
 // ── Image generation models ───────────────────────────────────────────────────
@@ -43,17 +49,6 @@ const MODELS = [
 const ASPECT_RATIOS = ["16:9", "1:1", "9:16", "4:3", "3:4"];
 const QUALITIES     = ["1K", "2K", "4K"];
 const THINKING_OPTS = ["None", "Minimal", "Full"];
-
-const ASPECT_MAP: Record<string, [number, number]> = {
-  "16:9": [16, 9], "1:1": [1, 1], "9:16": [9, 16], "4:3": [4, 3], "3:4": [3, 4],
-};
-const MAX_DIM = 200;
-
-function placeholderSize(ratio: string): { w: number; h: number } {
-  const [aw, ah] = ASPECT_MAP[ratio] ?? [16, 9];
-  if (aw >= ah) return { w: MAX_DIM, h: Math.round(MAX_DIM * ah / aw) };
-  return { w: Math.round(MAX_DIM * aw / ah), h: MAX_DIM };
-}
 
 const PANEL_W    = 320;
 // A generated node needs a name before it can be referenced by a downstream
@@ -76,6 +71,8 @@ function uniqueLabel(base: string, taken: string[]): string {
 }
 
 const GAP        = 12;
+// Keep the panel this far clear of the window edge when it has to flip or clamp.
+const VIEWPORT_MARGIN = 12;
 // Corner anchor positions + resize cursor. idx: 0=TL, 1=TR, 2=BL, 3=BR.
 const ANCHORS = [
   { left: 0,      top: 0,      cursor: "nw-resize" },
@@ -141,7 +138,7 @@ function SinglePanel({
   const [thinking,     setThinking]     = useState("Minimal");
   const [temperature,  setTemperature]  = useState(0.5);
   const [grounding,    setGrounding]    = useState(false);
-  const [aspectRatio,  setAspectRatio]  = useState("16:9");
+  const [aspectRatio,  setAspectRatio]  = useState(DEFAULT_ASPECT_RATIO);
   const [quality,      setQuality]      = useState("2K");
   const [isGenerating, setIsGenerating] = useState(false);
   const [genError,     setGenError]     = useState<string | null>(null);
@@ -178,6 +175,18 @@ function SinglePanel({
     return () => document.removeEventListener("mousedown", handler);
   }, [isModelOpen]);
 
+  // The panel is placed relative to the node, so it has to know how much room
+  // is left on screen. Same pattern as Minimap.
+  const [viewW, setViewW] = useState(() =>
+    typeof window === "undefined" ? 0 : window.innerWidth
+  );
+  useEffect(() => {
+    const update = () => setViewW(window.innerWidth);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   // Sync rendered size to nodePanelStore so ConnectionOverlay can compute port positions.
   useEffect(() => {
     useNodePanel.getState().setSize(instance.id, sizeW, sizeH);
@@ -194,7 +203,18 @@ function SinglePanel({
   const screenCenterY = stageY + canvasY * scale;
   const placeholderLeft = screenLeft;
   const placeholderTop  = screenCenterY - sh / 2;
-  const panelLeft       = screenLeft + sw + GAP;
+  // Prefer the node's right, but fall back to its left when the panel would
+  // run off the viewport -- creating a node near the right edge used to push
+  // the panel hundreds of px out of view. If neither side fits (very narrow
+  // window) keep it on the right and clamp, so it stays reachable.
+  const rightLeft = screenLeft + sw + GAP;
+  const leftLeft  = screenLeft - GAP - PANEL_W;
+  const panelLeft =
+    rightLeft + PANEL_W <= viewW - VIEWPORT_MARGIN
+      ? rightLeft
+      : leftLeft >= VIEWPORT_MARGIN
+        ? leftLeft
+        : Math.max(VIEWPORT_MARGIN, viewW - PANEL_W - VIEWPORT_MARGIN);
 
   const onPointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -447,6 +467,7 @@ function SinglePanel({
     transformOrigin: "top left",
     zIndex: Z_INDEX.nodes,
     background: COLORS.placeholder,
+    borderRadius: NODE_CORNER_RADIUS,
     // "move" only while a drag is actually in progress — at rest it would
     // claim the node is moving when it is not. Matches uploaded images, where
     // the hover outline carries the "you can move this" signal instead.

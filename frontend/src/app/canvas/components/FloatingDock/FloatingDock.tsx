@@ -13,6 +13,7 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useConnectionStore } from "@/store/connection.store";
+import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 
 import "./FloatingDock.scss";
 
@@ -465,8 +466,15 @@ export default function FloatingDock() {
 
                         const offset = existing * 24;
 
+                        // canvasX is the node's LEFT edge but canvasY is its
+                        // vertical centre, so only x needs the half-width
+                        // shift. Centring it matches uploaded images and keeps
+                        // the Create Image panel on the node's preferred right
+                        // side instead of forcing it to flip.
                         const cx =
-                          (-sx + window.innerWidth / 2) / sc + 24 + offset;
+                          (-sx + window.innerWidth / 2) / sc
+                          - placeholderSize(DEFAULT_ASPECT_RATIO).w / 2
+                          + offset;
 
                         const cy = (-sy + window.innerHeight / 2) / sc + offset;
 

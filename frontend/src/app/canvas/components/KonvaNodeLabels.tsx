@@ -6,7 +6,8 @@
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useViewport } from "@/store/viewport.store";
-import NodeLabel, { LABEL_GAP, LABEL_MIN_NODE_W } from "./NodeLabel";
+import NodeLabel from "./NodeLabel";
+import { LABEL_GAP, LABEL_MIN_NODE_W } from "@/constants/canvas.constants";
 
 export default function KonvaNodeLabels() {
   const nodes = useKonvaNodes((s) => s.nodes);

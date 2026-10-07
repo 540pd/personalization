@@ -8,7 +8,7 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
-import { COLORS, MAX_UPLOAD_SIZE, MIN_NODE_SIZE, NODE_CORNER_RADIUS, SELECTION } from "@/constants/canvas.constants";
+import { COLORS, DEFAULT_NODE_MAX_EDGE, MIN_NODE_SIZE, NODE_CORNER_RADIUS, SELECTION } from "@/constants/canvas.constants";
 
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
 const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
@@ -549,8 +549,8 @@ export default function Board() {
             // size — scaling them up would only blur them.
             const ratio = Math.min(
               1,
-              MAX_UPLOAD_SIZE / img.naturalWidth,
-              MAX_UPLOAD_SIZE / img.naturalHeight
+              DEFAULT_NODE_MAX_EDGE / img.naturalWidth,
+              DEFAULT_NODE_MAX_EDGE / img.naturalHeight
             );
             const w = img.naturalWidth  * ratio;
             const h = img.naturalHeight * ratio;
