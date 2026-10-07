@@ -9,10 +9,8 @@ import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { viewportCentre } from "@/lib/canvas/coords";
+import { canvasHistory } from "@/lib/canvas/history";
 import { COLORS, DEFAULT_NODE_MAX_EDGE, MIN_NODE_SIZE, NODE_CORNER_RADIUS, SELECTION } from "@/constants/canvas.constants";
-
-const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
-const UNDO_LIMIT = Number.isFinite(raw) && raw > 0 ? raw : 10;
 
 // "photo-2024.final.png" -> "photo-2024.final". Only the last segment is an
 // extension; names with dots in them keep them.
@@ -166,20 +164,20 @@ export default function Board() {
       layer.batchDraw();
     };
 
-    // --- Undo / redo (snapshot-based, reference-safe for Konva.Image) ---
-    const historySnaps: Snapshot[] = [];
-    let historyIdx = -1;
-
-    const saveSnapshot = () => {
-      const snap: Snapshot = (layer.find(".selectable") as Konva.Shape[]).map((n) => ({
+    // --- Undo / redo ---------------------------------------------------
+    // Registered against the one shared timeline (lib/canvas/history) rather
+    // than kept here, so a Ctrl+Z is chronological across node kinds instead
+    // of draining this stack before the panel one.
+    //
+    // Snapshots hold live node references on purpose: re-creating a
+    // Konva.Image on undo would reload its bitmap. That makes them valid only
+    // while this layer lives, which is why the cleanup below clears the
+    // timeline.
+    const captureLayer = (): Snapshot =>
+      (layer.find(".selectable") as Konva.Shape[]).map((n) => ({
         node: n,
         attrs: { ...n.getAttrs() },
       }));
-      historySnaps.splice(historyIdx + 1); // discard redo stack
-      historySnaps.push(snap);
-      if (historySnaps.length > UNDO_LIMIT) historySnaps.shift();
-      historyIdx = historySnaps.length - 1;
-    };
 
     const restoreSnapshot = (snap: Snapshot) => {
       transformer.nodes([]);
@@ -204,19 +202,15 @@ export default function Board() {
       layer.batchDraw();
     };
 
-    const undo = () => {
-      if (historyIdx <= 0) return;
-      historyIdx--;
-      restoreSnapshot(historySnaps[historyIdx]);
-    };
+    const unregisterHistory = canvasHistory.register("konva", {
+      capture: captureLayer,
+      restore: (snap) => restoreSnapshot(snap as Snapshot),
+    });
 
-    const redo = () => {
-      if (historyIdx >= historySnaps.length - 1) return;
-      historyIdx++;
-      restoreSnapshot(historySnaps[historyIdx]);
-    };
+    const saveSnapshot = () => canvasHistory.commit();
 
     // Snapshot initial state (demo node).
+    canvasHistory.clear();
     saveSnapshot();
 
     // Publish a node's geometry to konvaNodes — the single source the port
@@ -427,12 +421,15 @@ export default function Board() {
     window.addEventListener("keyup", handleSpaceUp);
 
     // Ctrl/Cmd + Z → undo; Ctrl/Cmd + Y or Ctrl/Cmd + Shift + Z → redo.
+    // The only undo/redo listener in the app. NodePanel used to run a second
+    // one in capture phase and stopImmediatePropagation its way to priority;
+    // with a single timeline there is nothing to arbitrate.
     const handleUndoRedo = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const mod = e.ctrlKey || e.metaKey;
       if (!mod) return;
-      if (e.code === "KeyZ" && !e.shiftKey) { e.preventDefault(); undo(); }
-      if (e.code === "KeyY" || (e.code === "KeyZ" && e.shiftKey)) { e.preventDefault(); redo(); }
+      if (e.code === "KeyZ" && !e.shiftKey) { e.preventDefault(); canvasHistory.undo(); }
+      if (e.code === "KeyY" || (e.code === "KeyZ" && e.shiftKey)) { e.preventDefault(); canvasHistory.redo(); }
     };
     window.addEventListener("keydown", handleUndoRedo);
 
@@ -644,6 +641,10 @@ export default function Board() {
       window.removeEventListener("keydown", handleEditKeys);
       window.removeEventListener("canvas:upload", handleUpload);
       observer.disconnect();
+      // Entries hold references into this layer, so they outlive their
+      // meaning once the stage is gone.
+      unregisterHistory();
+      canvasHistory.clear();
       stage.destroy();
       stageRef.current = null;
       layerRef.current = null;

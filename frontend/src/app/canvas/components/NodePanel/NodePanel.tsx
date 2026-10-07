@@ -26,6 +26,7 @@ import {
   Z_INDEX,
 } from "@/constants/canvas.constants";
 import { isCovered, portProbe, type Blocker } from "@/lib/canvas/occlusion";
+import { canvasHistory } from "@/lib/canvas/history";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen } from "@/lib/canvas/coords";
 import NodeLabel from "../NodeLabel";
@@ -233,7 +234,7 @@ function SinglePanel({
       else                        onClosePanel();
     } else {
       // Completed a real drag — save position so Ctrl+Z can undo it.
-      useNodePanel.getState().savePosSnapshot();
+      canvasHistory.commit();
     }
     isDragging.current = false;
     setDragging(false);
@@ -267,7 +268,13 @@ function SinglePanel({
     onSetCanvasPos(newCx, newCy);
   };
 
-  const onAnchorPointerUp = () => { anchorDrag.current = null; };
+  const onAnchorPointerUp = () => {
+    // Commit only if a resize actually happened; a stray pointerup would
+    // otherwise push a duplicate entry and cost an extra Ctrl+Z.
+    const resized = anchorDrag.current !== null;
+    anchorDrag.current = null;
+    if (resized) canvasHistory.commit();
+  };
 
   // The node owns reference collection and the store writes; the form owns
   // the fields and the generating/error state. Throwing here surfaces in the
@@ -498,35 +505,33 @@ export default function NodePanel() {
   const { panels, removePanel, activatePanel, openPanel, closePanel, closeAllPanels, setCanvasPos, selectPanel } = useNodePanel();
   const { x: stageX, y: stageY, scale } = useViewport();
 
+  // The panels half of the shared undo timeline. Every store setter rebuilds
+  // the objects it touches, so holding the array is a valid snapshot --
+  // nothing mutates a PanelInstance in place.
+  useEffect(() => {
+    return canvasHistory.register("panels", {
+      capture: () => useNodePanel.getState().panels,
+      restore: (snap) => useNodePanel.getState().replaceAll(snap as PanelInstance[]),
+    });
+  }, []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const store = useNodePanel.getState();
       const mod   = e.ctrlKey || e.metaKey;
 
-      // Undo / redo placeholder positions — runs in capture phase, before Board.tsx.
-      // Only intercept when a placeholder is selected and has position history to act on.
-      if (mod && !e.altKey) {
-        const isUndo = e.code === "KeyZ" && !e.shiftKey;
-        const isRedo = e.code === "KeyY" || (e.code === "KeyZ" && e.shiftKey);
-        if (isUndo || isRedo) {
-          const canUndo = store.posHistoryIdx > 0;
-          const canRedo = store.posHistoryIdx < store.posHistory.length - 1;
-          if ((isUndo && canUndo) || (isRedo && canRedo)) {
-            e.preventDefault();
-            e.stopImmediatePropagation(); // prevent Board.tsx Konva undo from also firing
-            if (isUndo) store.undoPos();
-            else        store.redoPos();
-          }
-          return;
-        }
-      }
+      // No undo/redo here. There is one timeline and Board owns the only
+      // listener; this used to run in capture phase and
+      // stopImmediatePropagation its way to priority, which is what made
+      // Ctrl+Z non-chronological across node kinds.
 
       // Delete / Backspace — remove selected placeholder.
       if ((e.code === "Delete" || e.code === "Backspace") && store.selectedId) {
         e.preventDefault();
         removePanel(store.selectedId);
         selectPanel(null);
+        canvasHistory.commit();
         return;
       }
       // Escape — collapse all panels, keep placeholders.

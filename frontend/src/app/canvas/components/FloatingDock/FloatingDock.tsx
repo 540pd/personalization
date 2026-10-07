@@ -14,6 +14,7 @@ import { useViewport } from "@/store/viewport.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { viewportCentre } from "@/lib/canvas/coords";
+import { canvasHistory } from "@/lib/canvas/history";
 import { NODE_KINDS } from "@/app/canvas/components/NodePanel/kinds";
 import type { NodeKind } from "@/store/nodePanel.store";
 
@@ -497,6 +498,9 @@ export default function FloatingDock() {
                         const cy = centre.y + offset;
 
                         addPanel(cx, cy, kind);
+                        // Creating a node is an edit, so it belongs on the
+                        // timeline. It was not undoable before the merge.
+                        canvasHistory.commit();
 
                         setTool("pointer");
                       } else {
