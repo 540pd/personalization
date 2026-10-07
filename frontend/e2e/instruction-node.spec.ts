@@ -23,7 +23,7 @@ async function stubGenerate(page: Page) {
       contentType: "application/json",
       body: JSON.stringify(
         isText
-          ? { jobId: "j", status: "done", text: "a quiet harbour at dusk", modelUsed: "gemini-3-flash" }
+          ? { jobId: "j", status: "done", text: "a quiet harbour at dusk", modelUsed: "gemini-3.8-flash" }
           : { jobId: "j", status: "done", imageUrl: FAKE_IMAGE, modelUsed: "gemini-3.1-flash-image" }
       ),
     });
@@ -87,7 +87,8 @@ test.describe("node > instruction", () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0].path).toMatch(/\/generate\/text$/);
-    expect(calls[0].body.modelId).toBe("gemini-3-flash");
+    // Id from docs/llm_parameter/, not the invented one this originally asserted.
+    expect(calls[0].body.modelId).toBe("gemini-3.8-flash");
   });
 
   // The shared machinery must work with no instruction-specific code.

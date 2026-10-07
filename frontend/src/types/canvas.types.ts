@@ -70,8 +70,8 @@ export interface GenerateImageV2Params {
   modelId: string;
   instruction: string;
   aspectRatio: AspectRatioV2;
-  quality?: "standard" | "hd";
-  thinking?: boolean;
+  quality?: string;
+  thinking?: string;
   temperature?: number;
   grounding?: boolean;
   // Upstream nodes feeding this generation. The name is how the model is told
