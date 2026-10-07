@@ -26,7 +26,11 @@ export const MIN_NODE_SIZE = 60; // canvas units
 // size — a generated node used to default to 200, rendering your own output at
 // 42% the size of content you brought in. Capping only the width let a tall
 // image through at any height: a 1000x3000 upload became 480x1440.
-export const DEFAULT_NODE_MAX_EDGE = 480;
+//
+// Matched to PANEL_W so an open Create Image panel is exactly as wide as its
+// node. That also keeps the panel on the node's preferred right-hand side on
+// any window down to ~1008px: it needs edge <= viewportWidth - 688.
+export const DEFAULT_NODE_MAX_EDGE = 320;
 
 // Aspect ratios offered by the Create Image panel, and the default.
 export const ASPECT_MAP: Record<string, [number, number]> = {
