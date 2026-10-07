@@ -480,7 +480,7 @@ export default function FloatingDock() {
                           centre.x - placeholderSize(DEFAULT_ASPECT_RATIO).w / 2 + offset;
                         const cy = centre.y + offset;
 
-                        addPanel(cx, cy);
+                        addPanel(cx, cy, "image");
 
                         setTool("pointer");
                       } else {

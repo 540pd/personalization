@@ -317,7 +317,11 @@ function SinglePanel({
             return n?.imageUrl ? { url: n.imageUrl, name: n.label } : null;
           }
           const p = panels.find((pp) => pp.id === c.fromNodeId);
-          return p?.preview ? { url: p.preview, name: p.label } : null;
+          // TODO(node-03): a text output should travel as a text reference.
+          // The backend Reference type is image-only today, so an instruction
+          // node upstream currently contributes nothing rather than silently
+          // sending its text as an image URL.
+          return p?.output?.type === "image" ? { url: p.output.value, name: p.label } : null;
         })
         .filter((r): r is ReferenceImage => r !== null);
 
@@ -333,7 +337,7 @@ function SinglePanel({
       });
       if (result.imageUrl) {
         const store = useNodePanel.getState();
-        store.setPreview(instance.id, result.imageUrl);
+        store.setOutput(instance.id, { type: "image", value: result.imageUrl });
         // Only seed the default — never overwrite a name the user chose.
         if (!instance.label) store.setLabel(instance.id, labelFromInstruction(instruction));
       }
@@ -477,9 +481,9 @@ function SinglePanel({
     pointerEvents: "auto",
   }}
 >
-  {instance.preview ? (
+  {instance.output?.type === "image" ? (
     <img
-      src={instance.preview}
+      src={instance.output.value}
       alt="Generated preview"
       className="node-panel-preview"
     />
