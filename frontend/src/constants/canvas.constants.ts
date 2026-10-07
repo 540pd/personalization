@@ -26,8 +26,15 @@ export const MIN_NODE_SIZE = 60; // canvas units
 // 1000x3000 upload became 480x1440, taller than the viewport.
 export const MAX_UPLOAD_SIZE = 480;
 
+// Corner radius for canvas nodes, in canvas units. Matches the Create Image
+// placeholder's Tailwind rounded-2xl (1rem = 16px); that element is scaled by
+// the viewport transform, so both shrink with zoom in step.
+export const NODE_CORNER_RADIUS = 16;
+
 export const SELECTION = {
-  padding:            4,
+  // 0: the selection border sits flush on the node edge rather than floating
+  // clear of it.
+  padding:            0,
   borderWidth:        1.5,
   anchorSize:         8,
   anchorCornerRadius: 2,

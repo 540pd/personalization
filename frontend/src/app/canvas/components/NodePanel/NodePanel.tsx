@@ -117,6 +117,7 @@ function SinglePanel({
   const [isGenerating, setIsGenerating] = useState(false);
   const [genError,     setGenError]     = useState<string | null>(null);
   const [dragging,     setDragging]     = useState(false);
+  const [hovered,      setHovered]      = useState(false);
 
   const isDragging = useRef(false);
   const dragStart  = useRef({ px: 0, py: 0, cx: 0, cy: 0 });
@@ -281,6 +282,26 @@ function SinglePanel({
   return (
     <>
       {/* ── Transformer border + corner anchors — only in active/panel-open states ── */}
+      {/* Hover outline — replaces the move cursor as the "this is interactive"
+           signal, matching uploaded images. Suppressed while active, since the
+           selection box below already draws a border. */}
+      {hovered && !isActive && (
+        <div
+          style={{
+            position: "fixed",
+            left: placeholderLeft,
+            top:  placeholderTop,
+            width:  sw,
+            height: sh,
+            border: `${SELECTION.borderWidth}px solid ${COLORS.ink}`,
+            borderRadius: 6,
+            boxSizing: "border-box",
+            pointerEvents: "none",
+            zIndex: Z_INDEX.nodes + 1,
+          }}
+        />
+      )}
+
       {isActive && (
         <div
           style={{
@@ -362,6 +383,8 @@ function SinglePanel({
   onPointerDown={onPointerDown}
   onPointerMove={onPointerMove}
   onPointerUp={onPointerUp}
+  onPointerEnter={() => setHovered(true)}
+  onPointerLeave={() => setHovered(false)}
   className="node-panel-placeholder"
   style={{
     position: "fixed",
@@ -375,14 +398,14 @@ function SinglePanel({
     transformOrigin: "top left",
     zIndex: Z_INDEX.nodes,
     background: COLORS.placeholder,
-    cursor: isPanelOpen ? "pointer" : dragging ? "grabbing" : "move",
+    // "move" only while a drag is actually in progress — at rest it would
+    // claim the node is moving when it is not. Matches uploaded images, where
+    // the hover outline carries the "you can move this" signal instead.
+    // "pointer" while the panel is open: the placeholder acts as a button
+    // there, collapsing the panel on click.
+    cursor: isPanelOpen ? "pointer" : dragging ? "move" : "default",
     pointerEvents: "auto",
   }}
-  title={
-    isPanelOpen
-      ? "Drag to move · Click to collapse"
-      : "Drag to move · Click to open panel"
-  }
 >
   {instance.preview ? (
     <img
