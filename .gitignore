@@ -8,3 +8,7 @@ coverage
 .DS_Store
 *.tsbuildinfo
 screenshots/
+
+# Playwright e2e
+test-results/
+playwright-report/
