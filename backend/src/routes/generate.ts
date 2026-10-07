@@ -1,10 +1,27 @@
 import { Router } from "express";
 import { requireIdentity } from "../middleware/requireIdentity.js";
-import type { AspectRatioV2 } from "../capabilities/types.js";
+import type { AspectRatioV2, ReferenceImage } from "../capabilities/types.js";
 import { generateImage, generateImageV2 } from "../services/generationService.js";
 import { sendValidationError } from "../common/errors.js";
 import { isNonEmptyString, isOneOf } from "../common/validation.js";
 import { createId } from "../utils/id.js";
+
+// Accepts either the current { url, name } shape or a bare data-URL string, so
+// a client that has not been redeployed still works — it just sends an unnamed
+// reference. Names are bounded and stripped of control characters: they are
+// user-supplied text that ends up inside a model prompt.
+const MAX_REFERENCE_NAME = 60;
+
+function toReferenceImage(raw: unknown): ReferenceImage | null {
+  if (typeof raw === "string") return raw ? { url: raw } : null;
+  if (typeof raw !== "object" || raw === null) return null;
+  const { url, name } = raw as { url?: unknown; name?: unknown };
+  if (typeof url !== "string" || !url) return null;
+  if (typeof name !== "string") return { url };
+  // eslint-disable-next-line no-control-regex
+  const clean = name.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, MAX_REFERENCE_NAME);
+  return clean ? { url, name: clean } : { url };
+}
 
 export const generateRouter = Router();
 
@@ -91,7 +108,7 @@ generateRouter.post("/generate/image", requireIdentity(), async (req, res, next)
       temperature: typeof temperature === "number" ? temperature : undefined,
       grounding: typeof grounding === "boolean" ? grounding : undefined,
       referenceImages: Array.isArray(referenceImages)
-        ? (referenceImages as unknown[]).filter((u): u is string => typeof u === "string")
+        ? (referenceImages as unknown[]).map(toReferenceImage).filter((r): r is ReferenceImage => r !== null)
         : undefined,
     });
 

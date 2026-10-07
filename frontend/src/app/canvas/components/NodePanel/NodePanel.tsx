@@ -9,11 +9,10 @@ import { X, ChevronDown, Check, Loader2 } from "lucide-react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
 import { generateImageV2 } from "@/api/canvas.api";
-import type { AspectRatioV2 } from "@/types/canvas.types";
+import type { AspectRatioV2, ReferenceImage } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
-import NodeLabel, { LABEL_GAP, LABEL_MIN_NODE_W } from "../NodeLabel";
 import {
   COLORS,
   INPUT_PORT_STYLE,
@@ -26,6 +25,7 @@ import {
   SELECTION,
   Z_INDEX,
 } from "@/constants/canvas.constants";
+import NodeLabel, { LABEL_GAP, LABEL_MIN_NODE_W } from "../NodeLabel";
 import "./NodePanel.scss";
 
 // ── Image generation models ───────────────────────────────────────────────────
@@ -76,7 +76,6 @@ function uniqueLabel(base: string, taken: string[]): string {
 }
 
 const GAP        = 12;
-
 // Corner anchor positions + resize cursor. idx: 0=TL, 1=TR, 2=BL, 3=BR.
 const ANCHORS = [
   { left: 0,      top: 0,      cursor: "nw-resize" },
@@ -241,13 +240,20 @@ function SinglePanel({
       const { connections } = useConnectionStore.getState();
       const { nodes: konvaNodes } = useKonvaNodes.getState();
       const { panels } = useNodePanel.getState();
+      // Carry each upstream node's name alongside its image. Without it the
+      // model receives an anonymous sequence and an instruction cannot say
+      // which reference it means.
       const referenceImages = connections
         .filter((c) => c.toNodeId === instance.id)
-        .map((c) => {
-          if (c.fromNodeType === "konva") return konvaNodes[c.fromNodeId]?.imageUrl;
-          return panels.find((p) => p.id === c.fromNodeId)?.preview;
+        .map((c): ReferenceImage | null => {
+          if (c.fromNodeType === "konva") {
+            const n = konvaNodes[c.fromNodeId];
+            return n?.imageUrl ? { url: n.imageUrl, name: n.label } : null;
+          }
+          const p = panels.find((pp) => pp.id === c.fromNodeId);
+          return p?.preview ? { url: p.preview, name: p.label } : null;
         })
-        .filter((url): url is string => typeof url === "string");
+        .filter((r): r is ReferenceImage => r !== null);
 
       const result = await generateImageV2({
         modelId: model,
@@ -260,7 +266,10 @@ function SinglePanel({
         referenceImages: referenceImages.length ? referenceImages : undefined,
       });
       if (result.imageUrl) {
-        useNodePanel.getState().setPreview(instance.id, result.imageUrl);
+        const store = useNodePanel.getState();
+        store.setPreview(instance.id, result.imageUrl);
+        // Only seed the default — never overwrite a name the user chose.
+        if (!instance.label) store.setLabel(instance.id, labelFromInstruction(instruction));
       }
     } catch (err) {
       setGenError(err instanceof Error ? err.message : "Generation failed. Please try again.");
