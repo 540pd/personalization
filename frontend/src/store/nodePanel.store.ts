@@ -7,8 +7,11 @@ export interface PanelInstance {
   // 3-state: inactive → active (transformer) → panel-open (transformer + panel)
   isActive:    boolean;
   isPanelOpen: boolean;
-  w: number;       // placeholder width in screen px (synced from SinglePanel)
-  h: number;       // placeholder height in screen px (synced from SinglePanel)
+  // Placeholder size in CANVAS units (synced from SinglePanel). Note canvasY
+  // is the vertical CENTRE of the placeholder, not its top edge — unlike
+  // KonvaNodeRecord, where canvasY is the top.
+  w: number;
+  h: number;
   preview?: string; // generated image data URL — used as reference by downstream nodes
   // Display name shown above the node when selected, and the name this node is
   // referred to by when it feeds a downstream generation. Derived from the
@@ -28,6 +31,7 @@ interface NodePanelState {
   addPanel:        (cx: number, cy: number) => void;
   removePanel:     (id: string) => void;
   activatePanel:   (id: string) => void; // inactive → active (transformer, no panel)
+  raisePanel:      (id: string) => void; // move to the top of the paint order
   openPanel:       (id: string) => void; // active → panel-open
   closePanel:      (id: string) => void; // panel-open → active
   closeAllPanels:  () => void;           // everything → inactive
@@ -96,6 +100,20 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
           : { ...p, isActive: false, isPanelOpen: false }
       ),
     })),
+
+  // Move a panel to the end of the array. Every placeholder renders at the
+  // same z-index, so array order IS paint order: last rendered wins. Called on
+  // drag rather than on click, matching Board.tsx's rule for Konva nodes --
+  // moving a node is a deliberate edit, merely clicking one should not reorder
+  // it. Position history is keyed by id, so reordering does not disturb undo.
+  raisePanel: (id) =>
+    set((s) => {
+      const i = s.panels.findIndex((p) => p.id === id);
+      if (i === -1 || i === s.panels.length - 1) return s;
+      const next = s.panels.slice();
+      next.push(next.splice(i, 1)[0]);
+      return { panels: next };
+    }),
 
   // active → panel-open: show panel alongside transformer.
   openPanel: (id) =>
