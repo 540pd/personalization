@@ -130,20 +130,19 @@ function SinglePanel({
     startW: number; startH: number; startCx: number; startCy: number;
   } | null>(null);
 
-  const [sizeW, setSizeW] = useState(() => spec.sizeFor(spec.defaultSettings).w);
-  const [sizeH, setSizeH] = useState(() => spec.sizeFor(spec.defaultSettings).h);
-
   // Reset to the kind's default footprint when a setting that drives size
-  // changes. Compared by value so an unrelated setting (temperature) does not
-  // discard a manual resize.
+  // changes. Written directly to the store so the size is captured in the next
+  // history snapshot — local state is not part of the snapshot and caused
+  // undo to restore port positions without restoring the visual node size (AC #4).
+  // Compared by value so an unrelated setting (temperature) does not discard
+  // a manual resize.
   const prevSize = useRef(spec.sizeFor(spec.defaultSettings));
   useEffect(() => {
     const next = spec.sizeFor(settings);
     if (next.w === prevSize.current.w && next.h === prevSize.current.h) return;
     prevSize.current = next;
-    setSizeW(next.w);
-    setSizeH(next.h);
-  }, [settings, spec]);
+    useNodePanel.getState().setSize(instance.id, next.w, next.h);
+  }, [instance.id, settings, spec]);
 
   // The panel is placed relative to the node, so it has to know how much room
   // is left on screen. Same pattern as Minimap.
@@ -157,15 +156,11 @@ function SinglePanel({
     return () => window.removeEventListener("resize", update);
   }, []);
 
-  // Sync rendered size to nodePanelStore so ConnectionOverlay can compute port positions.
-  useEffect(() => {
-    useNodePanel.getState().setSize(instance.id, sizeW, sizeH);
-  }, [instance.id, sizeW, sizeH]);
-
   // pw/ph are canvas units; sw/sh are their on-screen size at the current zoom.
   // Node geometry uses sw/sh; chrome (ports, anchors, panel) keeps a fixed pixel size.
-  const pw = sizeW;
-  const ph = sizeH;
+  // Size comes from the store so undo can restore it atomically with position.
+  const pw = instance.w;
+  const ph = instance.h;
   const sw = pw * scale;
   const sh = ph * scale;
 
@@ -258,8 +253,7 @@ function SinglePanel({
     // Width is the driver; height follows to preserve aspect ratio.
     const newW   = Math.round(Math.max(MIN_NODE_SIZE, isLeft ? startW - mdx : startW + mdx));
     const newH   = Math.round(newW * (startH / startW));
-    setSizeW(newW);
-    setSizeH(newH);
+    useNodePanel.getState().setSize(instance.id, newW, newH);
     // Keep the opposite corner fixed — every term here is already canvas units.
     const newCx  = isLeft ? startCx + (startW - newW) : startCx;
     const newCy  = isTop
