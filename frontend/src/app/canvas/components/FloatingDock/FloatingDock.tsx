@@ -14,6 +14,7 @@ import { useViewport } from "@/store/viewport.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
+import { viewportCentre } from "@/lib/canvas/coords";
 
 import "./FloatingDock.scss";
 
@@ -471,12 +472,13 @@ export default function FloatingDock() {
                         // shift. Centring it matches uploaded images and keeps
                         // the Create Image panel on the node's preferred right
                         // side instead of forcing it to flip.
+                        const centre = viewportCentre(
+                          { x: sx, y: sy, scale: sc },
+                          { width: window.innerWidth, height: window.innerHeight }
+                        );
                         const cx =
-                          (-sx + window.innerWidth / 2) / sc
-                          - placeholderSize(DEFAULT_ASPECT_RATIO).w / 2
-                          + offset;
-
-                        const cy = (-sy + window.innerHeight / 2) / sc + offset;
+                          centre.x - placeholderSize(DEFAULT_ASPECT_RATIO).w / 2 + offset;
+                        const cy = centre.y + offset;
 
                         addPanel(cx, cy);
 

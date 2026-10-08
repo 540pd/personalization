@@ -8,6 +8,7 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
+import { viewportCentre } from "@/lib/canvas/coords";
 import { COLORS, DEFAULT_NODE_MAX_EDGE, MIN_NODE_SIZE, NODE_CORNER_RADIUS, SELECTION } from "@/constants/canvas.constants";
 
 const raw = Number(process.env.NEXT_PUBLIC_UNDO_HISTORY_LIMIT);
@@ -535,8 +536,10 @@ export default function Board() {
       // generate-image behaviour.
       useToolStore.getState().setTool("pointer");
       const { x: sx, y: sy, scale: s } = useViewport.getState();
-      const cx = -sx / s + window.innerWidth  / (2 * s);
-      const cy = -sy / s + window.innerHeight / (2 * s);
+      const { x: cx, y: cy } = viewportCentre(
+        { x: sx, y: sy, scale: s },
+        { width: window.innerWidth, height: window.innerHeight }
+      );
 
       files.forEach((file, i) => {
         const off = i * 24;

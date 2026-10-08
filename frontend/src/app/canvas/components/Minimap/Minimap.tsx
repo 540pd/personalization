@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useViewport } from "@/store/viewport.store";
+import { stagePositionFor } from "@/lib/canvas/coords";
 import "./Minimap.scss";
 
 const WORLD_W = 4000;
@@ -127,10 +128,11 @@ export default function Minimap() {
 
       const { scale: s } = useViewport.getState();
 
-      setPosition(
-        -canvasX * s + window.innerWidth / 2,
-        -canvasY * s + window.innerHeight / 2,
-      );
+      const pos = stagePositionFor({ x: canvasX, y: canvasY }, s, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+      setPosition(pos.x, pos.y);
     },
     [setPosition],
   );
