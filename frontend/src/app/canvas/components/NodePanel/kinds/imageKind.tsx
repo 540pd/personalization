@@ -168,7 +168,8 @@ export const imageKind: NodeKindSpec = {
     aspectRatio: DEFAULT_ASPECT_RATIO,
     quality: "1K",
     thinking: "Minimal",
-    temperature: 0.5,
+    // 0 by default: the same prompt should give the same picture back.
+    temperature: 0,
   },
   sizeFor: (s) => placeholderSize((s as ImageSettings).aspectRatio),
   EmptyState,

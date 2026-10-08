@@ -93,7 +93,8 @@ export const instructionKind: NodeKindSpec = {
   models: MODELS,
   // Same principle as the other kinds: default to the lite model.
   defaultModel: "gemini-3.5-flash-lite",
-  defaultSettings: { temperature: 0.7 },
+  // 0 by default: the same instruction should give the same answer back.
+  defaultSettings: { temperature: 0 },
   // Fixed: nothing in the settings changes a text node's shape.
   sizeFor: () => TEXT_NODE_SIZE,
   EmptyState,
