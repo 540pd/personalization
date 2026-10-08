@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 
 // What a panel node generates. The dock already offers all three
@@ -68,7 +69,9 @@ interface NodePanelState {
 
 let _nextId = 1;
 
-export const useNodePanel = create<NodePanelState>((set, get) => ({
+export const useNodePanel = create<NodePanelState>()(
+  persist(
+    (set, get) => ({
   panels:         [],
   selectedId:     null,
 
@@ -179,4 +182,26 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
     set((s) => ({
       panels: s.panels.map((p) => p.id === id ? { ...p, label } : p),
     })),
-}));
+    }),
+    {
+      name: "gcos-node-panels",
+      // Only persist canvas data; UI-open flags and selectedId reset on load.
+      partialize: (s) => ({ panels: s.panels }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Reset interaction flags that shouldn't survive a reload.
+        state.panels = state.panels.map((p) => ({
+          ...p,
+          isActive: false,
+          isPanelOpen: false,
+        }));
+        // Keep _nextId ahead of all restored IDs to avoid collisions.
+        const maxNum = state.panels.reduce((max, p) => {
+          const n = Number(p.id.replace("panel-", ""));
+          return isNaN(n) ? max : Math.max(max, n);
+        }, 0);
+        if (maxNum >= _nextId) _nextId = maxNum + 1;
+      },
+    }
+  )
+);

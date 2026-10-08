@@ -302,11 +302,18 @@ function SinglePanel({
     if (resized) canvasHistory.commit();
   };
 
+  // Aborts any in-flight generate call when the node is deleted.
+  const generateAbort = useRef<AbortController | null>(null);
+  useEffect(() => () => { generateAbort.current?.abort(); }, []);
+
   // The node owns reference collection and the store writes; the form owns
   // the fields and the generating/error state. Throwing here surfaces in the
   // form's error line.
   const handleGenerate = async () => {
     if (!draft.instruction.trim() || busy) return;
+    generateAbort.current?.abort();
+    const controller = new AbortController();
+    generateAbort.current = controller;
     setBusy(true);
     setGenError(null);
     try {
@@ -343,18 +350,22 @@ function SinglePanel({
         // Persisted the moment the backend hands it back, so a reload during
         // a multi-minute video generation resumes rather than loses it.
         onJobStarted: (jobId) => useNodePanel.getState().setJob(instance.id, jobId),
+        signal: controller.signal,
       });
+      if (controller.signal.aborted) return;
       const store = useNodePanel.getState();
       store.setOutput(instance.id, output);
       // Only seed the default — never overwrite a name the user chose.
       if (!instance.label) store.setLabel(instance.id, labelFromInstruction(draft.instruction));
     } catch (err) {
+      if (controller.signal.aborted) return;
       // Drop the job: it settled as failed, or we stopped waiting on it.
       // Leaving it would make the node resume a dead job on every reload.
       useNodePanel.getState().setJob(instance.id, undefined);
       setGenError(err instanceof Error ? err.message : "Generation failed. Please try again.");
     } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) setBusy(false);
+      if (generateAbort.current === controller) generateAbort.current = null;
     }
   };
 
@@ -368,10 +379,11 @@ function SinglePanel({
     if (resumedJob.current === jobId) return;
     resumedJob.current = jobId;
 
+    const controller = new AbortController();
     let cancelled = false;
     setBusy(true);
     spec
-      .resume(jobId)
+      .resume(jobId, controller.signal)
       .then((output) => {
         if (cancelled) return;
         useNodePanel.getState().setOutput(instance.id, output);
@@ -382,13 +394,12 @@ function SinglePanel({
         setGenError(err instanceof Error ? err.message : "Generation failed.");
       })
       .finally(() => {
-        // Deleting the node mid-job unmounts this; without the guard the
-        // poll would keep writing to a store entry that no longer exists.
         if (!cancelled) setBusy(false);
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [instance.job, instance.output, instance.id, spec]);
 

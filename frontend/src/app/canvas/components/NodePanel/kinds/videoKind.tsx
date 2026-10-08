@@ -37,17 +37,12 @@ const POLL_INTERVAL_MS = 2000;
 // leaves the node spinning forever.
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
-/**
- * Polls until the job settles.
- *
- * A 404 comes back as status "failed" from the client, which is deliberate:
- * the backend's job store is in-memory, so a restart loses jobs and the node
- * must say so rather than wait indefinitely.
- */
-async function awaitJob(jobId: string): Promise<PanelOutput> {
+async function awaitJob(jobId: string, signal?: AbortSignal): Promise<PanelOutput> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
 
   for (;;) {
+    if (signal?.aborted) throw new DOMException("cancelled", "AbortError");
+
     const state = await getJob(jobId);
 
     if (state.status === "done") {
@@ -61,7 +56,14 @@ async function awaitJob(jobId: string): Promise<PanelOutput> {
       throw new Error("Video generation timed out. The job may still be running.");
     }
 
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    // Abort-aware sleep: exits immediately when the node is deleted mid-job.
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(resolve, POLL_INTERVAL_MS);
+      signal?.addEventListener("abort", () => {
+        clearTimeout(timer);
+        reject(new DOMException("cancelled", "AbortError"));
+      }, { once: true });
+    });
   }
 }
 
@@ -145,7 +147,7 @@ export const videoKind: NodeKindSpec = {
   EmptyState,
   Output,
   Advanced,
-  async generate({ modelId, instruction, settings, references, onJobStarted }) {
+  async generate({ modelId, instruction, settings, references, onJobStarted, signal }) {
     const s = settings as VideoSettings;
     const { jobId } = await startVideo({
       modelId,
@@ -156,7 +158,7 @@ export const videoKind: NodeKindSpec = {
     });
     // Persist before waiting, not after: the wait is where a reload happens.
     onJobStarted?.(jobId);
-    return awaitJob(jobId);
+    return awaitJob(jobId, signal);
   },
-  resume: awaitJob,
+  resume: (jobId, signal) => awaitJob(jobId, signal),
 };

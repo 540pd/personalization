@@ -55,6 +55,8 @@ export interface GenerateArgs {
    * multi-minute generation loses the job.
    */
   onJobStarted?: (jobId: string) => void;
+  /** Aborted when the node is deleted mid-generation. */
+  signal?: AbortSignal;
 }
 
 export interface NodeKindSpec {
@@ -95,5 +97,5 @@ export interface NodeKindSpec {
    * need it; omitting it means this kind's generations cannot outlive a page
    * load, which is true of image and instruction.
    */
-  resume?(jobId: string): Promise<PanelOutput>;
+  resume?(jobId: string, signal?: AbortSignal): Promise<PanelOutput>;
 }
