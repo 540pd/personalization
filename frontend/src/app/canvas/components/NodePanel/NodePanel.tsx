@@ -20,12 +20,14 @@ import {
   NODE_CORNER_RADIUS,
   OUTPUT_PORT_HIT_STYLE,
   OUTPUT_PORT_STYLE,
-  PORT_FRACTION,
   PORT_HIT_PAD,
   PORT_WIDTH,
   SELECTION,
   Z_INDEX,
 } from "@/constants/canvas.constants";
+import { isCovered, portProbe, type Blocker } from "@/lib/canvas/occlusion";
+import { inputPoint, outputPoint } from "@/lib/canvas/ports";
+import { toScreen } from "@/lib/canvas/coords";
 import NodeLabel from "../NodeLabel";
 import GenerateForm, { type GenerateDraft } from "./GenerateForm";
 import { kindSpec } from "./kinds";
@@ -65,30 +67,21 @@ const ANCHORS = [
 
 // ── Per-instance component ────────────────────────────────────────────────────
 
-// A port drawn over a node that covers it reads as belonging to that node, so
-// hide it -- the same rule KonvaNodePorts applies to uploaded images. Panels
-// all render at one z-index, so array order is paint order: only a panel LATER
-// in the array can cover this one. Each port is tested on its own, since a
-// neighbour overlapping the left edge should not blank the output port too.
-// Ports sit at PORT_FRACTION down the placeholder, whose canvasY is its
-// vertical CENTRE. The half-disc bulges inward, so its centre is just inside
-// the node's own edge.
+// Occlusion lives in lib/canvas/occlusion. Panels share one z-index, so array
+// order IS paint order: only panels later in the array can cover this one.
+// Each port is tested separately — a neighbour overlapping the left edge must
+// hide the input port without blanking the output.
 function portsCovered(
   p: PanelInstance,
   above: PanelInstance[],
   scale: number
 ): { input: boolean; output: boolean } {
-  const inset = PORT_WIDTH / (2 * scale);
-  const py = p.canvasY - p.h / 2 + p.h * PORT_FRACTION;
-  const hits = (px: number) =>
-    above.some(
-      (q) =>
-        px >= q.canvasX &&
-        px <= q.canvasX + q.w &&
-        py >= q.canvasY - q.h / 2 &&
-        py <= q.canvasY + q.h / 2
-    );
-  return { input: hits(p.canvasX + inset), output: hits(p.canvasX + p.w - inset) };
+  const self: Blocker = { id: p.id, box: p, layer: "dom" };
+  const blockers: Blocker[] = above.map((q) => ({ id: q.id, box: q, layer: "dom" }));
+  return {
+    input:  isCovered(portProbe(p, "input", scale), self, blockers),
+    output: isCovered(portProbe(p, "output", scale), self, blockers),
+  };
 }
 
 interface SinglePanelProps {
@@ -179,6 +172,9 @@ function SinglePanel({
   const screenCenterY = stageY + canvasY * scale;
   const placeholderLeft = screenLeft;
   const placeholderTop  = screenCenterY - sh / 2;
+  const vp = { x: stageX, y: stageY, scale };
+  const inPt  = toScreen(inputPoint(instance), vp);
+  const outPt = toScreen(outputPoint(instance), vp);
   // Prefer the node's right, but fall back to its left when the panel would
   // run off the viewport -- creating a node near the right edge used to push
   // the panel hundreds of px out of view. If neither side fits (very narrow
@@ -410,19 +406,19 @@ function SinglePanel({
       )}
 
       {/* ── Ports — visible unless another panel covers them ── */}
-      {/* Input port — left edge, PORT_FRACTION from top */}
+      {/* Input port — placed from shared geometry, same as uploaded images */}
       {!hideInputPort && (
         <div
           title="Input"
           style={{
             ...INPUT_PORT_STYLE,
-            left: placeholderLeft,
-            top:  placeholderTop + sh * PORT_FRACTION,
+            left: inPt.x,
+            top:  inPt.y,
           }}
         />
       )}
 
-      {/* Output port — right edge, PORT_FRACTION from top */}
+      {/* Output port — placed from shared geometry */}
       {!hideOutputPort && (
         <div
           title="Output"
@@ -432,8 +428,8 @@ function SinglePanel({
           }}
           style={{
             ...OUTPUT_PORT_HIT_STYLE,
-            left: placeholderLeft + sw - PORT_WIDTH - PORT_HIT_PAD,
-            top:  placeholderTop + sh * PORT_FRACTION,
+            left: outPt.x - PORT_WIDTH - PORT_HIT_PAD,
+            top:  outPt.y,
           }}
         >
           <div style={OUTPUT_PORT_STYLE} />
