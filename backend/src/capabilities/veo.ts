@@ -14,7 +14,7 @@
 // hand-rolled REST call. The model picker and the job contract are unchanged
 // by adding it later — it is one more branch in generateVideo.
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, VideoGenerationReferenceType } from "@google/genai";
 import type { VideoGenerationParams, VideoGenerationResult } from "./types.js";
 
 // The Veo sample pins a region. Video models are not served from "global",
@@ -44,16 +44,38 @@ const POLL_INTERVAL_MS = 10_000;
 // polling Vertex forever.
 const POLL_TIMEOUT_MS = 15 * 60 * 1000;
 
-/** First inline data URL in a reference, if it is one. */
-function firstReferenceImage(
+/** Decoded inline image references, in the order they were wired. */
+export function referenceImages(
   params: VideoGenerationParams
-): { imageBytes: string; mimeType: string } | undefined {
+): { imageBytes: string; mimeType: string }[] {
+  const out: { imageBytes: string; mimeType: string }[] = [];
   for (const ref of params.references ?? []) {
     if (ref.kind !== "image") continue;
     const match = ref.url.match(/^data:([^;]+);base64,(.+)$/);
-    if (match) return { mimeType: match[1], imageBytes: match[2] };
+    if (match) out.push({ mimeType: match[1], imageBytes: match[2] });
   }
-  return undefined;
+  return out;
+}
+
+/**
+ * Veo takes a single prompt string, not an interleaved parts array, so a text
+ * reference has nowhere structural to go. Compose it into the prompt instead
+ * of dropping it -- an instruction node wired into a video node used to
+ * contribute nothing at all, silently, while the canvas showed a connection.
+ *
+ * Named the same way buildContentParts names them, so the instruction can
+ * refer to a reference by the name shown on the node.
+ */
+export function composePrompt(params: VideoGenerationParams): string {
+  const lines = (params.references ?? [])
+    .map((ref, i) =>
+      ref.kind === "text" && ref.text.trim()
+        ? `Reference "${ref.name?.trim() || `Reference ${i + 1}`}": ${ref.text.trim()}`
+        : null
+    )
+    .filter((l): l is string => l !== null);
+
+  return lines.length ? `${lines.join("\n")}\n\n${params.instruction}` : params.instruction;
 }
 
 export class VeoCapability {
@@ -68,17 +90,20 @@ export class VeoCapability {
     }
 
     const ai = makeGenAI();
-    const image = firstReferenceImage(params);
+    const images = referenceImages(params);
 
     let operation = await ai.models.generateVideos({
       model: params.modelId,
-      prompt: params.instruction,
-      // Veo takes a single input image rather than an interleaved parts
-      // array, so an upstream image node contributes its first image and
-      // text references do not apply.
-      ...(image ? { image } : {}),
+      prompt: composePrompt(params),
+      // The first image seeds the generation; any others ride along as
+      // assets. Veo's top-level `image` takes exactly one, so wiring a
+      // second image node used to drop it without a word.
+      ...(images[0] ? { image: images[0] } : {}),
       config: {
         numberOfVideos: 1,
+        ...(images.length > 1
+          ? { referenceImages: images.slice(1).map((image) => ({ image, referenceType: VideoGenerationReferenceType.ASSET })) }
+          : {}),
         ...(typeof params.durationSeconds === "number"
           ? { durationSeconds: params.durationSeconds }
           : {}),

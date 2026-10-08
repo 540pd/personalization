@@ -13,9 +13,31 @@ import type { NodeKind, PanelOutput } from "@/store/nodePanel.store";
 import type { Reference } from "@/types/canvas.types";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 
+/**
+ * What a given model actually takes.
+ *
+ * Transcribed from docs/llm_parameter, which are the project's own working
+ * samples -- the panel used to show the same controls for every model, so
+ * Nano Banana Pro offered a Thinking setting it has no config for and
+ * Nano Banana 2.1 offered a Temperature it does not set.
+ *
+ * A caveat worth keeping in mind: a sample shows what that configuration
+ * *sets*, which is not quite the same as what the model *accepts*. These
+ * follow the samples because that is the only evidence we have.
+ */
+export interface ModelCapabilities {
+  temperature?: boolean;
+  thinking?: boolean;
+  grounding?: boolean;
+  imageSize?: boolean;
+  aspectRatio?: boolean;
+}
+
 export interface ModelOption {
   id: string;
   label: string;
+  /** Omitted means "everything this kind offers". */
+  supports?: ModelCapabilities;
 }
 
 // Per-kind settings. A union as further kinds land; `kind` on the owning
@@ -25,7 +47,6 @@ export interface ImageSettings {
   quality: string;
   thinking: string;
   temperature: number;
-  grounding: boolean;
 }
 
 export interface InstructionSettings {
@@ -42,6 +63,8 @@ export type NodeSettings = ImageSettings | InstructionSettings | VideoSettings;
 export interface SettingsProps {
   value: NodeSettings;
   onChange: (next: NodeSettings) => void;
+  /** Which model is selected, so controls it does not take can be hidden. */
+  supports: ModelCapabilities;
 }
 
 export interface GenerateArgs {
@@ -86,6 +109,15 @@ export interface NodeKindSpec {
   EmptyState: FC;
   /** Renders a completed output inside the node box. */
   Output: FC<{ value: string }>;
+  /**
+   * Can this kind feed another node? Terminal kinds render no output port,
+   * so there is nothing to drag a wire from.
+   *
+   * Video is terminal: it is the end of a workflow, and a generated clip has
+   * no useful reference form for the models upstream of it. Showing a port
+   * that silently contributed nothing was worse than showing none.
+   */
+  isSource?: boolean;
   /** Collapsible advanced section. Omit for a kind with no advanced settings. */
   Advanced?: FC<SettingsProps>;
   /** The always-visible row above the submit button. */

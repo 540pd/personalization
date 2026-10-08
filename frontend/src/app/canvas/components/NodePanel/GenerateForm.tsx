@@ -64,6 +64,12 @@ export default function GenerateForm({
   const canSubmit = !!instruction.trim() && !busy;
 
   const { Advanced, Options } = spec;
+  // An entry without `supports` means the kind's full set.
+  const supports = spec.models.find((m) => m.id === model)?.supports ?? {
+    temperature: true, thinking: true, grounding: true, imageSize: true, aspectRatio: true,
+  };
+  // A section with every control hidden must not render as an empty box.
+  const showAdvanced = !!Advanced && (supports.temperature || supports.thinking || supports.grounding);
 
   return (
     <div
@@ -136,7 +142,7 @@ export default function GenerateForm({
           />
         </div>
 
-        {Advanced && (
+        {showAdvanced && Advanced && (
           <div>
             <button
               onClick={() => setAdvancedOpen((v) => !v)}
@@ -149,11 +155,11 @@ export default function GenerateForm({
               />
             </button>
 
-            {advancedOpen && <Advanced value={settings} onChange={onSettingsChange} />}
+            {advancedOpen && <Advanced value={settings} onChange={onSettingsChange} supports={supports} />}
           </div>
         )}
 
-        {Options && <Options value={settings} onChange={onSettingsChange} />}
+        {Options && <Options value={settings} onChange={onSettingsChange} supports={supports} />}
 
         {error && <p className="node-panel-error">{error}</p>}
 

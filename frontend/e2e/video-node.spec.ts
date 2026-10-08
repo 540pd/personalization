@@ -203,11 +203,50 @@ test.describe("node > video", () => {
     await collapsePanels(page);
     await clickEmpty(page);
 
-    expect(await page.locator('div[title="Input"], div[title="Output"]').count()).toBe(2);
+    // One, not two: video is terminal, so it has an input and no output.
+    expect(await page.locator('div[title="Input"], div[title="Output"]').count()).toBe(1);
 
     const [node] = await panelBoxes(page);
     await dragFrom(page, node.x + node.w / 2, node.y + node.h / 2, -200);
     const [moved] = await panelBoxes(page);
     expect(Math.round(moved.x)).toBe(Math.round(node.x - 200));
+  });
+
+  // Video is the end of a workflow: it consumes references but produces
+  // nothing another model can use, so it renders no output port. Showing one
+  // that silently contributed nothing was worse than showing none.
+  test("is terminal — an input port but no output port", async ({ page }) => {
+    await stubVideo(page);
+    await openBoard(page);
+    await addVideoNode(page);
+    await collapsePanels(page);
+
+    const titles = await page.evaluate(() =>
+      [...document.querySelectorAll('div[title="Input"], div[title="Output"]')]
+        .map((d) => d.getAttribute("title")));
+    expect(titles).toEqual(["Input"]);
+  });
+
+  test("an image node beside it still has both ports", async ({ page }) => {
+    // Guards against the terminal flag leaking to every kind.
+    await stubVideo(page);
+    await openBoard(page);
+    await addVideoNode(page);
+    await collapsePanels(page);
+    const [v] = await panelBoxes(page);
+    await dragFrom(page, v.x + v.w / 2, v.y + v.h / 2, -380);
+
+    await page.locator("button").nth(1).click();
+    await page.waitForTimeout(250);
+    await page.locator("button").filter({ hasText: /^Image$/ }).first().click();
+    await page.waitForTimeout(800);
+    await collapsePanels(page);
+    await clickEmpty(page);
+
+    const titles = await page.evaluate(() =>
+      [...document.querySelectorAll('div[title="Input"], div[title="Output"]')]
+        .map((d) => d.getAttribute("title")).sort());
+    // video: Input. image: Input + Output.
+    expect(titles).toEqual(["Input", "Input", "Output"]);
   });
 });
