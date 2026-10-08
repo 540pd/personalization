@@ -17,7 +17,7 @@ test.describe("sidebar", () => {
     await expect(page.locator(".sidebar-product")).toContainText("PlaySpace");
     // The brand label was dropped; the nav starts straight at the items.
     await expect(page.locator(".sidebar-brand-label")).toHaveCount(0);
-    await expect(page.locator(".sidebar-item")).toHaveCount(3);
+    await expect(page.locator(".sidebar-item")).toHaveCount(5);
     await expect(page.locator(".sidebar-support")).toBeVisible();
   });
 

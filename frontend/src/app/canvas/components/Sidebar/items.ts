@@ -1,4 +1,4 @@
-import { Layers, Image, Sparkles, type LucideIcon } from "lucide-react";
+import { Layers, Image, Sparkles, Bot, BarChart3, type LucideIcon } from "lucide-react";
 
 /**
  * The sidebar's destinations, as data.
@@ -18,7 +18,7 @@ import { Layers, Image, Sparkles, type LucideIcon } from "lucide-react";
  * item currently only moves the highlight.
  */
 
-export type SectionId = "playspace" | "assets" | "skills";
+export type SectionId = "playspace" | "assets" | "skills" | "agents" | "usage";
 
 export interface SidebarItemSpec {
   id: SectionId;
@@ -46,6 +46,20 @@ export const SIDEBAR_ITEMS: SidebarItemSpec[] = [
     label: "Skills",
     icon: Sparkles,
     emptyState: "Your skills will appear here.",
+  },
+  {
+    id: "agents",
+    label: "Agents",
+    icon: Bot,
+    emptyState: "Your agents will appear here.",
+  },
+  // Last: the working surfaces come first, and this one reports on them
+  // rather than being somewhere you go to make something.
+  {
+    id: "usage",
+    label: "Usage",
+    icon: BarChart3,
+    emptyState: "Generation usage will appear here.",
   },
 ];
 
