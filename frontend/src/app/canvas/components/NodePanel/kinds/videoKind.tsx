@@ -142,6 +142,8 @@ export const videoKind: NodeKindSpec = {
   // slowest and most expensive kind, so the default should be a quick look.
   defaultSettings: { durationSeconds: Number(DURATIONS[0]), resolution: RESOLUTIONS[0] },
   sizeFor: () => VIDEO_NODE_SIZE,
+  // Terminal: a workflow ends at a video, so no output port.
+  isSource: false,
   EmptyState,
   Output,
   Advanced,

@@ -327,8 +327,9 @@ function SinglePanel({
           const p = panels.find((pp) => pp.id === c.fromNodeId);
           if (!p?.output) return null;
           // A text node's content IS its reference; an image node points at a
-          // data URL. Video has no reference form yet, so it contributes
-          // nothing rather than arriving as an unusable URL.
+          // data URL. Video is terminal and renders no output port, so it
+          // cannot be wired as a source -- the fallthrough keeps that true
+          // even if a stale connection outlives a change of kind.
           if (p.output.type === "text") return { kind: "text", text: p.output.value, name: p.label };
           if (p.output.type === "image") return { kind: "image", url: p.output.value, name: p.label };
           return null;
@@ -491,8 +492,9 @@ function SinglePanel({
         />
       )}
 
-      {/* Output port — placed from shared geometry */}
-      {!hideOutputPort && (
+      {/* Output port — placed from shared geometry. Absent on a terminal
+          kind, so there is nothing to start a connection from. */}
+      {spec.isSource !== false && !hideOutputPort && (
         <div
           title="Output"
           onPointerDown={(e) => {

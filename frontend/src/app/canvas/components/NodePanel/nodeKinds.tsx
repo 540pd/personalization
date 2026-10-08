@@ -107,6 +107,15 @@ export interface NodeKindSpec {
   EmptyState: FC;
   /** Renders a completed output inside the node box. */
   Output: FC<{ value: string }>;
+  /**
+   * Can this kind feed another node? Terminal kinds render no output port,
+   * so there is nothing to drag a wire from.
+   *
+   * Video is terminal: it is the end of a workflow, and a generated clip has
+   * no useful reference form for the models upstream of it. Showing a port
+   * that silently contributed nothing was worse than showing none.
+   */
+  isSource?: boolean;
   /** Collapsible advanced section. Omit for a kind with no advanced settings. */
   Advanced?: FC<SettingsProps>;
   /** The always-visible row above the submit button. */
