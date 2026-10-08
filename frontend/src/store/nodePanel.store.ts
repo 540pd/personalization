@@ -41,15 +41,9 @@ export interface PanelInstance {
   label?: string;
 }
 
-// Snapshot type for position undo/redo.
-type PosSnap = { id: string; canvasX: number; canvasY: number };
-
 interface NodePanelState {
   panels:      PanelInstance[];
   selectedId:  string | null;
-  // Position undo/redo (tracks moves only, not state transitions).
-  posHistory:      PosSnap[][];
-  posHistoryIdx:   number;
   addPanel:        (cx: number, cy: number, kind?: NodeKind) => void;
   removePanel:     (id: string) => void;
   activatePanel:   (id: string) => void; // inactive → active (transformer, no panel)
@@ -59,9 +53,8 @@ interface NodePanelState {
   closeAllPanels:  () => void;           // everything → inactive
   setCanvasPos:    (id: string, x: number, y: number) => void;
   selectPanel:     (id: string | null) => void;
-  savePosSnapshot: () => void;           // call after each completed drag
-  undoPos:         () => void;
-  redoPos:         () => void;
+  /** Replace every panel wholesale. Used by the shared undo timeline. */
+  replaceAll:      (panels: PanelInstance[]) => void;
   clearAll:        () => void;
   setSize:         (id: string, w: number, h: number) => void;
   setOutput:       (id: string, output: PanelOutput) => void;
@@ -70,25 +63,13 @@ interface NodePanelState {
 
 let _nextId = 1;
 
-function makeSnap(panels: PanelInstance[]): PosSnap[] {
-  return panels.map(({ id, canvasX, canvasY }) => ({ id, canvasX, canvasY }));
-}
-
-function applySnap(panels: PanelInstance[], snap: PosSnap[]): PanelInstance[] {
-  return panels.map((p) => {
-    const s = snap.find((e) => e.id === p.id);
-    return s ? { ...p, canvasX: s.canvasX, canvasY: s.canvasY } : p;
-  });
-}
-
 export const useNodePanel = create<NodePanelState>((set, get) => ({
   panels:         [],
   selectedId:     null,
-  posHistory:     [],
-  posHistoryIdx:  -1,
 
   // First creation: lands in panel-open state. All others go inactive.
-  // Saves an initial position snapshot so the first move can be undone.
+  // The caller commits to the shared history afterwards, so creating a node
+  // is itself undoable — it was not, before the two stacks merged.
   addPanel: (cx, cy, kind = "image") =>
     set((s) => {
       const newId = `panel-${_nextId++}`;
@@ -99,14 +80,7 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
         { id: newId, kind, canvasX: cx, canvasY: cy, isActive: true, isPanelOpen: true,
           ...placeholderSize(DEFAULT_ASPECT_RATIO) },
       ];
-      const snap = makeSnap(newPanels);
-      const history = [...s.posHistory.slice(0, s.posHistoryIdx + 1), snap];
-      return {
-        selectedId:    newId,
-        panels:        newPanels,
-        posHistory:    history,
-        posHistoryIdx: history.length - 1,
-      };
+      return { selectedId: newId, panels: newPanels };
     }),
 
   removePanel: (id) =>
@@ -174,35 +148,9 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
   selectPanel: (id) => set({ selectedId: id }),
 
   // Save current positions to the undo stack (call once per completed drag).
-  savePosSnapshot: () =>
-    set((s) => {
-      const snap = makeSnap(s.panels);
-      const history = [...s.posHistory.slice(0, s.posHistoryIdx + 1), snap];
-      const trimmed = history.length > 20 ? history.slice(-20) : history;
-      return { posHistory: trimmed, posHistoryIdx: trimmed.length - 1 };
-    }),
+  replaceAll: (panels) => set({ panels }),
 
-  undoPos: () =>
-    set((s) => {
-      if (s.posHistoryIdx <= 0) return s;
-      const newIdx = s.posHistoryIdx - 1;
-      return {
-        posHistoryIdx: newIdx,
-        panels: applySnap(s.panels, s.posHistory[newIdx]),
-      };
-    }),
-
-  redoPos: () =>
-    set((s) => {
-      if (s.posHistoryIdx >= s.posHistory.length - 1) return s;
-      const newIdx = s.posHistoryIdx + 1;
-      return {
-        posHistoryIdx: newIdx,
-        panels: applySnap(s.panels, s.posHistory[newIdx]),
-      };
-    }),
-
-  clearAll: () => set({ panels: [], selectedId: null, posHistory: [], posHistoryIdx: -1 }),
+  clearAll: () => set({ panels: [], selectedId: null }),
 
   setSize: (id, w, h) =>
     set((s) => {
