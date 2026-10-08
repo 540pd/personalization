@@ -26,9 +26,9 @@ test.describe("sidebar", () => {
     await expect(page.locator(".sidebar-item-active")).toHaveCount(1);
     await expect(page.locator(".sidebar-item-active")).toContainText("Playspace");
 
-    await page.locator(".sidebar-item", { hasText: "Production" }).click();
+    await page.locator(".sidebar-item", { hasText: "Assets" }).click();
     await expect(page.locator(".sidebar-item-active")).toHaveCount(1);
-    await expect(page.locator(".sidebar-item-active")).toContainText("Production");
+    await expect(page.locator(".sidebar-item-active")).toContainText("Assets");
   });
 
   test("collapses and reopens", async ({ page }) => {
