@@ -6,6 +6,14 @@ export interface ImageGenerationParams {
 
 export type AspectRatioV2 = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
 
+// An upstream node feeding a generation. Discriminated because a text node
+// has no payload to point at -- its content IS the reference -- while an image
+// node carries a data URL that must travel as inlineData.
+export type Reference =
+  | { kind: "image"; url: string; name?: string }
+  | { kind: "text"; text: string; name?: string };
+
+/** @deprecated Use Reference. Kept so existing image call sites still read. */
 export interface ReferenceImage {
   url: string;   // data URL
   name?: string; // display name of the source node
@@ -24,12 +32,29 @@ export interface ImageGenerationV2Params {
   // reference from another — without it, multiple references arrive as an
   // anonymous sequence and an instruction like "put the logo on the mug"
   // cannot say which image is which.
-  referenceImages?: ReferenceImage[];
+  references?: Reference[];
 }
 
 export interface ImageGenerationResult {
   imageUrl: string;
   modelUsed: string;
+}
+
+export interface TextGenerationParams {
+  modelId: string;
+  instruction: string;
+  userId: string;
+  temperature?: number;
+  references?: Reference[];
+}
+
+export interface TextGenerationResult {
+  text: string;
+  modelUsed: string;
+}
+
+export interface TextCapability {
+  generateText(params: TextGenerationParams): Promise<TextGenerationResult>;
 }
 
 export interface ImageCapability {

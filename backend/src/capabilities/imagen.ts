@@ -11,41 +11,10 @@ import type {
   ImageGenerationResult,
   ImageGenerationV2Params,
   AspectRatioV2,
-  ReferenceImage,
+  Reference,
 } from "./types.js";
+import { buildContentParts } from "./prompt.js";
 
-export interface ContentPart {
-  text?: string;
-  inlineData?: { mimeType: string; data: string };
-}
-
-/**
- * Interleaves each reference image with its own name, rather than sending the
- * images as an anonymous block followed by the prompt.
- *
- * Listing names in the prompt text ("references: sunset, logo") would make the
- * model map names to images by position, which is exactly the fragility this
- * removes. The parts array is ordered, so putting a name immediately before
- * its own image lets an instruction address them directly.
- *
- * Unnamed references fall back to a positional name. Every reference needs
- * one: naming some but not others breaks the addressing for all of them.
- */
-export function buildContentParts(
-  prompt: string,
-  references: ReferenceImage[] = []
-): ContentPart[] {
-  const parts: ContentPart[] = [];
-  references.forEach((ref, i) => {
-    const match = ref.url.match(/^data:([^;]+);base64,(.+)$/);
-    if (!match) return;
-    const name = ref.name?.trim() || `Reference ${i + 1}`;
-    parts.push({ text: `Reference "${name}":` });
-    parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
-  });
-  parts.push({ text: prompt });
-  return parts;
-}
 
 const MOCK_IMAGE_URL =
   "https://via.placeholder.com/1024x1024/1a1a1a/666666?text=Mock+Image";
@@ -107,7 +76,7 @@ export class ImagenCapability implements ImageCapability {
       config["temperature"] = params.temperature;
     }
 
-    const parts = buildContentParts(prompt, params.referenceImages);
+    const parts = buildContentParts(prompt, params.references);
 
     const response = await ai.models.generateContent({
       model: params.modelId,

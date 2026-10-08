@@ -1,8 +1,28 @@
 import { create } from "zustand";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 
+// What a panel node generates. The dock already offers all three
+// (tool.store.ts declares generate-instruction and generate-video, and both
+// sit in GENERATE_IDS), but only "image" is wired up so far.
+//
+// One discriminated record rather than one store per kind: placement, drag,
+// resize, selection, ports, connections, labels and the 3-state lifecycle are
+// identical across kinds, and duplicating them is how the same bug gets fixed
+// three times.
+export type NodeKind = "image" | "video" | "instruction";
+
+// A node's generated result. Typed rather than a bare URL string because a
+// video needs a <video> and an instruction node produces text, not a URL --
+// and because what a node contributes to a downstream generation depends on
+// which of those it is.
+export interface PanelOutput {
+  type: "image" | "video" | "text";
+  value: string;
+}
+
 export interface PanelInstance {
   id: string;
+  kind: NodeKind;
   canvasX: number;
   canvasY: number;
   // 3-state: inactive → active (transformer) → panel-open (transformer + panel)
@@ -13,7 +33,8 @@ export interface PanelInstance {
   // KonvaNodeRecord, where canvasY is the top.
   w: number;
   h: number;
-  preview?: string; // generated image data URL — used as reference by downstream nodes
+  // Set once a generation lands. Used as a reference by downstream nodes.
+  output?: PanelOutput;
   // Display name shown above the node when selected, and the name this node is
   // referred to by when it feeds a downstream generation. Derived from the
   // instruction on first generate; renameable.
@@ -29,7 +50,7 @@ interface NodePanelState {
   // Position undo/redo (tracks moves only, not state transitions).
   posHistory:      PosSnap[][];
   posHistoryIdx:   number;
-  addPanel:        (cx: number, cy: number) => void;
+  addPanel:        (cx: number, cy: number, kind?: NodeKind) => void;
   removePanel:     (id: string) => void;
   activatePanel:   (id: string) => void; // inactive → active (transformer, no panel)
   raisePanel:      (id: string) => void; // move to the top of the paint order
@@ -43,7 +64,7 @@ interface NodePanelState {
   redoPos:         () => void;
   clearAll:        () => void;
   setSize:         (id: string, w: number, h: number) => void;
-  setPreview:      (id: string, url: string) => void;
+  setOutput:       (id: string, output: PanelOutput) => void;
   setLabel:        (id: string, label: string) => void;
 }
 
@@ -68,14 +89,14 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
 
   // First creation: lands in panel-open state. All others go inactive.
   // Saves an initial position snapshot so the first move can be undone.
-  addPanel: (cx, cy) =>
+  addPanel: (cx, cy, kind = "image") =>
     set((s) => {
       const newId = `panel-${_nextId++}`;
       const newPanels = [
         ...s.panels.map((p) => ({ ...p, isActive: false, isPanelOpen: false })),
         // Seeded from the same helper SinglePanel uses, so the node does not
         // flash at one size then resize on mount.
-        { id: newId, canvasX: cx, canvasY: cy, isActive: true, isPanelOpen: true,
+        { id: newId, kind, canvasX: cx, canvasY: cy, isActive: true, isPanelOpen: true,
           ...placeholderSize(DEFAULT_ASPECT_RATIO) },
       ];
       const snap = makeSnap(newPanels);
@@ -190,9 +211,9 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
       return { panels: s.panels.map((p) => p.id === id ? { ...p, w, h } : p) };
     }),
 
-  setPreview: (id, url) =>
+  setOutput: (id, output) =>
     set((s) => ({
-      panels: s.panels.map((p) => p.id === id ? { ...p, preview: url } : p),
+      panels: s.panels.map((p) => p.id === id ? { ...p, output } : p),
     })),
 
   setLabel: (id, label) =>

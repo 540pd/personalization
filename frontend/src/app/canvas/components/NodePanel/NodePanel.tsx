@@ -5,18 +5,14 @@
 // Instances are stored in the nodePanelStore array and rendered here.
 
 import { useState, useRef, useEffect } from "react";
-import { X, ChevronDown, Check, Loader2 } from "lucide-react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
-import { generateImageV2 } from "@/api/canvas.api";
-import type { AspectRatioV2, ReferenceImage } from "@/types/canvas.types";
+import type { Reference } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import {
-  ASPECT_MAP,
   COLORS,
-  DEFAULT_ASPECT_RATIO,
   INPUT_PORT_STYLE,
   LABEL_GAP,
   LABEL_MIN_NODE_W,
@@ -29,26 +25,12 @@ import {
   PORT_WIDTH,
   SELECTION,
   Z_INDEX,
-  placeholderSize,
 } from "@/constants/canvas.constants";
 import NodeLabel from "../NodeLabel";
+import GenerateForm, { type GenerateDraft } from "./GenerateForm";
+import { kindSpec } from "./kinds";
+import type { NodeSettings } from "./nodeKinds";
 import "./NodePanel.scss";
-
-// ── Image generation models ───────────────────────────────────────────────────
-// To add a new model: append an entry with the Vertex AI model ID as `id` and
-// the display name as `label`. The `id` value is sent verbatim to the backend
-// POST /api/generate/image as the `modelId` field.
-// Example:
-//   { id: "gemini-3.2-flash-image", label: "Nano Banana 3" },
-const MODELS = [
-  { id: "gemini-3.1-flash-image",      label: "Nano Banana 2" },
-  { id: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite" },
-  { id: "gemini-3-pro-image",          label: "Nano Banana Pro" },
-];
-
-const ASPECT_RATIOS = ["16:9", "1:1", "9:16", "4:3", "3:4"];
-const QUALITIES     = ["1K", "2K", "4K"];
-const THINKING_OPTS = ["None", "Minimal", "Full"];
 
 const PANEL_W    = 320;
 // A generated node needs a name before it can be referenced by a downstream
@@ -130,20 +112,22 @@ function SinglePanel({
 }: SinglePanelProps) {
   const { canvasX, canvasY, isActive, isPanelOpen } = instance;
 
-  const [model,        setModel]        = useState(MODELS[0].id);
-  const [isModelOpen,  setIsModelOpen]  = useState(false);
-  const modelPickerRef = useRef<HTMLDivElement>(null);
-  const [instruction,  setInstruction]  = useState("");
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [thinking,     setThinking]     = useState("Minimal");
-  const [temperature,  setTemperature]  = useState(0.5);
-  const [grounding,    setGrounding]    = useState(false);
-  const [aspectRatio,  setAspectRatio]  = useState(DEFAULT_ASPECT_RATIO);
-  const [quality,      setQuality]      = useState("2K");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [genError,     setGenError]     = useState<string | null>(null);
-  const [dragging,     setDragging]     = useState(false);
-  const [hovered,      setHovered]      = useState(false);
+  // The kind's spec is the only thing that differs between node types.
+  const spec = kindSpec(instance.kind);
+  // Settings live here rather than in the form: they decide the node's
+  // footprint via spec.sizeFor, which is a parent concern.
+  const [settings, setSettings] = useState<NodeSettings>(spec.defaultSettings);
+  // Draft and in-flight state live here, not in GenerateForm: the form
+  // unmounts whenever the panel collapses, and a half-written prompt must
+  // survive that.
+  const [draft, setDraft] = useState<GenerateDraft>({
+    model: spec.models[0]?.id ?? "",
+    instruction: "",
+  });
+  const [busy, setBusy] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [dragging,    setDragging]    = useState(false);
+  const [hovered,     setHovered]     = useState(false);
 
   const isDragging = useRef(false);
   const dragStart  = useRef({ px: 0, py: 0, cx: 0, cy: 0 });
@@ -152,28 +136,20 @@ function SinglePanel({
     startW: number; startH: number; startCx: number; startCy: number;
   } | null>(null);
 
-  const [sizeW, setSizeW] = useState(() => placeholderSize(aspectRatio).w);
-  const [sizeH, setSizeH] = useState(() => placeholderSize(aspectRatio).h);
+  const [sizeW, setSizeW] = useState(() => spec.sizeFor(spec.defaultSettings).w);
+  const [sizeH, setSizeH] = useState(() => spec.sizeFor(spec.defaultSettings).h);
 
-  // Reset to default dimensions when aspect ratio changes from the dropdown.
-  const prevAR = useRef(aspectRatio);
+  // Reset to the kind's default footprint when a setting that drives size
+  // changes. Compared by value so an unrelated setting (temperature) does not
+  // discard a manual resize.
+  const prevSize = useRef(spec.sizeFor(spec.defaultSettings));
   useEffect(() => {
-    if (prevAR.current === aspectRatio) return;
-    prevAR.current = aspectRatio;
-    const { w, h } = placeholderSize(aspectRatio);
-    setSizeW(w);
-    setSizeH(h);
-  }, [aspectRatio]);
-
-  // Close model picker on outside click.
-  useEffect(() => {
-    if (!isModelOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (!modelPickerRef.current?.contains(e.target as Node)) setIsModelOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [isModelOpen]);
+    const next = spec.sizeFor(settings);
+    if (next.w === prevSize.current.w && next.h === prevSize.current.h) return;
+    prevSize.current = next;
+    setSizeW(next.w);
+    setSizeH(next.h);
+  }, [settings, spec]);
 
   // The panel is placed relative to the node, so it has to know how much room
   // is left on screen. Same pattern as Minimap.
@@ -297,9 +273,12 @@ function SinglePanel({
 
   const onAnchorPointerUp = () => { anchorDrag.current = null; };
 
-  const handleCreate = async () => {
-    if (!instruction.trim() || isGenerating) return;
-    setIsGenerating(true);
+  // The node owns reference collection and the store writes; the form owns
+  // the fields and the generating/error state. Throwing here surfaces in the
+  // form's error line.
+  const handleGenerate = async () => {
+    if (!draft.instruction.trim() || busy) return;
+    setBusy(true);
     setGenError(null);
     try {
       // Collect reference images from all nodes connected to this node's input port.
@@ -309,39 +288,53 @@ function SinglePanel({
       // Carry each upstream node's name alongside its image. Without it the
       // model receives an anonymous sequence and an instruction cannot say
       // which reference it means.
-      const referenceImages = connections
+      const references = connections
         .filter((c) => c.toNodeId === instance.id)
-        .map((c): ReferenceImage | null => {
+        .map((c): Reference | null => {
           if (c.fromNodeType === "konva") {
             const n = konvaNodes[c.fromNodeId];
-            return n?.imageUrl ? { url: n.imageUrl, name: n.label } : null;
+            return n?.imageUrl ? { kind: "image", url: n.imageUrl, name: n.label } : null;
           }
           const p = panels.find((pp) => pp.id === c.fromNodeId);
-          return p?.preview ? { url: p.preview, name: p.label } : null;
+          if (!p?.output) return null;
+          // A text node's content IS its reference; an image node points at a
+          // data URL. Video has no reference form yet, so it contributes
+          // nothing rather than arriving as an unusable URL.
+          if (p.output.type === "text") return { kind: "text", text: p.output.value, name: p.label };
+          if (p.output.type === "image") return { kind: "image", url: p.output.value, name: p.label };
+          return null;
         })
-        .filter((r): r is ReferenceImage => r !== null);
+        .filter((r): r is Reference => r !== null);
 
-      const result = await generateImageV2({
-        modelId: model,
-        instruction: instruction.trim(),
-        aspectRatio: aspectRatio as AspectRatioV2,
-        quality: quality === "4K" ? "hd" : "standard",
-        thinking: thinking !== "None",
-        temperature,
-        grounding,
-        referenceImages: referenceImages.length ? referenceImages : undefined,
+      const output = await spec.generate({
+        modelId: draft.model,
+        instruction: draft.instruction.trim(),
+        settings,
+        references,
       });
-      if (result.imageUrl) {
-        const store = useNodePanel.getState();
-        store.setPreview(instance.id, result.imageUrl);
-        // Only seed the default — never overwrite a name the user chose.
-        if (!instance.label) store.setLabel(instance.id, labelFromInstruction(instruction));
-      }
+      const store = useNodePanel.getState();
+      store.setOutput(instance.id, output);
+      // Only seed the default — never overwrite a name the user chose.
+      if (!instance.label) store.setLabel(instance.id, labelFromInstruction(draft.instruction));
     } catch (err) {
       setGenError(err instanceof Error ? err.message : "Generation failed. Please try again.");
     } finally {
-      setIsGenerating(false);
+      setBusy(false);
     }
+  };
+
+  // Seed the name as soon as there is an instruction rather than waiting for
+  // a result — a node needs identifying while you are still configuring it.
+  const handleInstructionBlur = () => {
+    const instruction = draft.instruction;
+    if (instance.label || !instruction.trim()) return;
+    const taken = useNodePanel.getState().panels
+      .map((p) => p.label)
+      .filter((l): l is string => !!l);
+    useNodePanel.getState().setLabel(
+      instance.id,
+      uniqueLabel(labelFromInstruction(instruction), taken)
+    );
   };
 
   return (
@@ -477,291 +470,27 @@ function SinglePanel({
     pointerEvents: "auto",
   }}
 >
-  {instance.preview ? (
-    <img
-      src={instance.preview}
-      alt="Generated preview"
-      className="node-panel-preview"
-    />
-  ) : (
-    <div className="node-panel-placeholder-content">
-      <svg
-        width="28"
-        height="28"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="node-panel-image-icon"      >
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <circle cx="8.5" cy="8.5" r="1.5" />
-        <path d="M21 15l-5-5L5 21" />
-      </svg>
-
-      <span className="node-panel-placeholder-text">
-        Image will
-        <br />
-        appear here
-      </span>
-    </div>
-  )}
+  {instance.output ? <spec.Output value={instance.output.value} /> : <spec.EmptyState />}
 
   {dragging && <div className="node-panel-drag-overlay" />}
 </button>
 
-      {/* ── Create Image panel ── */}
+      {/* ── Generation panel ── */}
       {isPanelOpen && (
-        <div
-  className="node-panel-create"
-  style={{
-    position: "fixed",
-    left: panelLeft,
-    top: screenCenterY,
-    transform: "translateY(-50%)",
-    zIndex: Z_INDEX.nodes,
-    border: `1px solid ${COLORS.panelBorder}`,
-    maxHeight: "calc(100vh - 2rem)",
-    pointerEvents: "auto",
-  }}
->
-  {/* Header */}
-  <div className="node-panel-header">
-    <div>
-      <h2 className="node-panel-title">Create Image</h2>
-
-      <div className="node-panel-model-wrapper" ref={modelPickerRef}>
-        <button
-          onClick={() => setIsModelOpen((v) => !v)}
-          className="node-panel-model-trigger"
-        >
-          <span>
-            {MODELS.find((m) => m.id === model)?.label ?? model}
-          </span>
-
-          <ChevronDown
-            size={12}
-            className={`node-panel-chevron ${
-              isModelOpen ? "node-panel-chevron-open" : ""
-            }`}
-          />
-        </button>
-
-        {isModelOpen && (
-          <div className="node-panel-model-dropdown">
-            {MODELS.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => {
-                  setModel(m.id);
-                  setIsModelOpen(false);
-                }}
-                className={`node-panel-model-option ${
-                  model === m.id
-                    ? "node-panel-model-option-active"
-                    : "node-panel-model-option-inactive"
-                }`}
-              >
-                <span>{m.label}</span>
-
-                {model === m.id && (
-                  <Check
-                    size={13}
-                    className="node-panel-model-check"
-                  />
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-
-    <button
-      onClick={onClosePanel}
-      className="node-panel-close-button"
-    >
-      <X size={15} />
-    </button>
-  </div>
-
-  {/* Scrollable body */}
-  <div className="node-panel-body">
-
-    <div>
-      <p className="node-panel-section-label">
-        Instruction
-      </p>
-
-      <textarea
-        value={instruction}
-        onChange={(e) => setInstruction(e.target.value)}
-        onBlur={() => {
-          // Seed the name as soon as there is an instruction rather than
-          // waiting for a result — a node needs identifying while you are
-          // still configuring it. Never overwrite a name the user chose.
-          if (instance.label || !instruction.trim()) return;
-          const taken = useNodePanel.getState().panels
-            .map((p) => p.label)
-            .filter((l): l is string => !!l);
-          useNodePanel.getState().setLabel(
-            instance.id,
-            uniqueLabel(labelFromInstruction(instruction), taken)
-          );
-        }}
-        placeholder="Describe the image..."
-        rows={3}
-        className="node-panel-instruction"
-      />
-    </div>
-
-    <div>
-      <button
-        onClick={() => setAdvancedOpen((v) => !v)}
-        className="node-panel-advanced-trigger"
-      >
-        Advanced
-
-        <ChevronDown
-          size={13}
-          className={`node-panel-chevron ${
-            advancedOpen ? "node-panel-chevron-open" : ""
-          }`}
+        <GenerateForm
+          spec={spec}
+          draft={draft}
+          onDraftChange={setDraft}
+          settings={settings}
+          onSettingsChange={setSettings}
+          busy={busy}
+          error={genError}
+          left={panelLeft}
+          top={screenCenterY}
+          onClose={onClosePanel}
+          onInstructionBlur={handleInstructionBlur}
+          onSubmit={handleGenerate}
         />
-      </button>
-
-      {advancedOpen && (
-        <div className="node-panel-advanced-content">
-          <div className="node-panel-advanced-row">
-
-            <div className="node-panel-setting">
-              <p className="node-panel-setting-label">
-                Thinking
-              </p>
-
-              <select
-                value={thinking}
-                onChange={(e) => setThinking(e.target.value)}
-                className="node-panel-select"
-              >
-                {THINKING_OPTS.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="node-panel-setting node-panel-grounding">
-              <p className="node-panel-setting-label">
-                Grounding
-              </p>
-
-              <button
-                onClick={() => setGrounding((v) => !v)}
-                className={`node-panel-toggle ${
-                  grounding
-                    ? "node-panel-toggle-on"
-                    : "node-panel-toggle-off"
-                }`}
-              >
-                <span
-                  className={`node-panel-toggle-thumb ${
-                    grounding
-                      ? "node-panel-toggle-thumb-on"
-                      : "node-panel-toggle-thumb-off"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-
-          <div className="node-panel-temperature">
-            <div className="node-panel-temperature-header">
-              <p className="node-panel-setting-label">
-                Temperature
-              </p>
-
-              <span className="node-panel-temperature-value">
-                {temperature.toFixed(1)}
-              </span>
-            </div>
-
-            <div className="node-panel-temperature-slider">
-              <span className="node-panel-range-label">0</span>
-
-              <input
-                type="range"
-                min={0}
-                max={2}
-                step={0.1}
-                value={temperature}
-                onChange={(e) =>
-                  setTemperature(Number(e.target.value))
-                }
-                className="node-panel-range"
-              />
-
-              <span className="node-panel-range-label">2</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-
-    <div className="node-panel-options">
-      <div className="node-panel-option">
-        {/* existing aspect-ratio SVG */}
-        <select
-          value={aspectRatio}
-          onChange={(e) => setAspectRatio(e.target.value)}
-          className="node-panel-option-select"
-        >
-          {ASPECT_RATIOS.map((r) => (
-            <option key={r}>{r}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="node-panel-option">
-        {/* existing quality SVG */}
-        <select
-          value={quality}
-          onChange={(e) => setQuality(e.target.value)}
-          className="node-panel-option-select"
-        >
-          {QUALITIES.map((q) => (
-            <option key={q}>{q}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-
-    {genError && (
-      <p className="node-panel-error">
-        {genError}
-      </p>
-    )}
-
-    <button
-      onClick={handleCreate}
-      disabled={!instruction.trim() || isGenerating}
-      className={`node-panel-create-button ${
-        !instruction.trim() || isGenerating
-          ? "node-panel-create-button-disabled"
-          : "node-panel-create-button-enabled"
-      }`}
-    >
-      {isGenerating && (
-        <Loader2
-          size={14}
-          className="node-panel-loader"
-        />
-      )}
-
-      {isGenerating ? "Creating…" : "Create"}
-    </button>
-  </div>
-</div>
       )}
     </>
   );

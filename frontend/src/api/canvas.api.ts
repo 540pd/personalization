@@ -1,5 +1,5 @@
 import { getIdToken, notifySessionExpired } from "@/auth/authState";
-import type { Board, GenerateImageParams, GenerateImageResult, GenerateImageV2Params, GenerateImageV2Result } from "@/types/canvas.types";
+import type { Board, GenerateImageParams, GenerateImageResult, GenerateImageV2Params, GenerateImageV2Result, GenerateTextParams, GenerateTextResult } from "@/types/canvas.types";
 
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = getIdToken();
@@ -52,4 +52,16 @@ export async function generateImageV2(params: GenerateImageV2Params): Promise<Ge
     throw new Error(body?.message ?? `Generation failed (${res.status})`);
   }
   return res.json() as Promise<GenerateImageV2Result>;
+}
+
+export async function generateText(params: GenerateTextParams): Promise<GenerateTextResult> {
+  const res = await apiFetch("generate/text", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { message?: string };
+    throw new Error(body?.message ?? `Generation failed (${res.status})`);
+  }
+  return res.json() as Promise<GenerateTextResult>;
 }
