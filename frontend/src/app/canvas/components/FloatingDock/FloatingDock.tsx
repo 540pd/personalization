@@ -447,7 +447,7 @@ export default function FloatingDock() {
               <IconGenerate />
             </button>
 
-            {!isGenerateMenuOpen && <Tooltip label="Node" />}
+            {!isGenerateMenuOpen && <Tooltip label="Create" />}
 
             {isGenerateMenuOpen && (
               <div
