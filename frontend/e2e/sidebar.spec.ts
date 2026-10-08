@@ -21,14 +21,40 @@ test.describe("sidebar", () => {
     await expect(page.locator(".sidebar-support")).toBeVisible();
   });
 
-  test("marks exactly one destination active, and moves it on click", async ({ page }) => {
+  test("marks exactly one destination active", async ({ page }) => {
     await openBoard(page);
     await expect(page.locator(".sidebar-item-active")).toHaveCount(1);
     await expect(page.locator(".sidebar-item-active")).toContainText("Playspace");
+  });
 
-    await page.locator(".sidebar-item", { hasText: "Assets" }).click();
-    await expect(page.locator(".sidebar-item-active")).toHaveCount(1);
-    await expect(page.locator(".sidebar-item-active")).toContainText("Assets");
+  test("only Playspace is clickable; the rest are placeholders", async ({ page }) => {
+    await openBoard(page);
+    await expect(page.locator(".sidebar-item", { hasText: "Playspace" })).toBeEnabled();
+
+    for (const label of ["Assets", "Skills", "Agents", "Usage"]) {
+      await expect(page.locator(".sidebar-item", { hasText: label })).toBeDisabled();
+    }
+    await expect(page.locator(".sidebar-item-unavailable")).toHaveCount(4);
+  });
+
+  test("a placeholder cannot steal the active state", async ({ page }) => {
+    // force: true bypasses actionability, so this presses the element even
+    // though it is disabled -- otherwise the test passes because Playwright
+    // declined to click, not because the app refused.
+    await openBoard(page);
+    await page.locator(".sidebar-item", { hasText: "Assets" }).click({ force: true });
+    await expect(page.locator(".sidebar-item-active")).toContainText("Playspace");
+  });
+
+  test("placeholders are out of the tab order", async ({ page }) => {
+    await openBoard(page);
+    const focusable = await page.evaluate(
+      () =>
+        Array.from(document.querySelectorAll<HTMLButtonElement>(".sidebar-item")).filter(
+          (b) => !b.disabled
+        ).length
+    );
+    expect(focusable).toBe(1);
   });
 
   test("collapses and reopens", async ({ page }) => {

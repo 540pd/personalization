@@ -22,7 +22,7 @@ export default function SidebarNav({
     <nav className="sidebar-nav">
       <ul className="sidebar-nav-list">
         {SIDEBAR_ITEMS.map((spec) => (
-          <li key={spec.id}>
+          <li key={spec.id} title={spec.available ? undefined : "Coming soon"}>
             <SidebarItem
               spec={spec}
               active={spec.id === active}

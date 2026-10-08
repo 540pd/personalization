@@ -13,9 +13,6 @@ import { Layers, Image, Sparkles, Bot, BarChart3, type LucideIcon } from "lucide
  * components/panels/ already holds empty-state stubs for both, built for
  * the right-hand tabbed panel that was never mounted. Whoever makes these
  * destinations real should start from those rather than from scratch.
- *
- * `emptyState` is declared but not yet rendered anywhere -- selecting an
- * item currently only moves the highlight.
  */
 
 export type SectionId = "playspace" | "assets" | "skills" | "agents" | "usage";
@@ -24,8 +21,12 @@ export interface SidebarItemSpec {
   id: SectionId;
   label: string;
   icon: LucideIcon;
-  /** Shown in place of the section when it has nothing to display yet. */
-  emptyState: string;
+  /**
+   * False for a destination that exists as a placeholder only. Rendered
+   * disabled rather than hidden: the rail is a map of what this product
+   * will be, and hiding them would make it look smaller than it is.
+   */
+  available: boolean;
 }
 
 export const SIDEBAR_ITEMS: SidebarItemSpec[] = [
@@ -33,25 +34,25 @@ export const SIDEBAR_ITEMS: SidebarItemSpec[] = [
     id: "playspace",
     label: "Playspace",
     icon: Layers,
-    emptyState: "The canvas.",
+    available: true,
   },
   {
     id: "assets",
     label: "Assets",
     icon: Image,
-    emptyState: "Your assets will appear here.",
+    available: false,
   },
   {
     id: "skills",
     label: "Skills",
     icon: Sparkles,
-    emptyState: "Your skills will appear here.",
+    available: false,
   },
   {
     id: "agents",
     label: "Agents",
     icon: Bot,
-    emptyState: "Your agents will appear here.",
+    available: false,
   },
   // Last: the working surfaces come first, and this one reports on them
   // rather than being somewhere you go to make something.
@@ -59,7 +60,7 @@ export const SIDEBAR_ITEMS: SidebarItemSpec[] = [
     id: "usage",
     label: "Usage",
     icon: BarChart3,
-    emptyState: "Generation usage will appear here.",
+    available: false,
   },
 ];
 

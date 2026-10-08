@@ -65,6 +65,14 @@
   @apply hover:bg-neutral-100 hover:text-neutral-900;
 }
 
+// Placeholders. Dimmed and inert, but still listed -- the rail is a map of
+// what this product will be, and hiding them would make it look smaller
+// than it is. No hover response, so nothing invites the click.
+.sidebar-item-unavailable {
+  @apply text-neutral-300 cursor-default;
+  @apply hover:bg-transparent hover:text-neutral-300;
+}
+
 .sidebar-item-icon {
   @apply w-4 h-4 shrink-0;
 }
