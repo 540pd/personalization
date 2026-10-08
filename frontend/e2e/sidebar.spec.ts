@@ -75,15 +75,31 @@ test.describe("sidebar", () => {
       expect(box.x).toBeGreaterThan(SIDEBAR_WIDTH);
     });
 
-    test("the dock is centred on the canvas", async ({ page }) => {
+    test("the dock does not move when the rail toggles", async ({ page }) => {
+      // Deliberately pinned to the window, unlike node placement. A tool
+      // palette that slides sideways on an unrelated action costs more in
+      // muscle memory than being exactly centred over the canvas gains.
+      await openBoard(page);
+      const dockCentre = async () => {
+        const b = await page.locator(".floating-dock-wrapper").boundingBox();
+        return b!.x + b!.width / 2;
+      };
+
+      const open = await dockCentre();
+      await page.locator(".sidebar-collapse-button").click();
+      const closed = await dockCentre();
+
+      expect(Math.abs(open - closed)).toBeLessThan(2);
+      const windowCentre = await page.evaluate(() => window.innerWidth / 2);
+      expect(Math.abs(open - windowCentre)).toBeLessThan(2);
+    });
+
+    test("the dock still clears the rail", async ({ page }) => {
+      // The cost of pinning it: it is left of the visible centre. Only a
+      // problem if it reaches the rail, which this pins.
       await openBoard(page);
       const dock = await page.locator(".floating-dock-wrapper").boundingBox();
-      const centre = dock!.x + dock!.width / 2;
-      const expected = await page.evaluate(
-        (w) => w + (window.innerWidth - w) / 2,
-        SIDEBAR_WIDTH
-      );
-      expect(Math.abs(centre - expected)).toBeLessThan(2);
+      expect(dock!.x).toBeGreaterThan(SIDEBAR_WIDTH);
     });
 
     test("the minimap is hidden while the rail is open, and returns with it", async ({ page }) => {

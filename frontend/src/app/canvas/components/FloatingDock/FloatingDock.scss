@@ -1,10 +1,12 @@
 @reference "../../../globals.css";
 
+// Pinned to the WINDOW's centre, not the canvas's. The dock is a tool
+// palette, and a palette that slides 130px sideways whenever the nav rail
+// toggles costs more in muscle memory than it gains in being perfectly
+// centred over the canvas. Deliberate trade: with the rail open the dock
+// sits left of the visible area's true middle.
 .floating-dock-wrapper {
-  // `left` is set inline from the canvas area's centre, not 50% of the
-  // window: the rail would otherwise push the dock off-centre by half its
-  // width.
-  @apply fixed bottom-6 -translate-x-1/2 z-50 pointer-events-none;
+  @apply fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none;
 }
 
 .floating-dock {
