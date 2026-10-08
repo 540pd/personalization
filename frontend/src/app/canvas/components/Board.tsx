@@ -6,15 +6,16 @@ import { useViewport } from "@/store/viewport.store";
 import { useToolStore } from "@/store/tool.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
-import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
-import { viewportCentre } from "@/lib/canvas/coords";
 import { createUploadHandler } from "../board/upload";
 import { applyDraggability } from "../board/draggability";
 import { createEditKeysHandler } from "../board/clipboard";
+import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
+import { updateSelectionChrome as applySelectionChrome } from "../board/selectionChrome";
+import { syncNodeGeometry, syncAllNodeGeometry as syncAllGeometry } from "../board/geometry";
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
-import { COLORS, DEFAULT_NODE_MAX_EDGE, Z_INDEX, MIN_NODE_SIZE, NODE_CORNER_RADIUS, SELECTION } from "@/constants/canvas.constants";
+import { COLORS, Z_INDEX, MIN_NODE_SIZE, SELECTION } from "@/constants/canvas.constants";
 
 type Snapshot = Array<{ node: Konva.Shape; attrs: Record<string, unknown> }>;
 
@@ -23,51 +24,16 @@ export default function Board() {
   const stageRef = useRef<Konva.Stage | null>(null);
   const layerRef = useRef<Konva.Layer | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
-  const hoverOutlineRef = useRef<Konva.Rect | null>(null);
+  const hoverRef = useRef<HoverOutline | null>(null);
   const isSpacePanning = useRef(false);
 
-  // A multi-selection is drawn as one outline per image rather than a single
-  // combined box, so it is obvious which images are in it. The transformer's
-  // own border and handles are suppressed while multi-selected, but its node
-  // list is left intact — it stays the source of truth for Delete / Ctrl+C
-  // and for the dragstart selection check.
+  // Bound to the refs here so the effects below can call it with no
+  // arguments; the drawing itself lives in board/selectionChrome.
   const updateSelectionChrome = useCallback(() => {
     const layer = layerRef.current;
     const transformer = transformerRef.current;
     if (!layer || !transformer) return;
-
-    const sel = transformer.nodes() as Konva.Shape[];
-    const multi = sel.length > 1;
-    transformer.borderEnabled(!multi);
-    transformer.resizeEnabled(!multi);
-
-    const pool = () => layer.find(".selection-outline") as Konva.Rect[];
-    for (let i = pool().length; i < sel.length; i++) {
-      layer.add(
-        new Konva.Rect({
-          name: "selection-outline",
-          stroke: COLORS.ink,
-          strokeWidth: SELECTION.borderWidth,
-          strokeScaleEnabled: false, // constant 1.5px at every zoom
-          listening: false,
-        })
-      );
-    }
-    const needed = multi ? sel.length : 0;
-    pool().forEach((r, i) => {
-      if (i >= needed) {
-        r.visible(false);
-        return;
-      }
-      const n = sel[i];
-      r.position({ x: n.x(), y: n.y() });
-      r.size({ width: n.width() * n.scaleX(), height: n.height() * n.scaleY() });
-      r.cornerRadius((n.getAttr("cornerRadius") as number) ?? 0);
-      r.visible(true);
-      r.moveToTop();
-    });
-    transformer.moveToTop();
-    layer.batchDraw();
+    applySelectionChrome(layer, transformer);
   }, []);
 
   const { x, y, scale } = useViewport();
@@ -115,44 +81,16 @@ export default function Board() {
     });
     layer.add(transformer);
 
-    // Hover affordance: a borrowed outline that follows whichever node the
-    // cursor is over. Kept as its own node (not a stroke on the shape) so it
-    // never lands in undo snapshots or the copy/paste clipboard.
-    const hoverOutline = new Konva.Rect({
-      name: "hover-outline",
-      stroke: COLORS.ink,
-      strokeWidth: SELECTION.borderWidth,
-      strokeScaleEnabled: false, // constant 1.5px at every zoom level
-      listening: false,
-      visible: false,
-    });
-    layer.add(hoverOutline);
+    const hover = createHoverOutline(layer, transformer);
+    const showHover = hover.show;
+    const hideHover = hover.hide;
 
     stageRef.current = stage;
     layerRef.current = layer;
     transformerRef.current = transformer;
-    hoverOutlineRef.current = hoverOutline;
+    hoverRef.current = hover;
 
-    const hideHover = () => {
-      if (!hoverOutline.visible()) return;
-      hoverOutline.visible(false);
-      layer.batchDraw();
-    };
-
-    const showHover = (n: Konva.Shape) => {
-      // A selected node already draws the transformer border — showing this on
-      // top would double it, so hover stays the unselected-only affordance.
-      if (useToolStore.getState().activeTool !== "pointer" || transformer.nodes().includes(n)) {
-        hideHover();
-        return;
-      }
-      hoverOutline.position({ x: n.x(), y: n.y() });
-      hoverOutline.size({ width: n.width() * n.scaleX(), height: n.height() * n.scaleY() });
-      hoverOutline.cornerRadius((n.getAttr("cornerRadius") as number) ?? 0);
-      hoverOutline.visible(true);
-      hoverOutline.moveToTop(); // shapes are added after the layer's chrome
-      layer.batchDraw();
-    };
+    const syncAllNodeGeometry = () => syncAllGeometry(layer);
 
     // --- Undo / redo ---------------------------------------------------
     // Registered against the one shared timeline (lib/canvas/history) rather
@@ -202,29 +140,6 @@ export default function Board() {
     // Snapshot initial state (demo node).
     canvasHistory.clear();
     saveSnapshot();
-
-    // Publish a node's geometry to konvaNodes — the single source the port
-    // overlays and connection wires read. Called on every move/resize frame so
-    // the overlays track the shape live, not just on gesture end.
-    const syncNodeGeometry = (n: Konva.Shape) => {
-      const id = n.id();
-      if (!id) return;
-      useKonvaNodes.getState().upsert({
-        id,
-        canvasX: n.x(),
-        canvasY: n.y(),
-        canvasW: n.width()  * n.scaleX(),
-        canvasH: n.height() * n.scaleY(),
-        z: n.zIndex(),
-      });
-    };
-
-    // Raising one node shifts everyone else's index, so z-order changes need a
-    // full republish — a single-node sync would leave the others stale and a
-    // port would hide or show against the wrong stacking.
-    const syncAllNodeGeometry = () => {
-      (layer.find(".selectable") as Konva.Shape[]).forEach(syncNodeGeometry);
-    };
 
     // --- Stage events ---
 
@@ -468,6 +383,7 @@ export default function Board() {
       stageRef.current = null;
       layerRef.current = null;
       transformerRef.current = null;
+      hoverRef.current = null;
     };
   }, [updateSelectionChrome]);
 
@@ -539,7 +455,7 @@ export default function Board() {
       stage.container().style.cursor = "default";
       transformer.nodes([]);
       updateSelectionChrome();
-      hoverOutlineRef.current?.visible(false);
+      hoverRef.current?.hide();
       applyDraggability(layer);
       layer.batchDraw();
     }
