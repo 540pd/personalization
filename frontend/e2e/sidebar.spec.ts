@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { openBoard, addPanel, uploadImage, imageBox } from "./helpers";
+import { openBoard, addPanel, uploadImage, imageBox, setZoom } from "./helpers";
 
 const SIDEBAR_WIDTH = 260;
 
@@ -86,10 +86,32 @@ test.describe("sidebar", () => {
       expect(Math.abs(centre - expected)).toBeLessThan(2);
     });
 
-    test("the minimap clears the rail", async ({ page }) => {
+    test("the minimap is hidden while the rail is open, and returns with it", async ({ page }) => {
+      // Both want the bottom-left corner. Hiding beats shifting it sideways
+      // on every toggle.
       await openBoard(page);
+      await expect(page.locator(".minimap-container")).toHaveCount(0);
+
+      await page.locator(".sidebar-collapse-button").click();
+      await expect(page.locator(".minimap-container")).toBeVisible();
       const map = await page.locator(".minimap-container").boundingBox();
-      expect(map!.x).toBeGreaterThanOrEqual(SIDEBAR_WIDTH);
+      expect(map!.x).toBeLessThan(SIDEBAR_WIDTH);
+    });
+
+    test("zoom shortcuts still work while the panel is hidden", async ({ page }) => {
+      // The reason hiding is acceptable at all. If the component unmounted,
+      // its keydown listener would go with it and this would fail.
+      await openBoard(page);
+      await expect(page.locator(".minimap-container")).toHaveCount(0);
+
+      await setZoom(page, 0.5);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scale = () => page.evaluate(() => (window as any).Konva.stages[0].scaleX() as number);
+      expect(await scale()).toBeLessThan(0.9);
+
+      await page.keyboard.press("Shift+Digit0");
+      await page.waitForTimeout(200);
+      expect(await scale()).toBeCloseTo(1, 2);
     });
   });
 
