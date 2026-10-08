@@ -18,6 +18,7 @@ const MODELS = [
   { id: "gemini-3.1-flash-image",      label: "Nano Banana 2" },
   { id: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite" },
   { id: "gemini-3-pro-image",          label: "Nano Banana Pro" },
+  { id: "gemini-nano-banana-2.1",      label: "Nano Banana 2.1" },
 ];
 
 const ASPECT_RATIOS = ["16:9", "1:1", "9:16", "4:3", "3:4"];
@@ -159,9 +160,13 @@ export const imageKind: NodeKindSpec = {
   title: "Create Image",
   prompt: "Describe the image...",
   models: MODELS,
+  // Cheapest model and smallest size by default. A node is usually created to
+  // try an idea, and the picker is right there when a draft is worth a better
+  // render.
+  defaultModel: "gemini-3.1-flash-lite-image",
   defaultSettings: {
     aspectRatio: DEFAULT_ASPECT_RATIO,
-    quality: "2K",
+    quality: "1K",
     thinking: "Minimal",
     temperature: 0.5,
     grounding: false,
@@ -177,8 +182,11 @@ export const imageKind: NodeKindSpec = {
       modelId,
       instruction,
       aspectRatio: s.aspectRatio as AspectRatioV2,
-      quality: s.quality === "4K" ? "hd" : "standard",
-      thinking: s.thinking !== "None",
+      // Sent as-is: the backend maps quality onto imageConfig.imageSize and
+      // the Thinking label onto a ThinkingLevel. Collapsing them here is how
+      // both controls ended up doing nothing.
+      quality: s.quality,
+      thinking: s.thinking,
       temperature: s.temperature,
       grounding: s.grounding,
       references: references.length ? references : undefined,

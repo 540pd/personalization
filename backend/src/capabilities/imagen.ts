@@ -10,7 +10,6 @@ import type {
   ImageGenerationParams,
   ImageGenerationResult,
   ImageGenerationV2Params,
-  AspectRatioV2,
   Reference,
 } from "./types.js";
 import { buildContentParts } from "./prompt.js";
@@ -19,14 +18,14 @@ import { buildContentParts } from "./prompt.js";
 const MOCK_IMAGE_URL =
   "https://via.placeholder.com/1024x1024/1a1a1a/666666?text=Mock+Image";
 
-// Human-readable hint appended to the prompt so models without a structured
-// aspect-ratio param still honour the requested dimensions.
-const ASPECT_LABEL: Record<AspectRatioV2, string> = {
-  "1:1":  "square (1:1 aspect ratio)",
-  "16:9": "landscape (16:9 aspect ratio)",
-  "9:16": "portrait (9:16 aspect ratio)",
-  "4:3":  "standard (4:3 aspect ratio)",
-  "3:4":  "portrait (3:4 aspect ratio)",
+// Our Thinking control's labels, mapped onto the SDK's ThinkingLevel. The
+// samples in docs/llm_parameter use MINIMAL and MEDIUM; the enum also has
+// LOW and HIGH. "None" maps to MINIMAL rather than omitting the config, so
+// the choice is always explicit in the request.
+const THINKING_LEVEL: Record<string, string> = {
+  None:    "MINIMAL",
+  Minimal: "MINIMAL",
+  Full:    "HIGH",
 };
 
 function makeGenAI(): GoogleGenAI {
@@ -66,17 +65,41 @@ export class ImagenCapability implements ImageCapability {
 
     const ai = makeGenAI();
 
-    const prompt = `${params.instruction}\n\nImage dimensions: ${ASPECT_LABEL[params.aspectRatio]}.`;
-
+    // Shaped from docs/llm_parameter/. Three panel controls -- aspect ratio,
+    // quality and thinking -- previously reached the model as nothing at
+    // all: quality and thinking were dropped on the floor, and the aspect
+    // ratio was appended to the prompt as prose ("Image dimensions:
+    // landscape (16:9 aspect ratio).") rather than set as config, which is
+    // why a requested ratio could drift.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const config: Record<string, any> = {
-      responseModalities: ["IMAGE"],
+      // TEXT as well as IMAGE: the samples ask for both, and a model that
+      // wants to explain a refusal has nowhere to put it otherwise.
+      responseModalities: ["TEXT", "IMAGE"],
+      maxOutputTokens: 32768,
+      topP: 0.95,
+      imageConfig: {
+        aspectRatio: params.aspectRatio,
+        outputMimeType: "image/png",
+      },
     };
+
     if (typeof params.temperature === "number") {
       config["temperature"] = params.temperature;
     }
+    // The panel's 1K / 2K / 4K control. imageSize takes those values
+    // directly; it used to be squashed into a "standard" | "hd" pair that
+    // nothing then read.
+    if (params.imageSize) {
+      config["imageConfig"]["imageSize"] = params.imageSize;
+    }
+    if (params.thinking) {
+      config["thinkingConfig"] = {
+        thinkingLevel: THINKING_LEVEL[params.thinking] ?? "MINIMAL",
+      };
+    }
 
-    const parts = buildContentParts(prompt, params.references);
+    const parts = buildContentParts(params.instruction, params.references);
 
     const response = await ai.models.generateContent({
       model: params.modelId,

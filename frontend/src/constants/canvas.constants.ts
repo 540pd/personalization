@@ -13,10 +13,24 @@ export const COLORS = {
   mediaStroke:  "#6b6b8a",
 } as const;
 
+// Paint order. Spaced so the Konva canvas can sit either side of the node
+// placeholders without disturbing anything else.
+//
+// Every Konva shape shares ONE <canvas>, and the placeholders are DOM
+// siblings, so a DOM element cannot interleave with canvas pixels: the whole
+// canvas is above the placeholders or below them, never partly. Flipping it
+// is what lets a dragged uploaded image come to the front of a Create Image
+// node -- see layerOrder.store.
+//
+// Wires, ports and labels stay above both: they are chrome, and an image
+// drifting over a port or a node's own name would be a regression, not depth.
 export const Z_INDEX = {
-  wires: 49,
-  nodes: 50,
-  ports: 51,
+  canvasBelow: 10,
+  nodes:       20,
+  canvasAbove: 30,
+  wires:       40,
+  ports:       50,
+  labels:      60,
 } as const;
 
 export const MIN_NODE_SIZE = 60; // canvas units

@@ -5,12 +5,13 @@
 // Instances are stored in the nodePanelStore array and rendered here.
 
 import { useState, useRef, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
 import type { Reference } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
-import { useKonvaNodes } from "@/store/konvaNodes.store";
+import { useKonvaNodes, type KonvaNodeRecord } from "@/store/konvaNodes.store";
 import {
   COLORS,
   INPUT_PORT_STYLE,
@@ -25,8 +26,9 @@ import {
   SELECTION,
   Z_INDEX,
 } from "@/constants/canvas.constants";
-import { isCovered, portProbe, type Blocker } from "@/lib/canvas/occlusion";
+import { isCovered, portProbe, type Blocker, type TopLayer } from "@/lib/canvas/occlusion";
 import { canvasHistory } from "@/lib/canvas/history";
+import { useLayerOrder } from "@/store/layerOrder.store";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen } from "@/lib/canvas/coords";
 import NodeLabel from "../NodeLabel";
@@ -75,13 +77,19 @@ const ANCHORS = [
 function portsCovered(
   p: PanelInstance,
   above: PanelInstance[],
+  konvaNodes: KonvaNodeRecord[],
+  topLayer: TopLayer,
   scale: number
 ): { input: boolean; output: boolean } {
   const self: Blocker = { id: p.id, box: p, layer: "dom" };
-  const blockers: Blocker[] = above.map((q) => ({ id: q.id, box: q, layer: "dom" }));
+  const blockers: Blocker[] = [
+    ...above.map((q): Blocker => ({ id: q.id, box: q, layer: "dom" })),
+    // Uploaded images only block when the canvas is the front layer.
+    ...konvaNodes.map((n): Blocker => ({ id: n.id, box: n, layer: "canvas", z: n.z })),
+  ];
   return {
-    input:  isCovered(portProbe(p, "input", scale), self, blockers),
-    output: isCovered(portProbe(p, "output", scale), self, blockers),
+    input:  isCovered(portProbe(p, "input", scale), self, blockers, topLayer),
+    output: isCovered(portProbe(p, "output", scale), self, blockers, topLayer),
   };
 }
 
@@ -115,7 +123,7 @@ function SinglePanel({
   // unmounts whenever the panel collapses, and a half-written prompt must
   // survive that.
   const [draft, setDraft] = useState<GenerateDraft>({
-    model: spec.models[0]?.id ?? "",
+    model: spec.defaultModel ?? spec.models[0]?.id ?? "",
     instruction: "",
   });
   const [busy, setBusy] = useState(false);
@@ -124,6 +132,8 @@ function SinglePanel({
   const [hovered,     setHovered]     = useState(false);
 
   const isDragging = useRef(false);
+  /** True only between a pointerdown on THIS node and its pointerup. */
+  const pointerDownHere = useRef(false);
   const dragStart  = useRef({ px: 0, py: 0, cx: 0, cy: 0 });
   const anchorDrag = useRef<{
     idx: number; startPx: number; startPy: number;
@@ -187,11 +197,20 @@ function SinglePanel({
   const onPointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     isDragging.current = false;
+    // Records that the gesture began HERE. Without it, onPointerMove fires
+    // for any pointer that merely passes over this node with a button held
+    // -- dragging an uploaded image across it moved the node too, as if the
+    // two were glued.
+    pointerDownHere.current = true;
     dragStart.current = { px: e.clientX, py: e.clientY, cx: canvasX, cy: canvasY };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (e.buttons === 0 || isPanelOpen) return;
+    // A held button is not enough: the press has to have started on this
+    // node. Otherwise a drag belonging to something else -- an uploaded
+    // image passing over -- is read as a drag of this one, using whatever
+    // stale dragStart was left from last time.
+    if (!pointerDownHere.current || e.buttons === 0 || isPanelOpen) return;
     const dx = e.clientX - dragStart.current.px;
     const dy = e.clientY - dragStart.current.py;
     if (Math.hypot(dx, dy) > 4) {
@@ -211,12 +230,19 @@ function SinglePanel({
         // Outside the isActive guard: an already-selected node still has to
         // come forward, or dragging it across a newer one buries it.
         useNodePanel.getState().raisePanel(instance.id);
+        // raisePanel only reorders within the DOM layer. Bringing that layer
+        // forward is what lets a panel come back over an uploaded image after
+        // the image was last dragged.
+        useLayerOrder.getState().raiseDom();
       }
       onSetCanvasPos(dragStart.current.cx + dx / scale, dragStart.current.cy + dy / scale);
     }
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
+    // Nothing to finish if the gesture never began here.
+    if (!pointerDownHere.current) return;
+    pointerDownHere.current = false;
     if (!isDragging.current) {
       if (!(e.ctrlKey || e.metaKey)) {
         // Normal click: clear other selection types.
@@ -270,11 +296,18 @@ function SinglePanel({
     if (resized) canvasHistory.commit();
   };
 
+  // Aborts any in-flight generate call when the node is deleted.
+  const generateAbort = useRef<AbortController | null>(null);
+  useEffect(() => () => { generateAbort.current?.abort(); }, []);
+
   // The node owns reference collection and the store writes; the form owns
   // the fields and the generating/error state. Throwing here surfaces in the
   // form's error line.
   const handleGenerate = async () => {
     if (!draft.instruction.trim() || busy) return;
+    generateAbort.current?.abort();
+    const controller = new AbortController();
+    generateAbort.current = controller;
     setBusy(true);
     setGenError(null);
     try {
@@ -308,17 +341,61 @@ function SinglePanel({
         instruction: draft.instruction.trim(),
         settings,
         references,
+        // Persisted the moment the backend hands it back, so a reload during
+        // a multi-minute video generation resumes rather than loses it.
+        onJobStarted: (jobId) => useNodePanel.getState().setJob(instance.id, jobId),
+        signal: controller.signal,
       });
+      if (controller.signal.aborted) return;
       const store = useNodePanel.getState();
       store.setOutput(instance.id, output);
       // Only seed the default — never overwrite a name the user chose.
       if (!instance.label) store.setLabel(instance.id, labelFromInstruction(draft.instruction));
     } catch (err) {
+      if (controller.signal.aborted) return;
+      // Drop the job: it settled as failed, or we stopped waiting on it.
+      // Leaving it would make the node resume a dead job on every reload.
+      useNodePanel.getState().setJob(instance.id, undefined);
       setGenError(err instanceof Error ? err.message : "Generation failed. Please try again.");
     } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) setBusy(false);
+      if (generateAbort.current === controller) generateAbort.current = null;
     }
   };
+
+  // A generation still running from before this mount -- a reload, or a
+  // remount. Only asynchronous kinds supply resume(); for the others a job id
+  // can never outlive the page, so there is nothing to pick up.
+  const resumedJob = useRef<string | null>(null);
+  useEffect(() => {
+    const jobId = instance.job;
+    if (!jobId || instance.output || !spec.resume) return;
+    if (resumedJob.current === jobId) return;
+    resumedJob.current = jobId;
+
+    const controller = new AbortController();
+    let cancelled = false;
+    setBusy(true);
+    spec
+      .resume(jobId, controller.signal)
+      .then((output) => {
+        if (cancelled) return;
+        useNodePanel.getState().setOutput(instance.id, output);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        useNodePanel.getState().setJob(instance.id, undefined);
+        setGenError(err instanceof Error ? err.message : "Generation failed.");
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [instance.job, instance.output, instance.id, spec]);
 
   // Seed the name as soon as there is an instruction rather than waiting for
   // a result — a node needs identifying while you are still configuring it.
@@ -442,6 +519,11 @@ function SinglePanel({
   onPointerDown={onPointerDown}
   onPointerMove={onPointerMove}
   onPointerUp={onPointerUp}
+  onPointerCancel={() => {
+    pointerDownHere.current = false;
+    isDragging.current = false;
+    setDragging(false);
+  }}
   onPointerEnter={() => setHovered(true)}
   onPointerLeave={() => setHovered(false)}
   className="node-panel-placeholder"
@@ -467,7 +549,19 @@ function SinglePanel({
     pointerEvents: "auto",
   }}
 >
-  {instance.output ? <spec.Output value={instance.output.value} /> : <spec.EmptyState />}
+  {instance.output ? (
+    <spec.Output value={instance.output.value} />
+  ) : busy ? (
+    // Shown on the node itself, not only in the panel: a video generation
+    // runs for minutes and the panel is usually closed by then. The rest of
+    // the canvas stays interactive throughout.
+    <div className="node-panel-placeholder-content">
+      <Loader2 size={22} aria-hidden className="node-panel-loader" />
+      <span className="node-panel-placeholder-text">Generating…</span>
+    </div>
+  ) : (
+    <spec.EmptyState />
+  )}
 
   {dragging && <div className="node-panel-drag-overlay" />}
 </button>
@@ -498,6 +592,8 @@ function SinglePanel({
 export default function NodePanel() {
   const { panels, removePanel, activatePanel, openPanel, closePanel, closeAllPanels, setCanvasPos, selectPanel } = useNodePanel();
   const { x: stageX, y: stageY, scale } = useViewport();
+  const topLayer = useLayerOrder((s) => s.topLayer);
+  const konvaNodes = Object.values(useKonvaNodes((s) => s.nodes));
 
   // The panels half of the shared undo timeline. Every store setter rebuilds
   // the objects it touches, so holding the array is a valid snapshot --
@@ -539,7 +635,7 @@ export default function NodePanel() {
   return (
     <>
       {panels.map((p, i) => {
-        const covered = portsCovered(p, panels.slice(i + 1), scale);
+        const covered = portsCovered(p, panels.slice(i + 1), konvaNodes, topLayer, scale);
         return (
         <SinglePanel
           key={p.id}

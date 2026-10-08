@@ -3,6 +3,10 @@
 .node-panel-placeholder {
   /* Radius comes from NODE_CORNER_RADIUS, set inline by SinglePanel. */
   @apply relative flex flex-col items-center justify-center overflow-hidden;
+  box-shadow:
+    0 0 0 1.5px rgb(255 255 255 / 0.95),
+    0 0 0 2.5px rgb(0 0 0 / 0.14),
+    0 4px 14px rgb(0 0 0 / 0.20);
 }
 
 .node-panel-preview {
@@ -11,6 +15,11 @@
 
 /* A text node is resizable, so long output scrolls inside whatever box the
    user has dragged rather than spilling past the node edge. */
+/* Fills the node like the image preview does, respecting its corner radius. */
+.node-panel-video {
+  @apply h-full w-full rounded-[inherit] bg-black object-cover;
+}
+
 .node-panel-text-output {
   @apply h-full w-full overflow-y-auto rounded-[inherit] px-3 py-2.5 text-left text-[11px] leading-snug text-neutral-700 whitespace-pre-wrap;
 }

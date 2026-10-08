@@ -24,8 +24,10 @@ export interface ImageGenerationV2Params {
   instruction: string;
   aspectRatio: AspectRatioV2;
   userId: string;
-  quality?: "standard" | "hd";
-  thinking?: boolean;
+  /** The panel's 1K / 2K / 4K control, passed straight to imageConfig. */
+  imageSize?: string;
+  /** The panel's Thinking label; mapped to a ThinkingLevel in the capability. */
+  thinking?: string;
   temperature?: number;
   grounding?: boolean;
   // Upstream nodes in the canvas graph. The name is how the model is told one
@@ -55,6 +57,24 @@ export interface TextGenerationResult {
 
 export interface TextCapability {
   generateText(params: TextGenerationParams): Promise<TextGenerationResult>;
+}
+
+export interface VideoGenerationParams {
+  modelId: string;
+  instruction: string;
+  userId: string;
+  durationSeconds?: number;
+  resolution?: string;
+  references?: Reference[];
+}
+
+export interface VideoGenerationResult {
+  videoUrl: string;
+  modelUsed: string;
+}
+
+export interface VideoCapability {
+  generateVideo(params: VideoGenerationParams): Promise<VideoGenerationResult>;
 }
 
 export interface ImageCapability {

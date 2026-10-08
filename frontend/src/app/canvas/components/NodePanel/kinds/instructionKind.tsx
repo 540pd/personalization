@@ -10,9 +10,10 @@ import { generateText } from "@/api/canvas.api";
 import { DEFAULT_NODE_MAX_EDGE } from "@/constants/canvas.constants";
 import type { InstructionSettings, NodeKindSpec, SettingsProps } from "../nodeKinds";
 
+// Ids from docs/llm_parameter/, not guessed.
 const MODELS = [
-  { id: "gemini-3-flash", label: "Gemini 3 Flash" },
-  { id: "gemini-3-pro",   label: "Gemini 3 Pro" },
+  { id: "gemini-3.8-flash",      label: "Gemini 3.8 Flash" },
+  { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite" },
 ];
 
 // A text node is a reading surface, not a picture: a squat landscape box wastes
@@ -90,6 +91,8 @@ export const instructionKind: NodeKindSpec = {
   title: "Instruction",
   prompt: "What should this node work out?",
   models: MODELS,
+  // Same principle as the other kinds: default to the lite model.
+  defaultModel: "gemini-3.5-flash-lite",
   defaultSettings: { temperature: 0.7 },
   // Fixed: nothing in the settings changes a text node's shape.
   sizeFor: () => TEXT_NODE_SIZE,

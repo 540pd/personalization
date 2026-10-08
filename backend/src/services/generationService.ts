@@ -1,10 +1,12 @@
-import { getCapability, getTextCapability } from "../capabilities/index.js";
+import { getCapability, getTextCapability, getVideoCapability } from "../capabilities/index.js";
 import type {
   ImageGenerationParams,
   ImageGenerationResult,
   ImageGenerationV2Params,
   TextGenerationParams,
   TextGenerationResult,
+  VideoGenerationParams,
+  VideoGenerationResult,
 } from "../capabilities/types.js";
 
 export function generateImage(
@@ -23,4 +25,10 @@ export function generateText(
   params: TextGenerationParams
 ): Promise<TextGenerationResult> {
   return getTextCapability().generateText(params);
+}
+
+export function generateVideo(
+  params: VideoGenerationParams
+): Promise<VideoGenerationResult> {
+  return getVideoCapability().generateVideo(params);
 }

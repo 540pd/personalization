@@ -10,7 +10,8 @@ import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { viewportCentre } from "@/lib/canvas/coords";
 import { canvasHistory } from "@/lib/canvas/history";
-import { COLORS, DEFAULT_NODE_MAX_EDGE, MIN_NODE_SIZE, NODE_CORNER_RADIUS, SELECTION } from "@/constants/canvas.constants";
+import { useLayerOrder } from "@/store/layerOrder.store";
+import { COLORS, DEFAULT_NODE_MAX_EDGE, Z_INDEX, MIN_NODE_SIZE, NODE_CORNER_RADIUS, SELECTION } from "@/constants/canvas.constants";
 
 // "photo-2024.final.png" -> "photo-2024.final". Only the last segment is an
 // extension; names with dots in them keep them.
@@ -83,6 +84,7 @@ export default function Board() {
 
   const { x, y, scale } = useViewport();
   const { activeTool } = useToolStore();
+  const topLayer = useLayerOrder((s) => s.topLayer);
 
   // Mount Konva stage once.
   useEffect(() => {
@@ -321,7 +323,13 @@ export default function Board() {
         // Raise the dragged node so it cannot vanish under something it is
         // being moved across. Tied to drag, not selection: moving a node is a
         // deliberate edit, whereas merely clicking one should not reorder it.
+        //
+        // moveToTop only reorders within the canvas. Bringing the canvas
+        // itself forward is what stops a dragged image disappearing behind a
+        // Create Image node, which is DOM and so always painted above it
+        // otherwise.
         n.moveToTop();
+        useLayerOrder.getState().raiseCanvas();
         syncAllNodeGeometry();
         updateSelectionChrome();
         layer.batchDraw();
@@ -532,6 +540,8 @@ export default function Board() {
       // be dragged, and the press pans the board instead — matches the dock's
       // generate-image behaviour.
       useToolStore.getState().setTool("pointer");
+      // A just-uploaded image must not land behind an existing panel.
+      useLayerOrder.getState().raiseCanvas();
       const { x: sx, y: sy, scale: s } = useViewport.getState();
       const { x: cx, y: cy } = viewportCentre(
         { x: sx, y: sy, scale: s },
@@ -564,6 +574,20 @@ export default function Board() {
               height: h,
               name: "selectable",
               cornerRadius: NODE_CORNER_RADIUS,
+              // A light hairline, matching the Create Image placeholder. Without
+              // an edge, an image dragged over another node is just a colour
+              // change where the two meet -- they read as one stitched shape.
+              // Light rather than dark because a dark hairline disappears
+              // against mid-tone photo content, which is the failing case.
+              //
+              // Deliberately a stroke and NOT a shadow: shadowBlur on a
+              // Konva.Image forces an offscreen blur pass per node per frame.
+              // Measured with 10 images redrawing every frame, it took the
+              // canvas from 60fps to 4. The DOM placeholders can afford a
+              // real shadow because the compositor handles those.
+              stroke: "rgba(255,255,255,0.95)",
+              strokeWidth: 1.5,
+              strokeScaleEnabled: false,
               // Force bounding-rect hit detection so clicks on transparent PNG
               // areas still register (Konva default uses per-pixel alpha for images).
               hitFunc(ctx: Konva.Context, shape: Konva.Shape) {
@@ -673,6 +697,37 @@ export default function Board() {
     });
   }, [updateSelectionChrome]);
 
+  // When the canvas is the front layer it covers the whole viewport, so it
+  // would swallow every click meant for a node placeholder underneath --
+  // including placeholders nowhere near an image. Let events pass through
+  // except where a shape actually is.
+  //
+  // Only runs while the canvas is in front; in the normal case the container
+  // stays plainly interactive and this costs nothing.
+  useEffect(() => {
+    const stage = stageRef.current;
+    const container = containerRef.current;
+    if (!stage || !container) return;
+
+    if (topLayer !== "canvas") {
+      container.style.pointerEvents = "auto";
+      return;
+    }
+
+    const update = (e: PointerEvent) => {
+      const r = container.getBoundingClientRect();
+      const hit = stage.getIntersection({ x: e.clientX - r.left, y: e.clientY - r.top });
+      container.style.pointerEvents = hit ? "auto" : "none";
+    };
+
+    container.style.pointerEvents = "none";
+    window.addEventListener("pointermove", update);
+    return () => {
+      window.removeEventListener("pointermove", update);
+      container.style.pointerEvents = "auto";
+    };
+  }, [topLayer]);
+
   // Switch between pointer (select) mode and pan mode.
   useEffect(() => {
     const stage = stageRef.current;
@@ -698,7 +753,14 @@ export default function Board() {
   return (
     <div
       ref={containerRef}
-      style={{ position: "fixed", inset: 0, overflow: "hidden" }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        overflow: "hidden",
+        // The whole canvas moves above or below the node placeholders; it
+        // cannot interleave with them. See layerOrder.store.
+        zIndex: topLayer === "canvas" ? Z_INDEX.canvasAbove : Z_INDEX.canvasBelow,
+      }}
     />
   );
 }

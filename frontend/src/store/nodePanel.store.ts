@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 
 // What a panel node generates. The dock already offers all three
@@ -35,6 +36,9 @@ export interface PanelInstance {
   h: number;
   // Set once a generation lands. Used as a reference by downstream nodes.
   output?: PanelOutput;
+  // Id of an in-flight asynchronous generation. Persisted on the node so a
+  // page reload resumes polling instead of losing the job.
+  job?: string;
   // Display name shown above the node when selected, and the name this node is
   // referred to by when it feeds a downstream generation. Derived from the
   // instruction on first generate; renameable.
@@ -58,12 +62,16 @@ interface NodePanelState {
   clearAll:        () => void;
   setSize:         (id: string, w: number, h: number) => void;
   setOutput:       (id: string, output: PanelOutput) => void;
+  /** Record or clear an in-flight job. */
+  setJob:          (id: string, job: string | undefined) => void;
   setLabel:        (id: string, label: string) => void;
 }
 
 let _nextId = 1;
 
-export const useNodePanel = create<NodePanelState>((set, get) => ({
+export const useNodePanel = create<NodePanelState>()(
+  persist(
+    (set, get) => ({
   panels:         [],
   selectedId:     null,
 
@@ -161,11 +169,39 @@ export const useNodePanel = create<NodePanelState>((set, get) => ({
 
   setOutput: (id, output) =>
     set((s) => ({
-      panels: s.panels.map((p) => p.id === id ? { ...p, output } : p),
+      // An arriving result ends the job it came from.
+      panels: s.panels.map((p) => p.id === id ? { ...p, output, job: undefined } : p),
+    })),
+
+  setJob: (id, job) =>
+    set((s) => ({
+      panels: s.panels.map((p) => p.id === id ? { ...p, job } : p),
     })),
 
   setLabel: (id, label) =>
     set((s) => ({
       panels: s.panels.map((p) => p.id === id ? { ...p, label } : p),
     })),
-}));
+    }),
+    {
+      name: "gcos-node-panels",
+      // Only persist canvas data; UI-open flags and selectedId reset on load.
+      partialize: (s) => ({ panels: s.panels }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Reset interaction flags that shouldn't survive a reload.
+        state.panels = state.panels.map((p) => ({
+          ...p,
+          isActive: false,
+          isPanelOpen: false,
+        }));
+        // Keep _nextId ahead of all restored IDs to avoid collisions.
+        const maxNum = state.panels.reduce((max, p) => {
+          const n = Number(p.id.replace("panel-", ""));
+          return isNaN(n) ? max : Math.max(max, n);
+        }, 0);
+        if (maxNum >= _nextId) _nextId = maxNum + 1;
+      },
+    }
+  )
+);

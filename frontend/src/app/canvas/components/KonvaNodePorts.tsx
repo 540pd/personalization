@@ -8,6 +8,7 @@ import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { isCovered, portProbe, type Blocker } from "@/lib/canvas/occlusion";
+import { useLayerOrder } from "@/store/layerOrder.store";
 import { outputPoint } from "@/lib/canvas/ports";
 import { toScreen } from "@/lib/canvas/coords";
 import {
@@ -31,6 +32,7 @@ function toBlockers(nodes: KonvaNodeRecord[], panels: PanelInstance[]): Blocker[
 export default function KonvaNodePorts() {
   const nodes = useKonvaNodes((s) => s.nodes);
   const panels = useNodePanel((s) => s.panels);
+  const topLayer = useLayerOrder((s) => s.topLayer);
   const { x: stageX, y: stageY, scale } = useViewport();
   const all = Object.values(nodes);
   const blockers = toBlockers(all, panels);
@@ -40,7 +42,7 @@ export default function KonvaNodePorts() {
       {all.map((n) => {
         const self: Blocker = { id: n.id, box: n, layer: "canvas", z: n.z };
         // Konva nodes are source-only: a right-edge output port, no input.
-        if (isCovered(portProbe(n, "output", scale), self, blockers)) return null;
+        if (isCovered(portProbe(n, "output", scale), self, blockers, topLayer)) return null;
         // Port position is shared geometry; this only places the hit target
         // around it. OUTPUT_PORT_HIT_STYLE centres it vertically, so `top` is
         // the port centre and `left` backs off by the hit padding.

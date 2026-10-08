@@ -1,5 +1,5 @@
 import { getIdToken, notifySessionExpired } from "@/auth/authState";
-import type { Board, GenerateImageParams, GenerateImageResult, GenerateImageV2Params, GenerateImageV2Result, GenerateTextParams, GenerateTextResult } from "@/types/canvas.types";
+import type { Board, GenerateImageParams, GenerateImageResult, GenerateImageV2Params, GenerateImageV2Result, GenerateTextParams, GenerateTextResult, GenerateVideoParams, JobAccepted, JobState } from "@/types/canvas.types";
 
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = getIdToken();
@@ -64,4 +64,31 @@ export async function generateText(params: GenerateTextParams): Promise<Generate
     throw new Error(body?.message ?? `Generation failed (${res.status})`);
   }
   return res.json() as Promise<GenerateTextResult>;
+}
+
+/** Starts a video generation. Returns immediately with a job to poll. */
+export async function startVideo(params: GenerateVideoParams): Promise<JobAccepted> {
+  const res = await apiFetch("generate/video", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { message?: string };
+    throw new Error(body?.message ?? `Generation failed (${res.status})`);
+  }
+  return res.json() as Promise<JobAccepted>;
+}
+
+/**
+ * Polls a job. A 404 is a real answer, not an error: the backend's job store
+ * is in-memory, so a restart loses jobs and the client must stop waiting
+ * rather than hang.
+ */
+export async function getJob(jobId: string): Promise<JobState> {
+  const res = await apiFetch(`generate/job/${encodeURIComponent(jobId)}`, { method: "GET" });
+  const body = await res.json().catch(() => ({})) as JobState & { message?: string };
+  if (!res.ok) {
+    return { status: "failed", message: body?.message ?? `Job lookup failed (${res.status})` };
+  }
+  return body;
 }
