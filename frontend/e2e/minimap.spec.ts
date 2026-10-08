@@ -139,3 +139,110 @@ test.describe("minimap", () => {
     expect(after).not.toEqual(before);
   });
 });
+
+// The zoom menu advertised five shortcuts. Two were not implemented, one
+// could not fire, and "Zoom to fit" was a second copy of "Zoom to 100%".
+test.describe("zoom shortcuts", () => {
+  const scale = (page: import("@playwright/test").Page) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    page.evaluate(() => (window as any).Konva.stages[0].scaleX() as number);
+
+  test("Shift+0 returns to 100%", async ({ page }) => {
+    // Could never fire: with Shift held e.key is ")", and the handler tested
+    // e.key === "0".
+    await openBoard(page);
+    await setZoom(page, 0.5);
+    expect(await scale(page)).toBeLessThan(0.9);
+
+    await page.keyboard.press("Shift+Digit0");
+    await page.waitForTimeout(200);
+    expect(await scale(page)).toBeCloseTo(1, 2);
+  });
+
+  test("Shift+1 fits the board, and is not just a reset", async ({ page }) => {
+    await openBoard(page);
+    await uploadImage(page, 1600, 900);
+
+    // Push the node well away from the origin so a reset and a fit cannot
+    // coincide by luck.
+    await setZoom(page, 0.25);
+    for (let i = 0; i < 4; i++) {
+      const box = await imageBox(page);
+      await page.mouse.move(box.x + box.w / 2, box.y + box.h / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.w / 2 + 300, box.y + box.h / 2 + 200, { steps: 6 });
+      await page.mouse.up();
+      await page.waitForTimeout(150);
+    }
+
+    await page.keyboard.press("Shift+Digit1");
+    await page.waitForTimeout(250);
+
+    // The node is on screen afterwards — the thing "fit" is supposed to mean.
+    const onScreen = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const s = (window as any).Konva.stages[0];
+      const n = s.find("Image")[0];
+      const left = s.x() + n.x() * s.scaleX();
+      const top = s.y() + n.y() * s.scaleY();
+      const w = n.width() * n.scaleX() * s.scaleX();
+      const h = n.height() * n.scaleY() * s.scaleY();
+      return left >= 0 && top >= 0 && left + w <= window.innerWidth && top + h <= window.innerHeight;
+    });
+    expect(onScreen).toBe(true);
+    expect(await scale(page)).not.toBeCloseTo(1, 3);
+  });
+
+  test("Shift+2 fits the selection", async ({ page }) => {
+    await openBoard(page);
+    await uploadImage(page, 1600, 900);
+    await setZoom(page, 0.2);
+
+    const box = await imageBox(page);
+    await page.mouse.click(box.x + box.w / 2, box.y + box.h / 2);
+    await page.waitForTimeout(200);
+
+    await page.keyboard.press("Shift+Digit2");
+    await page.waitForTimeout(250);
+    // Zoomed in on one small node, so well past where we started.
+    expect(await scale(page)).toBeGreaterThan(0.5);
+  });
+
+  test("Shift+2 does nothing with no selection", async ({ page }) => {
+    await openBoard(page);
+    await setZoom(page, 0.5);
+    const before = await scale(page);
+    await page.keyboard.press("Shift+Digit2");
+    await page.waitForTimeout(200);
+    expect(await scale(page)).toBeCloseTo(before, 5);
+  });
+
+  test("zoom to selection is disabled until something is selected", async ({ page }) => {
+    await openBoard(page);
+    await page.locator(".minimap-zoom-percentage").click();
+    const item = page.locator(".minimap-zoom-menu-item", { hasText: "Zoom to selection" });
+    await expect(item).toBeDisabled();
+  });
+
+  test("shortcuts stay inert while typing", async ({ page }) => {
+    // Ctrl+– in a prompt field used to zoom the canvas instead of reaching
+    // the text. Board guards its keys this way; the minimap did not.
+    await openBoard(page);
+    await addPanel(page);
+    const before = await scale(page);
+
+    const field = page.locator("textarea").first();
+    await field.fill("a prompt");
+    await field.press("ControlOrMeta+Minus");
+    await page.waitForTimeout(200);
+    expect(await scale(page)).toBeCloseTo(before, 5);
+    await expect(field).toHaveValue("a prompt");
+
+    // Shift+1 is "!", so the field gaining a character is the guard working:
+    // the keystroke reached the text instead of being eaten as a shortcut.
+    await field.press("Shift+Digit1");
+    await page.waitForTimeout(200);
+    expect(await scale(page)).toBeCloseTo(before, 5);
+    await expect(field).toHaveValue("a prompt!");
+  });
+});
