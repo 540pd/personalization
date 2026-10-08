@@ -9,24 +9,12 @@ import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { viewportCentre } from "@/lib/canvas/coords";
+import { createUploadHandler } from "../board/upload";
+import { applyDraggability } from "../board/draggability";
+import { createEditKeysHandler } from "../board/clipboard";
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { COLORS, DEFAULT_NODE_MAX_EDGE, Z_INDEX, MIN_NODE_SIZE, NODE_CORNER_RADIUS, SELECTION } from "@/constants/canvas.constants";
-
-// "photo-2024.final.png" -> "photo-2024.final". Only the last segment is an
-// extension; names with dots in them keep them.
-function stripExtension(fileName: string): string {
-  const dot = fileName.lastIndexOf(".");
-  return dot > 0 ? fileName.slice(0, dot) : fileName;
-}
-// Nodes are draggable only in pointer mode. Sole owner of that rule: call it
-// after adding a node and whenever the active tool changes. Reading the tool
-// here rather than capturing it at construction is what keeps a node created
-// under another tool from staying permanently undraggable.
-function applyDraggability(layer: Konva.Layer) {
-  const draggable = useToolStore.getState().activeTool === "pointer";
-  (layer.find(".selectable") as Konva.Shape[]).forEach((n) => n.draggable(draggable));
-}
 
 type Snapshot = Array<{ node: Konva.Shape; attrs: Record<string, unknown> }>;
 
@@ -441,215 +429,22 @@ export default function Board() {
     };
     window.addEventListener("keydown", handleUndoRedo);
 
-    // --- Delete / Copy / Paste ---
-    // One entry per copied node, so a multi-selection round-trips intact.
-    // imageUrl is carried alongside the Konva attrs because it lives in
-    // konvaNodes, not on the shape — without it a pasted image cannot be used
-    // as a generation reference.
-    let clipboard: Array<{
-      className: string;
-      attrs: Record<string, unknown>;
-      imageUrl?: string;
-    }> = [];
-
-    const handleEditKeys = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      const mod = e.ctrlKey || e.metaKey;
-      const selected = transformer.nodes() as Konva.Shape[];
-
-      // Delete / Backspace → remove selected nodes.
-      if (e.code === "Delete" || e.code === "Backspace") {
-        if (!selected.length) return;
-        e.preventDefault();
-        transformer.nodes([]);
-        updateSelectionChrome();
-        selected.forEach((n) => {
-          const nId = n.id();
-          if (nId) useKonvaNodes.getState().remove(nId);
-          n.destroy();
-        });
-        syncAllNodeGeometry();
-        useKonvaSelection.getState().deselect();
-        saveSnapshot();
-        return;
-      }
-
-      // Ctrl+C → copy every selected node.
-      if (mod && e.code === "KeyC") {
-        if (!selected.length) return;
-        const registered = useKonvaNodes.getState().nodes;
-        clipboard = selected.map((n) => ({
-          className: n.getClassName(),
-          attrs: { ...n.getAttrs() },
-          imageUrl: registered[n.id()]?.imageUrl,
-        }));
-        return;
-      }
-
-      // Ctrl+V → paste every copied node at a +20px offset, all left selected.
-      if (mod && e.code === "KeyV") {
-        if (!clipboard.length) return;
-        e.preventDefault();
-        const pasted = clipboard.map((entry) => {
-          // A fresh id, never undefined: syncNodeGeometry skips id-less nodes,
-          // so an id-less paste would never reach konvaNodes and would end up
-          // with no port and no way to connect it to anything.
-          const id = crypto.randomUUID();
-          const attrs = {
-            ...entry.attrs,
-            x: ((entry.attrs.x as number) ?? 0) + 20,
-            y: ((entry.attrs.y as number) ?? 0) + 20,
-            id,
-            name: "selectable",
-          };
-          const node: Konva.Shape =
-            entry.className === "Image"
-              ? new Konva.Image(attrs as Konva.ImageConfig)
-              : new Konva.Rect(attrs as Konva.RectConfig);
-          layer.add(node);
-          if (entry.imageUrl) {
-            useKonvaNodes.getState().upsert({
-              id,
-              canvasX: node.x(),
-              canvasY: node.y(),
-              canvasW: node.width()  * node.scaleX(),
-              canvasH: node.height() * node.scaleY(),
-              imageUrl: entry.imageUrl,
-            });
-          }
-          return node;
-        });
-        applyDraggability(layer);
-        syncAllNodeGeometry();
-        transformer.nodes(pasted);
-        const sel = useKonvaSelection.getState();
-        sel.select(pasted[0].id());
-        pasted.slice(1).forEach((n) => sel.addToSelection(n.id()));
-        updateSelectionChrome();
-        layer.batchDraw();
-        saveSnapshot();
-      }
-    };
+    const handleEditKeys = createEditKeysHandler({
+      layer, transformer,
+      applyDraggability: () => applyDraggability(layer),
+      syncAllNodeGeometry,
+      updateSelectionChrome,
+      saveSnapshot,
+    });
     window.addEventListener("keydown", handleEditKeys);
 
     // Place uploaded files on the canvas, centered in the current viewport.
-    const handleUpload = (e: Event) => {
-      const { files } = (e as CustomEvent<{ files: File[] }>).detail as { files: File[] };
-      // Return to pointer so the just-added node can be moved straight away.
-      // Without this an upload under a link/shape tool lands a node that cannot
-      // be dragged, and the press pans the board instead — matches the dock's
-      // generate-image behaviour.
-      useToolStore.getState().setTool("pointer");
-      // A just-uploaded image must not land behind an existing panel.
-      useLayerOrder.getState().raiseCanvas();
-      const { x: sx, y: sy, scale: s } = useViewport.getState();
-      const { x: cx, y: cy } = viewportCentre(
-        { x: sx, y: sy, scale: s },
-        { width: window.innerWidth, height: window.innerHeight }
-      );
-
-      files.forEach((file, i) => {
-        const off = i * 24;
-        if (file.type.startsWith("image/")) {
-          const url = URL.createObjectURL(file);
-          const img = new window.Image() as HTMLImageElement;
-          img.onload = () => {
-            // Fit inside the box in both directions. Aspect ratio is
-            // preserved, and images already smaller than it keep their natural
-            // size — scaling them up would only blur them.
-            const ratio = Math.min(
-              1,
-              DEFAULT_NODE_MAX_EDGE / img.naturalWidth,
-              DEFAULT_NODE_MAX_EDGE / img.naturalHeight
-            );
-            const w = img.naturalWidth  * ratio;
-            const h = img.naturalHeight * ratio;
-            const imgNodeId = crypto.randomUUID();
-            const node = new Konva.Image({
-              id: imgNodeId,
-              image: img,
-              x: cx - w / 2 + off,
-              y: cy - h / 2 + off,
-              width: w,
-              height: h,
-              name: "selectable",
-              cornerRadius: NODE_CORNER_RADIUS,
-              // A light hairline, matching the Create Image placeholder. Without
-              // an edge, an image dragged over another node is just a colour
-              // change where the two meet -- they read as one stitched shape.
-              // Light rather than dark because a dark hairline disappears
-              // against mid-tone photo content, which is the failing case.
-              //
-              // Deliberately a stroke and NOT a shadow: shadowBlur on a
-              // Konva.Image forces an offscreen blur pass per node per frame.
-              // Measured with 10 images redrawing every frame, it took the
-              // canvas from 60fps to 4. The DOM placeholders can afford a
-              // real shadow because the compositor handles those.
-              stroke: "rgba(255,255,255,0.95)",
-              strokeWidth: 1.5,
-              strokeScaleEnabled: false,
-              // Force bounding-rect hit detection so clicks on transparent PNG
-              // areas still register (Konva default uses per-pixel alpha for images).
-              hitFunc(ctx: Konva.Context, shape: Konva.Shape) {
-                ctx.beginPath();
-                ctx.rect(0, 0, shape.width(), shape.height());
-                ctx.closePath();
-                ctx.fillStrokeShape(shape);
-              },
-            });
-            // Convert to data URL so downstream AI nodes can send it to the backend.
-            const canvas = document.createElement("canvas");
-            canvas.width = w; canvas.height = h;
-            canvas.getContext("2d")?.drawImage(img, 0, 0, w, h);
-            const imageUrl = canvas.toDataURL("image/png");
-            useKonvaNodes.getState().upsert({
-              id: imgNodeId,
-              canvasX: cx - w / 2 + off,
-              canvasY: cy - h / 2 + off,
-              canvasW: w,
-              canvasH: h,
-              imageUrl,
-              label: stripExtension(file.name),
-            });
-            layer.add(node);
-            applyDraggability(layer);
-            syncAllNodeGeometry();
-            layer.batchDraw();
-            saveSnapshot();
-          };
-          img.src = url;
-        } else {
-          // Video / audio — placeholder rect until media nodes are fully supported.
-          const w = 240;
-          const h = file.type.startsWith("video/") ? 135 : 64;
-          const rectNodeId = crypto.randomUUID();
-          const node = new Konva.Rect({
-            id: rectNodeId,
-            x: cx - w / 2 + off,
-            y: cy - h / 2 + off,
-            width: w,
-            height: h,
-            fill: COLORS.mediaFill,
-            stroke: COLORS.mediaStroke,
-            strokeWidth: 1.5,
-            cornerRadius: 8,
-            name: "selectable",
-          });
-          useKonvaNodes.getState().upsert({
-            id: rectNodeId,
-            canvasX: cx - w / 2 + off,
-            canvasY: cy - h / 2 + off,
-            canvasW: w,
-            canvasH: h,
-          });
-          layer.add(node);
-          applyDraggability(layer);
-          syncAllNodeGeometry();
-          layer.batchDraw();
-          saveSnapshot();
-        }
-      });
-    };
+    const handleUpload = createUploadHandler({
+      layer,
+      applyDraggability: () => applyDraggability(layer),
+      syncAllNodeGeometry,
+      saveSnapshot,
+    });
     window.addEventListener("canvas:upload", handleUpload);
 
     const observer = new ResizeObserver(() => {
