@@ -5,11 +5,11 @@
 // Three zones, which is the shape both references share:
 //
 //   header   product lockup + collapse toggle
-//   nav      brand label + destinations   <- takes the remaining height
+//   nav      destinations                 <- takes the remaining height
 //   footer   Support + identity           <- pinned
 //
-// Everything else is data: the destinations come from items.ts, the brand
-// name and the user are props.
+// Everything else is data: the destinations come from items.ts, the user is
+// a prop.
 
 import { useState } from "react";
 import { PanelLeft } from "lucide-react";
@@ -21,14 +21,7 @@ import type { SidebarUser } from "./UserMenu";
 import { DEFAULT_SECTION, type SectionId } from "./items";
 import "./Sidebar.scss";
 
-export default function Sidebar({
-  brandName = "Default",
-  user = null,
-}: {
-  /** The current brand. "Default" until one is configured via user > Brand. */
-  brandName?: string;
-  user?: SidebarUser | null;
-}) {
+export default function Sidebar({ user = null }: { user?: SidebarUser | null }) {
   const collapsed = useSidebar((s) => s.collapsed);
   const toggle = useSidebar((s) => s.toggle);
   const [active, setActive] = useState<SectionId>(DEFAULT_SECTION);
@@ -52,7 +45,7 @@ export default function Sidebar({
   return (
     <aside className="sidebar" aria-label="Main navigation" style={{ width: SIDEBAR_WIDTH }}>
       <SidebarHeader onToggle={toggle} />
-      <SidebarNav label={brandName} active={active} onSelect={setActive} />
+      <SidebarNav active={active} onSelect={setActive} />
       <SidebarFooter
         user={user}
         // Both are destinations this slice deliberately does not build. The

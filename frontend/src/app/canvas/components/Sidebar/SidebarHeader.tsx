@@ -2,13 +2,7 @@
 
 import { PanelLeft } from "lucide-react";
 
-/**
- * Product lockup plus the collapse toggle.
- *
- * "GenOS / PlaySpace" is the product, not the brand -- the brand name is the
- * section label below, which is why the two are separate zones rather than
- * one breadcrumb.
- */
+/** Product lockup plus the collapse toggle. */
 export default function SidebarHeader({ onToggle }: { onToggle: () => void }) {
   return (
     <div className="sidebar-header">
@@ -16,7 +10,7 @@ export default function SidebarHeader({ onToggle }: { onToggle: () => void }) {
         &gt;
       </span>
       <span className="sidebar-product">
-        GenOS <span className="sidebar-product-sep">/</span>{" "}
+        Studio <span className="sidebar-product-sep">/</span>{" "}
         <span className="sidebar-product-app">PlaySpace</span>
       </span>
       <button

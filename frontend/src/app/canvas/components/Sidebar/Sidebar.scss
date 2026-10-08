@@ -30,8 +30,10 @@
   @apply font-normal text-neutral-400;
 }
 
+// Hierarchy by weight and tone, not hue: a coloured app name is the only
+// saturated thing in the rail, and it pulls the eye away from the canvas.
 .sidebar-product-app {
-  @apply font-semibold text-indigo-600;
+  @apply font-medium text-neutral-500;
 }
 
 .sidebar-collapse-button {
@@ -46,22 +48,21 @@
   @apply flex-1 overflow-y-auto px-3 pt-2;
 }
 
-.sidebar-brand-label {
-  @apply px-2 pb-2 text-sm font-bold text-neutral-900 truncate;
-}
-
 .sidebar-nav-list {
   @apply flex flex-col gap-0.5;
 }
 
 .sidebar-item {
   @apply w-full flex items-center gap-3 px-3 h-10 rounded-full;
-  @apply text-sm text-neutral-400 transition-colors;
-  @apply hover:bg-black/5 hover:text-neutral-600;
+  @apply text-sm text-neutral-500 transition-colors;
+  @apply hover:bg-black/[0.03] hover:text-neutral-700;
 }
 
+// Light fill plus a weight and tone shift. The fill alone would sit too
+// close to hover to read as a state, so the text carries half the signal.
 .sidebar-item-active {
-  @apply bg-indigo-900 text-white hover:bg-indigo-900 hover:text-white;
+  @apply bg-neutral-100 font-medium text-neutral-900;
+  @apply hover:bg-neutral-100 hover:text-neutral-900;
 }
 
 .sidebar-item-icon {
