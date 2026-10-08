@@ -131,11 +131,49 @@ test.describe("sidebar", () => {
     });
   });
 
-  test("the user menu is absent while nobody is signed in", async ({ page }) => {
-    // Anonymous mode is the only signed-out state once IAP is in front, so
-    // the footer says so rather than offering a sign-in that does nothing.
-    await openBoard(page);
-    await expect(page.locator(".sidebar-identity-anonymous")).toBeVisible();
-    await expect(page.locator(".sidebar-user-menu")).toHaveCount(0);
+  test.describe("identity", () => {
+    // Dev builds carry a stub identity so the footer is clickable. It is
+    // gated on NODE_ENV as well as the env var, so it cannot reach a
+    // deployed build even if the var is set there by mistake.
+    test("shows the signed-in user", async ({ page }) => {
+      await openBoard(page);
+      await expect(page.locator(".sidebar-identity")).toContainText("Abhimanyu Mahato");
+      await expect(page.locator(".sidebar-identity-anonymous")).toHaveCount(0);
+    });
+
+    test("opens a menu with the email, Brand and Sign out", async ({ page }) => {
+      await openBoard(page);
+      await expect(page.locator(".sidebar-user-menu")).toHaveCount(0);
+
+      await page.locator(".sidebar-identity").click();
+      const menu = page.locator(".sidebar-user-menu");
+      await expect(menu).toBeVisible();
+      await expect(menu.locator(".sidebar-user-email")).toContainText("@accenture.com");
+      await expect(menu.getByRole("menuitem", { name: "Brand" })).toBeVisible();
+      await expect(menu.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+    });
+
+    test("closes on Escape and on an outside click", async ({ page }) => {
+      await openBoard(page);
+      await page.locator(".sidebar-identity").click();
+      await page.keyboard.press("Escape");
+      await expect(page.locator(".sidebar-user-menu")).toHaveCount(0);
+
+      await page.locator(".sidebar-identity").click();
+      await expect(page.locator(".sidebar-user-menu")).toBeVisible();
+      await page.mouse.click(900, 300);
+      await expect(page.locator(".sidebar-user-menu")).toHaveCount(0);
+    });
+
+    test("signing out locally falls back to the signed-out state", async ({ page }) => {
+      // The point of wiring sign-out in dev: both states are reachable
+      // without editing env vars and restarting.
+      await openBoard(page);
+      await page.locator(".sidebar-identity").click();
+      await page.getByRole("menuitem", { name: "Sign out" }).click();
+
+      await expect(page.locator(".sidebar-identity-anonymous")).toBeVisible();
+      await expect(page.locator(".sidebar-user-menu")).toHaveCount(0);
+    });
   });
 });
