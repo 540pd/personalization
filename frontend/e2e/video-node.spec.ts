@@ -72,9 +72,9 @@ async function stubVideo(page: Page, opts: StubOptions = {}) {
 
 async function addVideoNode(page: Page) {
   const before = await page.locator("button.node-panel-placeholder").count();
-  await page.locator("button").nth(1).click();
+  await page.locator(".floating-dock button").nth(1).click();
   await page.waitForTimeout(250);
-  await page.locator("button").filter({ hasText: /^Video$/ }).first().click();
+  await page.locator(".floating-dock-submenu button").filter({ hasText: /^Video$/ }).first().click();
   await page.waitForFunction(
     (n) => document.querySelectorAll("button.node-panel-placeholder").length > n,
     before,
@@ -119,9 +119,9 @@ test.describe("node > video", () => {
     // The rest of the board is not blocked: another node can be created and
     // dragged while the job runs.
     const before = (await panelBoxes(page)).length;
-    await page.locator("button").nth(1).click();
+    await page.locator(".floating-dock button").nth(1).click();
     await page.waitForTimeout(250);
-    await page.locator("button").filter({ hasText: /^Image$/ }).first().click();
+    await page.locator(".floating-dock-submenu button").filter({ hasText: /^Image$/ }).first().click();
     await page.waitForTimeout(700);
     expect((await panelBoxes(page)).length).toBe(before + 1);
   });
@@ -236,9 +236,9 @@ test.describe("node > video", () => {
     const [v] = await panelBoxes(page);
     await dragFrom(page, v.x + v.w / 2, v.y + v.h / 2, -380);
 
-    await page.locator("button").nth(1).click();
+    await page.locator(".floating-dock button").nth(1).click();
     await page.waitForTimeout(250);
-    await page.locator("button").filter({ hasText: /^Image$/ }).first().click();
+    await page.locator(".floating-dock-submenu button").filter({ hasText: /^Image$/ }).first().click();
     await page.waitForTimeout(800);
     await collapsePanels(page);
     await clickEmpty(page);

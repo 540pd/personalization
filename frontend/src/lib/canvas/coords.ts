@@ -16,6 +16,20 @@ export interface Size {
   height: number;
 }
 
+/**
+ * A screen area the canvas is visible in. `left`/`top` default to 0, so a
+ * caller that still means "the whole window" passes a plain Size and nothing
+ * changes for it.
+ *
+ * They exist because the canvas stays full-bleed under the sidebar: the
+ * window is no longer the visible area, and centring on the window puts a new
+ * node partly behind the sidebar.
+ */
+export interface Rect extends Size {
+  left?: number;
+  top?: number;
+}
+
 /** Stage offset and zoom, as held by viewport.store. */
 export interface Viewport {
   x: number;
@@ -43,17 +57,20 @@ export function toCanvas(pt: Point, vp: Viewport): Point {
  * Algebraically identical, so no text search would ever have matched them to
  * each other. That is the argument for a named function over a lint rule.
  */
-export function viewportCentre(vp: Viewport, size: Size): Point {
-  return toCanvas({ x: size.width / 2, y: size.height / 2 }, vp);
+export function viewportCentre(vp: Viewport, area: Rect): Point {
+  return toCanvas(
+    { x: (area.left ?? 0) + area.width / 2, y: (area.top ?? 0) + area.height / 2 },
+    vp
+  );
 }
 
 /**
  * The stage offset that puts a given canvas point at the viewport centre —
  * the inverse of viewportCentre, used when the minimap jumps somewhere.
  */
-export function stagePositionFor(centre: Point, scale: number, size: Size): Point {
+export function stagePositionFor(centre: Point, scale: number, area: Rect): Point {
   return {
-    x: -centre.x * scale + size.width / 2,
-    y: -centre.y * scale + size.height / 2,
+    x: -centre.x * scale + (area.left ?? 0) + area.width / 2,
+    y: -centre.y * scale + (area.top ?? 0) + area.height / 2,
   };
 }

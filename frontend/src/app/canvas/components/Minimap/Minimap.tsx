@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useViewport } from "@/store/viewport.store";
+import { useCanvasArea, canvasArea } from "../../canvasArea";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { unionBounds } from "./world";
@@ -20,7 +21,9 @@ import "./Minimap.scss";
 export default function Minimap() {
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [isZoomMenuOpen, setIsZoomMenuOpen] = useState(false);
-  const [size, setSize] = useState({ width: 0, height: 0 });
+  // The visible canvas, not the window: the sidebar covers the left edge, so
+  // the indicator would otherwise draw a viewport wider than you can see.
+  const area = useCanvasArea();
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -30,23 +33,12 @@ export default function Minimap() {
   const selectedNodeIds = useKonvaSelection((s) => s.nodeIds);
   const panels = useNodePanel((s) => s.panels);
 
-  useEffect(() => {
-    const update = () => setSize({ width: window.innerWidth, height: window.innerHeight });
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-
-  const viewportSize = useCallback(
-    () => ({ width: window.innerWidth, height: window.innerHeight }),
-    []
-  );
 
   const zoom = useCallback(
     (direction: 1 | -1) => {
-      useViewport.setState(zoomStep(useViewport.getState(), direction, viewportSize()));
+      useViewport.setState(zoomStep(useViewport.getState(), direction, canvasArea()));
     },
-    [viewportSize]
+    []
   );
 
   /** Fit a set of boxes, or do nothing if there are none. */
@@ -54,9 +46,9 @@ export default function Minimap() {
     (boxes: ReturnType<typeof currentBounds>) => {
       const box = unionBounds(boxes);
       if (!box) return;
-      useViewport.setState(fitTo(box, viewportSize()));
+      useViewport.setState(fitTo(box, canvasArea()));
     },
-    [viewportSize]
+    []
   );
 
   const zoomToFit = useCallback(() => fit(currentBounds()), [fit]);
@@ -138,7 +130,7 @@ export default function Minimap() {
     <div
       ref={containerRef}
       className="minimap-container"
-      style={{ width: isMapOpen ? MAP_W : "auto" }}
+      style={{ width: isMapOpen ? MAP_W : "auto", left: (area.left ?? 0) + 24 }}
     >
       {isZoomMenuOpen && <ZoomMenu items={zoomMenuItems} />}
 
@@ -152,7 +144,7 @@ export default function Minimap() {
           onToggleMap={() => setIsMapOpen((v) => !v)}
         />
 
-        {isMapOpen && <MinimapView size={size} />}
+        {isMapOpen && <MinimapView area={area} />}
       </div>
     </div>
   );

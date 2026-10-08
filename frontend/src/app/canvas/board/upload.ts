@@ -11,6 +11,7 @@ import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { COLORS, DEFAULT_NODE_MAX_EDGE, NODE_CORNER_RADIUS } from "@/constants/canvas.constants";
 import { viewportCentre } from "@/lib/canvas/coords";
+import { canvasArea } from "../canvasArea";
 
 /** "photo-2024.final.png" -> "photo-2024.final". Only the last segment is an extension. */
 export function stripExtension(fileName: string): string {
@@ -145,10 +146,9 @@ export function createUploadHandler(deps: UploadDeps) {
     useLayerOrder.getState().raiseCanvas();
 
     const { x: sx, y: sy, scale } = useViewport.getState();
-    const { x: cx, y: cy } = viewportCentre(
-      { x: sx, y: sy, scale },
-      { width: window.innerWidth, height: window.innerHeight }
-    );
+    // canvasArea, not the window: the sidebar covers the left edge, so
+    // centring on the window drops the image partly behind it.
+    const { x: cx, y: cy } = viewportCentre({ x: sx, y: sy, scale }, canvasArea());
 
     files.forEach((file, i) => {
       const off = i * 24;   // cascade, so a multi-file drop does not stack

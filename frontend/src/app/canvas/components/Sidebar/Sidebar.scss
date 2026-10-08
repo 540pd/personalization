@@ -1,0 +1,126 @@
+@reference "../../../globals.css";
+
+// Width is declared in sidebar.store.ts, not here: six places outside this
+// component subtract it to work out where the middle of the canvas is, so a
+// value only CSS knew would drift out of step with them.
+.sidebar {
+  @apply fixed top-0 left-0 bottom-0 z-50 flex flex-col;
+  @apply bg-white border-r border-black/[0.08];
+}
+
+.sidebar-reopen {
+  @apply fixed top-4 left-4 z-50 w-8 h-8 flex items-center justify-center;
+  @apply rounded-lg bg-white shadow-md text-gray-500 transition-colors hover:bg-black/5;
+}
+
+// ── header ──────────────────────────────────────────────────────────────
+.sidebar-header {
+  @apply flex items-center gap-2 h-14 px-4;
+}
+
+.sidebar-brandmark {
+  @apply text-lg font-bold leading-none text-violet-600;
+}
+
+.sidebar-product {
+  @apply flex-1 text-sm font-semibold text-neutral-900 truncate;
+}
+
+.sidebar-product-sep {
+  @apply font-normal text-neutral-400;
+}
+
+.sidebar-product-app {
+  @apply font-semibold text-indigo-600;
+}
+
+.sidebar-collapse-button {
+  @apply w-7 h-7 flex items-center justify-center rounded-lg text-gray-400;
+  @apply transition-colors hover:bg-black/5 hover:text-gray-600;
+}
+
+// ── nav ─────────────────────────────────────────────────────────────────
+// flex-1 is what produces the large empty middle both references show: the
+// footer pins itself to the bottom without any absolute positioning.
+.sidebar-nav {
+  @apply flex-1 overflow-y-auto px-3 pt-2;
+}
+
+.sidebar-brand-label {
+  @apply px-2 pb-2 text-sm font-bold text-neutral-900 truncate;
+}
+
+.sidebar-nav-list {
+  @apply flex flex-col gap-0.5;
+}
+
+.sidebar-item {
+  @apply w-full flex items-center gap-3 px-3 h-10 rounded-full;
+  @apply text-sm text-neutral-400 transition-colors;
+  @apply hover:bg-black/5 hover:text-neutral-600;
+}
+
+.sidebar-item-active {
+  @apply bg-indigo-900 text-white hover:bg-indigo-900 hover:text-white;
+}
+
+.sidebar-item-icon {
+  @apply w-4 h-4 shrink-0;
+}
+
+.sidebar-item-label {
+  @apply truncate;
+}
+
+// ── footer ──────────────────────────────────────────────────────────────
+.sidebar-footer {
+  @apply relative px-3 pb-3;
+}
+
+.sidebar-support {
+  @apply w-full flex items-center gap-3 px-3 h-10 rounded-full;
+  @apply text-sm text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-600;
+}
+
+.sidebar-footer-divider {
+  @apply h-px my-2 mx-1 bg-black/[0.08];
+}
+
+.sidebar-identity {
+  @apply w-full flex items-center gap-3 px-2 h-10 rounded-full;
+  @apply text-sm font-medium text-neutral-900 transition-colors hover:bg-black/5;
+}
+
+.sidebar-identity-anonymous {
+  @apply text-neutral-400 hover:bg-transparent;
+}
+
+.sidebar-identity-name {
+  @apply truncate;
+}
+
+.sidebar-avatar {
+  @apply w-7 h-7 shrink-0 flex items-center justify-center rounded-full;
+  @apply bg-amber-100 text-xs font-semibold text-neutral-700;
+}
+
+// ── user menu ───────────────────────────────────────────────────────────
+// Opens upward: the trigger is pinned to the bottom of the rail.
+.sidebar-user-menu {
+  @apply absolute bottom-[calc(100%-0.5rem)] left-3 right-3 z-10 p-2;
+  @apply rounded-2xl bg-white shadow-xl border border-black/[0.08];
+}
+
+.sidebar-user-menu-identity {
+  @apply flex items-center gap-3 px-1 pb-2;
+}
+
+.sidebar-user-email {
+  @apply text-sm text-neutral-600 truncate;
+}
+
+.sidebar-user-menu-item {
+  @apply w-full flex items-center px-4 h-10 mt-1 rounded-full;
+  @apply text-sm text-neutral-900 text-left border border-black/[0.08];
+  @apply transition-colors hover:bg-black/5;
+}

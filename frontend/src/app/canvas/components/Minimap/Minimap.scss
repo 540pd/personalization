@@ -1,7 +1,9 @@
 @reference "../../../globals.css";
 
+// `left` is set inline from the canvas area: the rail covers the bottom-left
+// corner this used to sit in.
 .minimap-container {
-  @apply fixed bottom-6 left-6 z-50;
+  @apply fixed bottom-6 z-50;
 }
 
 .minimap-zoom-menu {

@@ -31,6 +31,7 @@ import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen } from "@/lib/canvas/coords";
+import { useCanvasArea } from "../../canvasArea";
 import NodeLabel from "../NodeLabel";
 import GenerateForm, { type GenerateDraft } from "./GenerateForm";
 import { kindSpec } from "./kinds";
@@ -155,16 +156,11 @@ function SinglePanel({
   }, [instance.id, settings, spec]);
 
   // The panel is placed relative to the node, so it has to know how much room
-  // is left on screen. Same pattern as Minimap.
-  const [viewW, setViewW] = useState(() =>
-    typeof window === "undefined" ? 0 : window.innerWidth
-  );
-  useEffect(() => {
-    const update = () => setViewW(window.innerWidth);
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
+  // is left on screen. The visible canvas, not the window: the left-flip
+  // fallback would otherwise push a panel underneath the sidebar.
+  const area = useCanvasArea();
+  const viewLeft = area.left ?? 0;
+  const viewW = viewLeft + area.width;
 
   // pw/ph are canvas units; sw/sh are their on-screen size at the current zoom.
   // Node geometry uses sw/sh; chrome (ports, anchors, panel) keeps a fixed pixel size.
@@ -187,12 +183,15 @@ function SinglePanel({
   // window) keep it on the right and clamp, so it stays reachable.
   const rightLeft = screenLeft + sw + GAP;
   const leftLeft  = screenLeft - GAP - PANEL_W;
+  // The left bound is the sidebar's inner edge, not 0 -- flipping a panel to
+  // x=16 would tuck it under the rail.
+  const minLeft = viewLeft + VIEWPORT_MARGIN;
   const panelLeft =
     rightLeft + PANEL_W <= viewW - VIEWPORT_MARGIN
       ? rightLeft
-      : leftLeft >= VIEWPORT_MARGIN
+      : leftLeft >= minLeft
         ? leftLeft
-        : Math.max(VIEWPORT_MARGIN, viewW - PANEL_W - VIEWPORT_MARGIN);
+        : Math.max(minLeft, viewW - PANEL_W - VIEWPORT_MARGIN);
 
   const onPointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
