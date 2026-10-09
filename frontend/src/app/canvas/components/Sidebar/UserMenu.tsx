@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-
-export interface SidebarUser {
-  name: string;
-  email: string;
-}
+import type { Identity } from "@/auth/useIdentity";
 
 /**
  * The popover above the identity row: email, Brand, Sign out.
@@ -18,7 +14,7 @@ export default function UserMenu({
   onBrand,
   onSignOut,
 }: {
-  user: SidebarUser;
+  user: Identity;
   onClose: () => void;
   onBrand: () => void;
   onSignOut: () => void;

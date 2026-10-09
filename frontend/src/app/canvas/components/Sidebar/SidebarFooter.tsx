@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { HelpCircle } from "lucide-react";
-import UserMenu, { type SidebarUser } from "./UserMenu";
+import UserMenu from "./UserMenu";
+import type { Identity } from "@/auth/useIdentity";
 
 /**
  * Pinned to the bottom: Support, then identity.
@@ -17,8 +18,8 @@ export default function SidebarFooter({
   onBrand,
   onSignOut,
 }: {
-  /** null while nobody is signed in — the app runs anonymous today. */
-  user: SidebarUser | null;
+  /** null while nobody is signed in. */
+  user: Identity | null;
   onBrand: () => void;
   onSignOut: () => void;
 }) {
