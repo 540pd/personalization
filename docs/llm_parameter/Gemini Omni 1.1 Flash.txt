@@ -1,0 +1,49 @@
+import base64
+from google.colab import auth
+from google import genai
+from google.genai import types
+from IPython.display import HTML, display
+
+# Authenticate the Colab user so Application Default Credentials are available.
+auth.authenticate_user()
+
+client = genai.Client(
+    vertexai=True,
+    project="uxlwqzc-cdip-sandbox-test",
+    location="global",
+    http_options=types.HttpOptions(headers={"Api-Revision": "2026-05-20"}),
+)
+
+interaction = client.interactions.create(
+    model='gemini-omni-1.1-flash-preview',
+    input=[
+    ],
+)
+
+for step in interaction.steps:
+    if step.get('type') == 'model_output' and step.get('content'):
+        for part in step['content']:
+            if part.get('type') == 'text':
+                print(part.get('text'))
+            elif part.get('type') == 'video':
+                # Video is returned either as inline base64 `data` or, when the
+                # response is delivered to Cloud Storage, as a `uri`. Render it
+                # inline with an HTML5 <video> tag using a base64 data URI.
+                mime_type = part.get('mime_type', 'video/mp4')
+                video_b64 = part.get('data')
+                if not video_b64 and part.get('uri'):
+                    from google.cloud import storage
+                    bucket_name, blob_name = part['uri'][len('gs://'):].split('/', 1)
+                    video_bytes = (
+                        storage.Client()
+                        .bucket(bucket_name)
+                        .blob(blob_name)
+                        .download_as_bytes()
+                    )
+                    video_b64 = base64.b64encode(video_bytes).decode('utf-8')
+                if video_b64:
+                    display(HTML(
+                        f'<video controls autoplay loop width="640">'
+                        f'<source src="data:{mime_type};base64,{video_b64}" '
+                        f'type="{mime_type}"></video>'
+                    ))
