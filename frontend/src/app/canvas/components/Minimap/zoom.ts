@@ -1,0 +1,56 @@
+import type { Bounds } from "@/lib/canvas/bounds";
+import { stagePositionFor, type Size } from "@/lib/canvas/coords";
+import { MIN_SCALE, MAX_SCALE } from "@/store/viewport.store";
+
+/**
+ * The zoom actions behind the % menu.
+ *
+ * Pure: each takes the current viewport and returns the next one, so the
+ * arithmetic is testable without a stage. The menu used to call `reset()` for
+ * three of its five entries, which is why "Zoom to fit" and "Zoom to 100%"
+ * did the same thing and "Zoom to selection" did nothing at all.
+ */
+
+export interface ViewportState {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+export const ZOOM_STEP = 0.1;
+
+/** Leave this fraction of the viewport as margin when fitting. */
+export const FIT_PAD = 0.1;
+
+export function clampScale(s: number): number {
+  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+}
+
+/** One step in or out, anchored on the viewport centre so nothing jumps. */
+export function zoomStep(vp: ViewportState, direction: 1 | -1, size: Size): ViewportState {
+  // Rounded to 2dp so repeated steps land on readable percentages rather
+  // than drifting to 70.00000000000001%.
+  const scale = clampScale(Math.round((vp.scale + direction * ZOOM_STEP) * 100) / 100);
+  const cx = size.width / 2;
+  const cy = size.height / 2;
+  const ratio = scale / vp.scale;
+  return { scale, x: cx - ratio * (cx - vp.x), y: cy - ratio * (cy - vp.y) };
+}
+
+/**
+ * Scale and centre so `bounds` fills the viewport, with a margin.
+ *
+ * Uses the smaller of the two axis ratios, so the box fits on its tightest
+ * edge rather than overflowing the other one.
+ */
+export function fitTo(bounds: Bounds, size: Size): ViewportState {
+  // A zero-area box (a degenerate node, or an empty board) would divide by
+  // zero and send the scale to Infinity; fall back to 1:1 on that point.
+  const w = Math.max(bounds.w, 1);
+  const h = Math.max(bounds.h, 1);
+  const scale = clampScale(
+    Math.min(size.width / (w * (1 + FIT_PAD)), size.height / (h * (1 + FIT_PAD)))
+  );
+  const centre = { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
+  return { scale, ...stagePositionFor(centre, scale, size) };
+}

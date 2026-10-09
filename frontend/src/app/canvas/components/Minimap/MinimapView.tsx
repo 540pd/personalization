@@ -7,9 +7,9 @@ import { useCallback, useRef } from "react";
 import { useViewport } from "@/store/viewport.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useNodePanel } from "@/store/nodePanel.store";
-import { boundsOf, type Bounds } from "@/lib/canvas/bounds";
 import { stagePositionFor, type Point } from "@/lib/canvas/coords";
 import { minimapWorld, viewportBounds } from "./world";
+import { boundsFrom } from "./boardBounds";
 
 export const MAP_W = 200;
 export const MAP_H = 130;
@@ -31,12 +31,9 @@ export default function MinimapView({ size }: { size: { width: number; height: n
   const konvaNodes = useKonvaNodes((s) => s.nodes);
   const panels = useNodePanel((s) => s.panels);
 
-  // boundsOf normalises the two record shapes: a Konva node's canvasY is its
-  // top edge, a panel's is its vertical centre.
-  const content: Bounds[] = [
-    ...Object.values(konvaNodes).map(boundsOf),
-    ...panels.map(boundsOf),
-  ];
+  // Shared with the zoom-to-fit actions, so the map and the menu can never
+  // disagree about what is on the board.
+  const content = boundsFrom(konvaNodes, panels);
   const view = viewportBounds({ x, y, scale }, size);
   const world = minimapWorld(content, view);
 
