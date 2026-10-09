@@ -1,11 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { openBoard, uploadImage, addPanel, setZoom, imageBox } from "./helpers";
+import { openBoard, uploadImage, addPanel, setZoom, imageBox, collapseSidebar } from "./helpers";
 
 // UTIL-01. These assert the two things that were measurably broken: the map
 // drew no objects at all, and the viewport indicator outgrew the map as soon
 // as you zoomed out.
 
 async function openMinimap(page: import("@playwright/test").Page) {
+  await collapseSidebar(page);
   await page.locator(".minimap-toggle-button").click();
   await expect(page.locator("svg.minimap-canvas")).toBeVisible();
 }
@@ -219,6 +220,7 @@ test.describe("zoom shortcuts", () => {
 
   test("zoom to selection is disabled until something is selected", async ({ page }) => {
     await openBoard(page);
+    await collapseSidebar(page);
     await page.locator(".minimap-zoom-percentage").click();
     const item = page.locator(".minimap-zoom-menu-item", { hasText: "Zoom to selection" });
     await expect(item).toBeDisabled();

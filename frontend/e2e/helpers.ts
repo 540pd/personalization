@@ -112,6 +112,17 @@ export async function addPanel(page: Page) {
   await page.waitForTimeout(300);
 }
 
+/**
+ * Put the nav rail away.
+ *
+ * The minimap and zoom bar are hidden while the rail is open -- they share
+ * the bottom-left corner -- so any spec about them has to collapse it first.
+ */
+export async function collapseSidebar(page: Page) {
+  await page.locator(".sidebar-collapse-button").click();
+  await page.waitForSelector(".minimap-container");
+}
+
 /** Collapse every open panel, leaving placeholders on the canvas. */
 export async function collapsePanels(page: Page) {
   await page.keyboard.press("Escape");
