@@ -5,7 +5,8 @@
 }
 
 .minimap-zoom-menu {
-  @apply absolute rounded-xl shadow-xl overflow-hidden;
+  @apply absolute bottom-[calc(100%+8px)] left-0 w-[220px] rounded-xl shadow-xl overflow-hidden;
+  @apply bg-white border border-black/[0.08];
 }
 
 .minimap-zoom-menu-item {
@@ -20,8 +21,20 @@
   @apply cursor-default;
 }
 
+.minimap-zoom-menu-label {
+  @apply text-gray-700;
+}
+
+.minimap-zoom-menu-item-disabled .minimap-zoom-menu-label {
+  @apply text-gray-400;
+}
+
+.minimap-zoom-menu-shortcut {
+  @apply text-gray-400 text-[11px];
+}
+
 .minimap-panel {
-  @apply rounded-xl overflow-hidden shadow-lg;
+  @apply rounded-xl overflow-hidden shadow-lg bg-neutral-200;
 }
 
 .minimap-zoom-bar {
@@ -29,11 +42,11 @@
 }
 
 .minimap-zoom-button {
-  @apply w-7 h-7 flex items-center justify-center rounded-lg text-lg font-light leading-none transition-colors hover:bg-black/10;
+  @apply w-7 h-7 flex items-center justify-center rounded-lg text-lg font-light leading-none transition-colors hover:bg-black/10 text-gray-500;
 }
 
 .minimap-zoom-percentage {
-  @apply h-7 rounded-lg text-xs font-semibold tabular-nums transition-colors hover:bg-black/10;
+  @apply h-7 rounded-lg text-xs font-semibold tabular-nums transition-colors hover:bg-black/10 text-gray-700;
 }
 
 .minimap-zoom-percentage-expanded {
@@ -45,17 +58,28 @@
 }
 
 .minimap-divider {
-  @apply w-px h-4 mx-0.5;
+  @apply w-px h-4 mx-0.5 bg-black/[0.12];
 }
 
 .minimap-toggle-button {
-  @apply w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:bg-black/10;
+  @apply w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:bg-black/10 text-gray-500;
 }
 
+// The map is one <svg> with a viewBox; `block` stops the inline-element
+// baseline gap leaving a sliver of panel below it.
 .minimap-canvas {
-  @apply relative overflow-hidden cursor-crosshair;
+  @apply block cursor-crosshair bg-neutral-300;
+}
+
+// Objects read as solid blocks, matching the Luma reference — the point is
+// where things are, not what they are.
+.minimap-object {
+  @apply fill-neutral-500;
 }
 
 .minimap-viewport-indicator {
-  @apply absolute cursor-grab active:cursor-grabbing rounded-sm;
+  @apply cursor-grab active:cursor-grabbing;
+  fill: rgb(59 130 246 / 0.25);
+  stroke: rgb(59 130 246);
+  stroke-width: 1.5;
 }
