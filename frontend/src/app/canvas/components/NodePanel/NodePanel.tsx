@@ -609,6 +609,9 @@ export default function NodePanel() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // Capture phase runs before a modal can stop the event, so it has to
+      // opt out itself: Backspace on a popup's button must not delete here.
+      if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;
       const store = useNodePanel.getState();
       const mod   = e.ctrlKey || e.metaKey;
 

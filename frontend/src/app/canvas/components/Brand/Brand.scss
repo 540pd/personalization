@@ -1,0 +1,204 @@
+@reference "../../../globals.css";
+
+// GCOS reference: docs/sidebar/gcos_user_click_brand*.png
+// Above every canvas layer (the highest of those is a node label at 52).
+
+// ── shell ───────────────────────────────────────────────────────────────
+.brand-overlay {
+  @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40;
+}
+
+// Header and footer fixed, only the body scrolls: with six cards the Save
+// button would otherwise sit far below the fold.
+.brand-dialog {
+  @apply flex flex-col w-[900px] max-w-full max-h-[85vh] overflow-hidden;
+  @apply rounded-2xl bg-neutral-100 shadow-2xl text-neutral-900;
+}
+
+.brand-dialog-head {
+  @apply flex items-center justify-between px-8 pt-6 pb-4 border-b border-black/[0.08];
+}
+
+.brand-dialog-title {
+  @apply text-2xl font-bold;
+}
+
+.brand-icon-button {
+  @apply w-8 h-8 flex items-center justify-center rounded-full text-neutral-500;
+  @apply transition-colors hover:bg-black/5 hover:text-neutral-800;
+}
+
+.brand-dialog-body {
+  @apply flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-5;
+}
+
+.brand-dialog-foot {
+  @apply flex justify-end gap-2 px-8 py-4 border-t border-black/[0.08];
+}
+
+// ── fields ──────────────────────────────────────────────────────────────
+.brand-profile {
+  @apply flex flex-col gap-2 pt-5 border-t border-black/[0.08];
+}
+
+.brand-section-title {
+  @apply text-lg font-bold mb-1;
+}
+
+.brand-subheading {
+  @apply text-sm font-semibold text-neutral-600 -mb-1;
+}
+
+.brand-row {
+  @apply grid grid-cols-2 gap-5;
+}
+
+.brand-field {
+  @apply flex flex-col gap-2;
+}
+
+.brand-field-label {
+  @apply text-sm font-semibold;
+}
+
+.brand-url-row {
+  @apply flex gap-3;
+}
+
+.brand-input,
+.brand-textarea {
+  @apply w-full rounded-lg border border-black/10 bg-transparent px-4 text-sm;
+  @apply placeholder:text-neutral-400 transition-colors;
+  @apply focus:outline-none focus:border-neutral-400 focus:bg-white;
+}
+
+.brand-input {
+  @apply h-11;
+  @apply disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.brand-textarea {
+  @apply min-h-24 py-3 resize-y;
+  @apply disabled:cursor-not-allowed disabled:bg-transparent;
+}
+
+.brand-hint {
+  @apply text-xs text-neutral-500;
+}
+
+// ── art-direction card ──────────────────────────────────────────────────
+.brand-card {
+  @apply flex flex-col items-start gap-3 rounded-2xl border border-black/10 p-5;
+}
+
+.brand-card-head {
+  @apply w-full flex items-center justify-between;
+}
+
+.brand-card-title {
+  @apply text-base font-semibold transition-colors;
+}
+
+// The checkbox stays live and full strength: it is the way back.
+.brand-card-disabled {
+  .brand-card-title,
+  .brand-textarea,
+  .brand-refs-label,
+  .brand-thumbs {
+    @apply opacity-50;
+  }
+}
+
+.brand-checkbox {
+  @apply flex items-center gap-2 text-sm cursor-pointer select-none;
+
+  input {
+    @apply w-4 h-4 accent-neutral-900 cursor-pointer;
+  }
+}
+
+.brand-refs-label {
+  @apply flex items-baseline gap-2 text-xs;
+}
+
+.brand-refs-title {
+  @apply font-semibold text-neutral-600;
+}
+
+.brand-refs-note {
+  @apply text-neutral-500;
+}
+
+.brand-thumbs {
+  @apply flex flex-wrap gap-2;
+}
+
+.brand-thumb {
+  @apply relative w-16 h-16 rounded-lg overflow-hidden border border-black/10 bg-white;
+
+  img {
+    @apply w-full h-full object-cover;
+  }
+}
+
+.brand-thumb-remove {
+  @apply absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded-full;
+  @apply bg-black/60 text-white transition-colors hover:bg-black/80;
+  @apply disabled:hidden;
+}
+
+// ── buttons ─────────────────────────────────────────────────────────────
+.brand-pill {
+  @apply h-9 px-4 rounded-full border border-black/10 bg-transparent text-sm;
+  @apply transition-colors hover:bg-black/5;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent;
+}
+
+.brand-primary {
+  @apply h-11 px-6 shrink-0 rounded-full bg-black text-sm font-semibold text-white;
+  @apply transition-colors hover:bg-neutral-800;
+  @apply disabled:bg-neutral-400 disabled:cursor-not-allowed;
+}
+
+.brand-danger {
+  @apply h-9 px-4 rounded-full bg-red-600 text-sm font-semibold text-white;
+  @apply transition-colors hover:bg-red-700;
+}
+
+.brand-dialog-foot .brand-pill,
+.brand-dialog-foot .brand-primary {
+  @apply h-10;
+}
+
+// Focus rings only for keyboard users, on every control in the popup.
+.brand-overlay :is(button, input[type="checkbox"]):focus-visible {
+  @apply outline-2 outline-offset-2 outline-neutral-900;
+}
+
+// ── discard prompt ──────────────────────────────────────────────────────
+.brand-confirm-backdrop {
+  @apply absolute inset-0 flex items-center justify-center bg-black/20;
+}
+
+.brand-confirm {
+  @apply w-[360px] max-w-full rounded-2xl bg-white p-6 shadow-2xl;
+}
+
+.brand-confirm-title {
+  @apply text-base font-semibold;
+}
+
+.brand-confirm-text {
+  @apply mt-1 text-sm text-neutral-500;
+}
+
+.brand-confirm-actions {
+  @apply mt-5 flex justify-end gap-2;
+}
+
+// ── saved toast ─────────────────────────────────────────────────────────
+// Top, not bottom: the floating dock owns the bottom centre.
+.brand-toast {
+  @apply fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2;
+  @apply h-10 px-4 rounded-full bg-neutral-900 text-sm font-medium text-white shadow-lg;
+}
