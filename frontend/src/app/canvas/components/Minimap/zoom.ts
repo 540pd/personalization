@@ -1,5 +1,5 @@
 import type { Bounds } from "@/lib/canvas/bounds";
-import { stagePositionFor, type Size } from "@/lib/canvas/coords";
+import { stagePositionFor, type Rect } from "@/lib/canvas/coords";
 import { MIN_SCALE, MAX_SCALE } from "@/store/viewport.store";
 
 /**
@@ -26,13 +26,25 @@ export function clampScale(s: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 }
 
-/** One step in or out, anchored on the viewport centre so nothing jumps. */
-export function zoomStep(vp: ViewportState, direction: 1 | -1, size: Size): ViewportState {
+/**
+ * One step in or out, anchored on the centre of the visible canvas so nothing
+ * jumps.
+ *
+ * `left`, not just `width`: the rail covers the left of the window while the
+ * canvas runs full-bleed underneath it, so the middle of the window is 100px
+ * inside the rail rather than the middle of what you can see. Anchoring there
+ * grew a centred image almost entirely to the right — four steps from 100% to
+ * 140% moved its right edge 160px and its left edge not at all.
+ *
+ * `viewportCentre` and `stagePositionFor` both already add it, which is why
+ * "zoom to fit" was centred correctly and only the +/- step drifted.
+ */
+export function zoomStep(vp: ViewportState, direction: 1 | -1, area: Rect): ViewportState {
   // Rounded to 2dp so repeated steps land on readable percentages rather
   // than drifting to 70.00000000000001%.
   const scale = clampScale(Math.round((vp.scale + direction * ZOOM_STEP) * 100) / 100);
-  const cx = size.width / 2;
-  const cy = size.height / 2;
+  const cx = (area.left ?? 0) + area.width / 2;
+  const cy = (area.top ?? 0) + area.height / 2;
   const ratio = scale / vp.scale;
   return { scale, x: cx - ratio * (cx - vp.x), y: cy - ratio * (cy - vp.y) };
 }
@@ -43,7 +55,7 @@ export function zoomStep(vp: ViewportState, direction: 1 | -1, size: Size): View
  * Uses the smaller of the two axis ratios, so the box fits on its tightest
  * edge rather than overflowing the other one.
  */
-export function fitTo(bounds: Bounds, size: Size): ViewportState {
+export function fitTo(bounds: Bounds, size: Rect): ViewportState {
   // A zero-area box (a degenerate node, or an empty board) would divide by
   // zero and send the scale to Infinity; fall back to 1:1 on that point.
   const w = Math.max(bounds.w, 1);

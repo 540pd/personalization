@@ -54,6 +54,64 @@ describe("zoomStep", () => {
     expect(zoomStep({ x: 0, y: 0, scale: MAX_SCALE }, 1, size).scale).toBe(MAX_SCALE);
     expect(zoomStep({ x: 0, y: 0, scale: MIN_SCALE }, -1, size).scale).toBe(MIN_SCALE);
   });
+
+  // The rail covers the left of the window while the canvas runs full-bleed
+  // underneath it. Every case above passes a plain Size, where left is 0 and
+  // the bug is invisible, so these pin the inset case specifically.
+  describe("with the nav rail covering the left edge", () => {
+    const inset = { left: 200, top: 0, width: 1200, height: 900 };
+
+    it("anchors on the centre of the visible canvas, not of the window", () => {
+      const vp = { x: 100, y: 50, scale: 1.25 };
+      // The canvas point currently at the middle of what you can see.
+      const atCentre = {
+        x: (inset.left + inset.width / 2 - vp.x) / vp.scale,
+        y: (inset.top + inset.height / 2 - vp.y) / vp.scale,
+      };
+      const after = zoomStep(vp, 1, inset);
+      expect(toScreen(atCentre, after).x).toBeCloseTo(toScreen(atCentre, vp).x, 6);
+      expect(toScreen(atCentre, after).y).toBeCloseTo(toScreen(atCentre, vp).y, 6);
+
+      // And the window's centre, which is what it used to anchor on, moves.
+      const atWindowCentre = { x: (inset.width / 2 - vp.x) / vp.scale, y: atCentre.y };
+      expect(toScreen(atWindowCentre, after).x).not.toBeCloseTo(
+        toScreen(atWindowCentre, vp).x,
+        6
+      );
+    });
+
+    it("grows a centred box evenly on both sides", () => {
+      // The reported symptom: four steps, 100% -> 140%, moved the right edge
+      // 160px and the left edge 0. Both edges must move the same distance.
+      const w = 400;
+      let vp = { x: inset.left + inset.width / 2 - w / 2, y: 0, scale: 1 };
+      const before = { left: vp.x, right: vp.x + w * vp.scale };
+      for (let i = 0; i < 4; i++) vp = zoomStep(vp, 1, inset);
+      expect(vp.scale).toBeCloseTo(1.4, 6);
+
+      const leftMoved = before.left - vp.x;
+      const rightMoved = vp.x + w * vp.scale - before.right;
+      expect(leftMoved).toBeCloseTo(rightMoved, 6);
+      expect(leftMoved).toBeGreaterThan(0);
+    });
+
+    it("agrees with fitTo, so fitting then stepping does not shift sideways", () => {
+      // Big enough that the fit does not clamp to MAX_SCALE, which would make
+      // the following step a no-op and the assertion vacuous.
+      const box = b(500, 400, 2000, 1500);
+      const centre = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+      const fitted = fitTo(box, inset);
+      const stepped = zoomStep(fitted, 1, inset);
+      expect(toScreen(centre, stepped).x).toBeCloseTo(toScreen(centre, fitted).x, 6);
+      expect(toScreen(centre, stepped).y).toBeCloseTo(toScreen(centre, fitted).y, 6);
+    });
+
+    it("is unchanged for a caller that passes a plain Size", () => {
+      // Rect's left/top are optional precisely so existing callers keep working.
+      const vp = { x: 100, y: 50, scale: 1 };
+      expect(zoomStep(vp, 1, size)).toEqual(zoomStep(vp, 1, { ...size, left: 0, top: 0 }));
+    });
+  });
 });
 
 describe("fitTo", () => {
