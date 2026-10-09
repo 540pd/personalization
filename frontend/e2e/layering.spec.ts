@@ -163,4 +163,55 @@ test.describe("layering between uploaded images and node panels", () => {
     expect(Math.round(after.x - before.x)).toBe(120);
     expect(Math.round(after.y - before.y)).toBe(40);
   });
+
+  // The rail is a third layer above both of the two this file is otherwise
+  // about. It shipped with a bare z-50, which tied with the ports and lost to
+  // the labels: the image hid behind the rail correctly while its name and
+  // its port dot went on drawing over the top of it.
+  test("the rail covers a node's label and port, not just the node", async ({ page }) => {
+    await openBoard(page);            // the rail is open by default
+    await uploadImage(page, 800, 600);
+    // The name and the ports only render while the node is selected, which is
+    // also the state you are in right after dragging it under the rail.
+    const sel = await imageBox(page);
+    await page.mouse.click(sel.x + 40, sel.y + 40);
+    await page.waitForTimeout(400);
+
+    const z = await page.evaluate(() => {
+      const el = (s: string) => document.querySelector(s) as HTMLElement | null;
+      const rail = el(".sidebar");
+      const label = el('div[title="photo"]');
+      const port = el('div[title="Output"]');
+      return {
+        rail: Number(getComputedStyle(rail!).zIndex),
+        label: label ? Number(getComputedStyle(label).zIndex) : null,
+        port: port ? Number(getComputedStyle(port).zIndex) : null,
+      };
+    });
+    expect(z.label).not.toBeNull();
+    expect(z.rail).toBeGreaterThan(z.label!);
+    if (z.port !== null) expect(z.rail).toBeGreaterThan(z.port);
+
+    // And in paint order, not only in the numbers: drag the image under the
+    // rail and ask what is actually on top where its name is.
+    const img = await imageBox(page);
+    // Left edge to 30px: far enough under the rail that the label (which
+    // starts at the node's left edge) is fully covered, but not so far that
+    // it leaves the window and elementFromPoint has nothing to report.
+    await dragTo(page, { x: img.x + img.w / 2, y: img.y + img.h / 2 },
+                       { x: 30 + img.w / 2, y: img.y + img.h / 2 });
+
+    const onTop = await page.evaluate(() => {
+      const label = document.querySelector('div[title="photo"]') as HTMLElement | null;
+      if (!label) return "no-label";
+      const r = label.getBoundingClientRect();
+      const rail = document.querySelector(".sidebar")!.getBoundingClientRect();
+      // Only meaningful if the label really did end up under the rail.
+      if (r.right > rail.right) return "not-under-rail";
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (!hit) return "off-screen";
+      return hit.closest(".sidebar") ? "rail" : "label";
+    });
+    expect(onTop).toBe("rail");
+  });
 });
