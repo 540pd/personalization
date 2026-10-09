@@ -14,8 +14,9 @@
 }
 
 // ── header ──────────────────────────────────────────────────────────────
+// Tightened to make 200 work: the spacing gives way, not the wording.
 .sidebar-header {
-  @apply flex items-center gap-2 h-14 px-4;
+  @apply flex items-center gap-1.5 h-12 px-3;
 }
 
 .sidebar-brandmark {
@@ -37,7 +38,7 @@
 }
 
 .sidebar-collapse-button {
-  @apply w-7 h-7 flex items-center justify-center rounded-lg text-gray-400;
+  @apply w-6 h-6 flex items-center justify-center rounded-lg text-gray-400;
   @apply transition-colors hover:bg-black/5 hover:text-gray-600;
 }
 
@@ -45,7 +46,7 @@
 // flex-1 is what produces the large empty middle both references show: the
 // footer pins itself to the bottom without any absolute positioning.
 .sidebar-nav {
-  @apply flex-1 overflow-y-auto px-3 pt-2;
+  @apply flex-1 overflow-y-auto px-2 pt-1;
 }
 
 .sidebar-nav-list {
@@ -53,7 +54,7 @@
 }
 
 .sidebar-item {
-  @apply w-full flex items-center gap-3 px-3 h-10 rounded-full;
+  @apply w-full flex items-center gap-2.5 px-3 h-9 rounded-full;
   @apply text-sm text-neutral-500 transition-colors;
   @apply hover:bg-black/[0.03] hover:text-neutral-700;
 }
@@ -63,6 +64,14 @@
 .sidebar-item-active {
   @apply bg-neutral-100 font-medium text-neutral-900;
   @apply hover:bg-neutral-100 hover:text-neutral-900;
+}
+
+// Placeholders. Dimmed and inert, but still listed -- the rail is a map of
+// what this product will be, and hiding them would make it look smaller
+// than it is. No hover response, so nothing invites the click.
+.sidebar-item-unavailable {
+  @apply text-neutral-300 cursor-default;
+  @apply hover:bg-transparent hover:text-neutral-300;
 }
 
 .sidebar-item-icon {
@@ -75,11 +84,11 @@
 
 // ── footer ──────────────────────────────────────────────────────────────
 .sidebar-footer {
-  @apply relative px-3 pb-3;
+  @apply relative px-2 pb-2;
 }
 
 .sidebar-support {
-  @apply w-full flex items-center gap-3 px-3 h-10 rounded-full;
+  @apply w-full flex items-center gap-2.5 px-3 h-9 rounded-full;
   @apply text-sm text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-600;
 }
 
@@ -88,7 +97,7 @@
 }
 
 .sidebar-identity {
-  @apply w-full flex items-center gap-3 px-2 h-10 rounded-full;
+  @apply w-full flex items-center gap-2.5 px-2 h-9 rounded-full;
   @apply text-sm font-medium text-neutral-900 transition-colors hover:bg-black/5;
 }
 
@@ -101,27 +110,23 @@
 }
 
 .sidebar-avatar {
-  @apply w-7 h-7 shrink-0 flex items-center justify-center rounded-full;
+  @apply w-6 h-6 shrink-0 flex items-center justify-center rounded-full;
   @apply bg-amber-100 text-xs font-semibold text-neutral-700;
 }
 
 // ── user menu ───────────────────────────────────────────────────────────
-// Opens upward: the trigger is pinned to the bottom of the rail.
-.sidebar-user-menu {
-  @apply absolute bottom-[calc(100%-0.5rem)] left-3 right-3 z-10 p-2;
-  @apply rounded-2xl bg-white shadow-xl border border-black/[0.08];
+// Anchored to the identity row, not the footer, so it stacks above the
+// trigger without covering Support. Matches the rail's width and reuses
+// .sidebar-item for its rows, so it reads as part of the nav.
+.sidebar-identity-anchor {
+  @apply relative;
 }
 
-.sidebar-user-menu-identity {
-  @apply flex items-center gap-3 px-1 pb-2;
+.sidebar-user-menu {
+  @apply absolute bottom-full left-0 right-0 mb-1 z-10 p-1;
+  @apply rounded-xl bg-white shadow-md border border-black/[0.08];
 }
 
 .sidebar-user-email {
-  @apply text-sm text-neutral-600 truncate;
-}
-
-.sidebar-user-menu-item {
-  @apply w-full flex items-center px-4 h-10 mt-1 rounded-full;
-  @apply text-sm text-neutral-900 text-left border border-black/[0.08];
-  @apply transition-colors hover:bg-black/5;
+  @apply px-3 pt-1.5 pb-1 text-xs text-neutral-500 truncate;
 }

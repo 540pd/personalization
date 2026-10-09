@@ -15,6 +15,13 @@ const open: Rect = { left: SIDEBAR_WIDTH, top: 0, width: WINDOW.width - SIDEBAR_
 const closed: Rect = { left: 0, top: 0, ...WINDOW };
 const vp = { x: 0, y: 0, scale: 1 };
 
+// Derived, never written out: these used to be the literals the old 260-wide
+// rail produced, so narrowing it to 200 broke four tests that were otherwise
+// still describing the right behaviour. The width is documented as a value
+// that moves, so nothing here may restate it.
+const VISIBLE_W = WINDOW.width - SIDEBAR_WIDTH;
+const VISIBLE_CENTRE = { x: SIDEBAR_WIDTH + VISIBLE_W / 2, y: WINDOW.height / 2 };
+
 describe("sidebarInset", () => {
   it("covers the rail's width while open and nothing while collapsed", () => {
     expect(sidebarInset(false)).toBe(SIDEBAR_WIDTH);
@@ -28,9 +35,10 @@ describe("viewportCentre with an inset", () => {
   });
 
   it("shifts right by half the rail, not the whole rail", () => {
-    // Visible span is 260..1400, whose middle is 830. Subtracting the full
-    // rail (570) or ignoring it (700) are both wrong, and both plausible.
-    expect(viewportCentre(vp, open)).toEqual({ x: 830, y: 450 });
+    // The visible span starts at the rail's inner edge, so its middle sits
+    // half a rail right of the window's. Shifting by the whole rail, or not
+    // at all, are both wrong and both plausible.
+    expect(viewportCentre(vp, open)).toEqual(VISIBLE_CENTRE);
   });
 
   it("stays in the visible half of the screen", () => {
@@ -42,7 +50,7 @@ describe("viewportCentre with an inset", () => {
     const panned = { x: -500, y: -300, scale: 2 };
     const c = viewportCentre(panned, open);
     // Equivalent to converting the visible centre in screen px.
-    expect(c).toEqual(toCanvas({ x: 830, y: 450 }, panned));
+    expect(c).toEqual(toCanvas(VISIBLE_CENTRE, panned));
   });
 
   it("is unchanged from the old behaviour when left is omitted", () => {
@@ -54,7 +62,7 @@ describe("viewportCentre with an inset", () => {
 describe("stagePositionFor with an inset", () => {
   it("puts the point at the centre of the visible area, not the window", () => {
     const pos = stagePositionFor({ x: 0, y: 0 }, 1, open);
-    expect(pos).toEqual({ x: 830, y: 450 });
+    expect(pos).toEqual(VISIBLE_CENTRE);
   });
 
   it("round-trips with viewportCentre", () => {
@@ -76,9 +84,14 @@ describe("stagePositionFor with an inset", () => {
 
 describe("viewportBounds with an inset", () => {
   it("starts at the rail's inner edge, not at canvas 0", () => {
-    // Ignoring left would draw the minimap's indicator 260 units too far
+    // Ignoring left would draw the minimap's indicator a full rail too far
     // left — the map would claim you are looking somewhere you are not.
-    expect(viewportBounds(vp, open)).toEqual({ x: 260, y: 0, w: 1140, h: 900 });
+    expect(viewportBounds(vp, open)).toEqual({
+      x: SIDEBAR_WIDTH,
+      y: 0,
+      w: VISIBLE_W,
+      h: WINDOW.height,
+    });
   });
 
   it("is narrower than the window by exactly the rail", () => {
