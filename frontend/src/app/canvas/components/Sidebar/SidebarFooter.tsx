@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { HelpCircle } from "lucide-react";
 import UserMenu from "./UserMenu";
 import type { Identity } from "@/auth/useIdentity";
@@ -24,6 +24,7 @@ export default function SidebarFooter({
   onSignOut: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="sidebar-footer">
@@ -42,6 +43,9 @@ export default function SidebarFooter({
               onClose={() => setMenuOpen(false)}
               onBrand={() => {
                 setMenuOpen(false);
+                // The menu item is about to unmount; parking focus on the
+                // trigger is what lets the Brand popup hand it back here.
+                triggerRef.current?.focus();
                 onBrand();
               }}
               onSignOut={() => {
@@ -51,6 +55,7 @@ export default function SidebarFooter({
             />
           )}
           <button
+            ref={triggerRef}
             type="button"
             className="sidebar-identity"
             onClick={() => setMenuOpen((v) => !v)}

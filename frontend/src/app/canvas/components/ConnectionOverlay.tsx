@@ -141,6 +141,8 @@ export default function ConnectionOverlay() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // Capture phase runs before a modal can stop the event; see NodePanel.
+      if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;
       if (e.code !== "Delete" && e.code !== "Backspace") return;
       const { selectedIds } = useConnectionStore.getState();
       if (!selectedIds.length) return;
