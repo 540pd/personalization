@@ -34,34 +34,35 @@ export default function SidebarFooter({
 
       <div className="sidebar-footer-divider" />
 
-      {menuOpen && user && (
-        <UserMenu
-          user={user}
-          onClose={() => setMenuOpen(false)}
-          onBrand={() => {
-            setMenuOpen(false);
-            onBrand();
-          }}
-          onSignOut={() => {
-            setMenuOpen(false);
-            onSignOut();
-          }}
-        />
-      )}
-
       {user ? (
-        <button
-          type="button"
-          className="sidebar-identity"
-          onClick={() => setMenuOpen((v) => !v)}
-          aria-expanded={menuOpen}
-          aria-haspopup="menu"
-        >
-          <span className="sidebar-avatar" aria-hidden>
-            {user.name.charAt(0).toUpperCase()}
-          </span>
-          <span className="sidebar-identity-name">{user.name}</span>
-        </button>
+        <div className="sidebar-identity-anchor">
+          {menuOpen && (
+            <UserMenu
+              user={user}
+              onClose={() => setMenuOpen(false)}
+              onBrand={() => {
+                setMenuOpen(false);
+                onBrand();
+              }}
+              onSignOut={() => {
+                setMenuOpen(false);
+                onSignOut();
+              }}
+            />
+          )}
+          <button
+            type="button"
+            className="sidebar-identity"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+          >
+            <span className="sidebar-avatar" aria-hidden>
+              {user.name.charAt(0).toUpperCase()}
+            </span>
+            <span className="sidebar-identity-name">{user.name}</span>
+          </button>
+        </div>
       ) : (
         // Not a disabled sign-in button: with IAP the gate is upstream of the
         // app, so a signed-out state can only ever be local dev's anonymous

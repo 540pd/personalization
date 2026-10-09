@@ -115,25 +115,18 @@
 }
 
 // ── user menu ───────────────────────────────────────────────────────────
-// Opens upward: the trigger is pinned to the bottom of the rail.
-// Breaks out past the rail rather than matching its width: the address is
-// the one piece of text here that is genuinely long, and the rail got
-// narrower precisely because nothing else needed the room.
-.sidebar-user-menu {
-  @apply absolute bottom-[calc(100%-0.5rem)] left-2 w-[292px] z-10 p-2;
-  @apply rounded-2xl bg-white shadow-xl border border-black/[0.08];
+// Anchored to the identity row, not the footer, so it stacks above the
+// trigger without covering Support. Matches the rail's width and reuses
+// .sidebar-item for its rows, so it reads as part of the nav.
+.sidebar-identity-anchor {
+  @apply relative;
 }
 
-.sidebar-user-menu-identity {
-  @apply flex items-center gap-3 px-1 pb-2;
+.sidebar-user-menu {
+  @apply absolute bottom-full left-0 right-0 mb-1 z-10 p-1;
+  @apply rounded-xl bg-white shadow-md border border-black/[0.08];
 }
 
 .sidebar-user-email {
-  @apply text-sm text-neutral-600 truncate;
-}
-
-.sidebar-user-menu-item {
-  @apply w-full flex items-center px-4 h-10 mt-1 rounded-full;
-  @apply text-sm text-neutral-900 text-left border border-black/[0.08];
-  @apply transition-colors hover:bg-black/5;
+  @apply px-3 pt-1.5 pb-1 text-xs text-neutral-500 truncate;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { LogOut, Palette } from "lucide-react";
 import type { Identity } from "@/auth/useIdentity";
 
 /**
@@ -23,9 +24,9 @@ export default function UserMenu({
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      // The trigger closes the menu itself; without the containment check a
-      // click on it would close and immediately reopen.
-      if (!ref.current?.contains(e.target as Node)) onClose();
+      // The parent is the anchor that also holds the trigger, which toggles
+      // the menu itself; closing here too would make its click reopen it.
+      if (!ref.current?.parentElement?.contains(e.target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -40,22 +41,19 @@ export default function UserMenu({
 
   return (
     <div ref={ref} className="sidebar-user-menu" role="menu">
-      <div className="sidebar-user-menu-identity">
-        <span className="sidebar-avatar" aria-hidden>
-          {user.name.charAt(0).toUpperCase()}
-        </span>
-        {/* Long addresses are the norm here, so the element truncates rather
-            than widening the rail; the full value stays available on hover. */}
-        <span className="sidebar-user-email" title={user.email}>
-          {user.email}
-        </span>
+      {/* Long addresses are the norm here, so the element truncates rather
+          than widening the rail; the full value stays available on hover. */}
+      <div className="sidebar-user-email" title={user.email}>
+        {user.email}
       </div>
 
-      <button type="button" role="menuitem" className="sidebar-user-menu-item" onClick={onBrand}>
-        Brand
+      <button type="button" role="menuitem" className="sidebar-item" onClick={onBrand}>
+        <Palette className="sidebar-item-icon" aria-hidden />
+        <span className="sidebar-item-label">Brand</span>
       </button>
-      <button type="button" role="menuitem" className="sidebar-user-menu-item" onClick={onSignOut}>
-        Sign out
+      <button type="button" role="menuitem" className="sidebar-item" onClick={onSignOut}>
+        <LogOut className="sidebar-item-icon" aria-hidden />
+        <span className="sidebar-item-label">Sign out</span>
       </button>
     </div>
   );
