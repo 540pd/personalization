@@ -22,8 +22,15 @@ export const COLORS = {
 // is what lets a dragged uploaded image come to the front of a Create Image
 // node -- see layerOrder.store.
 //
-// Wires, ports and labels stay above both: they are chrome, and an image
-// drifting over a port or a node's own name would be a regression, not depth.
+// Wires, ports and labels stay above both: they are canvas chrome, and an
+// image drifting over a port or a node's own name would be a regression, not
+// depth.
+//
+// `rail` is the window's own chrome and sits above all of it. The nav rail was
+// given a bare `z-50` in CSS, which tied it with the ports and lost to the
+// labels: a node dragged under the rail hid correctly while its name and its
+// port dot went on drawing over the top. Everything from `canvasBelow` to
+// `labels` is content in the canvas, and content belongs under the rail.
 export const Z_INDEX = {
   canvasBelow: 10,
   nodes:       20,
@@ -31,6 +38,7 @@ export const Z_INDEX = {
   wires:       40,
   ports:       50,
   labels:      60,
+  rail:        70,
 } as const;
 
 export const MIN_NODE_SIZE = 60; // canvas units

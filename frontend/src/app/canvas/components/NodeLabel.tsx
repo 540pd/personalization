@@ -9,7 +9,7 @@
 // point.
 
 import { useEffect, useRef, useState } from "react";
-import { LABEL_FONT_SIZE, LABEL_LINE_HEIGHT } from "@/constants/canvas.constants";
+import { LABEL_FONT_SIZE, LABEL_LINE_HEIGHT, Z_INDEX } from "@/constants/canvas.constants";
 
 // A line box is taller than the glyphs it holds; the surplus sits half above
 // and half below. Without allowing for it the rendered gap is this much wider
@@ -76,7 +76,11 @@ export default function NodeLabel({ value, left, bottom, maxWidth, onCommit }: N
     fontFamily: "inherit",
     color: "#404040",
     pointerEvents: "auto",
-    zIndex: 52, // above ports (51) so a rename is always reachable
+    // Above the ports so a rename is always reachable, and below the nav rail
+    // so a node dragged under it takes its name with it. Was a bare 52 with a
+    // comment claiming ports were 51; they are 50, and the scale it was meant
+    // to sit on already had a `labels` tier that nothing used.
+    zIndex: Z_INDEX.labels,
   };
 
   if (!editing) {

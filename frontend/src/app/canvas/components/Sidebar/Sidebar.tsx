@@ -14,6 +14,7 @@
 import { useEffect, useState } from "react";
 import { PanelLeft } from "lucide-react";
 import { useSidebar, SIDEBAR_WIDTH } from "@/store/sidebar.store";
+import { Z_INDEX } from "@/constants/canvas.constants";
 import { useIdentity, useIdentityStore } from "@/auth/useIdentity";
 import SidebarHeader from "./SidebarHeader";
 import SidebarNav from "./SidebarNav";
@@ -49,6 +50,7 @@ export default function Sidebar() {
         type="button"
         onClick={toggle}
         className="sidebar-reopen"
+        style={{ zIndex: Z_INDEX.rail }}
         title="Show sidebar"
         aria-label="Show sidebar"
       >
@@ -58,7 +60,13 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar" aria-label="Main navigation" style={{ width: SIDEBAR_WIDTH }}>
+    <aside
+      className="sidebar"
+      aria-label="Main navigation"
+      // Both from TypeScript, not CSS: the width because the canvas has to
+      // subtract it, the tier because it has to out-rank the canvas chrome.
+      style={{ width: SIDEBAR_WIDTH, zIndex: Z_INDEX.rail }}
+    >
       <SidebarHeader onToggle={toggle} />
       <SidebarNav active={active} onSelect={setActive} />
       <SidebarFooter

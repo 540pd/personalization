@@ -3,13 +3,18 @@
 // Width is declared in sidebar.store.ts, not here: six places outside this
 // component subtract it to work out where the middle of the canvas is, so a
 // value only CSS knew would drift out of step with them.
+//
+// The z-index is applied in Sidebar.tsx from Z_INDEX.rail for the same reason.
+// A bare `z-50` here read as "on top" and was in fact a tie with the port dots
+// and a loss to the node labels, because nothing in this file could see the
+// scale those are numbered on.
 .sidebar {
-  @apply fixed top-0 left-0 bottom-0 z-50 flex flex-col;
+  @apply fixed top-0 left-0 bottom-0 flex flex-col;
   @apply bg-white border-r border-black/[0.08];
 }
 
 .sidebar-reopen {
-  @apply fixed top-4 left-4 z-50 w-8 h-8 flex items-center justify-center;
+  @apply fixed top-4 left-4 w-8 h-8 flex items-center justify-center;
   @apply rounded-lg bg-white shadow-md text-gray-500 transition-colors hover:bg-black/5;
 }
 
