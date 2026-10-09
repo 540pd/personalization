@@ -14,8 +14,9 @@
 }
 
 // ── header ──────────────────────────────────────────────────────────────
+// Tightened to make 200 work: the spacing gives way, not the wording.
 .sidebar-header {
-  @apply flex items-center gap-2 h-14 px-4;
+  @apply flex items-center gap-1.5 h-12 px-3;
 }
 
 .sidebar-brandmark {
@@ -37,7 +38,7 @@
 }
 
 .sidebar-collapse-button {
-  @apply w-7 h-7 flex items-center justify-center rounded-lg text-gray-400;
+  @apply w-6 h-6 flex items-center justify-center rounded-lg text-gray-400;
   @apply transition-colors hover:bg-black/5 hover:text-gray-600;
 }
 
@@ -45,7 +46,7 @@
 // flex-1 is what produces the large empty middle both references show: the
 // footer pins itself to the bottom without any absolute positioning.
 .sidebar-nav {
-  @apply flex-1 overflow-y-auto px-3 pt-2;
+  @apply flex-1 overflow-y-auto px-2 pt-1;
 }
 
 .sidebar-nav-list {
@@ -53,7 +54,7 @@
 }
 
 .sidebar-item {
-  @apply w-full flex items-center gap-3 px-3 h-10 rounded-full;
+  @apply w-full flex items-center gap-2.5 px-3 h-9 rounded-full;
   @apply text-sm text-neutral-500 transition-colors;
   @apply hover:bg-black/[0.03] hover:text-neutral-700;
 }
@@ -83,11 +84,11 @@
 
 // ── footer ──────────────────────────────────────────────────────────────
 .sidebar-footer {
-  @apply relative px-3 pb-3;
+  @apply relative px-2 pb-2;
 }
 
 .sidebar-support {
-  @apply w-full flex items-center gap-3 px-3 h-10 rounded-full;
+  @apply w-full flex items-center gap-2.5 px-3 h-9 rounded-full;
   @apply text-sm text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-600;
 }
 
@@ -96,7 +97,7 @@
 }
 
 .sidebar-identity {
-  @apply w-full flex items-center gap-3 px-2 h-10 rounded-full;
+  @apply w-full flex items-center gap-2.5 px-2 h-9 rounded-full;
   @apply text-sm font-medium text-neutral-900 transition-colors hover:bg-black/5;
 }
 
@@ -109,14 +110,17 @@
 }
 
 .sidebar-avatar {
-  @apply w-7 h-7 shrink-0 flex items-center justify-center rounded-full;
+  @apply w-6 h-6 shrink-0 flex items-center justify-center rounded-full;
   @apply bg-amber-100 text-xs font-semibold text-neutral-700;
 }
 
 // ── user menu ───────────────────────────────────────────────────────────
 // Opens upward: the trigger is pinned to the bottom of the rail.
+// Breaks out past the rail rather than matching its width: the address is
+// the one piece of text here that is genuinely long, and the rail got
+// narrower precisely because nothing else needed the room.
 .sidebar-user-menu {
-  @apply absolute bottom-[calc(100%-0.5rem)] left-3 right-3 z-10 p-2;
+  @apply absolute bottom-[calc(100%-0.5rem)] left-2 w-[292px] z-10 p-2;
   @apply rounded-2xl bg-white shadow-xl border border-black/[0.08];
 }
 

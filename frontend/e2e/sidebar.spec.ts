@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { openBoard, addPanel, uploadImage, imageBox, setZoom } from "./helpers";
 
-const SIDEBAR_WIDTH = 260;
+const SIDEBAR_WIDTH = 200;
 
 /** Where a newly created node's centre sits, in screen px. */
 async function newNodeCentre(page: import("@playwright/test").Page) {
@@ -19,6 +19,45 @@ test.describe("sidebar", () => {
     await expect(page.locator(".sidebar-brand-label")).toHaveCount(0);
     await expect(page.locator(".sidebar-item")).toHaveCount(5);
     await expect(page.locator(".sidebar-support")).toBeVisible();
+  });
+
+  test("fits its content at the narrowed width", async ({ page }) => {
+    // 200 is the floor plus slack, and the floor is set by the header
+    // lockup and the identity row -- not by the nav items, which need ~138.
+    // If either grows, this fails rather than silently clipping.
+    await openBoard(page);
+    const rail = await page.locator(".sidebar").boundingBox();
+    expect(Math.round(rail!.width)).toBe(SIDEBAR_WIDTH);
+
+    const clipped = await page.evaluate(() =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".sidebar-product, .sidebar-identity-name, .sidebar-item-label"
+        )
+      )
+        .filter((e) => e.scrollWidth > e.clientWidth)
+        .map((e) => e.textContent)
+    );
+    expect(clipped).toEqual([]);
+  });
+
+  test("the user menu breaks out past the rail to show the whole address", async ({ page }) => {
+    // The rail got narrower because nothing in it needed the room. The
+    // address does, so the menu is sized to the text rather than the rail --
+    // it was clipped even at 260.
+    await openBoard(page);
+    await page.locator(".sidebar-identity").click();
+
+    const menu = await page.evaluate(() => {
+      const email = document.querySelector(".sidebar-user-email") as HTMLElement;
+      const box = document.querySelector(".sidebar-user-menu")!.getBoundingClientRect();
+      return {
+        wider: box.width > 200,
+        clipped: email.scrollWidth > email.clientWidth,
+        onScreen: box.left >= 0 && box.right <= window.innerWidth,
+      };
+    });
+    expect(menu).toEqual({ wider: true, clipped: false, onScreen: true });
   });
 
   test("marks exactly one destination active", async ({ page }) => {
