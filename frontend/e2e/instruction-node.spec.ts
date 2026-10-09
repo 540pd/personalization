@@ -34,9 +34,9 @@ async function stubGenerate(page: Page) {
 /** Create a node from the dock's Create submenu by its visible label. */
 async function addNode(page: Page, label: RegExp) {
   const before = await page.locator("button.node-panel-placeholder").count();
-  await page.locator("button").nth(1).click();
+  await page.locator(".floating-dock button").nth(1).click();
   await page.waitForTimeout(250);
-  await page.locator("button").filter({ hasText: label }).first().click();
+  await page.locator(".floating-dock-submenu button").filter({ hasText: label }).first().click();
   await page.waitForFunction(
     (n) => document.querySelectorAll("button.node-panel-placeholder").length > n,
     before,

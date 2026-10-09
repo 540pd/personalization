@@ -14,6 +14,7 @@ import { useViewport } from "@/store/viewport.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { viewportCentre } from "@/lib/canvas/coords";
+import { canvasArea, useCanvasArea } from "../../canvasArea";
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { NODE_KINDS } from "@/app/canvas/components/NodePanel/kinds";
@@ -295,6 +296,11 @@ export default function FloatingDock() {
   const { addPanel, closeAllPanels } = useNodePanel();
   const viewport = useViewport();
 
+  // Centred on the canvas, not the window: a 260px rail on the left would
+  // otherwise leave the dock 130px off-centre from the space it belongs to.
+  const area = useCanvasArea();
+  const dockCentre = (area.left ?? 0) + area.width / 2;
+
   const [isGenerateMenuOpen, setIsGenerateMenuOpen] = useState(false);
 
   const [isLinksMenuOpen, setIsLinksMenuOpen] = useState(false);
@@ -411,7 +417,7 @@ export default function FloatingDock() {
         onChange={handleFileChange}
       />
 
-      <div className="floating-dock-wrapper">
+      <div className="floating-dock-wrapper" style={{ left: dockCentre }}>
         <div className="floating-dock">
           {/* Pointer */}
           <div className="floating-dock-tool-wrapper">
@@ -489,7 +495,7 @@ export default function FloatingDock() {
                         // side instead of forcing it to flip.
                         const centre = viewportCentre(
                           { x: sx, y: sy, scale: sc },
-                          { width: window.innerWidth, height: window.innerHeight }
+                          canvasArea()
                         );
                         // canvasX is the node's LEFT edge but canvasY is its
                         // vertical centre, so only x needs the half-width

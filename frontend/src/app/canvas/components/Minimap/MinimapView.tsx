@@ -7,7 +7,7 @@ import { useCallback, useRef } from "react";
 import { useViewport } from "@/store/viewport.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useNodePanel } from "@/store/nodePanel.store";
-import { stagePositionFor, type Point } from "@/lib/canvas/coords";
+import { stagePositionFor, type Point, type Rect } from "@/lib/canvas/coords";
 import { minimapWorld, viewportBounds } from "./world";
 import { boundsFrom } from "./boardBounds";
 
@@ -23,7 +23,7 @@ export const MAP_H = 130;
  * preserveAspectRatio letterboxes a world whose shape does not match the map,
  * so a tall board is not squashed.
  */
-export default function MinimapView({ size }: { size: { width: number; height: number } }) {
+export default function MinimapView({ area }: { area: Rect }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingRef = useRef(false);
 
@@ -34,7 +34,7 @@ export default function MinimapView({ size }: { size: { width: number; height: n
   // Shared with the zoom-to-fit actions, so the map and the menu can never
   // disagree about what is on the board.
   const content = boundsFrom(konvaNodes, panels);
-  const view = viewportBounds({ x, y, scale }, size);
+  const view = viewportBounds({ x, y, scale }, area);
   const world = minimapWorld(content, view);
 
   /** Map-local px -> canvas units, via the browser's own inverse transform. */
@@ -51,9 +51,9 @@ export default function MinimapView({ size }: { size: { width: number; height: n
 
   const centreOn = useCallback((pt: Point) => {
     const { scale: s } = useViewport.getState();
-    const pos = stagePositionFor(pt, s, size);
+    const pos = stagePositionFor(pt, s, area);
     useViewport.getState().setPosition(pos.x, pos.y);
-  }, [size]);
+  }, [area]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {

@@ -55,7 +55,13 @@ test.describe("Create Image panel placement", () => {
     await collapsePanels(page);
 
     const [node] = await panelBoxes(page);
-    const centre = await page.evaluate(() => window.innerWidth / 2);
+    // The CANVAS's centre, not the window's: the sidebar covers the left
+    // edge, and centring on the window would put a new node partly behind
+    // it. This spec asserted the window until the rail existed.
+    const centre = await page.evaluate(() => {
+      const rail = document.querySelector(".sidebar")?.getBoundingClientRect().width ?? 0;
+      return rail + (window.innerWidth - rail) / 2;
+    });
     expect(Math.abs(node.x + node.w / 2 - centre)).toBeLessThan(40);
   });
 });

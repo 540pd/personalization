@@ -1,7 +1,10 @@
 @reference "../../../globals.css";
 
 .floating-dock-wrapper {
-  @apply fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none;
+  // `left` is set inline from the canvas area's centre, not 50% of the
+  // window: the rail would otherwise push the dock off-centre by half its
+  // width.
+  @apply fixed bottom-6 -translate-x-1/2 z-50 pointer-events-none;
 }
 
 .floating-dock {

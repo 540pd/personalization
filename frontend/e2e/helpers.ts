@@ -98,9 +98,12 @@ export async function imageBox(page: Page, i = 0): Promise<Box> {
 /** Create a Create Image node via the dock. Its panel is left open. */
 export async function addPanel(page: Page) {
   const before = await page.locator("button.node-panel-placeholder").count();
-  await page.locator("button").nth(1).click();
+  // Scoped to the dock. This was `page.locator("button").nth(1)` -- a
+  // position in the whole document, which broke the moment the sidebar put
+  // buttons ahead of the dock in the DOM.
+  await page.locator(".floating-dock button").nth(1).click();
   await page.waitForTimeout(250);
-  await page.locator("button:has-text('Image')").first().click();
+  await page.locator(".floating-dock-submenu button:has-text('Image')").first().click();
   await page.waitForFunction(
     (n) => document.querySelectorAll("button.node-panel-placeholder").length > n,
     before,

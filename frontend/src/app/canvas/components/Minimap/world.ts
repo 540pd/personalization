@@ -1,4 +1,5 @@
 import type { Bounds } from "@/lib/canvas/bounds";
+import type { Rect } from "@/lib/canvas/coords";
 
 /**
  * The minimap's coordinate space.
@@ -51,13 +52,19 @@ export function padBounds(b: Bounds, fraction: number): Bounds {
  */
 export function viewportBounds(
   vp: { x: number; y: number; scale: number },
-  size: { width: number; height: number }
+  area: Rect
 ): Bounds {
+  // left/top matter: the canvas runs under the sidebar, so the visible area
+  // starts at screen x = left, not 0. Ignoring it draws an indicator shifted
+  // by the rail's width -- the map would claim you are looking somewhere you
+  // are not.
+  const left = area.left ?? 0;
+  const top = area.top ?? 0;
   return {
-    x: -vp.x / vp.scale,
-    y: -vp.y / vp.scale,
-    w: size.width / vp.scale,
-    h: size.height / vp.scale,
+    x: (left - vp.x) / vp.scale,
+    y: (top - vp.y) / vp.scale,
+    w: area.width / vp.scale,
+    h: area.height / vp.scale,
   };
 }
 
