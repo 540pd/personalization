@@ -10,6 +10,7 @@
 
 import type { FC } from "react";
 import type { NodeKind, PanelOutput } from "@/store/nodePanel.store";
+import type { PortType } from "@/store/connection.store";
 import type { Reference } from "@/types/canvas.types";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 
@@ -84,6 +85,8 @@ export interface GenerateArgs {
 
 export interface NodeKindSpec {
   kind: NodeKind;
+  inputPortType: PortType;
+  outputPortType?: PortType;
   /** Panel heading. */
   title: string;
   /** Instruction textarea placeholder. */

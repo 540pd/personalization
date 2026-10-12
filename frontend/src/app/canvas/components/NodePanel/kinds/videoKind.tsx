@@ -137,6 +137,7 @@ function Output({ value }: { value: string }) {
 
 export const videoKind: NodeKindSpec = {
   kind: "video",
+  inputPortType: "IMAGE",
   title: "Create Video",
   prompt: "Describe the video...",
   models: MODELS,

@@ -1,16 +1,20 @@
 import { create } from "zustand";
 
+export type PortType = "IMAGE" | "TEXT" | "MASK";
+
 export interface Connection {
   id: string;
   fromNodeId:   string;
   fromNodeType: "panel" | "konva";
   toNodeId:     string;
   toNodeType:   "panel";  // only panels have input ports
+  portType:     PortType;
 }
 
 export interface DragState {
   fromNodeId:   string;
   fromNodeType: "panel" | "konva";
+  portType:     PortType;
   cursorX: number;
   cursorY: number;
 }
@@ -19,9 +23,9 @@ interface ConnectionState {
   connections:           Connection[];
   drag:                  DragState | null;
   selectedIds:           string[];
-  startDrag:             (fromNodeId: string, fromNodeType: "panel" | "konva", x: number, y: number) => void;
+  startDrag:             (fromNodeId: string, fromNodeType: "panel" | "konva", portType: PortType, x: number, y: number) => void;
   updateDrag:            (x: number, y: number) => void;
-  commitConnection:      (toNodeId: string) => void;
+  commitConnection:      (toNodeId: string, targetPortType: PortType) => void;
   cancelDrag:            () => void;
   selectConnection:      (id: string) => void;
   addConnectionToSelection: (id: string) => void;
@@ -35,15 +39,18 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
   drag:        null,
   selectedIds: [],
 
-  startDrag: (fromNodeId, fromNodeType, x, y) =>
-    set({ drag: { fromNodeId, fromNodeType, cursorX: x, cursorY: y }, selectedIds: [] }),
+  startDrag: (fromNodeId, fromNodeType, portType, x, y) =>
+    set({ drag: { fromNodeId, fromNodeType, portType, cursorX: x, cursorY: y }, selectedIds: [] }),
 
   updateDrag: (x, y) =>
     set((s) => s.drag ? { drag: { ...s.drag, cursorX: x, cursorY: y } } : s),
 
-  commitConnection: (toNodeId) => {
+  commitConnection: (toNodeId, targetPortType) => {
     const { drag, connections } = get();
-    if (!drag || drag.fromNodeId === toNodeId) { set({ drag: null }); return; }
+    if (!drag || drag.fromNodeId === toNodeId || drag.portType !== targetPortType) {
+      set({ drag: null });
+      return;
+    }
     const exists = connections.some(
       (c) => c.fromNodeId === drag.fromNodeId && c.toNodeId === toNodeId
     );
@@ -56,6 +63,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
           fromNodeType: drag.fromNodeType,
           toNodeId,
           toNodeType: "panel" as const,
+          portType: drag.portType,
         }],
         drag: null,
         selectedIds: [newId], // auto-select newly created connection

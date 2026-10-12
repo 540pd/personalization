@@ -23,6 +23,7 @@ import {
   OUTPUT_PORT_STYLE,
   PORT_HIT_PAD,
   PORT_WIDTH,
+  SNAP_RADIUS,
   SELECTION,
   Z_INDEX,
 } from "@/constants/canvas.constants";
@@ -131,6 +132,7 @@ function SinglePanel({
   const [genError, setGenError] = useState<string | null>(null);
   const [dragging,    setDragging]    = useState(false);
   const [hovered,     setHovered]     = useState(false);
+  const connectionDrag = useConnectionStore((s) => s.drag);
 
   const isDragging = useRef(false);
   /** True only between a pointerdown on THIS node and its pointerup. */
@@ -177,6 +179,10 @@ function SinglePanel({
   const vp = { x: stageX, y: stageY, scale };
   const inPt  = toScreen(inputPoint(instance), vp);
   const outPt = toScreen(outputPoint(instance), vp);
+  const outputPortType = spec.outputPortType;
+  const isInputCompatible = connectionDrag?.portType === spec.inputPortType;
+  const isInputNearCursor = connectionDrag !== null &&
+    Math.hypot(connectionDrag.cursorX - inPt.x, connectionDrag.cursorY - inPt.y) < SNAP_RADIUS;
   // Prefer the node's right, but fall back to its left when the panel would
   // run off the viewport -- creating a node near the right edge used to push
   // the panel hundreds of px out of view. If neither side fits (very narrow
@@ -492,18 +498,35 @@ function SinglePanel({
             ...INPUT_PORT_STYLE,
             left: inPt.x,
             top:  inPt.y,
+            ...(connectionDrag
+              ? isInputCompatible
+                ? {
+                    background: COLORS.compatiblePortFill,
+                    borderTopColor: COLORS.compatiblePortStroke,
+                    borderRightColor: COLORS.compatiblePortStroke,
+                    borderBottomColor: COLORS.compatiblePortStroke,
+                  }
+                : {
+                    background: isInputNearCursor ? COLORS.rejectedPortFill : COLORS.paper,
+                    borderTopColor: isInputNearCursor ? COLORS.rejectedPortStroke : COLORS.panelBorder,
+                    borderRightColor: isInputNearCursor ? COLORS.rejectedPortStroke : COLORS.panelBorder,
+                    borderBottomColor: isInputNearCursor ? COLORS.rejectedPortStroke : COLORS.panelBorder,
+                    opacity: isInputNearCursor ? 1 : 0.35,
+                    cursor: "not-allowed",
+                  }
+              : {}),
           }}
         />
       )}
 
       {/* Output port — placed from shared geometry. Absent on a terminal
           kind, so there is nothing to start a connection from. */}
-      {spec.isSource !== false && !hideOutputPort && (
+      {outputPortType && spec.isSource !== false && !hideOutputPort && (
         <div
           title="Output"
           onPointerDown={(e) => {
             e.stopPropagation();
-            useConnectionStore.getState().startDrag(instance.id, "panel", e.clientX, e.clientY);
+            useConnectionStore.getState().startDrag(instance.id, "panel", outputPortType, e.clientX, e.clientY);
           }}
           style={{
             ...OUTPUT_PORT_HIT_STYLE,

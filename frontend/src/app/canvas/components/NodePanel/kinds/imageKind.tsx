@@ -157,6 +157,8 @@ function Output({ value }: { value: string }) {
 
 export const imageKind: NodeKindSpec = {
   kind: "image",
+  inputPortType: "IMAGE",
+  outputPortType: "IMAGE",
   title: "Create Image",
   prompt: "Describe the image...",
   models: MODELS,

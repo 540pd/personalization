@@ -54,7 +54,7 @@ export default function KonvaNodePorts() {
             title="Output"
             onPointerDown={(e) => {
               e.stopPropagation();
-              useConnectionStore.getState().startDrag(n.id, "konva", e.clientX, e.clientY);
+              useConnectionStore.getState().startDrag(n.id, "konva", "IMAGE", e.clientX, e.clientY);
             }}
             style={{
               ...OUTPUT_PORT_HIT_STYLE,

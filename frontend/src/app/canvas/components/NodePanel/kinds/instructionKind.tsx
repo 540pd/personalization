@@ -88,6 +88,8 @@ function Output({ value }: { value: string }) {
 
 export const instructionKind: NodeKindSpec = {
   kind: "instruction",
+  inputPortType: "TEXT",
+  outputPortType: "TEXT",
   title: "Instruction",
   prompt: "What should this node work out?",
   models: MODELS,

@@ -9,6 +9,8 @@ import type { NodeKindSpec, NodeSettings, SettingsProps } from "../nodeKinds";
 
 const baseSpec: NodeKindSpec = {
   kind: "image",
+  inputPortType: "IMAGE",
+  outputPortType: "IMAGE",
   title: "Create Image",
   prompt: "Describe the image...",
   models: [

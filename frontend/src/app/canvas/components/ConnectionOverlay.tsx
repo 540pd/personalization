@@ -16,6 +16,8 @@ import type { KonvaNodeRecord } from "@/store/konvaNodes.store";
 import { COLORS, SNAP_RADIUS, Z_INDEX } from "@/constants/canvas.constants";
 import { toScreen } from "@/lib/canvas/coords";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
+import { kindSpec } from "./NodePanel/kinds";
+import type { PortType } from "@/store/connection.store";
 
 // ── Port position helpers ─────────────────────────────────────────────────────
 // Convention (standard, matches ComfyUI/Blueprint): output = RIGHT edge, input = LEFT edge.
@@ -83,6 +85,7 @@ function resolveEndpoints(
 interface InputPortEntry {
   nodeId:   string;
   nodeType: "panel";
+  portType: PortType;
   x: number;
   y: number;
 }
@@ -96,7 +99,12 @@ export default function ConnectionOverlay() {
 
   // Only panels have input ports (konva nodes are output-only sources).
   const inputPorts: InputPortEntry[] = [
-    ...panels.map((p) => ({ nodeId: p.id, nodeType: "panel" as const, ...panelInputPt(p, sx, sy, sc) })),
+    ...panels.map((p) => ({
+      nodeId: p.id,
+      nodeType: "panel" as const,
+      portType: kindSpec(p.kind).inputPortType,
+      ...panelInputPt(p, sx, sy, sc),
+    })),
   ];
 
   // Always-fresh ref so pointer handlers never see stale data.
@@ -104,7 +112,9 @@ export default function ConnectionOverlay() {
   inputPortsRef.current = inputPorts;
 
   const dragFromIdRef = useRef<string | null>(null);
+  const dragPortTypeRef = useRef<PortType | null>(null);
   if (drag) dragFromIdRef.current = drag.fromNodeId;
+  if (drag) dragPortTypeRef.current = drag.portType;
 
   // Global pointer listeners — registered only while a drag is active.
   useEffect(() => {
@@ -116,12 +126,13 @@ export default function ConnectionOverlay() {
 
     const onUp = (e: PointerEvent) => {
       const fromId = dragFromIdRef.current;
+      const portType = dragPortTypeRef.current;
       const snap = inputPortsRef.current.find(
-        (p) => p.nodeId !== fromId &&
+        (p) => p.nodeId !== fromId && p.portType === portType &&
                Math.hypot(e.clientX - p.x, e.clientY - p.y) < SNAP_RADIUS
       );
       if (snap) {
-        useConnectionStore.getState().commitConnection(snap.nodeId);
+        useConnectionStore.getState().commitConnection(snap.nodeId, snap.portType);
       } else {
         useConnectionStore.getState().cancelDrag();
       }
@@ -157,7 +168,7 @@ export default function ConnectionOverlay() {
   // Snap target: nearest input port within SNAP_RADIUS of the cursor.
   const snapTarget = drag
     ? inputPorts.find(
-        (p) => p.nodeId !== drag.fromNodeId &&
+        (p) => p.nodeId !== drag.fromNodeId && p.portType === drag.portType &&
                Math.hypot(drag.cursorX - p.x, drag.cursorY - p.y) < SNAP_RADIUS
       ) ?? null
     : null;

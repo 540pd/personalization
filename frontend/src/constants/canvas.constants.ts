@@ -7,6 +7,10 @@ export const COLORS = {
   paper:        "#ffffff",
   selected:     "#2563eb",
   snapFill:     "rgba(0,0,0,0.1)",
+  compatiblePortFill: "#dcfce7",
+  compatiblePortStroke: "#16a34a",
+  rejectedPortFill: "#fee2e2",
+  rejectedPortStroke: "#dc2626",
   panelBorder:  "rgba(0,0,0,0.08)",
   placeholder:  "#f5f5f5",
   mediaFill:    "#1e1e2e",
@@ -126,10 +130,15 @@ export const PORT_FRACTION = 0.3; // vertical position from the node's top edge
 export const SNAP_RADIUS   = 16;
 
 const PORT_SHAPE: CSSProperties = {
-  width:      PORT_WIDTH,
-  height:     PORT_HEIGHT,
-  background: COLORS.paper,
-  border:     `1.5px solid ${COLORS.ink}`,
+  width:        PORT_WIDTH,
+  height:       PORT_HEIGHT,
+  background:   COLORS.paper,
+  borderWidth:  1.5,
+  borderStyle:  "solid",
+  borderTopColor:    COLORS.ink,
+  borderRightColor:  COLORS.ink,
+  borderBottomColor: COLORS.ink,
+  borderLeftColor:   COLORS.ink,
 };
 
 // Output port: transparent hit target (callers add left/top) wrapping OUTPUT_PORT_STYLE.
