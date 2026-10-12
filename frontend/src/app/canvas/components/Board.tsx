@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Konva from "konva";
 import { useViewport } from "@/store/viewport.store";
 import { useToolStore } from "@/store/tool.store";
@@ -8,6 +8,8 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { createUploadHandler } from "../board/upload";
+import { createDragDropHandlers } from "../board/dragDrop";
+import { canvasArea, useCanvasArea } from "../canvasArea";
 import { applyDraggability } from "../board/draggability";
 import { createEditKeysHandler } from "../board/clipboard";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
@@ -26,6 +28,8 @@ export default function Board() {
   const transformerRef = useRef<Konva.Transformer | null>(null);
   const hoverRef = useRef<HoverOutline | null>(null);
   const isSpacePanning = useRef(false);
+  // Drives the drop affordance. State rather than a ref: it has to paint.
+  const [dropActive, setDropActive] = useState(false);
 
   // Bound to the refs here so the effects below can call it with no
   // arguments; the drawing itself lives in board/selectionChrome.
@@ -38,6 +42,8 @@ export default function Board() {
 
   const { x, y, scale } = useViewport();
   const { activeTool } = useToolStore();
+  // Geometry for the drop affordance; tracks the sidebar collapse and resizes.
+  const dropArea = useCanvasArea();
   const topLayer = useLayerOrder((s) => s.topLayer);
 
   // Mount Konva stage once.
@@ -362,6 +368,24 @@ export default function Board() {
     });
     window.addEventListener("canvas:upload", handleUpload);
 
+    // Files dragged in from the desktop. Window-level, because the browser
+    // navigates away on a drop anywhere -- not just over the canvas.
+    const dnd = createDragDropHandlers({
+      area: canvasArea,
+      setActive: setDropActive,
+      onDrop: (files, at) => {
+        window.dispatchEvent(new CustomEvent("canvas:upload", { detail: { files, at } }));
+      },
+    });
+    window.addEventListener("dragenter", dnd.dragEnter);
+    window.addEventListener("dragover", dnd.dragOver);
+    window.addEventListener("dragleave", dnd.dragLeave);
+    window.addEventListener("drop", dnd.drop);
+    // A drag that ends outside the window never fires dragleave, so the
+    // affordance would stick on until the next drag.
+    window.addEventListener("dragend", dnd.reset);
+    window.addEventListener("blur", dnd.reset);
+
     const observer = new ResizeObserver(() => {
       stage.width(container.offsetWidth);
       stage.height(container.offsetHeight);
@@ -374,6 +398,12 @@ export default function Board() {
       window.removeEventListener("keydown", handleUndoRedo);
       window.removeEventListener("keydown", handleEditKeys);
       window.removeEventListener("canvas:upload", handleUpload);
+      window.removeEventListener("dragenter", dnd.dragEnter);
+      window.removeEventListener("dragover", dnd.dragOver);
+      window.removeEventListener("dragleave", dnd.dragLeave);
+      window.removeEventListener("drop", dnd.drop);
+      window.removeEventListener("dragend", dnd.reset);
+      window.removeEventListener("blur", dnd.reset);
       observer.disconnect();
       // Entries hold references into this layer, so they outlive their
       // meaning once the stage is gone.
@@ -462,16 +492,56 @@ export default function Board() {
   }, [activeTool, updateSelectionChrome]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        position: "fixed",
-        inset: 0,
-        overflow: "hidden",
-        // The whole canvas moves above or below the node placeholders; it
-        // cannot interleave with them. See layerOrder.store.
-        zIndex: topLayer === "canvas" ? Z_INDEX.canvasAbove : Z_INDEX.canvasBelow,
-      }}
-    />
+    <>
+      <div
+        ref={containerRef}
+        style={{
+          position: "fixed",
+          inset: 0,
+          overflow: "hidden",
+          // The whole canvas moves above or below the node placeholders; it
+          // cannot interleave with them. See layerOrder.store.
+          zIndex: topLayer === "canvas" ? Z_INDEX.canvasAbove : Z_INDEX.canvasBelow,
+        }}
+      />
+
+      {/* Drop affordance. Inset to the visible canvas rather than the window,
+          so it does not draw underneath the sidebar. pointer-events: none is
+          load-bearing: an overlay that swallowed the drop would stop it ever
+          reaching the window listener. */}
+      {dropActive && (
+        <div
+          data-testid="canvas-drop-overlay"
+          style={{
+            position: "fixed",
+            left: dropArea.left ?? 0,
+            top: dropArea.top ?? 0,
+            width: dropArea.width,
+            height: dropArea.height,
+            pointerEvents: "none",
+            zIndex: Z_INDEX.dropOverlay,
+            background: "rgba(0,0,0,0.04)",
+            border: `2px dashed ${COLORS.ink}`,
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 13,
+              color: COLORS.ink,
+              background: COLORS.paper,
+              padding: "6px 12px",
+              borderRadius: 999,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+            }}
+          >
+            Drop images to add them to the board
+          </span>
+        </div>
+      )}
+    </>
   );
 }
