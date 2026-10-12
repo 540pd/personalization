@@ -40,7 +40,6 @@ export interface ArtDirection {
 export interface BrandSettings {
   homepageUrl: string;
   industry: string;
-  toneOfVoice: string;
   components: Record<ArtDirectionId, ArtDirection>;
 }
 
@@ -49,7 +48,7 @@ export function emptyBrand(): BrandSettings {
   for (const { id } of ART_DIRECTION_COMPONENTS) {
     components[id] = { description: "", disabled: false, images: [] };
   }
-  return { homepageUrl: "", industry: "", toneOfVoice: "", components };
+  return { homepageUrl: "", industry: "", components };
 }
 
 interface BrandState {
