@@ -26,8 +26,11 @@ interface ConnectionState {
   selectConnection:      (id: string) => void;
   addConnectionToSelection: (id: string) => void;
   deselectConnection:    () => void;
+  selectAllConnections:  () => void;
   removeConnection:      (id: string) => void;
   removeForNode:         (nodeId: string) => void;
+  /** Replace every connection wholesale. Used by the shared undo timeline. */
+  replaceConnections:    (connections: Connection[]) => void;
 }
 
 export const useConnectionStore = create<ConnectionState>((set, get) => ({
@@ -73,6 +76,8 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
       s.selectedIds.includes(id) ? s : { selectedIds: [...s.selectedIds, id] }
     ),
   deselectConnection: () => set({ selectedIds: [] }),
+  selectAllConnections: () =>
+    set((s) => ({ selectedIds: s.connections.map((c) => c.id) })),
 
   removeConnection: (id) =>
     set((s) => ({
@@ -92,4 +97,6 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
         selectedIds: s.selectedIds.filter((sid) => !removedIds.has(sid)),
       };
     }),
+
+  replaceConnections: (connections) => set({ connections, selectedIds: [] }),
 }));

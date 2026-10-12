@@ -55,6 +55,9 @@ interface NodePanelState {
   openPanel:       (id: string) => void; // active → panel-open
   closePanel:      (id: string) => void; // panel-open → active
   closeAllPanels:  () => void;           // everything → inactive
+  activateAll:     () => void;           // everything → active (Ctrl+A)
+  togglePanel:     (id: string) => void; // Shift/Ctrl+click: add to / drop from the selection
+  removeActive:    () => void;           // remove every active panel (Delete)
   setCanvasPos:    (id: string, x: number, y: number) => void;
   selectPanel:     (id: string | null) => void;
   /** Replace every panel wholesale. Used by the shared undo timeline. */
@@ -146,6 +149,34 @@ export const useNodePanel = create<NodePanelState>()(
     set((s) => ({
       selectedId: null,
       panels: s.panels.map((p) => ({ ...p, isActive: false, isPanelOpen: false })),
+    })),
+
+  // everything → active, panels collapsed. selectedId names a single node,
+  // so it is cleared rather than pointed at one of many.
+  activateAll: () =>
+    set((s) => ({
+      selectedId: null,
+      panels: s.panels.map((p) => ({ ...p, isActive: true, isPanelOpen: false })),
+    })),
+
+  // Leaves the other panels' selection alone, but collapses any open panel:
+  // a settings panel belongs to a single selected node.
+  togglePanel: (id) =>
+    set((s) => ({
+      selectedId: null,
+      panels: s.panels.map((p) =>
+        p.id === id
+          ? { ...p, isActive: !p.isActive, isPanelOpen: false }
+          : { ...p, isPanelOpen: false }
+      ),
+    })),
+
+  // isActive, not selectedId, is the selection: after Ctrl+A every panel is
+  // active while selectedId is null.
+  removeActive: () =>
+    set((s) => ({
+      selectedId: null,
+      panels: s.panels.filter((p) => !p.isActive),
     })),
 
   setCanvasPos: (id, x, y) =>
