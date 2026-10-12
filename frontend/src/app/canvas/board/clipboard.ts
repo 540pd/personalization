@@ -73,12 +73,18 @@ export function pasteNodes(
   });
 }
 
-/** Removes nodes from the layer and from the geometry store. */
+/**
+ * Removes nodes from the layer and from the geometry store.
+ *
+ * remove(), not destroy(): undo re-adds these same node objects, and destroy()
+ * drops a shape from Konva's hit registry, leaving the restored node
+ * impossible to click or drag.
+ */
 export function deleteNodes(selected: Konva.Shape[]): void {
   selected.forEach((n) => {
     const id = n.id();
     if (id) useKonvaNodes.getState().remove(id);
-    n.destroy();
+    n.remove();
   });
 }
 
@@ -97,7 +103,8 @@ export interface EditKeysDeps {
   applyDraggability: () => void;
   syncAllNodeGeometry: () => void;
   updateSelectionChrome: () => void;
-  saveSnapshot: () => void;
+  /** Pass the event to share one undo step with other Delete handlers. */
+  saveSnapshot: (coalesceKey?: object) => void;
 }
 
 /** Keydown handler for Delete, Ctrl+C and Ctrl+V. */
@@ -118,7 +125,7 @@ export function createEditKeysHandler(deps: EditKeysDeps) {
       deleteNodes(selected);
       deps.syncAllNodeGeometry();
       useKonvaSelection.getState().deselect();
-      deps.saveSnapshot();
+      deps.saveSnapshot(e);
       return;
     }
 

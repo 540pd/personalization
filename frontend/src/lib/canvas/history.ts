@@ -32,8 +32,15 @@ type Entry = Record<string, unknown>;
 export interface History {
   /** Returns an unregister function. */
   register(key: string, adapter: HistoryAdapter): () => void;
-  /** Capture every adapter as a single entry. Discards the redo stack. */
-  commit(): void;
+  /**
+   * Capture every adapter as a single entry. Discards the redo stack.
+   *
+   * Pass the triggering event as `coalesceKey` when several listeners each
+   * handle part of one gesture: one Delete removes wires, panels and images in
+   * three separate handlers, and it should still be one undo step. A repeat
+   * key overwrites the entry it made instead of adding another.
+   */
+  commit(coalesceKey?: object): void;
   undo(): boolean;
   redo(): boolean;
   canUndo(): boolean;
@@ -47,6 +54,8 @@ export function createHistory(limit: number = DEFAULT_LIMIT): History {
   const adapters = new Map<string, HistoryAdapter>();
   let entries: Entry[] = [];
   let idx = -1;
+  // Key of the newest entry, if it was committed with one.
+  let lastKey: object | undefined;
 
   const apply = (entry: Entry) => {
     for (const [key, adapter] of adapters) {
@@ -65,9 +74,14 @@ export function createHistory(limit: number = DEFAULT_LIMIT): History {
       };
     },
 
-    commit() {
+    commit(coalesceKey) {
       const entry: Entry = {};
       for (const [key, adapter] of adapters) entry[key] = adapter.capture();
+      if (coalesceKey && coalesceKey === lastKey && idx === entries.length - 1) {
+        entries[idx] = entry;
+        return;
+      }
+      lastKey = coalesceKey;
       entries = entries.slice(0, idx + 1);
       entries.push(entry);
       if (entries.length > limit) entries.shift();
@@ -77,6 +91,7 @@ export function createHistory(limit: number = DEFAULT_LIMIT): History {
     undo() {
       // Index 0 is the initial state; there is nothing before it.
       if (idx <= 0) return false;
+      lastKey = undefined;
       idx -= 1;
       apply(entries[idx]);
       return true;
@@ -95,6 +110,7 @@ export function createHistory(limit: number = DEFAULT_LIMIT): History {
     clear() {
       entries = [];
       idx = -1;
+      lastKey = undefined;
     },
 
     get size() {

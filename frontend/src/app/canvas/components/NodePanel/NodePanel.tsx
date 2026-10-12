@@ -243,15 +243,19 @@ function SinglePanel({
     if (!pointerDownHere.current) return;
     pointerDownHere.current = false;
     if (!isDragging.current) {
-      if (!(e.ctrlKey || e.metaKey)) {
+      // Shift/Ctrl/Cmd+click: add to or drop from the selection, the same
+      // modifiers uploaded images and wires accept.
+      if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        useNodePanel.getState().togglePanel(instance.id);
+      } else {
         // Normal click: clear other selection types.
         useKonvaSelection.getState().deselect();
         useConnectionStore.getState().deselectConnection();
+        // Step through states: inactive → active → panel-open → active
+        if (!isActive)              onActivate();
+        else if (!isPanelOpen)      onOpenPanel();
+        else                        onClosePanel();
       }
-      // Step through states: inactive → active → panel-open → active
-      if (!isActive)              onActivate();
-      else if (!isPanelOpen)      onOpenPanel();
-      else                        onClosePanel();
     } else {
       // Completed a real drag — save position so Ctrl+Z can undo it.
       canvasHistory.commit();
@@ -591,7 +595,7 @@ function SinglePanel({
 // ── Root component — renders all instances ────────────────────────────────────
 
 export default function NodePanel() {
-  const { panels, removePanel, activatePanel, openPanel, closePanel, closeAllPanels, setCanvasPos, selectPanel } = useNodePanel();
+  const { panels, removePanel, removeActive, activatePanel, openPanel, closePanel, closeAllPanels, setCanvasPos } = useNodePanel();
   const { x: stageX, y: stageY, scale } = useViewport();
   const topLayer = useLayerOrder((s) => s.topLayer);
   const konvaNodes = Object.values(useKonvaNodes((s) => s.nodes));
@@ -620,12 +624,14 @@ export default function NodePanel() {
       // stopImmediatePropagation its way to priority, which is what made
       // Ctrl+Z non-chronological across node kinds.
 
-      // Delete / Backspace — remove selected placeholder.
-      if ((e.code === "Delete" || e.code === "Backspace") && store.selectedId) {
+      // Delete / Backspace — remove every selected placeholder. Active, not
+      // selectedId: after Ctrl+A many panels are selected and selectedId is null.
+      if ((e.code === "Delete" || e.code === "Backspace") && store.panels.some((p) => p.isActive)) {
         e.preventDefault();
-        removePanel(store.selectedId);
-        selectPanel(null);
-        canvasHistory.commit();
+        removeActive();
+        // Keyed on the event: wires and images deleted by the same keypress
+        // land in this one undo step.
+        canvasHistory.commit(e);
         return;
       }
       // Escape — collapse all panels, keep placeholders.
@@ -634,7 +640,7 @@ export default function NodePanel() {
     // Capture phase ensures this runs before Board.tsx's bubble-phase listener.
     window.addEventListener("keydown", handler, { capture: true });
     return () => window.removeEventListener("keydown", handler, { capture: true });
-  }, [removePanel, selectPanel, closeAllPanels]);
+  }, [removeActive, closeAllPanels]);
 
   return (
     <>

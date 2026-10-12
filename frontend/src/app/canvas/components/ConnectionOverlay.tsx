@@ -16,6 +16,7 @@ import type { KonvaNodeRecord } from "@/store/konvaNodes.store";
 import { COLORS, SNAP_RADIUS, Z_INDEX } from "@/constants/canvas.constants";
 import { toScreen } from "@/lib/canvas/coords";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
+import { canvasHistory } from "@/lib/canvas/history";
 
 // ── Port position helpers ─────────────────────────────────────────────────────
 // Convention (standard, matches ComfyUI/Blueprint): output = RIGHT edge, input = LEFT edge.
@@ -106,6 +107,16 @@ export default function ConnectionOverlay() {
   const dragFromIdRef = useRef<string | null>(null);
   if (drag) dragFromIdRef.current = drag.fromNodeId;
 
+  // The wires slice of the shared undo timeline, so undoing a delete brings
+  // back the wires along with the nodes they joined. Every store setter
+  // builds a new array, so holding it is a valid snapshot.
+  useEffect(() => {
+    return canvasHistory.register("connections", {
+      capture: () => useConnectionStore.getState().connections,
+      restore: (snap) => useConnectionStore.getState().replaceConnections(snap as Connection[]),
+    });
+  }, []);
+
   // Global pointer listeners — registered only while a drag is active.
   useEffect(() => {
     if (!drag) return;
@@ -121,7 +132,10 @@ export default function ConnectionOverlay() {
                Math.hypot(e.clientX - p.x, e.clientY - p.y) < SNAP_RADIUS
       );
       if (snap) {
+        const before = useConnectionStore.getState().connections;
         useConnectionStore.getState().commitConnection(snap.nodeId);
+        // Duplicates and self-links are rejected without a change.
+        if (useConnectionStore.getState().connections !== before) canvasHistory.commit();
       } else {
         useConnectionStore.getState().cancelDrag();
       }
@@ -147,8 +161,10 @@ export default function ConnectionOverlay() {
       const { selectedIds } = useConnectionStore.getState();
       if (!selectedIds.length) return;
       e.preventDefault();
-      e.stopImmediatePropagation();
+      // No stopImmediatePropagation: when nodes are selected alongside the
+      // wires (Ctrl+A, Ctrl+click), their Delete handlers must run too.
       selectedIds.forEach((id) => useConnectionStore.getState().removeConnection(id));
+      canvasHistory.commit(e);
     };
     window.addEventListener("keydown", handler, { capture: true });
     return () => window.removeEventListener("keydown", handler, { capture: true });
@@ -226,7 +242,7 @@ export default function ConnectionOverlay() {
               style={{ pointerEvents: "stroke", cursor: "pointer" }}
               onClick={(e) => {
                 e.stopPropagation();
-                if (e.ctrlKey || e.metaKey) {
+                if (e.shiftKey || e.ctrlKey || e.metaKey) {
                   useConnectionStore.getState().addConnectionToSelection(conn.id);
                 } else {
                   useConnectionStore.getState().selectConnection(conn.id);
