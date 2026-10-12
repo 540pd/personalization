@@ -96,7 +96,7 @@ export default function BrandDialog({
     requestAnimationFrame(() => beforeConfirmRef.current?.focus());
   };
 
-  const setField = (key: "industry" | "toneOfVoice", value: string) =>
+  const setField = (key: "industry", value: string) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
   const updateComponent = (id: ArtDirectionId, update: (prev: ArtDirection) => ArtDirection) =>
@@ -154,18 +154,6 @@ export default function BrandDialog({
                 placeholder="e.g. Consumer electronics"
                 value={draft.industry}
                 onChange={(e) => setField("industry", e.target.value)}
-              />
-            </div>
-            <div className="brand-field">
-              <label className="brand-field-label" htmlFor={`${fieldId}-tone`}>
-                Tone of voice
-              </label>
-              <input
-                id={`${fieldId}-tone`}
-                className="brand-input"
-                placeholder="e.g. Bold and aspirational"
-                value={draft.toneOfVoice}
-                onChange={(e) => setField("toneOfVoice", e.target.value)}
               />
             </div>
           </div>
