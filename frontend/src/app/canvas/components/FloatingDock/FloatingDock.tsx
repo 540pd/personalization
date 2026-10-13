@@ -15,6 +15,7 @@ import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { viewportCentre } from "@/lib/canvas/coords";
 import { canvasArea } from "../../canvasArea";
+import type { UploadDetail } from "../../board/upload";
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { useUpload } from "@/store/upload.store";
@@ -328,8 +329,9 @@ export default function FloatingDock() {
       return;
     }
 
+    // No `at`: a picked file has no cursor position, so it goes to the centre.
     window.dispatchEvent(
-      new CustomEvent("canvas:upload", {
+      new CustomEvent<UploadDetail>("canvas:upload", {
         detail: { files },
       }),
     );

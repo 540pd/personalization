@@ -11,9 +11,20 @@ import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { useUpload } from "@/store/upload.store";
 import { COLORS, DEFAULT_NODE_MAX_EDGE, NODE_CORNER_RADIUS } from "@/constants/canvas.constants";
-import { viewportCentre } from "@/lib/canvas/coords";
+import { toCanvas, viewportCentre, type Point } from "@/lib/canvas/coords";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { canvasArea } from "../canvasArea";
+
+/**
+ * Detail of the `canvas:upload` event.
+ *
+ * `at` is the screen point of a drop. Absent for the file picker, which has
+ * no meaningful cursor position and so falls back to the viewport centre.
+ */
+export interface UploadDetail {
+  files: File[];
+  at?: Point;
+}
 
 /** "photo-2024.final.png" -> "photo-2024.final". Only the last segment is an extension. */
 export function stripExtension(fileName: string): string {
@@ -158,7 +169,7 @@ function addMediaPlaceholder(deps: UploadDeps, file: File, cx: number, cy: numbe
 /** Handler for the `canvas:upload` event. */
 export function createUploadHandler(deps: UploadDeps) {
   return (e: Event) => {
-    const { files } = (e as CustomEvent<{ files: File[] }>).detail as { files: File[] };
+    const { files, at } = (e as CustomEvent<UploadDetail>).detail;
 
     // Return to pointer so the new node can be moved straight away. Without
     // this an upload under a link/shape tool lands a node that cannot be
@@ -168,9 +179,12 @@ export function createUploadHandler(deps: UploadDeps) {
     useLayerOrder.getState().raiseCanvas();
 
     const { x: sx, y: sy, scale } = useViewport.getState();
-    // canvasArea, not the window: the sidebar covers the left edge, so
-    // centring on the window drops the image partly behind it.
-    const { x: cx, y: cy } = viewportCentre({ x: sx, y: sy, scale }, canvasArea());
+    const vp = { x: sx, y: sy, scale };
+    // A drop lands where it was dropped; a picked file has no cursor to speak
+    // of and goes to the centre. canvasArea, not the window: the sidebar
+    // covers the left edge, so centring on the window drops the image partly
+    // behind it.
+    const { x: cx, y: cy } = at ? toCanvas(at, vp) : viewportCentre(vp, canvasArea());
 
     // Images decode asynchronously, so the pick is not done when this
     // function returns. Count them down instead: the dock stays lit until the

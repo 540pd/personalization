@@ -39,6 +39,10 @@ export const Z_INDEX = {
   ports:       50,
   labels:      60,
   rail:        70,
+  // Above the rail, unlike everything else here. It is not canvas content but
+  // a transient answer to "will this drop land?", and it is inset to the
+  // visible canvas anyway, so it never actually covers the rail.
+  dropOverlay: 80,
 } as const;
 
 export const MIN_NODE_SIZE = 60; // canvas units
