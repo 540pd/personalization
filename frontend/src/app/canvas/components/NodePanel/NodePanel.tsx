@@ -26,7 +26,7 @@ import {
   SELECTION,
   Z_INDEX,
 } from "@/constants/canvas.constants";
-import { isCovered, portProbe, type Blocker, type TopLayer } from "@/lib/canvas/occlusion";
+import { isCovered, labelProbe, portProbe, type Blocker, type TopLayer } from "@/lib/canvas/occlusion";
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
@@ -70,13 +70,16 @@ const ANCHORS = [
 // order IS paint order: only panels later in the array can cover this one.
 // Each port is tested separately — a neighbour overlapping the left edge must
 // hide the input port without blanking the output.
-function portsCovered(
+// The name is tested here too, off the same blocker list: it is no longer
+// selection chrome, so a covered name has to hide for the reason a covered
+// port does -- drawn over the node that covers it, it reads as that node's.
+function chromeCovered(
   p: PanelInstance,
   above: PanelInstance[],
   konvaNodes: KonvaNodeRecord[],
   topLayer: TopLayer,
   scale: number
-): { input: boolean; output: boolean } {
+): { input: boolean; output: boolean; label: boolean } {
   const self: Blocker = { id: p.id, box: p, layer: "dom" };
   const blockers: Blocker[] = [
     ...above.map((q): Blocker => ({ id: q.id, box: q, layer: "dom" })),
@@ -86,6 +89,7 @@ function portsCovered(
   return {
     input:  isCovered(portProbe(p, "input", scale), self, blockers, topLayer),
     output: isCovered(portProbe(p, "output", scale), self, blockers, topLayer),
+    label:  isCovered(labelProbe(p, scale), self, blockers, topLayer),
   };
 }
 
@@ -101,12 +105,13 @@ interface SinglePanelProps {
   onSetCanvasPos: (x: number, y: number) => void;
   hideInputPort:  boolean;
   hideOutputPort: boolean;
+  hideLabel:      boolean;
 }
 
 function SinglePanel({
   instance, stageX, stageY, scale,
   onActivate, onOpenPanel, onClosePanel, onRemove, onSetCanvasPos,
-  hideInputPort, hideOutputPort,
+  hideInputPort, hideOutputPort, hideLabel,
 }: SinglePanelProps) {
   const { canvasX, canvasY, isActive, isPanelOpen } = instance;
 
@@ -473,8 +478,10 @@ function SinglePanel({
         </div>
       )}
 
-      {/* ── Name — shown while selected, same rules as uploaded images ── */}
-      {isActive && instance.label && sw >= LABEL_MIN_NODE_W && (
+      {/* ── Name — always on, same rules as uploaded images. Hidden when
+           covered, except while selected: selecting a buried node and
+           getting no name back would defeat the point. ── */}
+      {instance.label && sw >= LABEL_MIN_NODE_W && (!hideLabel || isActive) && (
         <NodeLabel
           value={instance.label}
           left={placeholderLeft}
@@ -642,7 +649,7 @@ export default function NodePanel() {
   return (
     <>
       {panels.map((p, i) => {
-        const covered = portsCovered(p, panels.slice(i + 1), konvaNodes, topLayer, scale);
+        const covered = chromeCovered(p, panels.slice(i + 1), konvaNodes, topLayer, scale);
         return (
         <SinglePanel
           key={p.id}
@@ -657,6 +664,7 @@ export default function NodePanel() {
           onSetCanvasPos={(x, y) => setCanvasPos(p.id, x, y)}
           hideInputPort={covered.input}
           hideOutputPort={covered.output}
+          hideLabel={covered.label}
         />
         );
       })}

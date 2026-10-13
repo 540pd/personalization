@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { LABEL_GAP, LABEL_FONT_SIZE, LABEL_LINE_HEIGHT } from "../src/constants/canvas.constants";
-import { openBoard, uploadImage, imageBox, setZoom } from "./helpers";
+import { openBoard, uploadImage, imageBox, setZoom, clickEmpty } from "./helpers";
 
 // The name above a selected node is shared by both node types via NodeLabel,
 // so these cover both. LABEL_GAP is the gap you see: a 16px line box around a
@@ -118,6 +118,27 @@ test.describe("node name label", () => {
       await expect(page.locator('div[title="harbour (2)"]')).toHaveCount(1);
     });
   }
+
+  // The name is no longer selection chrome: it is what a downstream
+  // generation refers to the node by, so it has to be readable without
+  // clicking each node in turn.
+  test("the name is on screen with nothing selected", async ({ page }) => {
+    await openBoard(page);
+    await uploadImage(page, 800, 600, "harbour.png");
+
+    // Never selected at all — straight from upload.
+    await expect(page.locator('div[title="harbour"]')).toHaveCount(1);
+
+    // Still there after selecting and clicking away again.
+    const box = await imageBox(page);
+    await page.mouse.click(box.x + 40, box.y + 40);
+    await page.waitForTimeout(300);
+    await expect(page.locator('div[title="harbour"]')).toHaveCount(1);
+
+    await clickEmpty(page);
+    await page.waitForTimeout(300);
+    await expect(page.locator('div[title="harbour"]')).toHaveCount(1);
+  });
 
   test("uploading the same file name twice does not make two of one name", async ({ page }) => {
     await openBoard(page);

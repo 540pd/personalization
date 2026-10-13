@@ -10,7 +10,12 @@
 // reading. Three rules exist because there are genuinely three cases; they
 // belong stated once.
 
-import { PORT_FRACTION, PORT_WIDTH } from "@/constants/canvas.constants";
+import {
+  LABEL_GAP,
+  LABEL_LINE_HEIGHT,
+  PORT_FRACTION,
+  PORT_WIDTH,
+} from "@/constants/canvas.constants";
 import { boundsOf, contains, type Bounds, type NodeBox } from "./bounds";
 import type { Point } from "./coords";
 
@@ -49,6 +54,29 @@ export function portProbe(box: NodeBox, side: PortSide, scale: number): Point {
     y: b.y + b.h * PORT_FRACTION,
   };
 }
+
+/**
+ * Where a node's name sits, in canvas units.
+ *
+ * The label band is LABEL_GAP above the node's top edge and LABEL_LINE_HEIGHT
+ * tall; both are fixed screen sizes, so they divide by scale the same way
+ * portProbe's inset does. Probing the band's vertical middle rather than an
+ * edge keeps a node whose bottom just grazes the gap from counting as cover.
+ *
+ * x is inset from the left for the same reason portProbe insets: the name is
+ * left-aligned to the node, and probing the exact edge would let a neighbour
+ * merely touching that edge blank the whole name.
+ */
+export function labelProbe(box: NodeBox, scale: number): Point {
+  const b = boundsOf(box);
+  return {
+    x: b.x + LABEL_PROBE_INSET / scale,
+    y: b.y - (LABEL_GAP + LABEL_LINE_HEIGHT / 2) / scale,
+  };
+}
+
+/** Screen px in from the node's left edge. Small: names start at the edge. */
+const LABEL_PROBE_INSET = 4;
 
 /** Which paint layer is currently in front. Mirrors layerOrder.store. */
 export type TopLayer = "canvas" | "dom";

@@ -65,11 +65,15 @@ export default function NodeLabel({ value, left, bottom, maxWidth, onCommit }: N
 
   const base: React.CSSProperties = {
     position: "fixed",
-    left,
-    // translateY(-100%) puts the box's bottom edge on `top`; pushing it down
-    // by the half-leading lands the glyph bottoms on `bottom` instead.
-    top: bottom + HALF_LEADING,
-    transform: "translateY(-100%)",
+    // Positioned by transform rather than left/top: every label is on screen
+    // at once now, and all of them move on every pan and zoom frame. left/top
+    // is layout, a transform is compositing.
+    left: 0,
+    top: 0,
+    // translateY(-100%) puts the box's bottom edge on the translated y;
+    // pushing that down by the half-leading lands the glyph bottoms on
+    // `bottom` instead.
+    transform: `translate3d(${left}px, ${bottom + HALF_LEADING}px, 0) translateY(-100%)`,
     maxWidth,
     fontSize: LABEL_FONT_SIZE,
     lineHeight: `${LABEL_LINE_HEIGHT}px`,
