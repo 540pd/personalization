@@ -17,6 +17,7 @@ import { viewportCentre } from "@/lib/canvas/coords";
 import { canvasArea } from "../../canvasArea";
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
+import { useUpload } from "@/store/upload.store";
 import { NODE_KINDS } from "@/app/canvas/components/NodePanel/kinds";
 import type { NodeKind } from "@/store/nodePanel.store";
 
@@ -310,11 +311,22 @@ export default function FloatingDock() {
   const isLinksActive = LINK_IDS.includes(activeTool);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isUploading = useUpload((s) => s.isUploading);
+
+  // Lit from the moment the dialog opens. Cleared by the last file landing
+  // (upload.ts), by a cancelled dialog, or by a pick of nothing.
+  const openFilePicker = () => {
+    useUpload.getState().setUploading(true);
+    fileInputRef.current?.click();
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
 
-    if (!files.length) return;
+    if (!files.length) {
+      useUpload.getState().setUploading(false);
+      return;
+    }
 
     window.dispatchEvent(
       new CustomEvent("canvas:upload", {
@@ -339,7 +351,7 @@ export default function FloatingDock() {
 
     hotkeys("command+u,ctrl+u", (e) => {
       e.preventDefault();
-      fileInputRef.current?.click();
+      openFilePicker();
     });
 
     return () => {
@@ -348,6 +360,17 @@ export default function FloatingDock() {
       hotkeys.unbind("command+u,ctrl+u");
     };
   }, [setTool]);
+
+  // Dismissing the file dialog fires no change event, so without this the
+  // button stays lit forever. Attached directly: React has no synthetic
+  // onCancel for a file input.
+  useEffect(() => {
+    const input = fileInputRef.current;
+    if (!input) return;
+    const onCancel = () => useUpload.getState().setUploading(false);
+    input.addEventListener("cancel", onCancel);
+    return () => input.removeEventListener("cancel", onCancel);
+  }, []);
 
   // Close Generate menu on outside click.
   useEffect(() => {
@@ -571,11 +594,12 @@ export default function FloatingDock() {
                 <button
                   title=""
                   tabIndex={isUpload ? 0 : -1}
-                  onClick={
-                    isUpload ? () => fileInputRef.current?.click() : undefined
-                  }
+                  onClick={isUpload ? openFilePicker : undefined}
+                  aria-pressed={isUpload ? isUploading : undefined}
                   className={
-                    isUpload ? btnClass(false) : "floating-dock-button-disabled"
+                    isUpload
+                      ? btnClass(isUploading)
+                      : "floating-dock-button-disabled"
                   }
                 >
                   {tool.icon}

@@ -9,6 +9,7 @@ import { useToolStore } from "@/store/tool.store";
 import { useViewport } from "@/store/viewport.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
+import { useUpload } from "@/store/upload.store";
 import { COLORS, DEFAULT_NODE_MAX_EDGE, NODE_CORNER_RADIUS } from "@/constants/canvas.constants";
 import { viewportCentre } from "@/lib/canvas/coords";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
@@ -60,7 +61,14 @@ function placeNode(
   deps.saveSnapshot();
 }
 
-function addImage(deps: UploadDeps, file: File, cx: number, cy: number, off: number) {
+function addImage(
+  deps: UploadDeps,
+  file: File,
+  cx: number,
+  cy: number,
+  off: number,
+  onSettled: () => void
+) {
   const url = URL.createObjectURL(file);
   const img = new window.Image() as HTMLImageElement;
 
@@ -112,6 +120,16 @@ function addImage(deps: UploadDeps, file: File, cx: number, cy: number, off: num
       imageUrl: canvas.toDataURL("image/png"),
       label: uniqueLabel(stripExtension(file.name), takenLabels()),
     });
+    URL.revokeObjectURL(url);
+    onSettled();
+  };
+
+  // Without this a file the browser cannot decode never settles, and anything
+  // waiting on the upload -- the dock's busy state -- waits forever. A broken
+  // file drops out silently rather than taking the rest of the pick with it.
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    onSettled();
   };
 
   img.src = url;
@@ -154,10 +172,23 @@ export function createUploadHandler(deps: UploadDeps) {
     // centring on the window drops the image partly behind it.
     const { x: cx, y: cy } = viewportCentre({ x: sx, y: sy, scale }, canvasArea());
 
+    // Images decode asynchronously, so the pick is not done when this
+    // function returns. Count them down instead: the dock stays lit until the
+    // last file lands, not the first.
+    let pending = files.length;
+    const settle = () => {
+      pending -= 1;
+      if (pending <= 0) useUpload.getState().setUploading(false);
+    };
+
     files.forEach((file, i) => {
       const off = i * 24;   // cascade, so a multi-file drop does not stack
-      if (file.type.startsWith("image/")) addImage(deps, file, cx, cy, off);
-      else addMediaPlaceholder(deps, file, cx, cy, off);
+      if (file.type.startsWith("image/")) {
+        addImage(deps, file, cx, cy, off, settle);
+      } else {
+        addMediaPlaceholder(deps, file, cx, cy, off);
+        settle();   // synchronous: already on the canvas
+      }
     });
   };
 }
