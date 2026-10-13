@@ -31,6 +31,10 @@ import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen } from "@/lib/canvas/coords";
+// Prompts usually open with boilerplate ("a highly detailed photorealistic
+// image of a …"), so first-N-words collides often — hence uniqueLabel on
+// every auto-generated name here.
+import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { useCanvasArea } from "../../canvasArea";
 import NodeLabel from "../NodeLabel";
 import GenerateForm, { type GenerateDraft } from "./GenerateForm";
@@ -48,15 +52,6 @@ function labelFromInstruction(instruction: string): string {
   return words.length > 40 ? `${words.slice(0, 40).trimEnd()}…` : words;
 }
 
-// Prompts usually open with boilerplate ("a highly detailed photorealistic
-// image of a …"), so first-N-words collides often. Two nodes sharing a name is
-// merely confusing on screen but genuinely ambiguous as model context.
-function uniqueLabel(base: string, taken: string[]): string {
-  if (!taken.includes(base)) return base;
-  let n = 2;
-  while (taken.includes(`${base} (${n})`)) n += 1;
-  return `${base} (${n})`;
-}
 
 const GAP        = 12;
 // Keep the panel this far clear of the window edge when it has to flip or clamp.
@@ -354,7 +349,12 @@ function SinglePanel({
       const store = useNodePanel.getState();
       store.setOutput(instance.id, output);
       // Only seed the default — never overwrite a name the user chose.
-      if (!instance.label) store.setLabel(instance.id, labelFromInstruction(draft.instruction));
+      if (!instance.label) {
+        store.setLabel(
+          instance.id,
+          uniqueLabel(labelFromInstruction(draft.instruction), takenLabels())
+        );
+      }
     } catch (err) {
       if (controller.signal.aborted) return;
       // Drop the job: it settled as failed, or we stopped waiting on it.
@@ -406,12 +406,9 @@ function SinglePanel({
   const handleInstructionBlur = () => {
     const instruction = draft.instruction;
     if (instance.label || !instruction.trim()) return;
-    const taken = useNodePanel.getState().panels
-      .map((p) => p.label)
-      .filter((l): l is string => !!l);
     useNodePanel.getState().setLabel(
       instance.id,
-      uniqueLabel(labelFromInstruction(instruction), taken)
+      uniqueLabel(labelFromInstruction(instruction), takenLabels())
     );
   };
 
