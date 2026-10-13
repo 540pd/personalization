@@ -10,6 +10,7 @@ import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
 import type { Reference } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
+import { selectOnly } from "@/lib/canvas/selection";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes, type KonvaNodeRecord } from "@/store/konvaNodes.store";
 import {
@@ -223,8 +224,7 @@ function SinglePanel({
         // uploaded images. activatePanel clears every other panel.
         if (!isActive) {
           onActivate();
-          useKonvaSelection.getState().deselect();
-          useConnectionStore.getState().deselectConnection();
+          selectOnly("panel");
         }
         // Outside the isActive guard: an already-selected node still has to
         // come forward, or dragging it across a newer one buries it.
@@ -249,8 +249,7 @@ function SinglePanel({
         useNodePanel.getState().togglePanel(instance.id);
       } else {
         // Normal click: clear other selection types.
-        useKonvaSelection.getState().deselect();
-        useConnectionStore.getState().deselectConnection();
+        selectOnly("panel");
         // Step through states: inactive → active → panel-open → active
         if (!isActive)              onActivate();
         else if (!isPanelOpen)      onOpenPanel();

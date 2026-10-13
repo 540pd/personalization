@@ -13,6 +13,7 @@ import { createDragDropHandlers } from "../board/dragDrop";
 import { canvasArea, useCanvasArea } from "../canvasArea";
 import { createFrameHandlers } from "../board/frame";
 import { useFrames } from "@/store/frame.store";
+import { selectOnly, registerNodeChromeClear } from "@/lib/canvas/selection";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { applyDraggability } from "../board/draggability";
@@ -173,6 +174,14 @@ export default function Board() {
 
     const saveSnapshot = (coalesceKey?: object) => canvasHistory.commit(coalesceKey);
 
+    // The transformer lives here and nowhere else, so selectOnly() cannot drop
+    // node handles without a hand up from Board.
+    registerNodeChromeClear(() => {
+      transformer.nodes([]);
+      updateSelectionChrome();
+      layer.batchDraw();
+    });
+
     // Snapshot initial state (demo node).
     canvasHistory.clear();
     saveSnapshot();
@@ -207,7 +216,10 @@ export default function Board() {
           }
           updateSelectionChrome();
         } else {
-          // Normal click: single-select, clear everything else.
+          // Normal click: single-select, clear everything else. This used to
+          // clear panels and wires by hand and miss frames entirely, which is
+          // how a frame could keep its handles while a node was selected.
+          selectOnly("node");
           transformer.nodes([n]);
           // The transformer is created before any shape exists, so it would
           // otherwise sit at the bottom of the layer and its border and handles
@@ -215,21 +227,14 @@ export default function Board() {
           updateSelectionChrome();
           hideHover(); // transformer border takes over from here
           useKonvaSelection.getState().select(id);
-          useNodePanel.getState().closeAllPanels();
-          useConnectionStore.getState().deselectConnection();
         }
         layer.batchDraw();
         return;
       }
 
-      // Always close node panels on background click, regardless of active tool.
-      useNodePanel.getState().closeAllPanels();
-      useKonvaSelection.getState().deselect();
-      useConnectionStore.getState().deselectConnection();
-      // Frames keep their own selection, and FrameLayer's stage never sees
-      // this click: Board only yields one where a frame is actually under the
-      // cursor, which a click on empty board is not.
-      useFrames.getState().select(null);
+      // Nothing under the cursor, so nothing stays selected -- panels, nodes,
+      // wires and frames alike, regardless of active tool.
+      selectOnly(null);
       // Same rule as clicking a node and as Ctrl+A: a click on the board
       // returns to pointer. This used to bail out here instead, which left
       // the dock lit for a tool the next click was still going to use, with
@@ -404,9 +409,7 @@ export default function Board() {
       if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;
 
       if (e.code === "Escape") {
-        transformer.nodes([]);
-        useKonvaSelection.getState().deselect();
-        useConnectionStore.getState().deselectConnection();
+        selectOnly(null);
         updateSelectionChrome();
         layer.batchDraw();
         return;
@@ -425,6 +428,7 @@ export default function Board() {
       if (!nodes.length) useKonvaSelection.getState().deselect();
       useNodePanel.getState().activateAll();
       useConnectionStore.getState().selectAllConnections();
+      useFrames.getState().selectAll();
       hideHover(); // transformer borders take over
       updateSelectionChrome();
       layer.batchDraw();
@@ -481,15 +485,14 @@ export default function Board() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.code === "Escape") {
         frame.cancel();
-        useFrames.getState().select(null);
         return;
       }
       // Frames keep their own selection, so they need their own Delete. Keyed
       // on the event, so deleting a frame and a node together is one step.
       if (e.code === "Delete" || e.code === "Backspace") {
-        const id = useFrames.getState().selectedId;
-        if (!id) return;
-        useFrames.getState().remove(id);
+        const ids = useFrames.getState().selectedIds;
+        if (!ids.length) return;
+        ids.forEach((id) => useFrames.getState().remove(id));
         saveSnapshot(e);
       }
     };
@@ -517,6 +520,7 @@ export default function Board() {
       window.removeEventListener("keydown", handleFrameKeys);
       stage.off(".frame");
       observer.disconnect();
+      registerNodeChromeClear(null);
       boardStage.current = null;
       // Entries hold references into this layer, so they outlive their
       // meaning once the stage is gone.

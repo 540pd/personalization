@@ -28,16 +28,19 @@ export interface FrameDraft {
   height: number;
 }
 
-/** Live offset of the frame being dragged, in canvas units. */
+/** Live offset of a frame being dragged, in canvas units. */
 export interface FrameDrag {
-  id: string;
   dx: number;
   dy: number;
 }
 
 interface FrameState {
   frames: Record<string, FrameRecord>;
-  selectedId: string | null;
+  /**
+   * A set, not one id: Ctrl+A selects every frame alongside the images, panels
+   * and wires, and one Delete has to take all of them.
+   */
+  selectedIds: string[];
   draft: FrameDraft | null;
   /**
    * Set on every dragmove, cleared on dragend.
@@ -46,23 +49,30 @@ interface FrameState {
    * store -- so without this the label would not catch up until the drag
    * ended. Kept separate from `frames` on purpose: writing position there
    * mid-drag would rebuild the rects underneath the gesture.
+   *
+   * Keyed by id, because a multi-frame selection drags every one of them at
+   * once and each name has to keep up with its own rect.
    */
-  drag: FrameDrag | null;
+  drag: Record<string, FrameDrag>;
 
   upsert: (frame: FrameRecord) => void;
   remove: (id: string) => void;
+  /** Select exactly this frame, or nothing when passed null. */
   select: (id: string | null) => void;
+  selectAll: () => void;
+  clearSelection: () => void;
   setDraft: (draft: FrameDraft | null) => void;
-  setDrag: (drag: FrameDrag | null) => void;
+  setDrag: (id: string, drag: FrameDrag) => void;
+  clearDrag: () => void;
   /** Replace every frame wholesale. Used by the shared undo timeline. */
   replaceAll: (frames: Record<string, FrameRecord>) => void;
 }
 
 export const useFrames = create<FrameState>((set) => ({
   frames: {},
-  selectedId: null,
+  selectedIds: [],
   draft: null,
-  drag: null,
+  drag: {},
 
   upsert: (frame) =>
     set((s) => ({ frames: { ...s.frames, [frame.id]: { ...s.frames[frame.id], ...frame } } })),
@@ -70,14 +80,26 @@ export const useFrames = create<FrameState>((set) => ({
     set((s) => {
       const next = { ...s.frames };
       delete next[id];
-      return { frames: next, selectedId: s.selectedId === id ? null : s.selectedId };
+      return { frames: next, selectedIds: s.selectedIds.filter((sid) => sid !== id) };
     }),
-  select: (id) => set({ selectedId: id }),
+  select: (id) =>
+    set((s) => {
+      // Same selection, same array: a fresh reference on every mousedown would
+      // re-render FrameLayer in the middle of a drag.
+      if (id ? s.selectedIds.length === 1 && s.selectedIds[0] === id : !s.selectedIds.length) {
+        return s;
+      }
+      return { selectedIds: id ? [id] : [] };
+    }),
+  selectAll: () => set((s) => ({ selectedIds: Object.keys(s.frames) })),
+  clearSelection: () => set({ selectedIds: [] }),
   setDraft: (draft) => set({ draft }),
-  setDrag: (drag) => set({ drag }),
+  setDrag: (id, drag) => set((s) => ({ drag: { ...s.drag, [id]: drag } })),
+  clearDrag: () => set({ drag: {} }),
   replaceAll: (frames) =>
     set((s) => ({
       frames,
-      selectedId: s.selectedId && frames[s.selectedId] ? s.selectedId : null,
+      // An undo can remove frames out from under the selection.
+      selectedIds: s.selectedIds.filter((sid) => !!frames[sid]),
     })),
 }));
