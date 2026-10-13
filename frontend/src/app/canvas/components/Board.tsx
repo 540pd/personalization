@@ -215,8 +215,13 @@ export default function Board() {
       useNodePanel.getState().closeAllPanels();
       useKonvaSelection.getState().deselect();
       useConnectionStore.getState().deselectConnection();
-      // Only clear transformer selection in pointer mode.
-      if (useToolStore.getState().activeTool !== "pointer") return;
+      // Same rule as clicking a node and as Ctrl+A: a click on the board
+      // returns to pointer. This used to bail out here instead, which left
+      // the dock lit for a tool the next click was still going to use, with
+      // nothing on screen explaining why.
+      if (useToolStore.getState().activeTool !== "pointer") {
+        useToolStore.getState().setTool("pointer");
+      }
       transformer.nodes([]);
       updateSelectionChrome();
       layer.batchDraw();
