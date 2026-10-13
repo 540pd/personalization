@@ -11,6 +11,7 @@ import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { COLORS, DEFAULT_NODE_MAX_EDGE, NODE_CORNER_RADIUS } from "@/constants/canvas.constants";
 import { toCanvas, viewportCentre, type Point } from "@/lib/canvas/coords";
+import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { canvasArea } from "../canvasArea";
 
 /**
@@ -114,10 +115,13 @@ function addImage(deps: UploadDeps, file: File, cx: number, cy: number, off: num
     canvas.height = h;
     canvas.getContext("2d")?.drawImage(img, 0, 0, w, h);
 
+    // Read taken labels here rather than at drop time: onload fires per file
+    // and placeNode registers each one synchronously, so uploading two
+    // cat.png gives "cat" then "cat (2)" instead of two "cat"s.
     placeNode(deps, node, {
       id, canvasX: x, canvasY: y, canvasW: w, canvasH: h,
       imageUrl: canvas.toDataURL("image/png"),
-      label: stripExtension(file.name),
+      label: uniqueLabel(stripExtension(file.name), takenLabels()),
     });
   };
 

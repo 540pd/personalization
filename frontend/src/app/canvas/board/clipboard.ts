@@ -7,18 +7,20 @@
 import Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
+import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 
 /**
  * One entry per copied node, so a multi-selection round-trips intact.
  *
- * imageUrl rides alongside the Konva attrs because it lives in konvaNodes,
- * not on the shape -- without it a pasted image cannot be used as a
- * generation reference.
+ * imageUrl and label ride alongside the Konva attrs because both live in
+ * konvaNodes, not on the shape -- without imageUrl a pasted image cannot be
+ * used as a generation reference, and without label it pastes nameless.
  */
 export interface ClipboardEntry {
   className: string;
   attrs: Record<string, unknown>;
   imageUrl?: string;
+  label?: string;
 }
 
 /** Offset so a paste does not land exactly on its original. */
@@ -30,6 +32,7 @@ export function copyNodes(selected: Konva.Shape[]): ClipboardEntry[] {
     className: n.getClassName(),
     attrs: { ...n.getAttrs() },
     imageUrl: registered[n.id()]?.imageUrl,
+    label: registered[n.id()]?.label,
   }));
 }
 
@@ -38,6 +41,11 @@ export function pasteNodes(
   layer: Konva.Layer,
   clipboard: ClipboardEntry[]
 ): Konva.Shape[] {
+  // Seeded once from the board, then grown as this batch is placed: pasting a
+  // multi-selection of two "cat"s must yield "cat (2)" and "cat (3)", and the
+  // store alone would not yet know about the first of them.
+  const taken = takenLabels();
+
   return clipboard.map((entry) => {
     // A fresh id, never undefined: syncNodeGeometry skips id-less nodes, so
     // an id-less paste would never reach konvaNodes and would end up with no
@@ -58,7 +66,12 @@ export function pasteNodes(
 
     layer.add(node);
 
-    if (entry.imageUrl) {
+    const label = entry.label ? uniqueLabel(entry.label, taken) : undefined;
+    if (label) taken.push(label);
+
+    // label as well as imageUrl: a labelled node with no image still needs a
+    // konvaNodes record, or KonvaNodeLabels has nothing to render.
+    if (entry.imageUrl || label) {
       useKonvaNodes.getState().upsert({
         id,
         canvasX: node.x(),
@@ -66,6 +79,7 @@ export function pasteNodes(
         canvasW: node.width() * node.scaleX(),
         canvasH: node.height() * node.scaleY(),
         imageUrl: entry.imageUrl,
+        label,
       });
     }
 
@@ -73,12 +87,18 @@ export function pasteNodes(
   });
 }
 
-/** Removes nodes from the layer and from the geometry store. */
+/**
+ * Removes nodes from the layer and from the geometry store.
+ *
+ * remove(), not destroy(): undo re-adds these same node objects, and destroy()
+ * drops a shape from Konva's hit registry, leaving the restored node
+ * impossible to click or drag.
+ */
 export function deleteNodes(selected: Konva.Shape[]): void {
   selected.forEach((n) => {
     const id = n.id();
     if (id) useKonvaNodes.getState().remove(id);
-    n.destroy();
+    n.remove();
   });
 }
 
@@ -97,7 +117,8 @@ export interface EditKeysDeps {
   applyDraggability: () => void;
   syncAllNodeGeometry: () => void;
   updateSelectionChrome: () => void;
-  saveSnapshot: () => void;
+  /** Pass the event to share one undo step with other Delete handlers. */
+  saveSnapshot: (coalesceKey?: object) => void;
 }
 
 /** Keydown handler for Delete, Ctrl+C and Ctrl+V. */
@@ -118,7 +139,7 @@ export function createEditKeysHandler(deps: EditKeysDeps) {
       deleteNodes(selected);
       deps.syncAllNodeGeometry();
       useKonvaSelection.getState().deselect();
-      deps.saveSnapshot();
+      deps.saveSnapshot(e);
       return;
     }
 

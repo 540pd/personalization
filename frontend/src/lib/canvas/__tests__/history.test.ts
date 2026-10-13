@@ -149,4 +149,41 @@ describe("history", () => {
     expect(h.size).toBe(0);
     expect(h.canUndo()).toBe(false);
   });
+
+  // One Delete is handled by three listeners (wires, panels, images); it has
+  // to come back with one Ctrl+Z.
+  it("coalesces commits that share a key into one entry", () => {
+    const h = createHistory();
+    const wires = slice("w0");
+    const nodes = slice("n0");
+    h.register("wires", wires.adapter);
+    h.register("nodes", nodes.adapter);
+    h.commit();
+
+    const keypress = {};
+    wires.box.value = "w1";
+    h.commit(keypress);
+    nodes.box.value = "n1";
+    h.commit(keypress);
+    expect(h.size).toBe(2);
+
+    expect(h.undo()).toBe(true);
+    expect(wires.box.value).toBe("w0");
+    expect(nodes.box.value).toBe("n0");
+  });
+
+  it("does not coalesce across an undo", () => {
+    const h = createHistory();
+    const a = slice("a0");
+    h.register("a", a.adapter);
+    h.commit();
+    const key = {};
+    a.box.value = "a1";
+    h.commit(key);
+    h.undo();
+    a.box.value = "a2";
+    h.commit(key);
+    expect(h.size).toBe(2);
+    expect(h.canRedo()).toBe(false);
+  });
 });

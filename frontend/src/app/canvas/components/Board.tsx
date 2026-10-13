@@ -6,12 +6,13 @@ import { useViewport } from "@/store/viewport.store";
 import { useToolStore } from "@/store/tool.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
+import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { createUploadHandler } from "../board/upload";
 import { createDragDropHandlers } from "../board/dragDrop";
 import { canvasArea, useCanvasArea } from "../canvasArea";
 import { applyDraggability } from "../board/draggability";
-import { createEditKeysHandler } from "../board/clipboard";
+import { createEditKeysHandler, selectNodes } from "../board/clipboard";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { updateSelectionChrome as applySelectionChrome } from "../board/selectionChrome";
 import { syncNodeGeometry, syncAllNodeGeometry as syncAllGeometry } from "../board/geometry";
@@ -19,7 +20,15 @@ import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { COLORS, Z_INDEX, MIN_NODE_SIZE, SELECTION } from "@/constants/canvas.constants";
 
-type Snapshot = Array<{ node: Konva.Shape; attrs: Record<string, unknown> }>;
+// imageUrl and label live in konvaNodes, not on the shape, and Delete drops
+// that record -- so they ride along, or an undone delete would bring back an
+// image with no name and nothing to send as a generation reference.
+type Snapshot = Array<{
+  node: Konva.Shape;
+  attrs: Record<string, unknown>;
+  imageUrl?: string;
+  label?: string;
+}>;
 
 export default function Board() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -107,11 +116,15 @@ export default function Board() {
     // Konva.Image on undo would reload its bitmap. That makes them valid only
     // while this layer lives, which is why the cleanup below clears the
     // timeline.
-    const captureLayer = (): Snapshot =>
-      (layer.find(".selectable") as Konva.Shape[]).map((n) => ({
+    const captureLayer = (): Snapshot => {
+      const records = useKonvaNodes.getState().nodes;
+      return (layer.find(".selectable") as Konva.Shape[]).map((n) => ({
         node: n,
         attrs: { ...n.getAttrs() },
+        imageUrl: records[n.id()]?.imageUrl,
+        label: records[n.id()]?.label,
       }));
+    };
 
     const restoreSnapshot = (snap: Snapshot) => {
       transformer.nodes([]);
@@ -130,6 +143,18 @@ export default function Board() {
       // Without this, a drag that reordered nodes could not be undone.
       snap.forEach(({ node }) => node.moveToTop());
       syncAllNodeGeometry();
+      // Only fill what is missing: a rename is not an undo step, so
+      // overwriting a live label would quietly revert it.
+      const records = useKonvaNodes.getState().nodes;
+      snap.forEach(({ node, imageUrl, label }) => {
+        const rec = records[node.id()];
+        if (!rec) return;
+        useKonvaNodes.getState().upsert({
+          ...rec,
+          imageUrl: rec.imageUrl ?? imageUrl,
+          label: rec.label ?? label,
+        });
+      });
       applyDraggability(layer);
       hideHover(); // the hovered node may no longer exist in this snapshot
       updateSelectionChrome();
@@ -141,7 +166,7 @@ export default function Board() {
       restore: (snap) => restoreSnapshot(snap as Snapshot),
     });
 
-    const saveSnapshot = () => canvasHistory.commit();
+    const saveSnapshot = (coalesceKey?: object) => canvasHistory.commit(coalesceKey);
 
     // Snapshot initial state (demo node).
     canvasHistory.clear();
@@ -350,6 +375,41 @@ export default function Board() {
     };
     window.addEventListener("keydown", handleUndoRedo);
 
+    // Ctrl/Cmd + A → select every uploaded image, node and wire.
+    // Escape → clear all three. NodePanel's own Escape collapses the panels.
+    const handleSelectAll = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
+      if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;
+
+      if (e.code === "Escape") {
+        transformer.nodes([]);
+        useKonvaSelection.getState().deselect();
+        useConnectionStore.getState().deselectConnection();
+        updateSelectionChrome();
+        layer.batchDraw();
+        return;
+      }
+
+      if (!(e.ctrlKey || e.metaKey) || e.code !== "KeyA") return;
+      // Otherwise the browser highlights every piece of text on the page.
+      e.preventDefault();
+      // Same rule as clicking a node: selecting implies the pointer tool,
+      // or the selection could not be moved.
+      if (useToolStore.getState().activeTool !== "pointer") {
+        useToolStore.getState().setTool("pointer");
+      }
+      const nodes = layer.find(".selectable") as Konva.Shape[];
+      selectNodes(transformer, nodes);
+      if (!nodes.length) useKonvaSelection.getState().deselect();
+      useNodePanel.getState().activateAll();
+      useConnectionStore.getState().selectAllConnections();
+      hideHover(); // transformer borders take over
+      updateSelectionChrome();
+      layer.batchDraw();
+    };
+    window.addEventListener("keydown", handleSelectAll);
+
     const handleEditKeys = createEditKeysHandler({
       layer, transformer,
       applyDraggability: () => applyDraggability(layer),
@@ -396,6 +456,7 @@ export default function Board() {
       window.removeEventListener("keydown", handleSpaceDown);
       window.removeEventListener("keyup", handleSpaceUp);
       window.removeEventListener("keydown", handleUndoRedo);
+      window.removeEventListener("keydown", handleSelectAll);
       window.removeEventListener("keydown", handleEditKeys);
       window.removeEventListener("canvas:upload", handleUpload);
       window.removeEventListener("dragenter", dnd.dragEnter);

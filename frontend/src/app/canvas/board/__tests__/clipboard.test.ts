@@ -35,6 +35,16 @@ describe("copyNodes", () => {
     const a = new Konva.Rect({ id: "a", name: "selectable" });
     expect(copyNodes([a])[0].imageUrl).toBe("data:image/png;base64,AAA");
   });
+
+  // Same reason as imageUrl: the label lives in konvaNodes, not on the shape,
+  // so copying the Konva attrs alone loses it.
+  it("carries the label across from the geometry store", () => {
+    useKonvaNodes.getState().upsert({
+      id: "a", canvasX: 0, canvasY: 0, canvasW: 10, canvasH: 10, label: "cat",
+    });
+    const a = new Konva.Rect({ id: "a", name: "selectable" });
+    expect(copyNodes([a])[0].label).toBe("cat");
+  });
 });
 
 describe("pasteNodes", () => {
@@ -80,10 +90,45 @@ describe("pasteNodes", () => {
     expect(rec?.canvasX).toBe(30);
   });
 
-  it("does not register a node that carries no image", () => {
+  it("does not register a node that carries no image and no label", () => {
     const l = layer();
     const [node] = pasteNodes(l, [entry()]);
     expect(useKonvaNodes.getState().nodes[node.id()]).toBeUndefined();
+  });
+
+  // Without this the paste lands nameless: KonvaNodeLabels renders nothing
+  // for a record with no label.
+  it("carries the label onto the copy", () => {
+    const l = layer();
+    const [node] = pasteNodes(l, [entry({ label: "cat" })]);
+    expect(useKonvaNodes.getState().nodes[node.id()]?.label).toBe("cat");
+  });
+
+  it("suffixes the label when the original is still on the board", () => {
+    useKonvaNodes.getState().upsert({
+      id: "original", canvasX: 0, canvasY: 0, canvasW: 1, canvasH: 1, label: "cat",
+    });
+    const l = layer();
+    const [node] = pasteNodes(l, [entry({ label: "cat" })]);
+    expect(useKonvaNodes.getState().nodes[node.id()]?.label).toBe("cat (2)");
+  });
+
+  // The store does not yet know about the first of the batch when the second
+  // is named, so the running list has to carry within one paste.
+  it("keeps labels distinct across a multi-node paste", () => {
+    useKonvaNodes.getState().upsert({
+      id: "original", canvasX: 0, canvasY: 0, canvasW: 1, canvasH: 1, label: "cat",
+    });
+    const l = layer();
+    const nodes = pasteNodes(l, [entry({ label: "cat" }), entry({ label: "cat" })]);
+    const labels = nodes.map((n) => useKonvaNodes.getState().nodes[n.id()]?.label);
+    expect(labels).toEqual(["cat (2)", "cat (3)"]);
+  });
+
+  it("registers a labelled node even when it carries no image", () => {
+    const l = layer();
+    const [node] = pasteNodes(l, [entry({ label: "cat" })]);
+    expect(useKonvaNodes.getState().nodes[node.id()]).toBeDefined();
   });
 });
 

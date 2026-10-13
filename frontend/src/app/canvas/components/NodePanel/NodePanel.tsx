@@ -26,11 +26,15 @@ import {
   SELECTION,
   Z_INDEX,
 } from "@/constants/canvas.constants";
-import { isCovered, portProbe, type Blocker, type TopLayer } from "@/lib/canvas/occlusion";
+import { isCovered, labelProbe, portProbe, type Blocker, type TopLayer } from "@/lib/canvas/occlusion";
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen } from "@/lib/canvas/coords";
+// Prompts usually open with boilerplate ("a highly detailed photorealistic
+// image of a …"), so first-N-words collides often — hence uniqueLabel on
+// every auto-generated name here.
+import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { useCanvasArea } from "../../canvasArea";
 import NodeLabel from "../NodeLabel";
 import GenerateForm, { type GenerateDraft } from "./GenerateForm";
@@ -48,15 +52,6 @@ function labelFromInstruction(instruction: string): string {
   return words.length > 40 ? `${words.slice(0, 40).trimEnd()}…` : words;
 }
 
-// Prompts usually open with boilerplate ("a highly detailed photorealistic
-// image of a …"), so first-N-words collides often. Two nodes sharing a name is
-// merely confusing on screen but genuinely ambiguous as model context.
-function uniqueLabel(base: string, taken: string[]): string {
-  if (!taken.includes(base)) return base;
-  let n = 2;
-  while (taken.includes(`${base} (${n})`)) n += 1;
-  return `${base} (${n})`;
-}
 
 const GAP        = 12;
 // Keep the panel this far clear of the window edge when it has to flip or clamp.
@@ -75,13 +70,16 @@ const ANCHORS = [
 // order IS paint order: only panels later in the array can cover this one.
 // Each port is tested separately — a neighbour overlapping the left edge must
 // hide the input port without blanking the output.
-function portsCovered(
+// The name is tested here too, off the same blocker list: it is no longer
+// selection chrome, so a covered name has to hide for the reason a covered
+// port does -- drawn over the node that covers it, it reads as that node's.
+function chromeCovered(
   p: PanelInstance,
   above: PanelInstance[],
   konvaNodes: KonvaNodeRecord[],
   topLayer: TopLayer,
   scale: number
-): { input: boolean; output: boolean } {
+): { input: boolean; output: boolean; label: boolean } {
   const self: Blocker = { id: p.id, box: p, layer: "dom" };
   const blockers: Blocker[] = [
     ...above.map((q): Blocker => ({ id: q.id, box: q, layer: "dom" })),
@@ -91,6 +89,7 @@ function portsCovered(
   return {
     input:  isCovered(portProbe(p, "input", scale), self, blockers, topLayer),
     output: isCovered(portProbe(p, "output", scale), self, blockers, topLayer),
+    label:  isCovered(labelProbe(p, scale), self, blockers, topLayer),
   };
 }
 
@@ -106,12 +105,13 @@ interface SinglePanelProps {
   onSetCanvasPos: (x: number, y: number) => void;
   hideInputPort:  boolean;
   hideOutputPort: boolean;
+  hideLabel:      boolean;
 }
 
 function SinglePanel({
   instance, stageX, stageY, scale,
   onActivate, onOpenPanel, onClosePanel, onRemove, onSetCanvasPos,
-  hideInputPort, hideOutputPort,
+  hideInputPort, hideOutputPort, hideLabel,
 }: SinglePanelProps) {
   const { canvasX, canvasY, isActive, isPanelOpen } = instance;
 
@@ -243,15 +243,19 @@ function SinglePanel({
     if (!pointerDownHere.current) return;
     pointerDownHere.current = false;
     if (!isDragging.current) {
-      if (!(e.ctrlKey || e.metaKey)) {
+      // Shift/Ctrl/Cmd+click: add to or drop from the selection, the same
+      // modifiers uploaded images and wires accept.
+      if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        useNodePanel.getState().togglePanel(instance.id);
+      } else {
         // Normal click: clear other selection types.
         useKonvaSelection.getState().deselect();
         useConnectionStore.getState().deselectConnection();
+        // Step through states: inactive → active → panel-open → active
+        if (!isActive)              onActivate();
+        else if (!isPanelOpen)      onOpenPanel();
+        else                        onClosePanel();
       }
-      // Step through states: inactive → active → panel-open → active
-      if (!isActive)              onActivate();
-      else if (!isPanelOpen)      onOpenPanel();
-      else                        onClosePanel();
     } else {
       // Completed a real drag — save position so Ctrl+Z can undo it.
       canvasHistory.commit();
@@ -350,7 +354,12 @@ function SinglePanel({
       const store = useNodePanel.getState();
       store.setOutput(instance.id, output);
       // Only seed the default — never overwrite a name the user chose.
-      if (!instance.label) store.setLabel(instance.id, labelFromInstruction(draft.instruction));
+      if (!instance.label) {
+        store.setLabel(
+          instance.id,
+          uniqueLabel(labelFromInstruction(draft.instruction), takenLabels())
+        );
+      }
     } catch (err) {
       if (controller.signal.aborted) return;
       // Drop the job: it settled as failed, or we stopped waiting on it.
@@ -402,12 +411,9 @@ function SinglePanel({
   const handleInstructionBlur = () => {
     const instruction = draft.instruction;
     if (instance.label || !instruction.trim()) return;
-    const taken = useNodePanel.getState().panels
-      .map((p) => p.label)
-      .filter((l): l is string => !!l);
     useNodePanel.getState().setLabel(
       instance.id,
-      uniqueLabel(labelFromInstruction(instruction), taken)
+      uniqueLabel(labelFromInstruction(instruction), takenLabels())
     );
   };
 
@@ -472,8 +478,10 @@ function SinglePanel({
         </div>
       )}
 
-      {/* ── Name — shown while selected, same rules as uploaded images ── */}
-      {isActive && instance.label && sw >= LABEL_MIN_NODE_W && (
+      {/* ── Name — always on, same rules as uploaded images. Hidden when
+           covered, except while selected: selecting a buried node and
+           getting no name back would defeat the point. ── */}
+      {instance.label && sw >= LABEL_MIN_NODE_W && (!hideLabel || isActive) && (
         <NodeLabel
           value={instance.label}
           left={placeholderLeft}
@@ -591,7 +599,7 @@ function SinglePanel({
 // ── Root component — renders all instances ────────────────────────────────────
 
 export default function NodePanel() {
-  const { panels, removePanel, activatePanel, openPanel, closePanel, closeAllPanels, setCanvasPos, selectPanel } = useNodePanel();
+  const { panels, removePanel, removeActive, activatePanel, openPanel, closePanel, closeAllPanels, setCanvasPos } = useNodePanel();
   const { x: stageX, y: stageY, scale } = useViewport();
   const topLayer = useLayerOrder((s) => s.topLayer);
   const konvaNodes = Object.values(useKonvaNodes((s) => s.nodes));
@@ -620,12 +628,14 @@ export default function NodePanel() {
       // stopImmediatePropagation its way to priority, which is what made
       // Ctrl+Z non-chronological across node kinds.
 
-      // Delete / Backspace — remove selected placeholder.
-      if ((e.code === "Delete" || e.code === "Backspace") && store.selectedId) {
+      // Delete / Backspace — remove every selected placeholder. Active, not
+      // selectedId: after Ctrl+A many panels are selected and selectedId is null.
+      if ((e.code === "Delete" || e.code === "Backspace") && store.panels.some((p) => p.isActive)) {
         e.preventDefault();
-        removePanel(store.selectedId);
-        selectPanel(null);
-        canvasHistory.commit();
+        removeActive();
+        // Keyed on the event: wires and images deleted by the same keypress
+        // land in this one undo step.
+        canvasHistory.commit(e);
         return;
       }
       // Escape — collapse all panels, keep placeholders.
@@ -634,12 +644,12 @@ export default function NodePanel() {
     // Capture phase ensures this runs before Board.tsx's bubble-phase listener.
     window.addEventListener("keydown", handler, { capture: true });
     return () => window.removeEventListener("keydown", handler, { capture: true });
-  }, [removePanel, selectPanel, closeAllPanels]);
+  }, [removeActive, closeAllPanels]);
 
   return (
     <>
       {panels.map((p, i) => {
-        const covered = portsCovered(p, panels.slice(i + 1), konvaNodes, topLayer, scale);
+        const covered = chromeCovered(p, panels.slice(i + 1), konvaNodes, topLayer, scale);
         return (
         <SinglePanel
           key={p.id}
@@ -654,6 +664,7 @@ export default function NodePanel() {
           onSetCanvasPos={(x, y) => setCanvasPos(p.id, x, y)}
           hideInputPort={covered.input}
           hideOutputPort={covered.output}
+          hideLabel={covered.label}
         />
         );
       })}
