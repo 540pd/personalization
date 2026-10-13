@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { PORT_FRACTION, PORT_WIDTH } from "@/constants/canvas.constants";
-import { isCovered, portProbe, type Blocker } from "../occlusion";
+import {
+  LABEL_GAP,
+  LABEL_LINE_HEIGHT,
+  PORT_FRACTION,
+  PORT_WIDTH,
+} from "@/constants/canvas.constants";
+import { isCovered, labelProbe, portProbe, type Blocker } from "../occlusion";
 
 // Top-anchored (Konva) and centre-anchored (panel) boxes describing the SAME
 // rectangle: x 0..200, y 0..100. Every test below relies on that.
@@ -128,5 +133,53 @@ describe("per-port granularity", () => {
   it("hides the input port only", () => {
     expect(isCovered(portProbe(panelBox, "input", 1), self, [overLeftEdge])).toBe(true);
     expect(isCovered(portProbe(panelBox, "output", 1), self, [overLeftEdge])).toBe(false);
+  });
+});
+
+describe("labelProbe", () => {
+  // The name sits above the node, so the probe must land OUTSIDE the node's
+  // own bounds -- probing inside would make any overlap hide the name.
+  it("sits in the band above the node, not inside it", () => {
+    const pt = labelProbe(konvaBox, 1);
+    expect(pt.y).toBe(-(LABEL_GAP + LABEL_LINE_HEIGHT / 2));
+    expect(pt.y).toBeLessThan(0);
+    expect(pt.x).toBeGreaterThan(0);
+    expect(pt.x).toBeLessThan(200);
+  });
+
+  // LABEL_GAP and LABEL_LINE_HEIGHT are fixed screen sizes, so in canvas
+  // units the band is further from the node the more you zoom out.
+  it("scales the offset", () => {
+    expect(labelProbe(konvaBox, 0.5).y).toBe(-(LABEL_GAP + LABEL_LINE_HEIGHT / 2) * 2);
+    expect(labelProbe(konvaBox, 2).y).toBe(-(LABEL_GAP + LABEL_LINE_HEIGHT / 2) / 2);
+  });
+
+  // Panels anchor canvasY at the CENTRE; both boxes describe y 0..100, so
+  // both labels must land in the same band.
+  it("agrees for top-anchored and centre-anchored boxes", () => {
+    expect(labelProbe(konvaBox, 1)).toEqual(labelProbe(panelBox, 1));
+  });
+});
+
+describe("isCovered, for a label", () => {
+  // A node directly above, whose bottom edge reaches down into the label
+  // band. The band sits at y = -(LABEL_GAP + LABEL_LINE_HEIGHT / 2) = -16,
+  // so this box must span past that: -110 .. -10.
+  const above = { canvasX: 0, canvasY: -110, canvasW: 200, canvasH: 100 };
+
+  it("hides a name covered by a node painted above it", () => {
+    const self = konva("self", 0);
+    expect(isCovered(labelProbe(konvaBox, 1), self, [self, konva("over", 5, above)])).toBe(true);
+  });
+
+  it("leaves the name alone when the node above paints below it", () => {
+    const self = konva("self", 9);
+    expect(isCovered(labelProbe(konvaBox, 1), self, [self, konva("under", 1, above)])).toBe(false);
+  });
+
+  // The node's own body is below the band, so it can never hide its own name.
+  it("is not covered by a sibling that only overlaps the node body", () => {
+    const self = konva("self", 0);
+    expect(isCovered(labelProbe(konvaBox, 1), self, [self, konva("beside", 5, shifted(20))])).toBe(false);
   });
 });
