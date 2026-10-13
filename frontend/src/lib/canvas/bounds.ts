@@ -52,3 +52,20 @@ export function contains(b: Bounds, pt: Point): boolean {
 export function overlaps(a: Bounds, b: Bounds): boolean {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
+
+/**
+ * Is `inner` entirely within `outer`?
+ *
+ * Membership of a frame, decided at the moment the drag starts. Full
+ * containment rather than overlap: a node straddling the edge belongs to
+ * neither side, and moving it with the frame would drag away something the
+ * user can see is half outside.
+ */
+export function containsBox(outer: Bounds, inner: Bounds): boolean {
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.w <= outer.x + outer.w &&
+    inner.y + inner.h <= outer.y + outer.h
+  );
+}

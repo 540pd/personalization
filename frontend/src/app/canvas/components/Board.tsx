@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Konva from "konva";
 import { useViewport } from "@/store/viewport.store";
-import { useToolStore } from "@/store/tool.store";
+import { useToolStore, panningTool, cursorFor } from "@/store/tool.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
@@ -11,6 +11,10 @@ import { useConnectionStore } from "@/store/connection.store";
 import { createUploadHandler } from "../board/upload";
 import { createDragDropHandlers } from "../board/dragDrop";
 import { canvasArea, useCanvasArea } from "../canvasArea";
+import { createFrameHandlers } from "../board/frame";
+import { useFrames } from "@/store/frame.store";
+import { frameStage } from "@/lib/canvas/frameStage";
+import { boardStage } from "@/lib/canvas/boardStage";
 import { applyDraggability } from "../board/draggability";
 import { createEditKeysHandler, selectNodes } from "../board/clipboard";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
@@ -67,6 +71,7 @@ export default function Board() {
       draggable: false,
     });
 
+    boardStage.current = stage;
     const layer = new Konva.Layer();
     stage.add(layer);
 
@@ -221,10 +226,15 @@ export default function Board() {
       useNodePanel.getState().closeAllPanels();
       useKonvaSelection.getState().deselect();
       useConnectionStore.getState().deselectConnection();
+      // Frames keep their own selection, and FrameLayer's stage never sees
+      // this click: Board only yields one where a frame is actually under the
+      // cursor, which a click on empty board is not.
+      useFrames.getState().select(null);
       // Same rule as clicking a node and as Ctrl+A: a click on the board
       // returns to pointer. This used to bail out here instead, which left
       // the dock lit for a tool the next click was still going to use, with
-      // nothing on screen explaining why.
+      // nothing on screen explaining why. Because the tool is now always
+      // pointer by this line, the clear below is unconditional.
       if (useToolStore.getState().activeTool !== "pointer") {
         useToolStore.getState().setTool("pointer");
       }
@@ -331,8 +341,12 @@ export default function Board() {
     });
 
     // Cursor: grabbing while panning (regular pan mode or space-pan).
+    //
+    // "not pointer" used to be enough to mean "this tool pans", because every
+    // non-pointer tool did. Frame is the first that draws instead, so it must
+    // not advertise a pan it will never perform.
     stage.on("mousedown", () => {
-      if (isSpacePanning.current || useToolStore.getState().activeTool !== "pointer") {
+      if (isSpacePanning.current || panningTool(useToolStore.getState().activeTool)) {
         stage.container().style.cursor = "grabbing";
       }
     });
@@ -341,7 +355,9 @@ export default function Board() {
       if (isSpacePanning.current) {
         stage.container().style.cursor = "grab";
       } else {
-        stage.container().style.cursor = "default";
+        // Back to the armed tool's own cursor, not a blanket default: a
+        // misclick while Frame is armed used to leave it without a crosshair.
+        stage.container().style.cursor = cursorFor(useToolStore.getState().activeTool);
       }
     });
 
@@ -425,6 +441,16 @@ export default function Board() {
     window.addEventListener("keydown", handleEditKeys);
 
     // Place uploaded files on the canvas, centered in the current viewport.
+    // Frame: drag on the board to draw a backdrop. Stage events rather than
+    // window ones so the drag is bounded by the canvas, like every other
+    // gesture here.
+    const frame = createFrameHandlers({ saveSnapshot });
+    stage.on("mousedown.frame touchstart.frame", () => frame.onDown(stage));
+    stage.on("mousemove.frame touchmove.frame",  () => frame.onMove(stage));
+    stage.on("mouseup.frame touchend.frame",     () => frame.onUp(stage));
+    // A drag that leaves the stage would otherwise strand the preview.
+    stage.on("mouseleave.frame", () => frame.cancel());
+
     const handleUpload = createUploadHandler({
       layer,
       applyDraggability: () => applyDraggability(layer),
@@ -451,6 +477,24 @@ export default function Board() {
     window.addEventListener("dragend", dnd.reset);
     window.addEventListener("blur", dnd.reset);
 
+    const handleFrameKeys = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.code === "Escape") {
+        frame.cancel();
+        useFrames.getState().select(null);
+        return;
+      }
+      // Frames keep their own selection, so they need their own Delete. Keyed
+      // on the event, so deleting a frame and a node together is one step.
+      if (e.code === "Delete" || e.code === "Backspace") {
+        const id = useFrames.getState().selectedId;
+        if (!id) return;
+        useFrames.getState().remove(id);
+        saveSnapshot(e);
+      }
+    };
+    window.addEventListener("keydown", handleFrameKeys);
+
     const observer = new ResizeObserver(() => {
       stage.width(container.offsetWidth);
       stage.height(container.offsetHeight);
@@ -470,7 +514,10 @@ export default function Board() {
       window.removeEventListener("drop", dnd.drop);
       window.removeEventListener("dragend", dnd.reset);
       window.removeEventListener("blur", dnd.reset);
+      window.removeEventListener("keydown", handleFrameKeys);
+      stage.off(".frame");
       observer.disconnect();
+      boardStage.current = null;
       // Entries hold references into this layer, so they outlive their
       // meaning once the stage is gone.
       unregisterHistory();
@@ -516,24 +563,46 @@ export default function Board() {
     const container = containerRef.current;
     if (!stage || !container) return;
 
-    if (topLayer !== "canvas") {
+    // The frame tool draws by dragging from empty space, which is exactly
+    // what the pass-through below makes unreachable: it only turns the
+    // container interactive where a shape already is. Without this exception
+    // no frame could be drawn at all once an upload had raised the canvas.
+    // While drawing, this container must receive the whole gesture: the
+    // pass-through below only keeps it interactive where a shape already is,
+    // which is exactly where a frame drag does NOT start.
+    if (activeTool === "frame") {
       container.style.pointerEvents = "auto";
       return;
     }
 
     const update = (e: PointerEvent) => {
       const r = container.getBoundingClientRect();
-      const hit = stage.getIntersection({ x: e.clientX - r.left, y: e.clientY - r.top });
-      container.style.pointerEvents = hit ? "auto" : "none";
+      const pt = { x: e.clientX - r.left, y: e.clientY - r.top };
+      const hit = stage.getIntersection(pt);
+      const overFrame = !!frameStage.current?.getIntersection(pt);
+      // Two reasons to let a click through, and only where none of our own
+      // shapes is under the cursor:
+      //   canvas in front — so it does not swallow clicks meant for the
+      //                     placeholders underneath (the original reason)
+      //   over bare frame — so the frames stage below can be clicked at all
+      // Anywhere else stays interactive, or the background click that
+      // deselects and disarms the tool would never arrive.
+      const passThrough = !hit && (topLayer === "canvas" || overFrame);
+      container.style.pointerEvents = passThrough ? "none" : "auto";
     };
 
-    container.style.pointerEvents = "none";
+    if (topLayer !== "canvas") {
+      // Normally fully interactive; only the frame case below can lift that.
+      container.style.pointerEvents = "auto";
+    } else {
+      container.style.pointerEvents = "none";
+    }
     window.addEventListener("pointermove", update);
     return () => {
       window.removeEventListener("pointermove", update);
       container.style.pointerEvents = "auto";
     };
-  }, [topLayer]);
+  }, [topLayer, activeTool]);
 
   // Switch between pointer (select) mode and pan mode.
   useEffect(() => {
@@ -547,8 +616,10 @@ export default function Board() {
       stage.container().style.cursor = "default";
       applyDraggability(layer);
     } else {
-      stage.draggable(true);
-      stage.container().style.cursor = "default";
+      // Frame draws on drag, so the stage must not pan underneath it. Every
+      // other non-pointer tool still pans.
+      stage.draggable(panningTool(activeTool));
+      stage.container().style.cursor = cursorFor(activeTool);
       transformer.nodes([]);
       updateSelectionChrome();
       hoverRef.current?.hide();
@@ -567,7 +638,17 @@ export default function Board() {
           overflow: "hidden",
           // The whole canvas moves above or below the node placeholders; it
           // cannot interleave with them. See layerOrder.store.
-          zIndex: topLayer === "canvas" ? Z_INDEX.canvasAbove : Z_INDEX.canvasBelow,
+          // While the frame tool is armed the canvas must be the top surface:
+          // a draw that crossed a Create placeholder used to be lost, because
+          // the placeholder is a DOM element above the canvas whenever the
+          // canvas is the lower layer, and the browser retargets the rest of
+          // the gesture to it.
+          zIndex:
+            activeTool === "frame"
+              ? Z_INDEX.canvasAbove
+              : topLayer === "canvas"
+                ? Z_INDEX.canvasAbove
+                : Z_INDEX.canvasBelow,
         }}
       />
 
