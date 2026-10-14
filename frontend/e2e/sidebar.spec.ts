@@ -2,6 +2,34 @@ import { test, expect } from "@playwright/test";
 import { openBoard, addPanel, uploadImage, imageBox, setZoom } from "./helpers";
 
 const SIDEBAR_WIDTH = 200;
+const RAIL_WIDTH = 64;
+
+/** The rail's width once its 150ms transition has settled. */
+async function railWidth(page: import("@playwright/test").Page) {
+  await page.waitForTimeout(250);
+  const box = await page.locator(".sidebar").boundingBox();
+  return Math.round(box!.width);
+}
+
+async function minimize(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await expect(page.locator(".sidebar-minimized")).toBeVisible();
+  // Let the 150ms width transition finish: a hover aimed mid-transition
+  // lands where the icon was, not where it settles.
+  await page.waitForTimeout(250);
+}
+
+/** The tooltip attached to the control with this accessible name. */
+function tipFor(page: import("@playwright/test").Page, name: string) {
+  return page
+    .locator(".tooltip-anchor", { has: page.getByRole("button", { name, exact: true }) })
+    .locator(".tooltip");
+}
+
+/** Opacity of the tooltip attached to the control with this accessible name. */
+async function tipOpacity(page: import("@playwright/test").Page, name: string) {
+  return Number(await tipFor(page, name).evaluate((e) => getComputedStyle(e).opacity));
+}
 
 /** Where a newly created node's centre sits, in screen px. */
 async function newNodeCentre(page: import("@playwright/test").Page) {
@@ -96,14 +124,134 @@ test.describe("sidebar", () => {
     expect(focusable).toBe(1);
   });
 
-  test("collapses and reopens", async ({ page }) => {
+  test("minimizes to an icon rail instead of disappearing, and expands again", async ({ page }) => {
     await openBoard(page);
-    await page.locator(".sidebar-collapse-button").click();
-    await expect(page.locator(".sidebar")).toHaveCount(0);
-    await expect(page.locator(".sidebar-reopen")).toBeVisible();
-
-    await page.locator(".sidebar-reopen").click();
+    await minimize(page);
     await expect(page.locator(".sidebar")).toBeVisible();
+    expect(await railWidth(page)).toBe(RAIL_WIDTH);
+    // The floating re-open button belonged to the hidden mode, which is gone.
+    await expect(page.locator(".sidebar-reopen")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Expand sidebar" }).click();
+    await expect(page.locator(".sidebar-minimized")).toHaveCount(0);
+    expect(await railWidth(page)).toBe(SIDEBAR_WIDTH);
+  });
+
+  test.describe("minimized", () => {
+    test("keeps every destination, in the same order, with labels only for assistive tech", async ({ page }) => {
+      await openBoard(page);
+      const order = () => page.locator(".sidebar-nav .sidebar-item").allTextContents();
+      const expanded = await order();
+      await minimize(page);
+      expect(await order()).toEqual(expanded);
+
+      // Found by name in both modes: the label is visually hidden, not removed.
+      await expect(page.getByRole("button", { name: "Playspace" })).toBeVisible();
+      const labelWidth = await page
+        .locator(".sidebar-nav .sidebar-item-label")
+        .first()
+        .evaluate((e) => e.getBoundingClientRect().width);
+      expect(labelWidth).toBeLessThanOrEqual(1);
+    });
+
+    test("marks the active destination and keeps placeholders inert", async ({ page }) => {
+      await openBoard(page);
+      await minimize(page);
+      await expect(page.locator(".sidebar-item-active")).toHaveCount(1);
+      await expect(page.locator(".sidebar-item-active")).toHaveAccessibleName("Playspace");
+      for (const label of ["Assets", "Skills", "Agents", "Usage"]) {
+        await expect(page.getByRole("button", { name: label })).toBeDisabled();
+      }
+      await page.getByRole("button", { name: "Assets" }).click({ force: true });
+      await expect(page.locator(".sidebar-item-active")).toHaveAccessibleName("Playspace");
+    });
+
+    test("labels an icon on hover, after a delay, beside the rail", async ({ page }) => {
+      await openBoard(page);
+      await minimize(page);
+      await page.getByRole("button", { name: "Playspace" }).hover();
+      // Not at once: sweeping down the column must not flash every label.
+      expect(await tipOpacity(page, "Playspace")).toBe(0);
+      await expect.poll(() => tipOpacity(page, "Playspace")).toBe(1);
+
+      const tip = tipFor(page, "Playspace");
+      await expect(tip).toHaveText("Playspace");
+      const box = await tip.boundingBox();
+      expect(box!.x).toBeGreaterThan(RAIL_WIDTH);
+
+      await page.mouse.move(700, 300);
+      await expect.poll(() => tipOpacity(page, "Playspace")).toBe(0);
+    });
+
+    test("labels a disabled placeholder as coming soon", async ({ page }) => {
+      // The case a native title gets wrong: disabled buttons swallow the
+      // mouse events it relies on.
+      await openBoard(page);
+      await minimize(page);
+      await page.getByRole("button", { name: "Assets" }).hover({ force: true });
+      await expect.poll(() => tipOpacity(page, "Assets")).toBe(1);
+      await expect(tipFor(page, "Assets")).toHaveText("Assets · Coming soon");
+    });
+
+    test("labels the focused icon for keyboard users, and Escape hides it", async ({ page }) => {
+      await openBoard(page);
+      await minimize(page);
+      await page.getByRole("button", { name: "Expand sidebar" }).focus();
+      await page.keyboard.press("Tab");
+      await expect(page.getByRole("button", { name: "Playspace" })).toBeFocused();
+      await expect.poll(() => tipOpacity(page, "Playspace")).toBe(1);
+
+      await page.keyboard.press("Escape");
+      await expect.poll(() => tipOpacity(page, "Playspace")).toBe(0);
+    });
+
+    test("keeps the toggle focused across the switch", async ({ page }) => {
+      // The toggle must not remount when the mode changes, or a keyboard
+      // user who pressed it is dropped back to the top of the page.
+      await openBoard(page);
+      await page.getByRole("button", { name: "Collapse sidebar" }).focus();
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeFocused();
+    });
+
+    test("opens the user menu beside the rail, at full width", async ({ page }) => {
+      await openBoard(page);
+      await minimize(page);
+      await page.locator(".sidebar-identity").click();
+      const menu = page.locator(".sidebar-user-menu");
+      await expect(menu).toBeVisible();
+      await expect(menu.getByRole("menuitem", { name: "Brand" })).toBeVisible();
+      await expect(menu.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+
+      const box = await menu.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(RAIL_WIDTH);
+      const clipped = await menu
+        .locator(".sidebar-user-email")
+        .evaluate((e) => e.scrollWidth > e.clientWidth);
+      expect(clipped).toBe(false);
+
+      await page.keyboard.press("Escape");
+      await expect(menu).toHaveCount(0);
+    });
+
+    test("is remembered across a reload, in both directions", async ({ page }) => {
+      await openBoard(page);
+      await minimize(page);
+      await openBoard(page);
+      await expect(page.locator(".sidebar-minimized")).toBeVisible();
+      expect(await railWidth(page)).toBe(RAIL_WIDTH);
+
+      await page.getByRole("button", { name: "Expand sidebar" }).click();
+      await openBoard(page);
+      await expect(page.locator(".sidebar-minimized")).toHaveCount(0);
+      expect(await railWidth(page)).toBe(SIDEBAR_WIDTH);
+    });
+
+    test("falls back to expanded when the saved mode is unreadable", async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem("gcos-sidebar-collapsed", "{not json"));
+      await openBoard(page);
+      await expect(page.locator(".sidebar-minimized")).toHaveCount(0);
+    });
   });
 
   // The real risk. Six places worked out a centre from window.innerWidth and
@@ -123,14 +271,18 @@ test.describe("sidebar", () => {
       expect(withRail - windowCentre).toBeLessThan(SIDEBAR_WIDTH / 2 + 40);
     });
 
-    test("collapsing the rail moves the centre back", async ({ page }) => {
+    test("minimizing the rail centres on the wider canvas, still clear of the rail", async ({ page }) => {
       await openBoard(page);
       await page.locator(".sidebar-collapse-button").click();
       await addPanel(page);
 
+      // Half the icon rail right of the window's middle.
       const centre = await newNodeCentre(page);
       const windowCentre = await page.evaluate(() => window.innerWidth / 2);
-      expect(Math.abs(centre - windowCentre)).toBeLessThan(40);
+      expect(Math.abs(centre - (windowCentre + RAIL_WIDTH / 2))).toBeLessThan(40);
+
+      const box = await page.locator("button.node-panel-placeholder").first().boundingBox();
+      expect(box!.x).toBeGreaterThan(RAIL_WIDTH);
     });
 
     test("an uploaded image lands clear of the rail", async ({ page }) => {
@@ -167,15 +319,16 @@ test.describe("sidebar", () => {
       expect(dock!.x).toBeGreaterThan(SIDEBAR_WIDTH);
     });
 
-    test("the minimap is hidden while the rail is open, and returns with it", async ({ page }) => {
-      // Both want the bottom-left corner. Hiding beats shifting it sideways
-      // on every toggle.
+    test("the minimap is hidden while the rail is expanded, and sits beside the icon rail", async ({ page }) => {
+      // Both want the bottom-left corner. Hidden beside the full rail;
+      // beside the 64px one there is room for both.
       await openBoard(page);
       await expect(page.locator(".minimap-container")).toHaveCount(0);
 
       await page.locator(".sidebar-collapse-button").click();
       await expect(page.locator(".minimap-container")).toBeVisible();
       const map = await page.locator(".minimap-container").boundingBox();
+      expect(map!.x).toBeGreaterThan(RAIL_WIDTH);
       expect(map!.x).toBeLessThan(SIDEBAR_WIDTH);
     });
 
