@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, uploadImage, imageBox, collapsePanels, setZoom } from "./helpers";
+import { openBoard, uploadImage, imageBox, collapsePanels, setZoom, addPanel } from "./helpers";
 
 // Issue #118. A frame drawn corner to corner around an image passes over the
 // image's name label, which is DOM above the canvas. The draw used to listen
@@ -154,6 +154,27 @@ test.describe("drawing a frame across chrome", () => {
     await page.keyboard.type("harbour");
     await page.keyboard.press("Enter");
     await expect(page.locator('div[title="harbour"]')).toHaveCount(1);
+  });
+
+  // The draw ends with no click on the board any more, so nothing else clears
+  // what was selected before it. One selection at a time (#107): the new
+  // frame takes it alone.
+  test("a frame drawn while a Create node is selected leaves only the frame selected", async ({ page }) => {
+    await openBoard(page);
+    await addPanel(page);
+    await frameBtn(page).click();
+    await page.mouse.move(1100, 90);
+    await page.mouse.down();
+    await page.mouse.move(1420, 200, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+
+    expect(await frameCount(page)).toBe(1);
+    expect(await selectedFrames(page)).toBe(1);
+    const active = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("gcos-node-panels")!).state.panels.filter((p: { isActive: boolean }) => p.isActive).length
+    );
+    expect(active).toBe(0);
   });
 
   for (const level of [0.5, 1.5]) {

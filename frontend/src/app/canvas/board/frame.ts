@@ -16,6 +16,7 @@ import type Konva from "konva";
 import { useFrames } from "@/store/frame.store";
 import { useToolStore } from "@/store/tool.store";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
+import { selectOnly } from "@/lib/canvas/selection";
 import { FRAME_MIN_EDGE } from "@/constants/canvas.constants";
 
 export interface FrameDeps {
@@ -84,6 +85,9 @@ export function createFrameHandlers(deps: FrameDeps) {
       canvasW: draft.width, canvasH: draft.height,
       label: uniqueLabel("Frame", takenLabels()),
     });
+    // The new frame is the selection, alone: a node or panel selected before
+    // the draw would otherwise keep its handles beside the frame's (#107).
+    selectOnly("frame");
     useFrames.getState().select(id);
     useToolStore.getState().setTool("pointer");
     deps.saveSnapshot();
