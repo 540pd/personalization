@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import type { NodeSettings } from "@/app/canvas/components/NodePanel/nodeKinds";
+import { persist, type PersistStorage, type StorageValue } from "zustand/middleware";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 
 // What a panel node generates. The dock already offers all three
@@ -28,6 +29,8 @@ export interface PanelOutput {
 export interface PanelDraft {
   model: string;
   instruction: string;
+  // Unset until a setting is first changed; the kind's defaults apply.
+  settings?: NodeSettings;
 }
 
 export interface PanelInstance {
@@ -54,6 +57,14 @@ export interface PanelInstance {
   label?: string;
   // Unset until the user first edits the panel; the kind's defaults apply.
   draft?: PanelDraft;
+}
+
+/** Where a variant copy goes and what it shows. Everything else is the source's. */
+export interface VariantPlacement {
+  canvasX: number;
+  canvasY: number;
+  output: PanelOutput;
+  label: string;
 }
 
 interface NodePanelState {
@@ -90,36 +101,78 @@ interface NodePanelState {
   setJob:          (id: string, job: string | undefined) => void;
   setLabel:        (id: string, label: string) => void;
   setDraft:        (id: string, draft: PanelDraft) => void;
+  /**
+   * Add copies of a node, one per placement, each with the source's kind,
+   * size and draft. For image variants: the source is the first variant and
+   * these are the rest.
+   */
+  addVariants:     (sourceId: string, placements: VariantPlacement[]) => void;
 }
 
 let _nextId = 1;
 
+type Persisted = { panels: PanelInstance[] };
+
+let warned = false;
+function warnOnce(message: string) {
+  if (warned) return;
+  warned = true;
+  console.warn(`[nodePanel] ${message}`);
+}
+
 /**
- * localStorage that cannot throw on write.
+ * localStorage that cannot take a user action down with it.
  *
- * Generated images are stored inline as data URLs, so a few of them -- and a
- * paste duplicates them -- run past the browser's ~5MB quota. setItem then
- * throws from inside the store's set(), which aborted whatever handler made
- * the change halfway: a paste landed its nodes but never its wires or its
- * undo step. The in-memory state is already right at that point; only the
- * copy that survives a reload is stale, so warn and carry on.
+ * zustand's persist middleware applies a change and then writes it out with
+ * no error handling, so a write that throws escapes into whatever called the
+ * store. Over quota is the usual way: a generated image is a data URL of a
+ * megabyte or more, localStorage holds about five, and a batch of variants
+ * blew straight past it -- the copies landed, then the throw aborted the
+ * handler before their frame was made.
+ *
+ * So a failed write is retried without the images, which keeps every node's
+ * position and inputs for the next load at the cost of its picture. Only if
+ * that fails too is the save given up, with a warning; the board in memory is
+ * untouched either way.
  */
-const safeLocalStorage = createJSONStorage(() => {
-  // Read here, as the default storage does: on the server this throws and
-  // persist quietly turns itself off.
-  const ls = localStorage;
-  return {
-    getItem: (name: string) => ls.getItem(name),
-    setItem: (name: string, value: string) => {
-      try {
-        ls.setItem(name, value);
-      } catch (err) {
-        console.warn(`Could not save ${name} to localStorage; it will not survive a reload.`, err);
-      }
-    },
-    removeItem: (name: string) => ls.removeItem(name),
-  };
-});
+export const panelStorage: PersistStorage<Persisted> = {
+  getItem: (name) => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.localStorage.getItem(name);
+      return raw ? (JSON.parse(raw) as StorageValue<Persisted>) : null;
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name, value) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(name, JSON.stringify(value));
+      return;
+    } catch {
+      // Fall through to the lean save.
+    }
+    try {
+      const lean: StorageValue<Persisted> = {
+        ...value,
+        state: { panels: value.state.panels.map(({ output: _image, ...rest }) => rest) },
+      };
+      window.localStorage.setItem(name, JSON.stringify(lean));
+      warnOnce("Generated images are too large to keep across a reload; the nodes and their prompts are saved without them.");
+    } catch {
+      warnOnce("The board could not be saved to localStorage. It is unaffected until the page reloads.");
+    }
+  },
+  removeItem: (name) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.removeItem(name);
+    } catch {
+      // Nothing to recover.
+    }
+  },
+};
 
 export const useNodePanel = create<NodePanelState>()(
   persist(
@@ -307,10 +360,35 @@ export const useNodePanel = create<NodePanelState>()(
     set((s) => ({
       panels: s.panels.map((p) => p.id === id ? { ...p, draft } : p),
     })),
+
+  addVariants: (sourceId, placements) =>
+    set((s) => {
+      const source = s.panels.find((p) => p.id === sourceId);
+      if (!source || !placements.length) return s;
+      const copies: PanelInstance[] = placements.map((v) => ({
+        id: `panel-${_nextId++}`,
+        kind: source.kind,
+        canvasX: v.canvasX,
+        canvasY: v.canvasY,
+        w: source.w,
+        h: source.h,
+        isActive: false,
+        isPanelOpen: false,
+        output: v.output,
+        label: v.label,
+        // Settings copied, not shared: editing one variant's settings must not
+        // quietly change its siblings.
+        draft: source.draft && {
+          ...source.draft,
+          settings: source.draft.settings && { ...source.draft.settings },
+        },
+      }));
+      return { panels: [...s.panels, ...copies] };
+    }),
     }),
     {
       name: "gcos-node-panels",
-      storage: safeLocalStorage,
+      storage: panelStorage,
       // Only persist canvas data; UI-open flags and selectedId reset on load.
       partialize: (s) => ({ panels: s.panels }),
       onRehydrateStorage: () => (state) => {
