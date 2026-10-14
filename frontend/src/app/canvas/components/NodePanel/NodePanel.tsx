@@ -39,7 +39,7 @@ import { useFrames } from "@/store/frame.store";
 // Prompts usually open with boilerplate ("a highly detailed photorealistic
 // image of a …"), so first-N-words collides often — hence uniqueLabel on
 // every auto-generated name here.
-import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
+import { relabel, takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { useCanvasArea } from "../../canvasArea";
 import NodeLabel from "../NodeLabel";
 import GenerateForm, { type GenerateDraft } from "./GenerateForm";
@@ -336,6 +336,23 @@ function SinglePanel({
   // The node owns reference collection and the store writes; the form owns
   // the fields and the generating/error state. Throwing here surfaces in the
   // form's error line.
+  /**
+   * The node's name once a generation lands, written to the store if it
+   * changed. A name the user chose is kept as it is. An auto-derived one
+   * follows the instruction just sent (#130): a re-prompted node is renamed
+   * for its new prompt, and a downstream node that references it is told what
+   * the image now shows. Read from the store, not the render's `instance`:
+   * a generation can outlive several renders.
+   */
+  const nameAfterGenerate = (): string => {
+    const store = useNodePanel.getState();
+    const current = store.panels.find((p) => p.id === instance.id);
+    if (current?.label && !current.labelAuto) return current.label;
+    const name = relabel(current?.label, labelFromInstruction(draft.instruction), takenLabels());
+    if (name !== current?.label || !current?.labelAuto) store.setLabel(instance.id, name, true);
+    return name;
+  };
+
   const handleGenerate = async () => {
     if (!draft.instruction.trim() || busy) return;
     // Saved before the request, so variant copies are made from what was sent.
@@ -392,9 +409,7 @@ function SinglePanel({
         const store = useNodePanel.getState();
         // Named before anything lands, so the copies and their frame can take
         // their names from it.
-        const name = instance.label
-          ?? uniqueLabel(labelFromInstruction(draft.instruction), takenLabels());
-        if (!instance.label) store.setLabel(instance.id, name);
+        const name = nameAfterGenerate();
 
         // This node is variant 1 and stays put; the frame grows around it and
         // the copies fill the rest of the grid. Every copy is a full Create
@@ -455,13 +470,11 @@ function SinglePanel({
       if (controller.signal.aborted) return;
       const store = useNodePanel.getState();
       store.setOutput(instance.id, output);
-      // Only seed the default — never overwrite a name the user chose.
-      if (!instance.label) {
-        store.setLabel(
-          instance.id,
-          uniqueLabel(labelFromInstruction(draft.instruction), takenLabels())
-        );
-      }
+      nameAfterGenerate();
+      // The new image and its name are one undo step, as a variants batch
+      // already was. Uncommitted, an undo went back past them with no redo
+      // to bring them back.
+      canvasHistory.commit();
     } catch (err) {
       if (controller.signal.aborted) return;
       // Drop the job: it settled as failed, or we stopped waiting on it.
@@ -520,7 +533,8 @@ function SinglePanel({
     if (instance.label || !instruction.trim()) return;
     useNodePanel.getState().setLabel(
       instance.id,
-      uniqueLabel(labelFromInstruction(instruction), takenLabels())
+      uniqueLabel(labelFromInstruction(instruction), takenLabels()),
+      true
     );
   };
 
@@ -594,7 +608,11 @@ function SinglePanel({
           left={placeholderLeft}
           bottom={placeholderTop - LABEL_GAP}
           maxWidth={sw}
-          onCommit={(next) => useNodePanel.getState().setLabel(instance.id, next)}
+          // An unchanged commit (open, then click away) is not a rename, and
+          // must not turn an auto name into a user-chosen one.
+          onCommit={(next) => {
+            if (next !== instance.label) useNodePanel.getState().setLabel(instance.id, next);
+          }}
         />
       )}
 
