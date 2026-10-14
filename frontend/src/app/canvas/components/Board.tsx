@@ -114,6 +114,17 @@ export default function Board() {
     hoverRef.current = hover;
 
     const syncAllNodeGeometry = () => syncAllGeometry(layer);
+    // A selected or dragged node comes to the front (#106), so its whole
+    // content and its handles show over whatever it overlaps. moveToTop only
+    // reorders within the canvas; bringing the canvas itself forward is what
+    // lifts an image over a Create node, which is DOM and otherwise always
+    // painted above it. Geometry is re-synced because ports, labels and the
+    // occlusion tests read each node's z from it.
+    const bringToFront = (n: Konva.Node) => {
+      n.moveToTop();
+      useLayerOrder.getState().raiseCanvas();
+      syncAllNodeGeometry();
+    };
 
     // --- Undo / redo ---------------------------------------------------
     // Registered against the one shared timeline (lib/canvas/history) rather
@@ -232,6 +243,7 @@ export default function Board() {
             transformer.nodes([...current, n]);
             hideHover();
             useKonvaSelection.getState().addToSelection(id);
+            bringToFront(n);
           }
           updateSelectionChrome();
         } else {
@@ -240,6 +252,7 @@ export default function Board() {
           // how a frame could keep its handles while a node was selected.
           selectOnly("node");
           transformer.nodes([n]);
+          bringToFront(n);
           // The transformer is created before any shape exists, so it would
           // otherwise sit at the bottom of the layer and its border and handles
           // would be hidden behind whatever overlaps the selected node.
@@ -320,16 +333,10 @@ export default function Board() {
           hideHover(); // transformer border replaces the hover outline
         }
         // Raise the dragged node so it cannot vanish under something it is
-        // being moved across. Tied to drag, not selection: moving a node is a
-        // deliberate edit, whereas merely clicking one should not reorder it.
-        //
-        // moveToTop only reorders within the canvas. Bringing the canvas
-        // itself forward is what stops a dragged image disappearing behind a
-        // Create Image node, which is DOM and so always painted above it
-        // otherwise.
-        n.moveToTop();
-        useLayerOrder.getState().raiseCanvas();
-        syncAllNodeGeometry();
+        // being moved across. Selecting already raised it (#106); a drag of a
+        // node that was already selected raises it again, in case something
+        // newer has landed on top since.
+        bringToFront(n);
         updateSelectionChrome();
         layer.batchDraw();
       }
