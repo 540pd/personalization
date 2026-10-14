@@ -302,6 +302,11 @@ export default function Board() {
             handedOff = n;
             n.stopDrag();
             n.position({ x: rec.canvasX, y: rec.canvasY });
+            // The hover outline was drawn round the image where it stood. The
+            // frame drag moves the image but not the outline, which stayed
+            // behind as a detached border (#131). The selection border is
+            // already the frame's.
+            hideHover();
             dragFrameFrom(frame, pressAt);
             return;
           }
