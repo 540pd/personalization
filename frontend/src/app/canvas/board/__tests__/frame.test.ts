@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FRAME_MIN_EDGE } from "@/constants/canvas.constants";
+import { COLORS, FRAME_MIN_EDGE } from "@/constants/canvas.constants";
 import { boxFromCorners, isDrawable } from "../frame";
 
 describe("boxFromCorners", () => {
@@ -51,5 +51,32 @@ describe("isDrawable", () => {
     const double = FRAME_MIN_EDGE * 2;
     expect(isDrawable(double, double, 0.5)).toBe(true);
     expect(isDrawable(FRAME_MIN_EDGE, FRAME_MIN_EDGE, 0.5)).toBe(false);
+  });
+});
+
+// #115: a Frame is visible without being selected. Asserted as numbers so a
+// later "softer" tweak cannot quietly slide back to a border nobody sees.
+describe("frame colours", () => {
+  const luminance = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  };
+  const contrast = (a: string, b: string) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  it("draws a border with at least 3:1 contrast against the board", () => {
+    expect(contrast(COLORS.frameStroke, COLORS.paper)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("keeps the fill lighter than a Create node's placeholder, so contents read the same", () => {
+    expect(luminance(COLORS.frameFill)).toBeGreaterThan(luminance(COLORS.placeholder));
+    expect(contrast(COLORS.frameFill, COLORS.paper)).toBeLessThan(1.1);
+  });
+
+  it("keeps the border distinct from the selected outline", () => {
+    expect(COLORS.frameStroke).not.toBe(COLORS.selected);
   });
 });
