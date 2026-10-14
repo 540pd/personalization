@@ -29,7 +29,7 @@ export default function Minimap() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { scale, reset } = useViewport();
-  const railOpen = !useSidebar((s) => s.collapsed);
+  const railExpanded = !useSidebar((s) => s.collapsed);
   // Subscribed, not read imperatively: the menu's disabled states have to
   // update as the selection changes while it is open.
   const selectedNodeIds = useKonvaSelection((s) => s.nodeIds);
@@ -105,14 +105,16 @@ export default function Minimap() {
     return () => document.removeEventListener("mousedown", handler);
   }, [isZoomMenuOpen]);
 
-  // Hidden while the rail is open: both want the bottom-left corner, and
+  // Hidden while the rail is expanded: both want the bottom-left corner, and
   // the alternative was shifting this sideways every time the rail toggled.
+  // Minimized, the rail is only 64px, so this sits beside it -- `left` below
+  // comes from the canvas area, which already starts at the rail's edge.
   //
   // AFTER every hook, deliberately. Returning early above them would tear
   // down the keydown listener with the component, and the shortcuts are the
   // whole reason hiding the panel is acceptable -- Ctrl+=, Ctrl+-, Shift+0/1/2
   // and wheel-zoom all keep working while nothing is on screen.
-  if (railOpen) return null;
+  if (railExpanded) return null;
 
   const at100 = Math.round(scale * 100) === 100;
   const hasSelection = selectedNodeIds.length > 0 || panels.some((p) => p.isActive);

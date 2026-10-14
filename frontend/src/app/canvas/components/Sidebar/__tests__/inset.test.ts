@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { viewportCentre, stagePositionFor, toCanvas, type Rect } from "@/lib/canvas/coords";
 import { viewportBounds } from "../../Minimap/world";
-import { SIDEBAR_WIDTH, sidebarInset } from "@/store/sidebar.store";
+import { SIDEBAR_WIDTH, SIDEBAR_RAIL_WIDTH, sidebarInset } from "@/store/sidebar.store";
 
 /**
  * The sidebar's real risk is not the component — it is that six places
@@ -23,9 +23,16 @@ const VISIBLE_W = WINDOW.width - SIDEBAR_WIDTH;
 const VISIBLE_CENTRE = { x: SIDEBAR_WIDTH + VISIBLE_W / 2, y: WINDOW.height / 2 };
 
 describe("sidebarInset", () => {
-  it("covers the rail's width while open and nothing while collapsed", () => {
+  it("covers the full width while expanded and the icon rail while minimized", () => {
     expect(sidebarInset(false)).toBe(SIDEBAR_WIDTH);
-    expect(sidebarInset(true)).toBe(0);
+    expect(sidebarInset(true)).toBe(SIDEBAR_RAIL_WIDTH);
+  });
+
+  it("never reports nothing: the rail is minimized, not hidden", () => {
+    // 0 was the old collapsed value. Every centring call site follows this
+    // number, so a 0 here would place new nodes half-behind the icon rail.
+    expect(sidebarInset(true)).toBeGreaterThan(0);
+    expect(SIDEBAR_RAIL_WIDTH).toBeLessThan(SIDEBAR_WIDTH);
   });
 });
 
