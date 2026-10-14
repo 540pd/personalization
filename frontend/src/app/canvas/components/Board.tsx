@@ -9,6 +9,8 @@ import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { createUploadHandler } from "../board/upload";
+import { dragFrameFrom, selectedFrameAround } from "../board/frameDrag";
+import { boundsOf } from "@/lib/canvas/bounds";
 import { createDragDropHandlers } from "../board/dragDrop";
 import { canvasArea, useCanvasArea } from "../canvasArea";
 import { createFrameHandlers } from "../board/frame";
@@ -260,11 +262,37 @@ export default function Board() {
       useViewport.getState().zoomToPoint(e.evt.deltaY, pointer.x, pointer.y);
     });
 
+    // Where the current press began, in screen px. A drag handed to a frame
+    // (#119) measures from here rather than from where Konva noticed it, or
+    // the frame would trail the pointer by the drag threshold.
+    let pressAt = { x: 0, y: 0 };
+    stage.on("pointerdown.press", (e) => {
+      pressAt = { x: e.evt.clientX, y: e.evt.clientY };
+    });
+    // The node whose drag went to its frame instead. Konva still fires
+    // dragend for it on stopDrag, which must not commit an empty undo step.
+    let handedOff: Konva.Node | null = null;
+
     // Drag begins: show the move cursor. Konva fires this only after the drag
     // threshold is passed, so a plain click never flashes it.
     stage.on("dragstart", (e) => {
       if (e.target !== stage && e.target.hasName("selectable")) {
         const n = e.target as Konva.Shape;
+        // A selected frame owns a drag that starts inside it (#119): the
+        // selection says the frame is what is being worked on. The node
+        // itself is still reached by a plain click -- this only runs once
+        // Konva's drag threshold is passed.
+        if (!transformer.nodes().includes(n)) {
+          const rec = useKonvaNodes.getState().nodes[n.id()];
+          const frame = rec ? selectedFrameAround(boundsOf(rec)) : null;
+          if (rec && frame) {
+            handedOff = n;
+            n.stopDrag();
+            n.position({ x: rec.canvasX, y: rec.canvasY });
+            dragFrameFrom(frame, pressAt);
+            return;
+          }
+        }
         stage.container().style.cursor = "move";
         // Konva suppresses "click" once a drag begins, so a press-drag on an
         // unselected node never reaches the click handler's selection logic.
@@ -313,6 +341,9 @@ export default function Board() {
     stage.on("dragend", (e) => {
       if (e.target === stage) {
         useViewport.getState().setPosition(stage.x(), stage.y());
+      } else if (e.target === handedOff) {
+        // Its frame is moving it; the frame commits the step when it lands.
+        handedOff = null;
       } else if (e.target.hasName("selectable")) {
         stage.container().style.cursor = "default";
         saveSnapshot();
