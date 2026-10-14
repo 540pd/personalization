@@ -90,8 +90,10 @@ interface NodePanelState {
   selectPanel:     (id: string | null) => void;
   /**
    * Replace every panel wholesale. Used by the shared undo timeline. A panel
-   * that still exists keeps its current draft: typing is not an undo step, so
-   * undoing a move must not revert the instruction being written.
+   * that still exists keeps its current instruction and model: typing is not
+   * an undo step, so undoing a move must not revert the instruction being
+   * written. Its settings do come back from the snapshot -- a settings change
+   * is a step, and may have resized the node (#129).
    */
   replaceAll:      (panels: PanelInstance[]) => void;
   clearAll:        () => void;
@@ -325,9 +327,17 @@ export const useNodePanel = create<NodePanelState>()(
     set((s) => {
       const drafts = new Map(s.panels.map((p) => [p.id, p.draft]));
       return {
-        panels: panels.map((p) =>
-          drafts.has(p.id) ? { ...p, draft: drafts.get(p.id) } : p
-        ),
+        panels: panels.map((p) => {
+          if (!drafts.has(p.id)) return p;
+          const current = drafts.get(p.id);
+          // Settings are undo steps (they can resize the node), so they come
+          // back with the snapshot along with the size they produced. The
+          // instruction and model are typing, not steps, and stay as they are.
+          return {
+            ...p,
+            draft: current ? { ...current, settings: p.draft?.settings } : p.draft,
+          };
+        }),
       };
     }),
 
