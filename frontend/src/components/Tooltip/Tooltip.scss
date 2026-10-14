@@ -1,0 +1,27 @@
+@reference "../../app/globals.css";
+
+.tooltip-anchor {
+  @apply relative flex;
+}
+
+// Above anything a neighbour draws, but inside its parent's stacking
+// context, so it is only ever as high as whatever it is attached to.
+.tooltip {
+  @apply absolute left-full top-1/2 -translate-y-1/2 ml-2 z-10;
+  @apply px-2 py-1 rounded-md bg-neutral-900 text-xs font-medium text-white whitespace-nowrap;
+  @apply pointer-events-none opacity-0;
+  // Hiding is immediate; only showing waits, so sweeping the pointer down a
+  // column of icons does not flash a label for each one it crosses.
+  transition: opacity 100ms ease-out;
+}
+
+.tooltip-anchor:hover > .tooltip,
+.tooltip-anchor:has(:focus-visible) > .tooltip {
+  @apply opacity-100;
+  transition-delay: 300ms;
+}
+
+.tooltip-anchor[data-dismissed] > .tooltip {
+  @apply opacity-0;
+  transition-delay: 0ms;
+}
