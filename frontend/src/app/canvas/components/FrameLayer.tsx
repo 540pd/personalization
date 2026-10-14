@@ -14,6 +14,7 @@
 import { useEffect, useRef } from "react";
 import Konva from "konva";
 import { useFrames } from "@/store/frame.store";
+import { selectOnly } from "@/lib/canvas/selection";
 import { useViewport } from "@/store/viewport.store";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { canvasHistory } from "@/lib/canvas/history";
@@ -40,7 +41,7 @@ export default function FrameLayer() {
 
   const frames = useFrames((s) => s.frames);
   const draft = useFrames((s) => s.draft);
-  const selectedId = useFrames((s) => s.selectedId);
+  const selectedIds = useFrames((s) => s.selectedIds);
   const drag = useFrames((s) => s.drag);
   const { x: stageX, y: stageY, scale } = useViewport();
 
@@ -81,7 +82,7 @@ export default function FrameLayer() {
     // land on a node never reach this stage at all -- Board keeps its own
     // container interactive except over bare frame.
     stage.on("click tap", (e) => {
-      if (e.target === stage) useFrames.getState().select(null);
+      if (e.target === stage) selectOnly(null);
     });
 
     const observer = new ResizeObserver(() => {
@@ -137,8 +138,7 @@ export default function FrameLayer() {
     if (!Object.keys(frames).length && !stageRef.current) return;
     ensureStage();
     const layer = layerRef.current;
-    const transformer = transformerRef.current;
-    if (!layer || !transformer) return;
+    if (!layer) return;
 
     layer.find(".frame").forEach((n) => n.destroy());
 
@@ -155,7 +155,12 @@ export default function FrameLayer() {
         draggable: true,
       });
 
-      rect.on("mousedown touchstart", () => useFrames.getState().select(f.id));
+      rect.on("mousedown touchstart", () => {
+        // Takes the selection off nodes, panels and wires, so Delete can only
+        // mean one thing.
+        selectOnly("frame");
+        useFrames.getState().select(f.id);
+      });
 
       rect.on("dragstart", () => {
         membersRef.current = membersOf(f);
@@ -168,7 +173,7 @@ export default function FrameLayer() {
         // Everything resting on the frame travels with it.
         moveMembers(membersRef.current, dx, dy);
         // And the name keeps up, instead of arriving when the drag ends.
-        useFrames.getState().setDrag({ id: f.id, dx, dy });
+        useFrames.getState().setDrag(f.id, { dx, dy });
       });
 
       rect.on("dragend", () => {
@@ -176,7 +181,7 @@ export default function FrameLayer() {
         const dy = rect.y() - dragFromRef.current.y;
         moveMembers(membersRef.current, dx, dy);
         membersRef.current = { images: [], panels: [] };
-        useFrames.getState().setDrag(null);
+        useFrames.getState().clearDrag();
         useFrames.getState().upsert({ ...f, canvasX: rect.x(), canvasY: rect.y() });
         // One step for the frame and everything it carried.
         canvasHistory.commit();
@@ -199,12 +204,32 @@ export default function FrameLayer() {
       rect.moveToBottom();
     });
 
-    // Re-attach after the rebuild, or the transformer points at dead nodes.
-    const selected = selectedId ? layer.findOne<Konva.Rect>(`#${selectedId}`) : null;
-    transformer.nodes(selected ? [selected] : []);
+    layer.batchDraw();
+  }, [frames]);
+
+  // --- Attach the transformer to whatever is selected ---
+  //
+  // Deliberately NOT part of the rebuild above. Selecting a frame happens on
+  // mousedown, which is the first half of a drag -- so folding this into the
+  // rebuild destroys the very rect the gesture is holding, and the frame
+  // stops moving. It survived single-id selection only because setting the
+  // same id twice returned the identical string and React bailed out; a
+  // selectedIds array is a fresh reference every time and does not.
+  //
+  // Keeps `frames` in its deps so it re-attaches to the new rects after a
+  // rebuild, rather than pointing at destroyed ones.
+  useEffect(() => {
+    const layer = layerRef.current;
+    const transformer = transformerRef.current;
+    if (!layer || !transformer) return;
+
+    const selected = selectedIds
+      .map((id) => layer.findOne<Konva.Rect>(`#${id}`))
+      .filter((r): r is Konva.Rect => !!r);
+    transformer.nodes(selected);
     transformer.moveToTop();
     layer.batchDraw();
-  }, [frames, selectedId]);
+  }, [frames, selectedIds]);
 
   // --- The rectangle being dragged out right now ---
   useEffect(() => {
@@ -253,8 +278,8 @@ export default function FrameLayer() {
       {Object.values(frames).map((f) => {
         // While this frame is being dragged its rect has moved but its record
         // has not, so the name reads the live offset to stay with it.
-        const dx = drag?.id === f.id ? drag.dx : 0;
-        const dy = drag?.id === f.id ? drag.dy : 0;
+        const dx = drag[f.id]?.dx ?? 0;
+        const dy = drag[f.id]?.dy ?? 0;
         const screenW = f.canvasW * scale;
         if (screenW < LABEL_MIN_NODE_W) return null;
         return (

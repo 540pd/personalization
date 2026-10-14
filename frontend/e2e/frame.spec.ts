@@ -278,3 +278,109 @@ test.describe("frame tool", () => {
     await expect(page.locator('div[title="Output"], div[title="Input"]')).toHaveCount(0);
   });
 });
+
+// Issue #107. Frames arrived with their own selection but only two of the
+// paths that clear a selection knew about them, so a frame kept its handles
+// while a node was selected -- and both Delete handlers are on window.
+test.describe("one selection at a time", () => {
+  /** Handle counts on each stage: the frame stage, and the board stage. */
+  const handles = (page: Page) =>
+    page.evaluate(() => {
+      type S = { find(q: string): unknown[]; findOne(q: string): { nodes(): unknown[] } | undefined };
+      const stages = (window as unknown as { Konva: { stages: S[] } }).Konva.stages;
+      const fs = stages.find((st) => st.find(".frame").length);
+      const bs = stages.find((st) => st !== fs);
+      return {
+        frame: fs?.findOne("Transformer")?.nodes().length ?? 0,
+        node: bs?.findOne("Transformer")?.nodes().length ?? 0,
+      };
+    });
+
+  /** An image, plus a frame drawn well clear of it, with the frame selected. */
+  async function imageAndFrame(page: Page) {
+    await openBoard(page);
+    await uploadImage(page, 200, 150);
+    await collapsePanels(page);
+    const img = await imageBox(page);
+    await frameBtn(page).click();
+    await drawFrame(page, 340, 120, 600, 300);
+    return img;
+  }
+
+  test("clicking a node clears the frame selection", async ({ page }) => {
+    const img = await imageAndFrame(page);
+    expect((await handles(page)).frame).toBe(1);
+
+    await page.mouse.click(img.x + img.w / 2, img.y + img.h / 2);
+    await page.waitForTimeout(400);
+
+    const h = await handles(page);
+    expect(h.node).toBe(1);
+    expect(h.frame).toBe(0);
+  });
+
+  test("clicking a frame clears the node selection", async ({ page }) => {
+    const img = await imageAndFrame(page);
+
+    await page.mouse.click(img.x + img.w / 2, img.y + img.h / 2);
+    await page.waitForTimeout(300);
+    expect((await handles(page)).node).toBe(1);
+
+    await page.mouse.click(470, 210);
+    await page.waitForTimeout(400);
+
+    const h = await handles(page);
+    expect(h.frame).toBe(1);
+    expect(h.node).toBe(0);
+  });
+
+  test("Escape clears the frame selection too", async ({ page }) => {
+    await imageAndFrame(page);
+    expect((await handles(page)).frame).toBe(1);
+
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(400);
+    expect((await handles(page)).frame).toBe(0);
+  });
+
+  test("Ctrl+A takes every frame, not just the nodes", async ({ page }) => {
+    await openBoard(page);
+    await uploadImage(page, 200, 150);
+    await collapsePanels(page);
+
+    await frameBtn(page).click();
+    await drawFrame(page, 340, 120, 600, 300);
+    await frameBtn(page).click();
+    await drawFrame(page, 900, 120, 1180, 300);
+    expect(await frameCount(page)).toBe(2);
+
+    await page.keyboard.press("Control+a");
+    await page.waitForTimeout(400);
+
+    const h = await handles(page);
+    expect(h.frame).toBe(2);
+    expect(h.node).toBe(1);
+  });
+
+  test("one Delete after Ctrl+A takes the frames, and one undo brings them back", async ({ page }) => {
+    await openBoard(page);
+    await uploadImage(page, 200, 150);
+    await collapsePanels(page);
+
+    await frameBtn(page).click();
+    await drawFrame(page, 340, 120, 600, 300);
+    await frameBtn(page).click();
+    await drawFrame(page, 900, 120, 1180, 300);
+
+    await page.keyboard.press("Control+a");
+    await page.waitForTimeout(300);
+    await page.keyboard.press("Delete");
+    await page.waitForTimeout(500);
+    expect(await frameCount(page)).toBe(0);
+
+    // One step, not one per frame.
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(600);
+    expect(await frameCount(page)).toBe(2);
+  });
+});
