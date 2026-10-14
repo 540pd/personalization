@@ -10,17 +10,14 @@ type Box = { x: number; y: number; w: number; h: number };
 const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
 
 /**
- * Draw a frame around a box without crossing the node's name label, which
- * sits just above its top-left corner and cancels a draw that passes over it
- * (#118). Down the left side, then along the bottom.
+ * Draw a frame around a box, corner to corner -- straight across the node's
+ * name label, which no longer cancels the draw (#118).
  */
 async function drawAround(page: Page, b: Box, pad = 90) {
   await frameBtn(page).click();
-  const x1 = b.x - pad, y1 = b.y - pad, x2 = b.x + b.w + pad, y2 = b.y + b.h + pad;
-  await page.mouse.move(x1, y1);
+  await page.mouse.move(b.x - pad, b.y - pad);
   await page.mouse.down();
-  await page.mouse.move(x1, y2, { steps: 6 });
-  await page.mouse.move(x2, y2, { steps: 6 });
+  await page.mouse.move(b.x + b.w + pad, b.y + b.h + pad, { steps: 10 });
   await page.mouse.up();
   await page.waitForTimeout(300);
 }

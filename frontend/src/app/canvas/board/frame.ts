@@ -46,12 +46,14 @@ export function isDrawable(w: number, h: number, scale: number): boolean {
 export function createFrameHandlers(deps: FrameDeps) {
   let start: Konva.Vector2d | null = null;
 
-  const onDown = (stage: Konva.Stage) => {
-    if (useToolStore.getState().activeTool !== "frame") return;
+  /** Begin a draw if the frame tool is armed. Says whether one began. */
+  const onDown = (stage: Konva.Stage): boolean => {
+    if (useToolStore.getState().activeTool !== "frame") return false;
     const pt = stage.getRelativePointerPosition();
-    if (!pt) return;
+    if (!pt) return false;
     start = pt;
     useFrames.getState().setDraft({ x: pt.x, y: pt.y, width: 0, height: 0 });
+    return true;
   };
 
   const onMove = (stage: Konva.Stage) => {
