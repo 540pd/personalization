@@ -16,6 +16,7 @@ import type Konva from "konva";
 import { useFrames } from "@/store/frame.store";
 import { useToolStore } from "@/store/tool.store";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
+import { selectOnly } from "@/lib/canvas/selection";
 import { FRAME_MIN_EDGE } from "@/constants/canvas.constants";
 
 export interface FrameDeps {
@@ -46,12 +47,14 @@ export function isDrawable(w: number, h: number, scale: number): boolean {
 export function createFrameHandlers(deps: FrameDeps) {
   let start: Konva.Vector2d | null = null;
 
-  const onDown = (stage: Konva.Stage) => {
-    if (useToolStore.getState().activeTool !== "frame") return;
+  /** Begin a draw if the frame tool is armed. Says whether one began. */
+  const onDown = (stage: Konva.Stage): boolean => {
+    if (useToolStore.getState().activeTool !== "frame") return false;
     const pt = stage.getRelativePointerPosition();
-    if (!pt) return;
+    if (!pt) return false;
     start = pt;
     useFrames.getState().setDraft({ x: pt.x, y: pt.y, width: 0, height: 0 });
+    return true;
   };
 
   const onMove = (stage: Konva.Stage) => {
@@ -82,6 +85,9 @@ export function createFrameHandlers(deps: FrameDeps) {
       canvasW: draft.width, canvasH: draft.height,
       label: uniqueLabel("Frame", takenLabels()),
     });
+    // The new frame is the selection, alone: a node or panel selected before
+    // the draw would otherwise keep its handles beside the frame's (#107).
+    selectOnly("frame");
     useFrames.getState().select(id);
     useToolStore.getState().setTool("pointer");
     deps.saveSnapshot();

@@ -194,8 +194,21 @@ export default function Board() {
 
     // --- Stage events ---
 
+    // Set when a frame draw has just finished on this release. The release
+    // that ends a draw also produces a click on the empty stage, which would
+    // otherwise clear the frame the draw has just selected. One-shot, and
+    // reset on every press, so it can never swallow a click of its own.
+    let releaseEndedDraw = false;
+    stage.on("pointerdown.drawclick", () => {
+      releaseEndedDraw = false;
+    });
+
     // Click to select / deselect.
     stage.on("click tap", (e) => {
+      if (releaseEndedDraw) {
+        releaseEndedDraw = false;
+        return;
+      }
       // Clicking a selectable node always selects it — auto-switch to pointer
       // if the user is in another tool mode (matches Figma / Luma behaviour).
       if (e.target !== stage && e.target.hasName("selectable")) {
@@ -480,15 +493,45 @@ export default function Board() {
     window.addEventListener("keydown", handleEditKeys);
 
     // Place uploaded files on the canvas, centered in the current viewport.
-    // Frame: drag on the board to draw a backdrop. Stage events rather than
-    // window ones so the drag is bounded by the canvas, like every other
-    // gesture here.
+    // Frame: drag on the board to draw a backdrop. The draw starts on the
+    // stage, but once begun it is followed through window pointer events
+    // (#118). Name labels, ports and wires are DOM above the canvas, so a
+    // stage-bound draw read crossing one as the pointer leaving and cancelled
+    // -- and a frame drawn corner to corner round an image runs straight
+    // through its name. Each window event is fed back to the stage, so the
+    // existing handlers see an ordinary pointer position wherever it is.
     const frame = createFrameHandlers({ saveSnapshot });
-    stage.on("mousedown.frame touchstart.frame", () => frame.onDown(stage));
-    stage.on("mousemove.frame touchmove.frame",  () => frame.onMove(stage));
-    stage.on("mouseup.frame touchend.frame",     () => frame.onUp(stage));
-    // A drag that leaves the stage would otherwise strand the preview.
-    stage.on("mouseleave.frame", () => frame.cancel());
+    const followMove = (e: PointerEvent) => {
+      stage.setPointersPositions(e);
+      frame.onMove(stage);
+    };
+    const followUp = (e: PointerEvent) => {
+      stage.setPointersPositions(e);
+      unfollow();
+      frame.onUp(stage);
+      // This runs on pointerup, before the stage sees the same release as a
+      // click on empty board. Without this the click undid the selection.
+      releaseEndedDraw = true;
+    };
+    // Losing the window or the gesture abandons the draw rather than leaving
+    // a preview stranded. Escape is handled with the frame keys below.
+    const abandon = () => {
+      unfollow();
+      frame.cancel();
+    };
+    const unfollow = () => {
+      window.removeEventListener("pointermove", followMove);
+      window.removeEventListener("pointerup", followUp);
+      window.removeEventListener("pointercancel", abandon);
+      window.removeEventListener("blur", abandon);
+    };
+    stage.on("mousedown.frame touchstart.frame", () => {
+      if (!frame.onDown(stage)) return;
+      window.addEventListener("pointermove", followMove);
+      window.addEventListener("pointerup", followUp);
+      window.addEventListener("pointercancel", abandon);
+      window.addEventListener("blur", abandon);
+    });
 
     const handleUpload = createUploadHandler({
       layer,
@@ -554,6 +597,7 @@ export default function Board() {
       window.removeEventListener("blur", dnd.reset);
       window.removeEventListener("keydown", handleFrameKeys);
       stage.off(".frame");
+      unfollow();
       observer.disconnect();
       registerNodeChromeClear(null);
       boardStage.current = null;

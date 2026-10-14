@@ -439,18 +439,12 @@ test.describe("frames match nodes", () => {
     });
 
   /**
-   * Draw a frame around a box without crossing the node's name label, which
-   * sits just above its top-left corner and cancels a draw that passes over
-   * it (a separate frame-tool bug). Down the left side, then along the bottom.
+   * Draw a frame around a box, corner to corner. The diagonal crosses the
+   * node's name label, which used to cancel the draw (#118); it no longer
+   * does, so this is the plain gesture a user makes.
    */
   async function drawAround(page: Page, img: { x: number; y: number; w: number; h: number }, pad = 90) {
-    const x1 = img.x - pad, y1 = img.y - pad, x2 = img.x + img.w + pad, y2 = img.y + img.h + pad;
-    await page.mouse.move(x1, y1);
-    await page.mouse.down();
-    await page.mouse.move(x1, y2, { steps: 6 });
-    await page.mouse.move(x2, y2, { steps: 6 });
-    await page.mouse.up();
-    await page.waitForTimeout(300);
+    await drawFrame(page, img.x - pad, img.y - pad, img.x + img.w + pad, img.y + img.h + pad);
   }
 
   test("corners round like a node", async ({ page }) => {
