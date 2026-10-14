@@ -19,7 +19,6 @@ export const COLORS = {
 // misclick, not a frame. Converted by scale at the call site, or a legitimate
 // small frame would be impossible to draw zoomed out.
 export const FRAME_MIN_EDGE = 20;
-export const FRAME_CORNER_RADIUS = 4;
 
 // Paint order. Spaced so the Konva canvas can sit either side of the node
 // placeholders without disturbing anything else.
@@ -113,6 +112,10 @@ export function placeholderSize(ratio: string): { w: number; h: number } {
 // zoom in step. 10 rather than 16 because the node itself shrank to 320 --
 // holding the radius fixed had pushed it from 3.3% to 5% of the node's width.
 export const NODE_CORNER_RADIUS = 10;
+// Frames round exactly as nodes do, so the board reads as one surface rather
+// than two kinds of box. Declared from the node value, not beside it, so the
+// two cannot drift apart again -- they were 4 and 10.
+export const FRAME_CORNER_RADIUS = NODE_CORNER_RADIUS;
 
 // --- Node name label -------------------------------------------------------
 // Font of the name shown above a selected node. The line box is taller than
