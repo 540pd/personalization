@@ -58,6 +58,17 @@ test.describe("frame tool", () => {
     await expect(pointerBtn(page)).toHaveAttribute("aria-pressed", "true");
   });
 
+  // An open form sits above the whole board (#116), so a draw starting on it
+  // would land on the form and draw nothing. Arming Frame ends the edit.
+  test("arming Frame folds an open Create form so the draw reaches the board", async ({ page }) => {
+    await openBoard(page);
+    await addPanel(page);
+    await expect(page.locator(".node-panel-create")).toHaveCount(1);
+
+    await frameBtn(page).click();
+    await expect(page.locator(".node-panel-create")).toHaveCount(0);
+  });
+
   test("paints below an uploaded image AND a Create node", async ({ page }) => {
     await openBoard(page);
     await addPanel(page);                            // Create node: DOM, z 20
