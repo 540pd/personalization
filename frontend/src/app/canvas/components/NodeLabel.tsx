@@ -30,9 +30,20 @@ interface NodeLabelProps {
   /** The node's on-screen width; the label never exceeds it. */
   maxWidth: number;
   onCommit: (next: string) => void;
+  /**
+   * Make the name a handle: a press that moves past the drag threshold calls
+   * this with the screen point it was pressed at. A frame's name uses it to
+   * move the frame (#119); node names leave it unset and stay text only.
+   */
+  onDragFrom?: (press: { x: number; y: number }) => void;
+  /** A press released without dragging. Double-click still renames. */
+  onSelect?: () => void;
 }
 
-export default function NodeLabel({ value, left, bottom, maxWidth, onCommit }: NodeLabelProps) {
+/** Past this many screen px a press on a name is a drag, not a click. */
+const DRAG_THRESHOLD = 4;
+
+export default function NodeLabel({ value, left, bottom, maxWidth, onCommit, onDragFrom, onSelect }: NodeLabelProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -87,17 +98,45 @@ export default function NodeLabel({ value, left, bottom, maxWidth, onCommit }: N
     zIndex: Z_INDEX.labels,
   };
 
+  // Click or drag, decided on the first move past the threshold. Window
+  // listeners, so the gesture survives the pointer leaving the name.
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    const press = { x: e.clientX, y: e.clientY };
+    let dragged = false;
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    const move = (ev: PointerEvent) => {
+      if (Math.hypot(ev.clientX - press.x, ev.clientY - press.y) <= DRAG_THRESHOLD) return;
+      dragged = true;
+      stop();
+      onDragFrom?.(press);
+    };
+    const up = () => {
+      stop();
+      if (!dragged) onSelect?.();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  const isHandle = !!(onDragFrom || onSelect);
+
   if (!editing) {
     return (
       <div
         title={value}
         onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
+        onPointerDown={isHandle ? onPointerDown : undefined}
         style={{
           ...base,
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
-          cursor: "text",
+          // A handle is grabbed, not typed into; renaming is a double-click.
+          cursor: isHandle ? "default" : "text",
           userSelect: "none",
         }}
       >

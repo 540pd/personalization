@@ -20,6 +20,7 @@ import { frameStage } from "@/lib/canvas/frameStage";
 import { canvasHistory } from "@/lib/canvas/history";
 import { membersOf, moveMembers, type FrameMembers } from "../board/frameMembers";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
+import { dragFrameFrom } from "../board/frameDrag";
 import { boardStage } from "@/lib/canvas/boardStage";
 import NodeLabel from "./NodeLabel";
 import {
@@ -358,6 +359,13 @@ export default function FrameLayer() {
             bottom={stageY + (f.canvasY + dy) * scale - LABEL_GAP}
             maxWidth={screenW}
             onCommit={(next) => useFrames.getState().upsert({ ...f, label: next })}
+            // The name is a handle for the frame: drag it to move the frame
+            // and its contents, click it to select the frame (#119).
+            onDragFrom={(press) => dragFrameFrom(f, press)}
+            onSelect={() => {
+              selectOnly("frame");
+              useFrames.getState().select(f.id);
+            }}
           />
         );
       })}

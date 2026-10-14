@@ -34,6 +34,7 @@ import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen } from "@/lib/canvas/coords";
 import { boundsOf } from "@/lib/canvas/bounds";
 import { layoutVariants } from "../../board/variants";
+import { dragFrameFrom, selectedFrameAround } from "../../board/frameDrag";
 import { useFrames } from "@/store/frame.store";
 // Prompts usually open with boilerplate ("a highly detailed photorealistic
 // image of a …"), so first-N-words collides often — hence uniqueLabel on
@@ -238,6 +239,19 @@ function SinglePanel({
     const dx = e.clientX - dragStart.current.px;
     const dy = e.clientY - dragStart.current.py;
     if (Math.hypot(dx, dy) > 4) {
+      // A selected frame owns a drag that starts inside it (#119). Handed over
+      // here, past the threshold, so a plain click still selects this node.
+      // An active node is the selection itself and drags on its own.
+      if (!isDragging.current && !isActive) {
+        const frame = selectedFrameAround(boundsOf(instance));
+        if (frame) {
+          // The frame follows the pointer from here on; this node's own
+          // move and up handlers stand down.
+          pointerDownHere.current = false;
+          dragFrameFrom(frame, { x: dragStart.current.px, y: dragStart.current.py });
+          return;
+        }
+      }
       if (!isDragging.current) {
         isDragging.current = true;
         setDragging(true);
