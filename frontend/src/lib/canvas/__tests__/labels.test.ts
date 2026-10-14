@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useNodePanel } from "@/store/nodePanel.store";
-import { takenLabels, uniqueLabel } from "../labels";
+import { relabel, takenLabels, uniqueLabel } from "../labels";
 
 beforeEach(() => {
   useKonvaNodes.setState({ nodes: {} });
@@ -54,5 +54,63 @@ describe("takenLabels", () => {
       id: "img", canvasX: 0, canvasY: 0, canvasW: 10, canvasH: 10,
     });
     expect(takenLabels()).toEqual([]);
+  });
+});
+
+// #130: an auto name follows its node's prompt.
+describe("relabel", () => {
+  it("keeps the current name when the prompt still yields it", () => {
+    expect(relabel("sunset", "sunset", ["sunset"])).toBe("sunset");
+  });
+
+  it("keeps a suffix rather than churning it", () => {
+    // Regenerating variant (3) with the same prompt must not make it (4).
+    expect(relabel("sunset (3)", "sunset", ["sunset", "sunset (2)", "sunset (3)"])).toBe("sunset (3)");
+  });
+
+  it("takes the new prompt's name when it is free", () => {
+    expect(relabel("sunset (3)", "rain", ["sunset", "sunset (2)", "sunset (3)"])).toBe("rain");
+  });
+
+  it("suffixes the new name when another node has it", () => {
+    expect(relabel("sunset (3)", "rain", ["rain", "sunset (3)"])).toBe("rain (2)");
+  });
+
+  it("does not count the node's own old name as taken", () => {
+    // "rain (2)" -> prompt "rain": the node is giving up "rain (2)", and "rain"
+    // is held by another node, so it keeps (2) rather than moving to (3).
+    expect(relabel("rain (2)", "rain", ["rain", "rain (2)"])).toBe("rain (2)");
+    expect(relabel("old", "new", ["old", "new (2)"])).toBe("new");
+  });
+
+  it("names a node that has no name yet", () => {
+    expect(relabel(undefined, "rain", [])).toBe("rain");
+  });
+});
+
+describe("labelAuto", () => {
+  beforeEach(() => {
+    useNodePanel.setState({
+      panels: [{ id: "a", kind: "image", canvasX: 0, canvasY: 0, w: 10, h: 10, isActive: false, isPanelOpen: false }],
+    } as never);
+  });
+
+  it("is set by an auto name and cleared by a rename", () => {
+    useNodePanel.getState().setLabel("a", "sunset", true);
+    expect(useNodePanel.getState().panels[0].labelAuto).toBe(true);
+    useNodePanel.getState().setLabel("a", "hero shot");
+    expect(useNodePanel.getState().panels[0]).toMatchObject({ label: "hero shot", labelAuto: false });
+  });
+
+  it("travels with a paste and with variant copies", () => {
+    useNodePanel.getState().setLabel("a", "sunset", true);
+    const src = useNodePanel.getState().panels[0];
+    const map = useNodePanel.getState().pastePanels([src], 20);
+    const pasted = useNodePanel.getState().panels.find((p) => p.id === map.a)!;
+    expect(pasted.labelAuto).toBe(true);
+
+    useNodePanel.getState().addVariants("a", [{ canvasX: 50, canvasY: 0, output: { type: "image", value: "x" }, label: "sunset (2)" }]);
+    const copy = useNodePanel.getState().panels.at(-1)!;
+    expect(copy).toMatchObject({ label: "sunset (2)", labelAuto: true });
   });
 });
