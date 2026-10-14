@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, uploadImage, imageBox, addPanel, panelBoxes, collapsePanels, setZoom } from "./helpers";
+import { openBoard, uploadImage, imageBox, addPanel, panelBoxes, collapsePanels, setZoom, makePng } from "./helpers";
 
 // Issue #119. A selected frame owns a drag that starts inside it: pressing on
 // a node within it and dragging moves the frame and everything in it. A plain
@@ -208,5 +208,115 @@ test.describe("dragging a frame by its name", () => {
     await page.waitForTimeout(300);
 
     await expect(page.locator('div[title="Hero shots"]')).toHaveCount(1);
+  });
+});
+
+// #131, found testing the above: what an image left behind, or added, when a
+// selected frame took over its drag.
+test.describe("a selected frame dragged from an image", () => {
+  test("leaves no hover outline behind where an uploaded image used to be", async ({ page }) => {
+    await imageInFrame(page);
+    const img = await imageBox(page);
+    // Hover first, so the outline is drawn round the image at its old place.
+    await page.mouse.move(img.x + img.w / 2, img.y + img.h / 2);
+    await page.waitForTimeout(200);
+    await drag(page, centre(img), 150, 60);
+
+    const outline = await page.evaluate(() => {
+      type R = { isVisible(): boolean; getClientRect(): { x: number; y: number } };
+      const st = (window as unknown as { Konva: { stages: { findOne(q: string): R | undefined }[] } }).Konva.stages[0];
+      const o = st.findOne(".hover-outline");
+      return o && o.isVisible() ? o.getClientRect() : null;
+    });
+    const moved = await imageBox(page);
+    expect(Math.round(moved.x - img.x)).toBe(150);
+    // Hidden, or at worst drawn round the image where it now is.
+    if (outline) expect(Math.abs(outline.x - moved.x)).toBeLessThan(6);
+  });
+
+  for (const z of [0.5, 1.5]) {
+    test(`at ${z * 100}% zoom the image and the frame move together, outline and all`, async ({ page }) => {
+      await openBoard(page);
+      await setZoom(page, z);
+      await uploadImage(page, 200, 150);
+      await collapsePanels(page);
+      const img = await imageBox(page);
+      await drawAround(page, img, 60);
+      const before = await state(page);
+      await page.mouse.move(img.x + img.w / 2, img.y + img.h / 2);
+      await page.waitForTimeout(200);
+      await drag(page, centre(img), 120, 40);
+
+      const moved = await imageBox(page);
+      expect(Math.round(moved.x - img.x)).toBe(120);
+      expect(Math.round((await state(page)).frame!.x - before.frame!.x)).toBe(120);
+      const outlineVisible = await page.evaluate(() => {
+        type R = { isVisible(): boolean; getClientRect(): { x: number } };
+        const st = (window as unknown as { Konva: { stages: { findOne(q: string): R | undefined }[] } }).Konva.stages[0];
+        const o = st.findOne(".hover-outline");
+        return o && o.isVisible() ? o.getClientRect().x : null;
+      });
+      if (outlineVisible !== null) expect(Math.abs(outlineVisible - moved.x)).toBeLessThan(6);
+    });
+  }
+
+  test.describe("a generated image", () => {
+    const IMG = `data:image/png;base64,${makePng(64, 36).toString("base64")}`;
+    const konvaImages = (page: Page) =>
+      page.evaluate(() => (window as unknown as { Konva: { stages: { find(q: string): unknown[] }[] } }).Konva.stages[0].find("Image").length);
+
+    /** A Create node with a generated image, generation stubbed. */
+    async function generated(page: Page) {
+      await page.route("**/api/proxy/**", async (r) =>
+        r.request().method() !== "POST"
+          ? r.continue()
+          : r.fulfill({ contentType: "application/json", body: JSON.stringify({ jobId: "j", status: "done", imageUrl: IMG, modelUsed: "m" }) })
+      );
+      await openBoard(page);
+      await addPanel(page);
+      await page.locator("textarea").first().fill("a red kite");
+      await page.locator("button:has-text('Create')").first().click();
+      await page.waitForTimeout(1500);
+      await collapsePanels(page);
+      await expect(page.locator("img.node-panel-preview")).toHaveCount(1);
+      return (await panelBoxes(page))[0];
+    }
+
+    test("moves the whole selected frame and adds no image", async ({ page }) => {
+      const node = await generated(page);
+      await drawAround(page, node);
+      const before = await state(page);
+      expect(before.framesSelected).toBe(1);
+
+      await drag(page, centre(node), 150, 60);
+      const after = (await panelBoxes(page))[0];
+      // A native image drag used to take the gesture over a few px in.
+      expect(Math.round(after.x - node.x)).toBe(150);
+      expect(Math.round((await state(page)).frame!.x - before.frame!.x)).toBe(150);
+      expect(await konvaImages(page)).toBe(0);
+      await expect(page.getByTestId("canvas-drop-overlay")).toHaveCount(0);
+    });
+
+    test("never starts a native browser drag, the source of the duplicate", async ({ page }) => {
+      // Chrome hands a natively dragged <img> over as a file, which the
+      // board's drop handler adds as a new image. Playwright cannot complete
+      // an OS drag-and-drop, so this pins the cause directly.
+      await generated(page);
+      const prevented = await page.evaluate(() => {
+        const img = document.querySelector("img.node-panel-preview")!;
+        const ev = new DragEvent("dragstart", { bubbles: true, cancelable: true });
+        img.dispatchEvent(ev);
+        return ev.defaultPrevented;
+      });
+      expect(prevented).toBe(true);
+    });
+
+    test("with no frame, the node still drags on its own", async ({ page }) => {
+      const node = await generated(page);
+      await drag(page, centre(node), 150, 60);
+      const after = (await panelBoxes(page))[0];
+      expect(Math.round(after.x - node.x)).toBe(150);
+      expect(await konvaImages(page)).toBe(0);
+    });
   });
 });
