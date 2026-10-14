@@ -7,6 +7,7 @@
 
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useNodePanel } from "@/store/nodePanel.store";
+import { useFrames } from "@/store/frame.store";
 
 /** Matches a trailing " (2)", " (3)" ... so suffixes don't stack. */
 const SUFFIX = /\s\((\d+)\)$/;
@@ -22,7 +23,9 @@ const SUFFIX = /\s\((\d+)\)$/;
 export function takenLabels(): string[] {
   const fromNodes  = Object.values(useKonvaNodes.getState().nodes).map((n) => n.label);
   const fromPanels = useNodePanel.getState().panels.map((p) => p.label);
-  return [...fromNodes, ...fromPanels].filter((l): l is string => !!l);
+  // Frames are named too, and share the screen with everything else.
+  const fromFrames = Object.values(useFrames.getState().frames).map((f) => f.label);
+  return [...fromNodes, ...fromPanels, ...fromFrames].filter((l): l is string => !!l);
 }
 
 /**

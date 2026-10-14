@@ -351,6 +351,10 @@ export default function FloatingDock() {
       closeAllPanels();
     });
 
+    hotkeys("f", () => {
+      setTool("frame");
+    });
+
     hotkeys("command+u,ctrl+u", (e) => {
       e.preventDefault();
       openFilePicker();
@@ -359,6 +363,7 @@ export default function FloatingDock() {
     return () => {
       hotkeys.unbind("v");
       hotkeys.unbind("escape");
+      hotkeys.unbind("f");
       hotkeys.unbind("command+u,ctrl+u");
     };
   }, [setTool]);
@@ -590,18 +595,33 @@ export default function FloatingDock() {
           {/* Right-side tools */}
           {TOOLS_RIGHT.map((tool) => {
             const isUpload = tool.id === "media-upload";
+            // Frame is armed, not immediate: it stays lit until the drag that
+            // draws it finishes. Upload opens a dialog. The rest do nothing
+            // yet and stay visibly disabled rather than lying.
+            const isFrame = tool.id === "frame";
+            const isLive = isUpload || isFrame;
 
             return (
               <div key={tool.id} className="floating-dock-tool-wrapper">
                 <button
                   title=""
-                  tabIndex={isUpload ? 0 : -1}
-                  onClick={isUpload ? openFilePicker : undefined}
-                  aria-pressed={isUpload ? isUploading : undefined}
+                  tabIndex={isLive ? 0 : -1}
+                  onClick={
+                    isUpload ? openFilePicker
+                    : isFrame ? () => setTool("frame")
+                    : undefined
+                  }
+                  // Both are "pressed" states, but of different kinds: upload
+                  // is busy until its files land, frame is armed until drawn.
+                  aria-pressed={
+                    isUpload ? isUploading
+                    : isFrame ? activeTool === "frame"
+                    : undefined
+                  }
                   className={
-                    isUpload
-                      ? btnClass(isUploading)
-                      : "floating-dock-button-disabled"
+                    isUpload ? btnClass(isUploading)
+                    : isFrame ? btnClass(activeTool === "frame")
+                    : "floating-dock-button-disabled"
                   }
                 >
                   {tool.icon}

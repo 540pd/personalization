@@ -11,7 +11,15 @@ export const COLORS = {
   placeholder:  "#f5f5f5",
   mediaFill:    "#1e1e2e",
   mediaStroke:  "#6b6b8a",
+  frameFill:    "#fafafa",
+  frameStroke:  "#d4d4d4",
 } as const;
+
+// Smallest frame a drag may produce, in SCREEN px -- a drag under this is a
+// misclick, not a frame. Converted by scale at the call site, or a legitimate
+// small frame would be impossible to draw zoomed out.
+export const FRAME_MIN_EDGE = 20;
+export const FRAME_CORNER_RADIUS = 4;
 
 // Paint order. Spaced so the Konva canvas can sit either side of the node
 // placeholders without disturbing anything else.
@@ -32,6 +40,11 @@ export const COLORS = {
 // port dot went on drawing over the top. Everything from `canvasBelow` to
 // `labels` is content in the canvas, and content belongs under the rail.
 export const Z_INDEX = {
+  // Frames are a backdrop: always behind every node, whichever way the
+  // canvas/placeholder flip currently sits. That is why they get a tier of
+  // their own below canvasBelow rather than riding on the main stage, whose
+  // container moves between 10 and 30 as one unit.
+  frames:       5,
   canvasBelow: 10,
   nodes:       20,
   canvasAbove: 30,
