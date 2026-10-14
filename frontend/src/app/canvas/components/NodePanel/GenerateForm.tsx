@@ -79,7 +79,7 @@ export default function GenerateForm({
         left,
         top,
         transform: "translateY(-50%)",
-        zIndex: Z_INDEX.nodes,
+        zIndex: Z_INDEX.panelForm,
         border: `1px solid ${COLORS.panelBorder}`,
         maxHeight: "calc(100vh - 2rem)",
         pointerEvents: "auto",

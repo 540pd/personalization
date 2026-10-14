@@ -51,6 +51,13 @@ export const Z_INDEX = {
   wires:       40,
   ports:       50,
   labels:      60,
+  // A node's open Create form. Not canvas content but the editor for one
+  // node, so nothing on the board may sit over it: it shared `nodes` with
+  // every placeholder, so a node made later -- an image variant, which lands
+  // exactly where the form opens -- painted straight across it, and so did
+  // the whole canvas whenever an image had been dragged last. Below the rail,
+  // which still covers everything, as the layering spec requires.
+  panelForm:   65,
   rail:        70,
   // Above the rail, unlike everything else here. It is not canvas content but
   // a transient answer to "will this drop land?", and it is inset to the

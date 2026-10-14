@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Konva from "konva";
 import { useViewport } from "@/store/viewport.store";
-import { useToolStore, panningTool, cursorFor } from "@/store/tool.store";
+import { useToolStore, panningTool, cursorFor, drawingTool } from "@/store/tool.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
@@ -624,6 +624,14 @@ export default function Board() {
       // other non-pointer tool still pans.
       stage.draggable(panningTool(activeTool));
       stage.container().style.cursor = cursorFor(activeTool);
+      // A node's open form sits above the whole board (Z_INDEX.panelForm),
+      // so a draw that crossed it would land on the form instead and nothing
+      // would be drawn. Arming a drawing tool means the edit is over: fold the
+      // form back to a selected node, the same as clicking its placeholder.
+      if (drawingTool(activeTool)) {
+        const { panels, closePanel } = useNodePanel.getState();
+        panels.filter((p) => p.isPanelOpen).forEach((p) => closePanel(p.id));
+      }
       transformer.nodes([]);
       updateSelectionChrome();
       hoverRef.current?.hide();

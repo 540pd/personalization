@@ -25,6 +25,11 @@ export type Tool =
  */
 const DRAW_TOOLS: Tool[] = ["frame"];
 
+/** Does a drag with this tool draw something on the board? */
+export function drawingTool(tool: Tool): boolean {
+  return DRAW_TOOLS.includes(tool);
+}
+
 /** Does a drag with this tool pan the board? */
 export function panningTool(tool: Tool): boolean {
   return tool !== "pointer" && !DRAW_TOOLS.includes(tool);
