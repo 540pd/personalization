@@ -120,13 +120,14 @@ function SinglePanel({
   // Settings live here rather than in the form: they decide the node's
   // footprint via spec.sizeFor, which is a parent concern.
   const [settings, setSettings] = useState<NodeSettings>(spec.defaultSettings);
-  // Draft and in-flight state live here, not in GenerateForm: the form
-  // unmounts whenever the panel collapses, and a half-written prompt must
-  // survive that.
-  const [draft, setDraft] = useState<GenerateDraft>({
+  // The draft lives in the store, not in GenerateForm: the form unmounts
+  // whenever the panel collapses, a half-written prompt must survive that,
+  // and a pasted copy of the node carries it. In-flight state stays local.
+  const draft: GenerateDraft = instance.draft ?? {
     model: spec.defaultModel ?? spec.models[0]?.id ?? "",
     instruction: "",
-  });
+  };
+  const setDraft = (next: GenerateDraft) => useNodePanel.getState().setDraft(instance.id, next);
   const [busy, setBusy] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [dragging,    setDragging]    = useState(false);
@@ -525,6 +526,10 @@ function SinglePanel({
 
       {/* ── Placeholder ── */}
       <button
+  // Shift/Ctrl+click is a selection gesture here, but the browser reads a
+  // shift-click as "extend the text selection" and paints everything between
+  // the two clicks, image included, in its highlight blue.
+  onMouseDown={(e) => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
   onPointerDown={onPointerDown}
   onPointerMove={onPointerMove}
   onPointerUp={onPointerUp}

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 
 // What a panel node generates. The dock already offers all three
@@ -19,6 +19,15 @@ export type NodeKind = "image" | "video" | "instruction";
 export interface PanelOutput {
   type: "image" | "video" | "text";
   value: string;
+}
+
+/**
+ * What the user has typed and chosen in a node's panel. Held here rather than
+ * in the component so a copy of the node can carry it.
+ */
+export interface PanelDraft {
+  model: string;
+  instruction: string;
 }
 
 export interface PanelInstance {
@@ -43,6 +52,8 @@ export interface PanelInstance {
   // referred to by when it feeds a downstream generation. Derived from the
   // instruction on first generate; renameable.
   label?: string;
+  // Unset until the user first edits the panel; the kind's defaults apply.
+  draft?: PanelDraft;
 }
 
 interface NodePanelState {
@@ -58,9 +69,19 @@ interface NodePanelState {
   activateAll:     () => void;           // everything → active (Ctrl+A)
   togglePanel:     (id: string) => void; // Shift/Ctrl+click: add to / drop from the selection
   removeActive:    () => void;           // remove every active panel (Delete)
+  /**
+   * Paste copies of `sources`, offset by `offset` canvas units, as the new
+   * selection. Returns old id → new id so wires can be re-pointed at the copies.
+   * Labels are taken as given: the caller makes them unique board-wide.
+   */
+  pastePanels:     (sources: PanelInstance[], offset: number) => Record<string, string>;
   setCanvasPos:    (id: string, x: number, y: number) => void;
   selectPanel:     (id: string | null) => void;
-  /** Replace every panel wholesale. Used by the shared undo timeline. */
+  /**
+   * Replace every panel wholesale. Used by the shared undo timeline. A panel
+   * that still exists keeps its current draft: typing is not an undo step, so
+   * undoing a move must not revert the instruction being written.
+   */
   replaceAll:      (panels: PanelInstance[]) => void;
   clearAll:        () => void;
   setSize:         (id: string, w: number, h: number) => void;
@@ -68,9 +89,37 @@ interface NodePanelState {
   /** Record or clear an in-flight job. */
   setJob:          (id: string, job: string | undefined) => void;
   setLabel:        (id: string, label: string) => void;
+  setDraft:        (id: string, draft: PanelDraft) => void;
 }
 
 let _nextId = 1;
+
+/**
+ * localStorage that cannot throw on write.
+ *
+ * Generated images are stored inline as data URLs, so a few of them -- and a
+ * paste duplicates them -- run past the browser's ~5MB quota. setItem then
+ * throws from inside the store's set(), which aborted whatever handler made
+ * the change halfway: a paste landed its nodes but never its wires or its
+ * undo step. The in-memory state is already right at that point; only the
+ * copy that survives a reload is stale, so warn and carry on.
+ */
+const safeLocalStorage = createJSONStorage(() => {
+  // Read here, as the default storage does: on the server this throws and
+  // persist quietly turns itself off.
+  const ls = localStorage;
+  return {
+    getItem: (name: string) => ls.getItem(name),
+    setItem: (name: string, value: string) => {
+      try {
+        ls.setItem(name, value);
+      } catch (err) {
+        console.warn(`Could not save ${name} to localStorage; it will not survive a reload.`, err);
+      }
+    },
+    removeItem: (name: string) => ls.removeItem(name),
+  };
+});
 
 export const useNodePanel = create<NodePanelState>()(
   persist(
@@ -179,6 +228,38 @@ export const useNodePanel = create<NodePanelState>()(
       panels: s.panels.filter((p) => !p.isActive),
     })),
 
+  pastePanels: (sources, offset) => {
+    const idMap: Record<string, string> = {};
+    if (!sources.length) return idMap;
+    const copies = sources.map((src): PanelInstance => {
+      const id = `panel-${_nextId++}`;
+      idMap[src.id] = id;
+      return {
+        id,
+        kind: src.kind,
+        canvasX: src.canvasX + offset,
+        canvasY: src.canvasY + offset,
+        w: src.w,
+        h: src.h,
+        output: src.output,
+        draft: src.draft,
+        label: src.label,
+        // No job: the original's in-flight generation stays the original's.
+        // Copying it would make both nodes poll the same job.
+        isActive: true,
+        isPanelOpen: false,
+      };
+    });
+    set((s) => ({
+      selectedId: copies.length === 1 ? copies[0].id : null,
+      panels: [
+        ...s.panels.map((p) => ({ ...p, isActive: false, isPanelOpen: false })),
+        ...copies,
+      ],
+    }));
+    return idMap;
+  },
+
   setCanvasPos: (id, x, y) =>
     set((s) => ({
       panels: s.panels.map((p) => (p.id === id ? { ...p, canvasX: x, canvasY: y } : p)),
@@ -187,7 +268,15 @@ export const useNodePanel = create<NodePanelState>()(
   selectPanel: (id) => set({ selectedId: id }),
 
   // Save current positions to the undo stack (call once per completed drag).
-  replaceAll: (panels) => set({ panels }),
+  replaceAll: (panels) =>
+    set((s) => {
+      const drafts = new Map(s.panels.map((p) => [p.id, p.draft]));
+      return {
+        panels: panels.map((p) =>
+          drafts.has(p.id) ? { ...p, draft: drafts.get(p.id) } : p
+        ),
+      };
+    }),
 
   clearAll: () => set({ panels: [], selectedId: null }),
 
@@ -213,9 +302,15 @@ export const useNodePanel = create<NodePanelState>()(
     set((s) => ({
       panels: s.panels.map((p) => p.id === id ? { ...p, label } : p),
     })),
+
+  setDraft: (id, draft) =>
+    set((s) => ({
+      panels: s.panels.map((p) => p.id === id ? { ...p, draft } : p),
+    })),
     }),
     {
       name: "gcos-node-panels",
+      storage: safeLocalStorage,
       // Only persist canvas data; UI-open flags and selectedId reset on load.
       partialize: (s) => ({ panels: s.panels }),
       onRehydrateStorage: () => (state) => {
