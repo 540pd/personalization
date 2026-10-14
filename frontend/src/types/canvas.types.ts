@@ -77,11 +77,24 @@ export interface GenerateImageV2Params {
   // Upstream nodes feeding this generation. The name is how the model is told
   // one reference from another.
   references?: Reference[];
+  /** How many images to generate. Omitted means one, in the original shape. */
+  variants?: number;
+}
+
+/** One variant that failed, by its position in the requested batch. */
+export interface VariantError {
+  index: number;
+  message: string;
 }
 
 export interface GenerateImageV2Result {
   jobId: string;
   status: "done" | "error";
+  /** Set when one image was asked for. */
   imageUrl?: string;
+  /** Set instead of imageUrl when variants > 1. */
+  imageUrls?: string[];
+  /** Variants that failed in an otherwise successful batch. */
+  errors?: VariantError[];
   modelUsed?: string;
 }

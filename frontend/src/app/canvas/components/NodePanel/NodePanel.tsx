@@ -32,6 +32,9 @@ import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen } from "@/lib/canvas/coords";
+import { boundsOf } from "@/lib/canvas/bounds";
+import { layoutVariants } from "../../board/variants";
+import { useFrames } from "@/store/frame.store";
 // Prompts usually open with boilerplate ("a highly detailed photorealistic
 // image of a …"), so first-N-words collides often — hence uniqueLabel on
 // every auto-generated name here.
@@ -119,16 +122,37 @@ function SinglePanel({
   // The kind's spec is the only thing that differs between node types.
   const spec = kindSpec(instance.kind);
   // Settings live here rather than in the form: they decide the node's
-  // footprint via spec.sizeFor, which is a parent concern.
-  const [settings, setSettings] = useState<NodeSettings>(spec.defaultSettings);
+  // footprint via spec.sizeFor, which is a parent concern. Seeded from the
+  // node, so a copy -- an image variant -- opens with its source's inputs.
+  // Spread over the defaults so a setting added later still has a value.
+  const [settings, setSettingsState] = useState<NodeSettings>(
+    () => ({ ...spec.defaultSettings, ...instance.settings }) as NodeSettings
+  );
   // Draft and in-flight state live here, not in GenerateForm: the form
   // unmounts whenever the panel collapses, and a half-written prompt must
   // survive that.
-  const [draft, setDraft] = useState<GenerateDraft>({
-    model: spec.defaultModel ?? spec.models[0]?.id ?? "",
-    instruction: "",
-  });
+  const [draft, setDraftState] = useState<GenerateDraft>(() => ({
+    model: instance.model ?? spec.defaultModel ?? spec.models[0]?.id ?? "",
+    instruction: instance.instruction ?? "",
+  }));
+  // Written through to the node, so its inputs outlive this panel and travel
+  // with any copy. The prompt is the exception: it is saved on blur and on
+  // Create rather than per keystroke, because the store is persisted and a
+  // node can hold a multi-megabyte image that would be re-serialised with
+  // every character typed.
+  const setSettings = (next: NodeSettings) => {
+    setSettingsState(next);
+    useNodePanel.getState().setInputs(instance.id, { settings: next });
+  };
+  const setDraft = (next: GenerateDraft) => {
+    setDraftState(next);
+    if (next.model !== draft.model) useNodePanel.getState().setInputs(instance.id, { model: next.model });
+  };
   const [busy, setBusy] = useState(false);
+  // A batch takes as long as its slowest variant, so say how many are coming
+  // rather than showing the same spinner as for one.
+  const variantTotal = spec.variantCount?.(settings) ?? 1;
+  const variantBusyLabel = variantTotal > 1 ? `Creating ${variantTotal} images…` : undefined;
   const [genError, setGenError] = useState<string | null>(null);
   const [dragging,    setDragging]    = useState(false);
   const [hovered,     setHovered]     = useState(false);
@@ -307,6 +331,11 @@ function SinglePanel({
   // form's error line.
   const handleGenerate = async () => {
     if (!draft.instruction.trim() || busy) return;
+    useNodePanel.getState().setInputs(instance.id, {
+      model: draft.model,
+      instruction: draft.instruction,
+      settings,
+    });
     generateAbort.current?.abort();
     const controller = new AbortController();
     generateAbort.current = controller;
@@ -338,6 +367,76 @@ function SinglePanel({
           return null;
         })
         .filter((r): r is Reference => r !== null);
+
+      // More than one result cannot live in this node -- it holds a single
+      // output and feeds a single reference -- so a batch goes to the board
+      // as image nodes in a Frame of their own, and this node stays as it was.
+      const count = spec.variantCount?.(settings) ?? 1;
+      if (count > 1 && spec.generateVariants) {
+        const batch = await spec.generateVariants(
+          {
+            modelId: draft.model,
+            instruction: draft.instruction.trim(),
+            settings,
+            references,
+            signal: controller.signal,
+          },
+          count
+        );
+        if (controller.signal.aborted) return;
+
+        const store = useNodePanel.getState();
+        // Named before anything lands, so the copies and their frame can take
+        // their names from it.
+        const name = instance.label
+          ?? uniqueLabel(labelFromInstruction(draft.instruction), takenLabels());
+        if (!instance.label) store.setLabel(instance.id, name);
+
+        // This node is variant 1 and stays put; the frame grows around it and
+        // the copies fill the rest of the grid. Every copy is a full Create
+        // node with this one's inputs, so any of them can be regenerated alone.
+        const source = boundsOf(instance);
+        const { frame, cells } = layoutVariants(batch.urls.length, source);
+        store.setOutput(instance.id, { type: "image", value: batch.urls[0] });
+
+        const taken = takenLabels();
+        const placements = batch.urls.slice(1).map((url, i) => {
+          const label = uniqueLabel(name, taken);
+          taken.push(label);
+          return {
+            canvasX: cells[i + 1].x,
+            // Panels are centre-anchored vertically; cells are top-left.
+            canvasY: cells[i + 1].y + source.h / 2,
+            output: { type: "image" as const, value: url },
+            label,
+          };
+        });
+        store.addVariants(instance.id, placements);
+        const frameId = crypto.randomUUID();
+        useFrames.getState().upsert({
+          id: frameId,
+          canvasX: frame.x, canvasY: frame.y, canvasW: frame.w, canvasH: frame.h,
+          label: uniqueLabel(`${name} variants`, taken),
+        });
+        // One step for the frame, the copies and this node's new image.
+        canvasHistory.commit();
+
+        const failed = count - batch.urls.length;
+        if (failed) {
+          // Not an error -- the ones that worked are on the board -- but the
+          // user asked for N and should know they did not get N. The panel
+          // stays open for it: selecting the frame would close the form and
+          // take the message with it.
+          setGenError(`${failed} of ${count} variants failed to generate.`);
+        } else {
+          // Hand the selection to the new frame, so its outline and handles
+          // show what was created and what belongs to it. A frame's resting
+          // look is quiet enough to miss on a white board (#115).
+          selectOnly("frame");
+          useFrames.getState().select(frameId);
+        }
+        return;
+      }
 
       const output = await spec.generate({
         modelId: draft.model,
@@ -409,6 +508,7 @@ function SinglePanel({
   // a result — a node needs identifying while you are still configuring it.
   const handleInstructionBlur = () => {
     const instruction = draft.instruction;
+    useNodePanel.getState().setInputs(instance.id, { instruction });
     if (instance.label || !instruction.trim()) return;
     useNodePanel.getState().setLabel(
       instance.id,
@@ -583,6 +683,7 @@ function SinglePanel({
           settings={settings}
           onSettingsChange={setSettings}
           busy={busy}
+          busyLabel={variantBusyLabel}
           error={genError}
           left={panelLeft}
           top={screenCenterY}

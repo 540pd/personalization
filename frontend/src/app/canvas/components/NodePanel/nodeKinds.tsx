@@ -47,6 +47,8 @@ export interface ImageSettings {
   quality: string;
   thinking: string;
   temperature: number;
+  /** How many images one Create produces. 1 keeps the image in the node. */
+  variants: number;
 }
 
 export interface InstructionSettings {
@@ -130,4 +132,22 @@ export interface NodeKindSpec {
    * load, which is true of image and instruction.
    */
   resume?(jobId: string, signal?: AbortSignal): Promise<PanelOutput>;
+  /**
+   * How many results this settings value asks for. Omitted means a kind that
+   * only ever makes one, which is every kind except image.
+   */
+  variantCount?(settings: NodeSettings): number;
+  /**
+   * Generate several results at once. Only called when variantCount is above
+   * one; the results land on the board as their own nodes rather than in this
+   * one, because a node holds a single output and feeds a single reference.
+   */
+  generateVariants?(args: GenerateArgs, count: number): Promise<VariantBatch>;
+}
+
+/** What a multi-result generation hands back. */
+export interface VariantBatch {
+  urls: string[];
+  /** How many of the requested results did not come back. */
+  failed: number;
 }

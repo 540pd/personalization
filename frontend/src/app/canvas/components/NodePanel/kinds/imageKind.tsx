@@ -5,9 +5,9 @@
 // the form are kind-agnostic.
 
 import { generateImageV2 } from "@/api/canvas.api";
-import type { AspectRatioV2 } from "@/types/canvas.types";
+import type { AspectRatioV2, Reference } from "@/types/canvas.types";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
-import type { ImageSettings, NodeKindSpec, SettingsProps } from "../nodeKinds";
+import type { ImageSettings, NodeKindSpec, NodeSettings, SettingsProps } from "../nodeKinds";
 
 // To add a new model: append an entry with the Vertex AI model ID as `id` and
 // the display name as `label`. The `id` value is sent verbatim to the backend
@@ -33,6 +33,11 @@ const MODELS = [
 const ASPECT_RATIOS = ["16:9", "1:1", "9:16", "4:3", "3:4"];
 const QUALITIES     = ["1K", "2K", "4K"];
 const THINKING_OPTS = ["None", "Minimal", "Full"];
+// Each variant is a separate billed call (see the backend's
+// generateImageVariants), so the cap is a spend control. A select rather than
+// a number input: nothing out of range can be typed in the first place.
+const MAX_VARIANTS = 10;
+const VARIANT_OPTS = Array.from({ length: MAX_VARIANTS }, (_, i) => i + 1);
 
 function Advanced({ value, onChange, supports }: SettingsProps) {
   const s = value as ImageSettings;
@@ -115,6 +120,23 @@ function Options({ value, onChange, supports }: SettingsProps) {
         </select>
       </div>
       )}
+
+      <div className="node-panel-option">
+        {/* A bare count beside "16:9" and "1K" could mean anything, so the
+            multiplier reads as "this many" at a glance, and the label says
+            what of -- on hover, and to a screen reader, which has no hover. */}
+        <select
+          aria-label="Images"
+          title="Images"
+          value={s.variants}
+          onChange={(e) => onChange({ ...s, variants: Number(e.target.value) })}
+          className="node-panel-option-select"
+        >
+          {VARIANT_OPTS.map((n) => (
+            <option key={n} value={n}>{`×${n}`}</option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }
@@ -170,6 +192,7 @@ export const imageKind: NodeKindSpec = {
     thinking: "Minimal",
     // 0 by default: the same prompt should give the same picture back.
     temperature: 0,
+    variants: 1,
   },
   sizeFor: (s) => placeholderSize((s as ImageSettings).aspectRatio),
   EmptyState,
@@ -177,20 +200,45 @@ export const imageKind: NodeKindSpec = {
   Advanced,
   Options,
   async generate({ modelId, instruction, settings, references }) {
-    const s = settings as ImageSettings;
-    const result = await generateImageV2({
-      modelId,
-      instruction,
-      aspectRatio: s.aspectRatio as AspectRatioV2,
-      // Sent as-is: the backend maps quality onto imageConfig.imageSize and
-      // the Thinking label onto a ThinkingLevel. Collapsing them here is how
-      // both controls ended up doing nothing.
-      quality: s.quality,
-      thinking: s.thinking,
-      temperature: s.temperature,
-      references: references.length ? references : undefined,
-    });
+    const result = await generateImageV2(requestFor(modelId, instruction, settings, references));
     if (!result.imageUrl) throw new Error("Generation returned no image.");
     return { type: "image", value: result.imageUrl };
   },
+  variantCount: (settings) => (settings as ImageSettings).variants ?? 1,
+  async generateVariants({ modelId, instruction, settings, references }, count) {
+    const result = await generateImageV2({
+      ...requestFor(modelId, instruction, settings, references),
+      variants: count,
+    });
+    const urls = result.imageUrls ?? [];
+    // A backend from before variants (#113) ignores the count and answers in
+    // the single-image shape. Say that, rather than "no images" -- one did
+    // come back, and the fix is on the server, not in the prompt.
+    if (!urls.length && result.imageUrl) {
+      throw new Error("This server can only make one image at a time. Set Images to ×1, or update the backend.");
+    }
+    if (!urls.length) throw new Error("Generation returned no images.");
+    return { urls, failed: count - urls.length };
+  },
 };
+
+function requestFor(
+  modelId: string,
+  instruction: string,
+  settings: NodeSettings,
+  references: Reference[]
+) {
+  const s = settings as ImageSettings;
+  return {
+    modelId,
+    instruction,
+    aspectRatio: s.aspectRatio as AspectRatioV2,
+    // Sent as-is: the backend maps quality onto imageConfig.imageSize and
+    // the Thinking label onto a ThinkingLevel. Collapsing them here is how
+    // both controls ended up doing nothing.
+    quality: s.quality,
+    thinking: s.thinking,
+    temperature: s.temperature,
+    references: references.length ? references : undefined,
+  };
+}
