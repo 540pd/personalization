@@ -615,3 +615,114 @@ test.describe("frames match nodes", () => {
     expect(Math.round(after.y - img.y)).toBe(50);
   });
 });
+
+// #108: a frame's name hides behind a node, as a node's name does.
+test.describe("frame name occlusion", () => {
+  const frameName = (page: Page) => page.locator('div[title="Frame"]');
+
+  /** The frame's screen box. */
+  const frameBox = (page: Page) =>
+    page.evaluate(() => {
+      type R = { getClientRect(): { x: number; y: number; width: number; height: number } };
+      const stages = (window as unknown as { Konva: { stages: { find(s: string): R[] }[] } }).Konva.stages;
+      const r = stages.flatMap((s) => s.find(".frame"))[0].getClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+
+  /** A frame, deselected, and an uploaded image parked clear of it. */
+  async function frameAndImage(page: Page, zoomTo?: number) {
+    await openBoard(page);
+    // Before any image is dragged: after one is, the wheel stops reaching the
+    // board (a separate bug), and setZoom works by wheel.
+    if (zoomTo) await setZoom(page, zoomTo);
+    await frameBtn(page).click();
+    // Left of (700, 430), where setZoom turns the wheel.
+    await drawFrame(page, 260, 320, 620, 580);
+    await uploadImage(page, 160, 120);
+    await collapsePanels(page);
+    // Park the image well clear of the frame, top right of the board.
+    const img = await imageBox(page);
+    await moveImage(page, img, 950 - img.x, 80 - img.y);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+    return frameBox(page);
+  }
+
+  async function moveImage(page: Page, img: { x: number; y: number; w: number; h: number }, dx: number, dy: number) {
+    await page.mouse.move(img.x + img.w / 2, img.y + img.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(img.x + img.w / 2 + dx, img.y + img.h / 2 + dy, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+  }
+
+  /** Rest the image over the frame's name, just above its top-left corner. */
+  async function coverName(page: Page, f: { x: number; y: number }) {
+    const img = await imageBox(page);
+    await moveImage(page, img, f.x - 30 - img.x, f.y - 70 - img.y);
+    // Deselect the image and the frame alike; a click on empty board.
+    await page.mouse.click(1000, 450);
+    await page.waitForTimeout(300);
+  }
+
+  test("is shown when nothing covers it", async ({ page }) => {
+    await frameAndImage(page);
+    await expect(frameName(page)).toHaveCount(1);
+  });
+
+  test("hides when a node rests over the frame's top-left", async ({ page }) => {
+    const f = await frameAndImage(page);
+    await coverName(page, f);
+    await expect(frameName(page)).toHaveCount(0);
+  });
+
+  test("shows anyway while the frame is selected", async ({ page }) => {
+    const f = await frameAndImage(page);
+    await coverName(page, f);
+    await expect(frameName(page)).toHaveCount(0);
+    // Bare frame, bottom right, clear of the image.
+    await page.mouse.click(f.x + f.w - 30, f.y + f.h - 30);
+    await page.waitForTimeout(300);
+    await expect(frameName(page)).toHaveCount(1);
+  });
+
+  test("is shown when a node sits elsewhere on the frame", async ({ page }) => {
+    const f = await frameAndImage(page);
+    const img = await imageBox(page);
+    await moveImage(page, img, f.x + f.w / 2 - img.w / 2 - img.x, f.y + f.h / 2 - img.h / 2 - img.y);
+    await page.mouse.click(1000, 450);
+    await page.waitForTimeout(300);
+    await expect(frameName(page)).toHaveCount(1);
+  });
+
+  test("a Create node over the name hides it too", async ({ page }) => {
+    const f = await frameAndImage(page);
+    await addPanel(page);
+    await collapsePanels(page);
+    const p = (await panelBoxes(page))[0];
+    await page.mouse.move(p.x + p.w / 2, p.y + p.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(f.x - 30 + p.w / 2, f.y - 70 + p.h / 2, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    await page.mouse.click(1000, 450);
+    await page.waitForTimeout(300);
+    await expect(frameName(page)).toHaveCount(0);
+  });
+
+  for (const z of [0.5, 1.5]) {
+    test(`hides and shows the same way at ${z * 100}% zoom`, async ({ page }) => {
+      const f = await frameAndImage(page, z);
+      expect(await page.evaluate(() => (window as any).Konva.stages[0].scaleX())).toBeCloseTo(z, 1);
+      // The probe is in screen space: at either zoom the name sits the same
+      // few px above the frame, so the same cover hides it.
+      await expect(frameName(page)).toHaveCount(1);
+      await coverName(page, f);
+      await expect(frameName(page)).toHaveCount(0);
+      // And selecting the frame still shows it.
+      await page.mouse.click(f.x + f.w - 20, f.y + f.h - 20);
+      await page.waitForTimeout(300);
+      await expect(frameName(page)).toHaveCount(1);
+    });
+  }
+});
