@@ -30,6 +30,8 @@ export interface GenerateFormProps {
   settings: NodeSettings;
   onSettingsChange: (next: NodeSettings) => void;
   busy: boolean;
+  /** Replaces "Creating…" while busy, for a batch that needs saying so. */
+  busyLabel?: string;
   error: string | null;
   /** Screen position of the panel's left edge and vertical centre. */
   left: number;
@@ -41,7 +43,7 @@ export interface GenerateFormProps {
 }
 
 export default function GenerateForm({
-  spec, draft, onDraftChange, settings, onSettingsChange, busy, error,
+  spec, draft, onDraftChange, settings, onSettingsChange, busy, busyLabel, error,
   left, top, onClose, onInstructionBlur, onSubmit,
 }: GenerateFormProps) {
   // Only chrome state lives here; resetting it on reopen is harmless.
@@ -171,7 +173,7 @@ export default function GenerateForm({
           }`}
         >
           {busy && <Loader2 size={14} aria-hidden className="node-panel-loader" />}
-          {busy ? "Creating…" : "Create"}
+          {busy ? busyLabel ?? "Creating…" : "Create"}
         </button>
       </div>
     </div>
