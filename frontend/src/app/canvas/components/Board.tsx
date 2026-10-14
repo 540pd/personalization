@@ -137,9 +137,13 @@ export default function Board() {
     const restoreSnapshot = (snap: Snapshot) => {
       transformer.nodes([]);
       const snapSet = new Set(snap.map((s) => s.node));
-      // Remove nodes absent from this snapshot.
+      // Remove nodes absent from this snapshot, and their konvaNodes record
+      // with them: labels and ports render from the record, so leaving it
+      // behind shows the name and port of a node that is no longer there.
       (layer.find(".selectable") as Konva.Shape[]).forEach((n) => {
-        if (!snapSet.has(n)) n.remove();
+        if (snapSet.has(n)) return;
+        if (n.id()) useKonvaNodes.getState().remove(n.id());
+        n.remove();
       });
       // Restore attrs; re-add nodes that were previously removed.
       snap.forEach(({ node, attrs }) => {

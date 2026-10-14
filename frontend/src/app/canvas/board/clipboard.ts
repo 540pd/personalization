@@ -1,12 +1,16 @@
-// Delete, copy and paste for Konva nodes.
+// Delete for Konva nodes, and copy and paste for everything on the canvas.
 //
-// Kept together because they share the clipboard and the same notion of
-// "what is selected" -- the transformer's node list, which is the source of
-// truth for both.
+// Delete stays Konva-only: panels and wires each run their own Delete handler
+// on the same keypress. Copy and paste cannot be split that way, because a
+// pasted wire has to point at the pasted copies of its nodes, so one handler
+// owns the clipboard for uploaded images, generated nodes and wires alike.
 
 import Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
+import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
+import { useConnectionStore, type Connection } from "@/store/connection.store";
+import { useLayerOrder } from "@/store/layerOrder.store";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 
 /**
@@ -23,6 +27,16 @@ export interface ClipboardEntry {
   label?: string;
 }
 
+/** Everything one Ctrl+C captured. */
+export interface Clipboard {
+  konva: ClipboardEntry[];
+  panels: PanelInstance[];
+  /** Only wires with both ends among the copied nodes. */
+  connections: Connection[];
+}
+
+const EMPTY_CLIPBOARD: Clipboard = { konva: [], panels: [], connections: [] };
+
 /** Offset so a paste does not land exactly on its original. */
 const PASTE_OFFSET = 20;
 
@@ -34,6 +48,20 @@ export function copyNodes(selected: Konva.Shape[]): ClipboardEntry[] {
     imageUrl: registered[n.id()]?.imageUrl,
     label: registered[n.id()]?.label,
   }));
+}
+
+/**
+ * Captures the selected uploaded images, the active panels, and every wire
+ * that runs between two of them. A wire to an unselected node is left out:
+ * its copy would have nothing to attach to.
+ */
+export function copySelection(selected: Konva.Shape[]): Clipboard {
+  const panels = useNodePanel.getState().panels.filter((p) => p.isActive);
+  const ids = new Set([...selected.map((n) => n.id()), ...panels.map((p) => p.id)]);
+  const connections = useConnectionStore
+    .getState()
+    .connections.filter((c) => ids.has(c.fromNodeId) && ids.has(c.toNodeId));
+  return { konva: copyNodes(selected), panels, connections };
 }
 
 /** Re-creates copied nodes on `layer`, offset, and returns them. */
@@ -123,11 +151,12 @@ export interface EditKeysDeps {
 
 /** Keydown handler for Delete, Ctrl+C and Ctrl+V. */
 export function createEditKeysHandler(deps: EditKeysDeps) {
-  let clipboard: ClipboardEntry[] = [];
+  let clipboard: Clipboard = EMPTY_CLIPBOARD;
 
   return (e: KeyboardEvent) => {
     // Never steal keys from a field the user is typing in.
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
     const mod = e.ctrlKey || e.metaKey;
     const selected = deps.transformer.nodes() as Konva.Shape[];
 
@@ -144,20 +173,52 @@ export function createEditKeysHandler(deps: EditKeysDeps) {
     }
 
     if (mod && e.code === "KeyC") {
-      if (!selected.length) return;
-      clipboard = copyNodes(selected);
+      const next = copySelection(selected);
+      // An empty selection keeps the previous clipboard, as in any editor.
+      if (!next.konva.length && !next.panels.length) return;
+      clipboard = next;
       return;
     }
 
     if (mod && e.code === "KeyV") {
-      if (!clipboard.length) return;
+      if (!clipboard.konva.length && !clipboard.panels.length) return;
       e.preventDefault();
-      const pasted = pasteNodes(deps.layer, clipboard);
-      deps.applyDraggability();
-      deps.syncAllNodeGeometry();
-      selectNodes(deps.transformer, pasted);
+      const pasted = pasteNodes(deps.layer, clipboard.konva);
+      // The copies become the selection, so everything else lets go first.
+      deps.transformer.nodes([]);
+      useKonvaSelection.getState().deselect();
+      if (pasted.length) {
+        deps.applyDraggability();
+        deps.syncAllNodeGeometry();
+        selectNodes(deps.transformer, pasted);
+      }
+      const idMap: Record<string, string> = {};
+      clipboard.konva.forEach((entry, i) => {
+        const oldId = entry.attrs.id;
+        if (typeof oldId === "string" && oldId) idMap[oldId] = pasted[i].id();
+      });
+      if (clipboard.panels.length) {
+        // After pasteNodes, so the images' new names are already taken and a
+        // mixed paste cannot hand the same suffix to an image and a panel.
+        const taken = takenLabels();
+        const sources = clipboard.panels.map((p) => {
+          if (!p.label) return p;
+          const label = uniqueLabel(p.label, taken);
+          taken.push(label);
+          return { ...p, label };
+        });
+        Object.assign(idMap, useNodePanel.getState().pastePanels(sources, PASTE_OFFSET));
+      } else {
+        useNodePanel.getState().closeAllPanels();
+      }
+      useConnectionStore.getState().pasteConnections(clipboard.connections, idMap);
+      // A paste is a create, and a newly created node comes to the front.
+      // A mixed paste leaves the order alone: one layer has to stay underneath.
+      if (!pasted.length) useLayerOrder.getState().raiseDom();
+      else if (!clipboard.panels.length) useLayerOrder.getState().raiseCanvas();
       deps.updateSelectionChrome();
       deps.layer.batchDraw();
+      // One entry for nodes and wires alike, so one Ctrl+Z takes the paste back.
       deps.saveSnapshot();
     }
   };

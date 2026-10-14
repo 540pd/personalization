@@ -24,7 +24,7 @@ const node = (id: string, image: string): PanelInstance => ({
   id, kind: "image", canvasX: 0, canvasY: 0, w: 200, h: 150,
   isActive: false, isPanelOpen: false,
   output: { type: "image", value: image },
-  label: id, instruction: "a red kite", model: "gemini-3.1-flash-image",
+  label: id, draft: { instruction: "a red kite", model: "gemini-3.1-flash-image" },
 });
 
 const value = (panels: PanelInstance[]) => ({ state: { panels }, version: 0 });
@@ -65,8 +65,7 @@ describe("panelStorage", () => {
     const saved = read("k");
     const [p] = saved!.state.panels;
     expect(p.id).toBe("a");
-    expect(p.instruction).toBe("a red kite");
-    expect(p.model).toBe("gemini-3.1-flash-image");
+    expect(p.draft).toEqual({ instruction: "a red kite", model: "gemini-3.1-flash-image" });
     expect(p.output).toBeUndefined();
     // No assertion on the warning: it is once per session by design, and an
     // earlier test in this file has already spent it.

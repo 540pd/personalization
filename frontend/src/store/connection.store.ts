@@ -29,6 +29,11 @@ interface ConnectionState {
   selectAllConnections:  () => void;
   removeConnection:      (id: string) => void;
   removeForNode:         (nodeId: string) => void;
+  /**
+   * Add copies of `sources` with both ends re-pointed through `idMap`, and make
+   * them the selection. A wire with an end missing from the map is skipped.
+   */
+  pasteConnections:      (sources: Connection[], idMap: Record<string, string>) => void;
   /** Replace every connection wholesale. Used by the shared undo timeline. */
   replaceConnections:    (connections: Connection[]) => void;
 }
@@ -97,6 +102,21 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
         selectedIds: s.selectedIds.filter((sid) => !removedIds.has(sid)),
       };
     }),
+
+  pasteConnections: (sources, idMap) => {
+    const copies = sources
+      .filter((c) => idMap[c.fromNodeId] && idMap[c.toNodeId])
+      .map((c): Connection => ({
+        ...c,
+        id: crypto.randomUUID(),
+        fromNodeId: idMap[c.fromNodeId],
+        toNodeId:   idMap[c.toNodeId],
+      }));
+    set((s) => ({
+      connections: [...s.connections, ...copies],
+      selectedIds: copies.map((c) => c.id),
+    }));
+  },
 
   replaceConnections: (connections) => set({ connections, selectedIds: [] }),
 }));

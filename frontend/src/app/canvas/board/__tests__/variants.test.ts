@@ -55,7 +55,7 @@ describe("variant copies", () => {
     useNodePanel.getState().clearAll();
     useNodePanel.getState().addPanel(0, 0, "image");
     const id = useNodePanel.getState().panels[0].id;
-    useNodePanel.getState().setInputs(id, { model: "gemini-3-pro-image", instruction: "a red kite", settings });
+    useNodePanel.getState().setDraft(id, { model: "gemini-3-pro-image", instruction: "a red kite", settings });
   });
 
   const sourceId = () => useNodePanel.getState().panels[0].id;
@@ -70,9 +70,9 @@ describe("variant copies", () => {
     const [, a, b] = useNodePanel.getState().panels;
     for (const v of [a, b]) {
       expect(v.kind).toBe("image");
-      expect(v.model).toBe("gemini-3-pro-image");
-      expect(v.instruction).toBe("a red kite");
-      expect(v.settings).toEqual(settings);
+      expect(v.draft?.model).toBe("gemini-3-pro-image");
+      expect(v.draft?.instruction).toBe("a red kite");
+      expect(v.draft?.settings).toEqual(settings);
     }
   });
 
@@ -92,7 +92,7 @@ describe("variant copies", () => {
     useNodePanel.getState().addVariants(sourceId(), [place(2)]);
 
     const [src, copy] = useNodePanel.getState().panels;
-    expect(copy.settings).not.toBe(src.settings);
+    expect(copy.draft?.settings).not.toBe(src.draft?.settings);
   });
 
   it("adds copies unselected, leaving the source as it was", () => {

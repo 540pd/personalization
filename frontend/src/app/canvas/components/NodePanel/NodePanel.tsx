@@ -124,30 +124,23 @@ function SinglePanel({
   const spec = kindSpec(instance.kind);
   // Settings live here rather than in the form: they decide the node's
   // footprint via spec.sizeFor, which is a parent concern. Seeded from the
-  // node, so a copy -- an image variant -- opens with its source's inputs.
-  // Spread over the defaults so a setting added later still has a value.
+  // node, so a copy -- an image variant, a paste -- opens with its source's
+  // settings. Spread over the defaults so a setting added later still has a value.
   const [settings, setSettingsState] = useState<NodeSettings>(
-    () => ({ ...spec.defaultSettings, ...instance.settings }) as NodeSettings
+    () => ({ ...spec.defaultSettings, ...instance.draft?.settings }) as NodeSettings
   );
-  // Draft and in-flight state live here, not in GenerateForm: the form
-  // unmounts whenever the panel collapses, and a half-written prompt must
-  // survive that.
-  const [draft, setDraftState] = useState<GenerateDraft>(() => ({
-    model: instance.model ?? spec.defaultModel ?? spec.models[0]?.id ?? "",
-    instruction: instance.instruction ?? "",
-  }));
-  // Written through to the node, so its inputs outlive this panel and travel
-  // with any copy. The prompt is the exception: it is saved on blur and on
-  // Create rather than per keystroke, because the store is persisted and a
-  // node can hold a multi-megabyte image that would be re-serialised with
-  // every character typed.
+  // The draft lives in the store, not in GenerateForm: the form unmounts
+  // whenever the panel collapses, a half-written prompt must survive that,
+  // and a copy of the node carries it. In-flight state stays local.
+  const draft: GenerateDraft = instance.draft ?? {
+    model: spec.defaultModel ?? spec.models[0]?.id ?? "",
+    instruction: "",
+  };
+  const setDraft = (next: GenerateDraft) =>
+    useNodePanel.getState().setDraft(instance.id, { model: next.model, instruction: next.instruction, settings });
   const setSettings = (next: NodeSettings) => {
     setSettingsState(next);
-    useNodePanel.getState().setInputs(instance.id, { settings: next });
-  };
-  const setDraft = (next: GenerateDraft) => {
-    setDraftState(next);
-    if (next.model !== draft.model) useNodePanel.getState().setInputs(instance.id, { model: next.model });
+    useNodePanel.getState().setDraft(instance.id, { model: draft.model, instruction: draft.instruction, settings: next });
   };
   const [busy, setBusy] = useState(false);
   // A batch takes as long as its slowest variant, so say how many are coming
@@ -345,11 +338,8 @@ function SinglePanel({
   // form's error line.
   const handleGenerate = async () => {
     if (!draft.instruction.trim() || busy) return;
-    useNodePanel.getState().setInputs(instance.id, {
-      model: draft.model,
-      instruction: draft.instruction,
-      settings,
-    });
+    // Saved before the request, so variant copies are made from what was sent.
+    setDraft(draft);
     generateAbort.current?.abort();
     const controller = new AbortController();
     generateAbort.current = controller;
@@ -522,7 +512,11 @@ function SinglePanel({
   // a result — a node needs identifying while you are still configuring it.
   const handleInstructionBlur = () => {
     const instruction = draft.instruction;
-    useNodePanel.getState().setInputs(instance.id, { instruction });
+   useNodePanel.getState().setDraft(instance.id, {
+    model: draft.model,
+    instruction,
+    settings,
+  });
     if (instance.label || !instruction.trim()) return;
     useNodePanel.getState().setLabel(
       instance.id,
@@ -638,6 +632,10 @@ function SinglePanel({
 
       {/* ── Placeholder ── */}
       <button
+  // Shift/Ctrl+click is a selection gesture here, but the browser reads a
+  // shift-click as "extend the text selection" and paints everything between
+  // the two clicks, image included, in its highlight blue.
+  onMouseDown={(e) => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
   onPointerDown={onPointerDown}
   onPointerMove={onPointerMove}
   onPointerUp={onPointerUp}
