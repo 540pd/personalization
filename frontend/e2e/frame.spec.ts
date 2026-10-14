@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, uploadImage, imageBox, addPanel, panelBoxes, collapsePanels } from "./helpers";
+import { openBoard, uploadImage, imageBox, addPanel, panelBoxes, collapsePanels, setZoom } from "./helpers";
 
 // A frame is a labelled backdrop, not a container: it sits behind the nodes
 // and does not own them.
@@ -393,5 +393,231 @@ test.describe("one selection at a time", () => {
     await page.keyboard.press("Control+z");
     await page.waitForTimeout(600);
     expect(await frameCount(page)).toBe(2);
+  });
+});
+
+// Issue #117. Frames were styled on their own -- tighter corners, no hover
+// cue, blue handles -- and read as a different kind of object from nodes.
+test.describe("frames match nodes", () => {
+  type Attrs = Record<string, unknown>;
+
+  /** Attrs of the frame stage's and the board stage's transformers. */
+  const transformers = (page: Page) =>
+    page.evaluate(() => {
+      type T = { getAttrs(): Record<string, unknown>; enabledAnchors(): string[] };
+      type S = { find(q: string): unknown[]; findOne(q: string): T | undefined };
+      const stages = (window as unknown as { Konva: { stages: S[] } }).Konva.stages;
+      const fs = stages.find((st) => st.find(".frame").length);
+      const bs = stages.find((st) => st !== fs);
+      const pick = (t?: T): Record<string, unknown> | null =>
+        t ? { ...t.getAttrs(), anchors: t.enabledAnchors().length } : null;
+      return { frame: pick(fs?.findOne("Transformer")), node: pick(bs?.findOne("Transformer")) };
+    });
+
+  /** The frame rect's own attrs, and whether its hover outline is showing. */
+  const frameState = (page: Page) =>
+    page.evaluate(() => {
+      type N = {
+        getAttrs(): Record<string, unknown>;
+        visible(): boolean;
+        getClientRect(): { x: number; y: number; width: number; height: number };
+      };
+      type S = { find(q: string): N[]; findOne(q: string): N | undefined };
+      const fs = (window as unknown as { Konva: { stages: S[] } }).Konva.stages.find((st) => st.find(".frame").length);
+      const rect = fs?.find(".frame")[0];
+      return {
+        cornerRadius: rect?.getAttrs().cornerRadius,
+        box: rect?.getClientRect(),
+        hover: !!fs?.findOne(".hover-outline")?.visible(),
+      };
+    });
+
+  const nodeCornerRadius = (page: Page) =>
+    page.evaluate(() => {
+      type S = { findOne(q: string): { getAttrs(): Record<string, unknown> } | undefined };
+      return (window as unknown as { Konva: { stages: S[] } }).Konva.stages[0].findOne("Image")?.getAttrs().cornerRadius;
+    });
+
+  /**
+   * Draw a frame around a box without crossing the node's name label, which
+   * sits just above its top-left corner and cancels a draw that passes over
+   * it (a separate frame-tool bug). Down the left side, then along the bottom.
+   */
+  async function drawAround(page: Page, img: { x: number; y: number; w: number; h: number }, pad = 90) {
+    const x1 = img.x - pad, y1 = img.y - pad, x2 = img.x + img.w + pad, y2 = img.y + img.h + pad;
+    await page.mouse.move(x1, y1);
+    await page.mouse.down();
+    await page.mouse.move(x1, y2, { steps: 6 });
+    await page.mouse.move(x2, y2, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+  }
+
+  test("corners round like a node", async ({ page }) => {
+    await openBoard(page);
+    await uploadImage(page, 200, 150);
+    await collapsePanels(page);
+    await frameBtn(page).click();
+    await drawFrame(page, 340, 120, 640, 320);
+
+    expect((await frameState(page)).cornerRadius).toBe(await nodeCornerRadius(page));
+  });
+
+  test("hovering bare frame shows the node hover outline", async ({ page }) => {
+    await openBoard(page);
+    await frameBtn(page).click();
+    await drawFrame(page, 340, 120, 640, 320);
+    // Drawn, so selected; deselect so the hover cue is allowed to show.
+    await page.mouse.click(1050, 620);
+    await page.waitForTimeout(300);
+
+    await page.mouse.move(360, 140);
+    await page.waitForTimeout(200);
+    expect((await frameState(page)).hover).toBe(true);
+
+    // And it goes when the pointer leaves for empty board.
+    await page.mouse.move(1050, 620);
+    await page.waitForTimeout(200);
+    expect((await frameState(page)).hover).toBe(false);
+  });
+
+  // The case a mouseleave-driven outline gets wrong: Board takes the pointer
+  // back over a node, so the frame stage never hears the pointer leave.
+  test("over a node inside a frame, only the node is outlined", async ({ page }) => {
+    await openBoard(page);
+    await uploadImage(page, 200, 150);
+    await collapsePanels(page);
+    const img = await imageBox(page);
+    await frameBtn(page).click();
+    await drawAround(page, img);
+    await page.mouse.click(1050, 620);
+    await page.waitForTimeout(300);
+
+    await page.mouse.move(img.x - 60, img.y - 60);
+    await page.waitForTimeout(200);
+    expect((await frameState(page)).hover).toBe(true);
+
+    await page.mouse.move(img.x + img.w / 2, img.y + img.h / 2, { steps: 6 });
+    await page.waitForTimeout(200);
+    expect((await frameState(page)).hover).toBe(false);
+  });
+
+  test("no hover outline on a selected frame, its handles already say so", async ({ page }) => {
+    await openBoard(page);
+    await frameBtn(page).click();
+    await drawFrame(page, 340, 120, 640, 320);
+
+    await page.mouse.move(360, 140);
+    await page.waitForTimeout(200);
+    expect((await frameState(page)).hover).toBe(false);
+  });
+
+  test("a selected frame has the same border and handles as a node", async ({ page }) => {
+    await openBoard(page);
+    await uploadImage(page, 200, 150);
+    await collapsePanels(page);
+    await frameBtn(page).click();
+    await drawFrame(page, 340, 120, 640, 320);
+
+    const { frame, node } = await transformers(page);
+    const look = (a: Attrs | null) => a && {
+      borderStroke: a.borderStroke,
+      borderStrokeWidth: a.borderStrokeWidth,
+      anchorStroke: a.anchorStroke,
+      anchorFill: a.anchorFill,
+      anchorSize: a.anchorSize,
+      anchorCornerRadius: a.anchorCornerRadius,
+      padding: a.padding,
+    };
+    expect(look(frame)).toEqual(look(node));
+  });
+
+  test("frames keep edge handles and resize freely", async ({ page }) => {
+    await openBoard(page);
+    await frameBtn(page).click();
+    await drawFrame(page, 340, 120, 640, 320);
+
+    const { frame } = await transformers(page);
+    expect(frame?.anchors).toBe(8);
+    expect(frame?.keepRatio).toBe(false);
+    expect(frame?.flipEnabled).toBe(false);
+  });
+
+  /** Drag the selected frame's bottom-right handle by (dx, dy). */
+  async function dragCorner(page: Page, dx: number, dy: number) {
+    const a = await page.evaluate(() => {
+      type N = { getClientRect(): { x: number; y: number; width: number; height: number } };
+      type S = { find(q: string): unknown[]; findOne(q: string): N | undefined };
+      const fs = (window as unknown as { Konva: { stages: S[] } }).Konva.stages.find((st) => st.find(".frame").length);
+      const r = fs!.findOne(".bottom-right")!.getClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(a.x + dx, a.y + dy, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+  }
+
+  // Crossing swaps the handle, as it does for a node: the box re-forms the
+  // right way round on the far side, unrotated and with its scale baked in.
+  // A frame's stored box has no rotation, so it must never be turned over.
+  // (The original frame config was not seen to break this either; the check
+  // is here to hold the node-parity setting, flipEnabled: false, in place.)
+  test("dragging a handle past the opposite edge leaves a usable frame", async ({ page }) => {
+    await openBoard(page);
+    await frameBtn(page).click();
+    await drawFrame(page, 340, 120, 640, 320);
+
+    await dragCorner(page, -500, -350);
+
+    const after = (await frameState(page)).box!;
+    expect(after.width).toBeGreaterThanOrEqual(19);
+    expect(after.height).toBeGreaterThanOrEqual(19);
+    // Not turned over, and the scale baked back into the size.
+    const shape = await page.evaluate(() => {
+      type N = { rotation(): number; scaleX(): number; scaleY(): number };
+      type S = { find(q: string): N[] };
+      const fs = (window as unknown as { Konva: { stages: S[] } }).Konva.stages.find((st) => st.find(".frame").length);
+      const r = fs!.find(".frame")[0];
+      return { rotation: Math.round(r.rotation()), scaleX: r.scaleX(), scaleY: r.scaleY() };
+    });
+    expect(shape).toEqual({ rotation: 0, scaleX: 1, scaleY: 1 });
+  });
+
+  for (const level of [0.5, 1, 1.5]) {
+    test(`cannot be shrunk below its minimum at ${level * 100}% zoom`, async ({ page }) => {
+      await openBoard(page);
+      if (level !== 1) await setZoom(page, level);
+      await frameBtn(page).click();
+      await drawFrame(page, 340, 120, 640, 320);
+      const before = (await frameState(page)).box!;
+
+      await dragCorner(page, -(before.width - 6), -(before.height - 6));
+
+      const after = (await frameState(page)).box!;
+      // FRAME_MIN_EDGE is 20 screen px.
+      expect(after.width).toBeGreaterThanOrEqual(19);
+      expect(after.height).toBeGreaterThanOrEqual(19);
+    });
+  }
+
+  test("dragging by bare area still carries the contents", async ({ page }) => {
+    await openBoard(page);
+    await uploadImage(page, 200, 150);
+    await collapsePanels(page);
+    const img = await imageBox(page);
+    await frameBtn(page).click();
+    await drawAround(page, img);
+
+    await page.mouse.move(img.x - 60, img.y - 60);
+    await page.mouse.down();
+    await page.mouse.move(img.x - 60 + 80, img.y - 60 + 50, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const after = await imageBox(page);
+    expect(Math.round(after.x - img.x)).toBe(80);
+    expect(Math.round(after.y - img.y)).toBe(50);
   });
 });

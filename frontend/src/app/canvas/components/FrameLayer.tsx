@@ -19,12 +19,16 @@ import { useViewport } from "@/store/viewport.store";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { canvasHistory } from "@/lib/canvas/history";
 import { membersOf, moveMembers, type FrameMembers } from "../board/frameMembers";
+import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
+import { boardStage } from "@/lib/canvas/boardStage";
 import NodeLabel from "./NodeLabel";
 import {
   COLORS,
   FRAME_CORNER_RADIUS,
+  FRAME_MIN_EDGE,
   LABEL_GAP,
   LABEL_MIN_NODE_W,
+  SELECTION,
   Z_INDEX,
 } from "@/constants/canvas.constants";
 
@@ -33,6 +37,7 @@ export default function FrameLayer() {
   const stageRef = useRef<Konva.Stage | null>(null);
   const layerRef = useRef<Konva.Layer | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
+  const hoverRef = useRef<HoverOutline | null>(null);
   const previewRef = useRef<Konva.Rect | null>(null);
   // Membership is fixed when the drag starts, so a node is not picked up or
   // dropped halfway through just because the frame swept over it.
@@ -69,14 +74,33 @@ export default function FrameLayer() {
     const layer = new Konva.Layer();
     stage.add(layer);
 
+    // Styled exactly as a node's (Board.tsx), so selecting a frame and
+    // selecting a node look like the same act. Two deliberate differences:
+    // a frame keeps its edge anchors and resizes freely, because it is a
+    // region whose width and height change independently, where a node is a
+    // picture whose corners keep its ratio.
     const transformer = new Konva.Transformer({
       rotateEnabled: false,
-      borderStroke: COLORS.selected,
-      anchorStroke: COLORS.selected,
-      anchorSize: 8,
+      // A flip is rotation:-180 to Konva; the frame's stored box has no
+      // notion of it and would describe a rect the shape no longer covers.
+      flipEnabled: false,
+      keepRatio: false,
+      borderStroke: COLORS.ink,
+      borderStrokeWidth: SELECTION.borderWidth,
+      anchorStroke: COLORS.ink,
+      anchorFill: COLORS.paper,
+      anchorSize: SELECTION.anchorSize,
+      anchorCornerRadius: SELECTION.anchorCornerRadius,
+      padding: SELECTION.padding,
       ignoreStroke: true,
+      // Without a floor an over-drag shrinks a frame to nothing it can be
+      // grabbed by. FRAME_MIN_EDGE is screen px and the box arrives in screen
+      // px, so the floor holds at every zoom without converting.
+      boundBoxFunc: (oldBox, newBox) =>
+        newBox.width < FRAME_MIN_EDGE || newBox.height < FRAME_MIN_EDGE ? oldBox : newBox,
     });
     layer.add(transformer);
+    hoverRef.current = createHoverOutline(layer, transformer);
 
     // A click that misses every frame clears the frame selection. Clicks that
     // land on a node never reach this stage at all -- Board keeps its own
@@ -106,6 +130,7 @@ export default function FrameLayer() {
     stageRef.current = null;
     layerRef.current = null;
     transformerRef.current = null;
+    hoverRef.current = null;
     previewRef.current = null;
   }, []);
 
@@ -120,6 +145,49 @@ export default function FrameLayer() {
         useFrames.getState().replaceAll({ ...(snap as Record<string, never>) }),
     }),
   []);
+
+  // --- Hover outline: the same "you can grab this" cue a node shows ---
+  //
+  // Driven from window pointermove rather than the rect's mouseenter and
+  // mouseleave, because this stage only receives events while Board lets
+  // them through -- over bare frame. Move from a frame onto a node and Board
+  // takes the pointer back, so mouseleave never arrives and the outline would
+  // stick. Instead, walk down the elements under the cursor:
+  //   this stage first         -> the frame there, if any, is hovered
+  //   Board's canvas, on a node -> the node wins; no frame outline
+  //   Board's canvas, empty     -> transparent there, keep looking beneath
+  //   anything else             -> a panel, label or the dock is on top
+  useEffect(() => {
+    const frameAt = (x: number, y: number): Konva.Rect | null => {
+      const stage = stageRef.current;
+      if (!stage) return null;
+      const board = boardStage.current;
+      for (const el of document.elementsFromPoint(x, y)) {
+        if (stage.container().contains(el)) {
+          const r = stage.container().getBoundingClientRect();
+          const shape = stage.getIntersection({ x: x - r.left, y: y - r.top });
+          return shape?.hasName("frame") ? (shape as Konva.Rect) : null;
+        }
+        if (board?.container().contains(el)) {
+          const r = board.container().getBoundingClientRect();
+          if (board.getIntersection({ x: x - r.left, y: y - r.top })) return null;
+          continue;
+        }
+        return null;
+      }
+      return null;
+    };
+
+    const onMove = (e: PointerEvent) => {
+      const hover = hoverRef.current;
+      if (!hover) return;
+      const rect = frameAt(e.clientX, e.clientY);
+      if (rect) hover.show(rect);
+      else hover.hide();
+    };
+    window.addEventListener("pointermove", onMove);
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
 
   // --- Follow the shared viewport, so frames pan and zoom with the board ---
   useEffect(() => {
