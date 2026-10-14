@@ -11,8 +11,13 @@ export const COLORS = {
   placeholder:  "#f5f5f5",
   mediaFill:    "#1e1e2e",
   mediaStroke:  "#6b6b8a",
-  frameFill:    "#fafafa",
-  frameStroke:  "#d4d4d4",
+  // A Frame has to be findable without selecting it (#115). The border does
+  // the work: ~3:1 against the board, the usual floor for a UI boundary
+  // (#d4d4d4 was ~1.5:1 and read as nothing). The fill stays a whisper,
+  // lighter than a Create node's placeholder, so what sits inside a Frame
+  // reads exactly as it does outside one.
+  frameFill:    "#f7f7f8",
+  frameStroke:  "#949494",
 } as const;
 
 // Smallest frame a drag may produce, in SCREEN px -- a drag under this is a
