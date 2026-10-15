@@ -644,6 +644,12 @@ function SinglePanel({
   // shift-click as "extend the text selection" and paints everything between
   // the two clicks, image included, in its highlight blue.
   onMouseDown={(e) => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
+  // The generated image inside is an <img>, which the browser drags natively.
+  // A native drag swallows the pointer gesture -- a selected Frame's drag
+  // stalled after a few px -- and Chrome hands the image over as a file, so
+  // the board's drop handler added it again as a new image (#131). Moving a
+  // node is this element's own pointer handling; the browser's is never wanted.
+  onDragStart={(e) => e.preventDefault()}
   onPointerDown={onPointerDown}
   onPointerMove={onPointerMove}
   onPointerUp={onPointerUp}
