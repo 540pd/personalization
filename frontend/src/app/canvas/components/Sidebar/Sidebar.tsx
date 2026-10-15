@@ -12,8 +12,7 @@
 // from the identity seam in auth/useIdentity.
 
 import { useEffect, useState } from "react";
-import { PanelLeft } from "lucide-react";
-import { useSidebar, SIDEBAR_WIDTH } from "@/store/sidebar.store";
+import { useSidebar, sidebarInset } from "@/store/sidebar.store";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import { useIdentity, useIdentityStore } from "@/auth/useIdentity";
 import SidebarHeader from "./SidebarHeader";
@@ -42,32 +41,17 @@ export default function Sidebar() {
     return () => clearTimeout(t);
   }, [brandSavedAt]);
 
-  if (collapsed) {
-    // A floating re-open affordance, since the rail itself is gone. Same
-    // pattern RightPanel already uses for its collapsed state.
-    return (
-      <button
-        type="button"
-        onClick={toggle}
-        className="sidebar-reopen"
-        style={{ zIndex: Z_INDEX.rail }}
-        title="Show sidebar"
-        aria-label="Show sidebar"
-      >
-        <PanelLeft size={16} aria-hidden />
-      </button>
-    );
-  }
-
   return (
     <aside
-      className="sidebar"
+      // Minimized, not hidden: the rail stays mounted at its icon width, so
+      // every destination is still one click away.
+      className={collapsed ? "sidebar sidebar-minimized" : "sidebar"}
       aria-label="Main navigation"
       // Both from TypeScript, not CSS: the width because the canvas has to
       // subtract it, the tier because it has to out-rank the canvas chrome.
-      style={{ width: SIDEBAR_WIDTH, zIndex: Z_INDEX.rail }}
+      style={{ width: sidebarInset(collapsed), zIndex: Z_INDEX.rail }}
     >
-      <SidebarHeader onToggle={toggle} />
+      <SidebarHeader minimized={collapsed} onToggle={toggle} />
       <SidebarNav active={active} onSelect={setActive} />
       <SidebarFooter
         user={user}

@@ -11,11 +11,13 @@
 .sidebar {
   @apply fixed top-0 left-0 bottom-0 flex flex-col;
   @apply bg-white border-r border-black/[0.08];
-}
+  // The rail eases between its two widths. The canvas inset does not: it
+  // switches at once, so nothing is placed against a width in transit.
+  transition: width 150ms ease-out;
 
-.sidebar-reopen {
-  @apply fixed top-4 left-4 w-8 h-8 flex items-center justify-center;
-  @apply rounded-lg bg-white shadow-md text-gray-500 transition-colors hover:bg-black/5;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
 
 // ── header ──────────────────────────────────────────────────────────────
@@ -134,4 +136,62 @@
 
 .sidebar-user-email {
   @apply px-3 pt-1.5 pb-1 text-xs text-neutral-500 truncate;
+}
+
+// ── minimized ───────────────────────────────────────────────────────────
+// The icon rail. Same items, same order, same states -- only the labels go,
+// and they go visually only (sr-only), so every control keeps its accessible
+// name and the tests can still find "Playspace" by name in both modes.
+//
+// Each tooltip anchor spans the full rail width with its control centred in
+// it, so a tooltip's `left: 100%` is the rail's outer edge and the label
+// opens clear of the rail rather than over its own border.
+.sidebar-minimized {
+  .sidebar-tip {
+    @apply w-full justify-center;
+  }
+
+  .sidebar-header {
+    @apply flex-col h-auto px-0 pt-3 pb-2 gap-2;
+  }
+
+  .sidebar-brandmark {
+    @apply h-6 flex items-center;
+  }
+
+  // Scoped to the nav and the footer's own rows: the user menu reuses
+  // .sidebar-item for its rows, and it opens beside the rail at full width,
+  // so its labels must stay.
+  .sidebar-product,
+  .sidebar-nav .sidebar-item-label,
+  .sidebar-support .sidebar-item-label,
+  .sidebar-identity-name {
+    @apply sr-only;
+  }
+
+  // Five items never need to scroll, and an overflow other than visible
+  // would clip every tooltip at the rail's edge.
+  .sidebar-nav {
+    @apply overflow-visible px-0;
+  }
+
+  .sidebar-nav .sidebar-item,
+  .sidebar-support,
+  .sidebar-identity {
+    @apply w-9 px-0 gap-0 justify-center rounded-xl;
+  }
+
+  .sidebar-footer {
+    @apply px-0;
+  }
+
+  .sidebar-footer-divider {
+    @apply mx-3;
+  }
+
+  // Opens beside the rail, not above the avatar: above it, the menu would
+  // be squeezed to the rail's 64px and show none of the address.
+  .sidebar-user-menu {
+    @apply left-full right-auto bottom-0 mb-0 ml-2 w-max min-w-[200px] max-w-[320px];
+  }
 }

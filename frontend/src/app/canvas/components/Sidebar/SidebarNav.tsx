@@ -1,7 +1,9 @@
 "use client";
 
 import SidebarItem from "./SidebarItem";
+import RailTip from "./RailTip";
 import { SIDEBAR_ITEMS, type SectionId } from "./items";
+import { useSidebar } from "@/store/sidebar.store";
 
 /**
  * The destinations.
@@ -18,16 +20,22 @@ export default function SidebarNav({
   active: SectionId;
   onSelect: (id: SectionId) => void;
 }) {
+  const minimized = useSidebar((s) => s.collapsed);
   return (
     <nav className="sidebar-nav">
       <ul className="sidebar-nav-list">
         {SIDEBAR_ITEMS.map((spec) => (
-          <li key={spec.id} title={spec.available ? undefined : "Coming soon"}>
-            <SidebarItem
-              spec={spec}
-              active={spec.id === active}
-              onSelect={() => onSelect(spec.id)}
-            />
+          // Expanded, the label is on screen and only "Coming soon" needs
+          // saying. Minimized, the tooltip carries both, so the native title
+          // goes -- two hints on one icon would race each other.
+          <li key={spec.id} title={minimized || spec.available ? undefined : "Coming soon"}>
+            <RailTip content={spec.available ? spec.label : `${spec.label} · Coming soon`}>
+              <SidebarItem
+                spec={spec}
+                active={spec.id === active}
+                onSelect={() => onSelect(spec.id)}
+              />
+            </RailTip>
           </li>
         ))}
       </ul>

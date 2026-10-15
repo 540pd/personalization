@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { HelpCircle } from "lucide-react";
 import UserMenu from "./UserMenu";
+import RailTip from "./RailTip";
 import type { Identity } from "@/auth/useIdentity";
 
 /**
@@ -28,10 +29,12 @@ export default function SidebarFooter({
 
   return (
     <div className="sidebar-footer">
-      <button type="button" className="sidebar-support">
-        <HelpCircle className="sidebar-item-icon" aria-hidden />
-        <span>Support</span>
-      </button>
+      <RailTip content="Support">
+        <button type="button" className="sidebar-support">
+          <HelpCircle className="sidebar-item-icon" aria-hidden />
+          <span className="sidebar-item-label">Support</span>
+        </button>
+      </RailTip>
 
       <div className="sidebar-footer-divider" />
 
@@ -54,30 +57,36 @@ export default function SidebarFooter({
               }}
             />
           )}
-          <button
-            ref={triggerRef}
-            type="button"
-            className="sidebar-identity"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-expanded={menuOpen}
-            aria-haspopup="menu"
-          >
-            <span className="sidebar-avatar" aria-hidden>
-              {user.name.charAt(0).toUpperCase()}
-            </span>
-            <span className="sidebar-identity-name">{user.name}</span>
-          </button>
+          {/* No tooltip while the menu is open: it would sit on top of the
+              menu it is describing. */}
+          <RailTip content={menuOpen ? "" : user.name}>
+            <button
+              ref={triggerRef}
+              type="button"
+              className="sidebar-identity"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+            >
+              <span className="sidebar-avatar" aria-hidden>
+                {user.name.charAt(0).toUpperCase()}
+              </span>
+              <span className="sidebar-identity-name">{user.name}</span>
+            </button>
+          </RailTip>
         </div>
       ) : (
         // Not a disabled sign-in button: with IAP the gate is upstream of the
         // app, so a signed-out state can only ever be local dev's anonymous
         // mode. Saying so beats offering an action that does nothing.
-        <div className="sidebar-identity sidebar-identity-anonymous">
-          <span className="sidebar-avatar" aria-hidden>
-            ?
-          </span>
-          <span className="sidebar-identity-name">Not signed in</span>
-        </div>
+        <RailTip content="Not signed in">
+          <div className="sidebar-identity sidebar-identity-anonymous">
+            <span className="sidebar-avatar" aria-hidden>
+              ?
+            </span>
+            <span className="sidebar-identity-name">Not signed in</span>
+          </div>
+        </RailTip>
       )}
     </div>
   );
