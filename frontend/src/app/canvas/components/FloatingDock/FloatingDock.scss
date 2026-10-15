@@ -91,6 +91,11 @@
   @apply text-neutral-700 hover:bg-black/5;
 }
 
+/* Right-aligned key hint, as in the Shapes menu reference. */
+.floating-dock-submenu-shortcut {
+  @apply ml-auto pl-8 text-xs text-neutral-400;
+}
+
 /* ---------------------------------
    Hidden file input
 ---------------------------------- */

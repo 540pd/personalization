@@ -1,14 +1,21 @@
 "use client";
 
 // Luma reference: TOOL-01 — Floating creation dock, fixed at bottom-centre.
-// Pointer wired. Create + Links buttons open submenus; opening one closes the other.
-// Keyboard: V → pointer, Esc → pointer + close all submenus.
+// Pointer wired. Create, Links and Shapes open submenus; opening one closes the others.
+// Keyboard: V → pointer, F → frame, R → rectangle, S → last-used shape,
+// Esc → pointer + close all submenus.
 // Hover tooltip: pill with label + optional shortcut badge, floats above the button.
 
 import { useState, useEffect, useRef } from "react";
 import hotkeys from "hotkeys-js";
-import { Video, Image, SquareText, Upload } from "lucide-react";
-import { useToolStore, type Tool } from "@/store/tool.store";
+import { Video, Image, SquareText, Upload, Shapes } from "lucide-react";
+import {
+  useToolStore,
+  shapeKindOf,
+  shapeTool,
+  type ShapeKind,
+  type Tool,
+} from "@/store/tool.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
@@ -137,7 +144,8 @@ const IconFrame = () => (
   </svg>
 );
 
-const IconShapes = () => (
+// Wider than tall, so it cannot be mistaken for Frame's square beside it.
+const IconRectangle = () => (
   <svg
     width="16"
     height="16"
@@ -145,10 +153,9 @@ const IconShapes = () => (
     fill="none"
     stroke="currentColor"
     strokeWidth="1.5"
-    strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M3 12c1.5-3 3.5-7 6-8.5s4 1.5 2 3.5S6.5 9 5 12" />
+    <rect x="2" y="4" width="12" height="8" />
   </svg>
 );
 
@@ -247,8 +254,14 @@ const LINK_ITEMS = [
   },
 ];
 
+// The Shapes menu, in the reference's order. Doodle is deliberately absent.
+const SHAPE_ITEMS: { kind: ShapeKind; label: string; shortcut?: string; icon: React.ReactNode }[] = [
+  { kind: "rect", label: "Rectangle", shortcut: "R", icon: <IconRectangle /> },
+];
+
 interface ToolDef {
-  id: Tool;
+  // "shapes" is the menu button, not a tool: the tools are its items.
+  id: Tool | "shapes";
   label: string;
   shortcut?: string;
   icon: React.ReactNode;
@@ -265,7 +278,9 @@ const TOOLS_RIGHT: ToolDef[] = [
     id: "shapes",
     label: "Shapes",
     shortcut: "S",
-    icon: <IconShapes />,
+    // Fixed, whatever was drawn last: the button opens the menu, it is not
+    // itself a shape. The last one used is marked inside the menu instead.
+    icon: <Shapes size={16} strokeWidth={1.5} />,
   },
   {
     id: "text",
@@ -294,7 +309,7 @@ const TOOLS_RIGHT: ToolDef[] = [
 // ---
 
 export default function FloatingDock() {
-  const { activeTool, setTool } = useToolStore();
+  const { activeTool, setTool, lastShape } = useToolStore();
   const { addPanel, closeAllPanels } = useNodePanel();
   const viewport = useViewport();
 
@@ -302,14 +317,20 @@ export default function FloatingDock() {
 
   const [isLinksMenuOpen, setIsLinksMenuOpen] = useState(false);
 
+  const [isShapesMenuOpen, setIsShapesMenuOpen] = useState(false);
+
   const generateBtnRef = useRef<HTMLButtonElement>(null);
   const generateMenuRef = useRef<HTMLDivElement>(null);
 
   const linksBtnRef = useRef<HTMLButtonElement>(null);
   const linksMenuRef = useRef<HTMLDivElement>(null);
 
+  const shapesBtnRef = useRef<HTMLButtonElement>(null);
+  const shapesMenuRef = useRef<HTMLDivElement>(null);
+
   const isGenerateActive = GENERATE_IDS.includes(activeTool);
   const isLinksActive = LINK_IDS.includes(activeTool);
+  const isShapesActive = shapeKindOf(activeTool) !== null;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isUploading = useUpload((s) => s.isUploading);
@@ -348,11 +369,25 @@ export default function FloatingDock() {
       setTool("pointer");
       setIsGenerateMenuOpen(false);
       setIsLinksMenuOpen(false);
+      setIsShapesMenuOpen(false);
       closeAllPanels();
     });
 
     hotkeys("f", () => {
       setTool("frame");
+    });
+
+    // Bare letters only: Ctrl+R is reload and Ctrl+S is save, and neither
+    // should arm a shape on the way past.
+    const bare = (e: KeyboardEvent) => !(e.ctrlKey || e.metaKey || e.altKey);
+    SHAPE_ITEMS.forEach(({ kind, shortcut }) => {
+      if (!shortcut) return;
+      hotkeys(shortcut.toLowerCase(), (e) => {
+        if (bare(e)) setTool(shapeTool(kind));
+      });
+    });
+    hotkeys("s", (e) => {
+      if (bare(e)) setTool(shapeTool(useToolStore.getState().lastShape));
     });
 
     hotkeys("command+u,ctrl+u", (e) => {
@@ -364,6 +399,8 @@ export default function FloatingDock() {
       hotkeys.unbind("v");
       hotkeys.unbind("escape");
       hotkeys.unbind("f");
+      SHAPE_ITEMS.forEach(({ shortcut }) => shortcut && hotkeys.unbind(shortcut.toLowerCase()));
+      hotkeys.unbind("s");
       hotkeys.unbind("command+u,ctrl+u");
     };
   }, [setTool]);
@@ -414,6 +451,24 @@ export default function FloatingDock() {
 
     return () => document.removeEventListener("mousedown", handler);
   }, [isLinksMenuOpen]);
+
+  // Close Shapes menu on outside click.
+  useEffect(() => {
+    if (!isShapesMenuOpen) return;
+
+    const handler = (e: MouseEvent) => {
+      if (
+        !shapesBtnRef.current?.contains(e.target as Node) &&
+        !shapesMenuRef.current?.contains(e.target as Node)
+      ) {
+        setIsShapesMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handler);
+
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isShapesMenuOpen]);
 
   const btnClass = (active: boolean) =>
     [
@@ -471,6 +526,7 @@ export default function FloatingDock() {
               onClick={() => {
                 setIsGenerateMenuOpen((v) => !v);
                 setIsLinksMenuOpen(false);
+                setIsShapesMenuOpen(false);
               }}
               aria-pressed={isGenerateActive || isGenerateMenuOpen}
               className={btnClass(isGenerateActive || isGenerateMenuOpen)}
@@ -559,6 +615,7 @@ export default function FloatingDock() {
               onClick={() => {
                 setIsLinksMenuOpen((v) => !v);
                 setIsGenerateMenuOpen(false);
+                setIsShapesMenuOpen(false);
               }}
               aria-pressed={isLinksActive || isLinksMenuOpen}
               className={btnClass(isLinksActive || isLinksMenuOpen)}
@@ -594,6 +651,60 @@ export default function FloatingDock() {
 
           {/* Right-side tools */}
           {TOOLS_RIGHT.map((tool) => {
+            if (tool.id === "shapes") {
+              return (
+                <div key={tool.id} className="floating-dock-tool-wrapper">
+                  <button
+                    ref={shapesBtnRef}
+                    title=""
+                    onClick={() => {
+                      setIsShapesMenuOpen((v) => !v);
+                      setIsGenerateMenuOpen(false);
+                      setIsLinksMenuOpen(false);
+                    }}
+                    aria-pressed={isShapesActive || isShapesMenuOpen}
+                    className={btnClass(isShapesActive || isShapesMenuOpen)}
+                  >
+                    {tool.icon}
+                  </button>
+
+                  {!isShapesMenuOpen && (
+                    <Tooltip label={tool.label} shortcut={tool.shortcut} />
+                  )}
+
+                  {isShapesMenuOpen && (
+                    <div
+                      ref={shapesMenuRef}
+                      className={submenuClass}
+                      style={{ width: "max-content" }}
+                    >
+                      {SHAPE_ITEMS.map((item) => (
+                        <button
+                          key={item.kind}
+                          onClick={() => {
+                            // Armed like Frame: lit until the draw finishes.
+                            setTool(shapeTool(item.kind));
+                            setIsShapesMenuOpen(false);
+                          }}
+                          // The last shape used, which is also the armed one
+                          // while a shape tool is armed: what S brings back.
+                          className={submenuItemClass(item.kind === lastShape)}
+                        >
+                          {item.icon}
+                          <span>{item.label}</span>
+                          {item.shortcut && (
+                            <span className="floating-dock-submenu-shortcut">
+                              {item.shortcut}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             const isUpload = tool.id === "media-upload";
             // Frame is armed, not immediate: it stays lit until the drag that
             // draws it finishes. Upload opens a dialog. The rest do nothing

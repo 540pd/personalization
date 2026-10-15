@@ -12,6 +12,7 @@ import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useConnectionStore, type Connection } from "@/store/connection.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
+import { BoardShape, type BoardShapeConfig } from "./shapes";
 
 /**
  * One entry per copied node, so a multi-selection round-trips intact.
@@ -90,7 +91,9 @@ export function pasteNodes(
     const node: Konva.Shape =
       entry.className === "Image"
         ? new Konva.Image(attrs as Konva.ImageConfig)
-        : new Konva.Rect(attrs as Konva.RectConfig);
+        : entry.className === "BoardShape"
+          ? new BoardShape(attrs as BoardShapeConfig)
+          : new Konva.Rect(attrs as Konva.RectConfig);
 
     layer.add(node);
 

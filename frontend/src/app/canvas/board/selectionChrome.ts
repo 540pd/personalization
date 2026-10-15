@@ -1,5 +1,28 @@
 import type Konva from "konva";
 import { createOutlineRect, traceShape } from "./outline";
+import { isBoardShape } from "./shapes";
+
+const CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
+const ALL_SIDES = [
+  ...CORNERS,
+  "top-center", "middle-right", "bottom-center", "middle-left",
+];
+
+/**
+ * An image has proportions worth keeping, so it resizes from its corners with
+ * the ratio locked. A drawn shape has none: it resizes freely from every side
+ * and corner, and Shift locks the ratio instead (Konva's default
+ * shiftBehavior turns keepRatio on while Shift is held).
+ */
+function fitHandlesTo(transformer: Konva.Transformer, sel: Konva.Shape[]): void {
+  const shape = sel.length === 1 && isBoardShape(sel[0]);
+  const anchors = shape ? ALL_SIDES : CORNERS;
+  // Setting anchors rebuilds them, and this runs on every dragmove frame.
+  if (transformer.enabledAnchors().join() !== anchors.join()) {
+    transformer.enabledAnchors(anchors);
+  }
+  transformer.keepRatio(!shape);
+}
 
 /**
  * Redraws the chrome that marks the current selection.
@@ -21,6 +44,7 @@ export function updateSelectionChrome(
   const multi = sel.length > 1;
   transformer.borderEnabled(!multi);
   transformer.resizeEnabled(!multi);
+  fitHandlesTo(transformer, sel);
 
   // The rects are pooled rather than created and destroyed per change: this
   // runs on every dragmove frame.

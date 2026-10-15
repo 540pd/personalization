@@ -14,6 +14,8 @@ import { boundsOf } from "@/lib/canvas/bounds";
 import { createDragDropHandlers } from "../board/dragDrop";
 import { canvasArea, useCanvasArea } from "../canvasArea";
 import { createFrameHandlers } from "../board/frame";
+import { createShapeDrawHandlers } from "../board/shapeDraw";
+import { bakeScale, isBoardShape } from "../board/shapes";
 import { useFrames } from "@/store/frame.store";
 import { selectOnly, registerNodeChromeClear } from "@/lib/canvas/selection";
 import { frameStage } from "@/lib/canvas/frameStage";
@@ -25,7 +27,7 @@ import { updateSelectionChrome as applySelectionChrome } from "../board/selectio
 import { syncNodeGeometry, syncAllNodeGeometry as syncAllGeometry } from "../board/geometry";
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
-import { COLORS, Z_INDEX, MIN_NODE_SIZE, SELECTION } from "@/constants/canvas.constants";
+import { COLORS, Z_INDEX, MIN_NODE_SIZE, SHAPE_MIN_SIZE, SELECTION } from "@/constants/canvas.constants";
 
 // imageUrl and label live in konvaNodes, not on the shape, and Delete drops
 // that record -- so they ride along, or an undone delete would bring back an
@@ -98,11 +100,17 @@ export default function Board() {
       // so divide by the stage scale to keep the floor zoom-independent.
       boundBoxFunc: (oldBox, newBox) => {
         const s = stage.scaleX() || 1;
-        if (newBox.width / s < MIN_NODE_SIZE || newBox.height / s < MIN_NODE_SIZE) return oldBox;
+        const min = minResizeEdge();
+        if (newBox.width / s < min || newBox.height / s < min) return oldBox;
         return newBox;
       },
     });
     layer.add(transformer);
+    // A shape may go far smaller than an image: it is often a small marker,
+    // and it has no picture to keep recognisable.
+    function minResizeEdge() {
+      return transformer.nodes().every(isBoardShape) ? SHAPE_MIN_SIZE : MIN_NODE_SIZE;
+    }
 
     const hover = createHoverOutline(layer, transformer);
     const showHover = hover.show;
@@ -367,7 +375,10 @@ export default function Board() {
     // Keep port overlays in sync during transformer resize. Every selected node
     // moves under a multi-select resize, so sync all of them, not just the first.
     transformer.on("transform", () => {
-      (transformer.nodes() as Konva.Shape[]).forEach(syncNodeGeometry);
+      (transformer.nodes() as Konva.Shape[]).forEach((n) => {
+        if (isBoardShape(n)) bakeScale(n);
+        syncNodeGeometry(n);
+      });
       updateSelectionChrome();
     });
 
@@ -500,15 +511,28 @@ export default function Board() {
     // -- and a frame drawn corner to corner round an image runs straight
     // through its name. Each window event is fed back to the stage, so the
     // existing handlers see an ordinary pointer position wherever it is.
+    //
+    // Shapes draw through the same door. Only one tool is armed at a time, so
+    // at most one of the two has a draw in progress; the other ignores every
+    // call below.
     const frame = createFrameHandlers({ saveSnapshot });
+    const shapeDraw = createShapeDrawHandlers({
+      layer, transformer,
+      applyDraggability: () => applyDraggability(layer),
+      syncAllNodeGeometry,
+      updateSelectionChrome,
+      saveSnapshot,
+    });
     const followMove = (e: PointerEvent) => {
       stage.setPointersPositions(e);
       frame.onMove(stage);
+      shapeDraw.onMove(stage, e.shiftKey);
     };
     const followUp = (e: PointerEvent) => {
       stage.setPointersPositions(e);
       unfollow();
       frame.onUp(stage);
+      shapeDraw.onUp(stage, e.shiftKey);
       // This runs on pointerup, before the stage sees the same release as a
       // click on empty board. Without this the click undid the selection.
       releaseEndedDraw = true;
@@ -518,6 +542,7 @@ export default function Board() {
     const abandon = () => {
       unfollow();
       frame.cancel();
+      shapeDraw.cancel();
     };
     const unfollow = () => {
       window.removeEventListener("pointermove", followMove);
@@ -526,7 +551,7 @@ export default function Board() {
       window.removeEventListener("blur", abandon);
     };
     stage.on("mousedown.frame touchstart.frame", () => {
-      if (!frame.onDown(stage)) return;
+      if (!frame.onDown(stage) && !shapeDraw.onDown(stage)) return;
       window.addEventListener("pointermove", followMove);
       window.addEventListener("pointerup", followUp);
       window.addEventListener("pointercancel", abandon);
@@ -563,6 +588,7 @@ export default function Board() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.code === "Escape") {
         frame.cancel();
+        shapeDraw.cancel();
         return;
       }
       // Frames keep their own selection, so they need their own Delete. Keyed
@@ -646,14 +672,14 @@ export default function Board() {
     const container = containerRef.current;
     if (!stage || !container) return;
 
-    // The frame tool draws by dragging from empty space, which is exactly
+    // Frame and shape tools draw by dragging from empty space, which is exactly
     // what the pass-through below makes unreachable: it only turns the
     // container interactive where a shape already is. Without this exception
     // no frame could be drawn at all once an upload had raised the canvas.
     // While drawing, this container must receive the whole gesture: the
     // pass-through below only keeps it interactive where a shape already is,
     // which is exactly where a frame drag does NOT start.
-    if (activeTool === "frame") {
+    if (drawingTool(activeTool)) {
       container.style.pointerEvents = "auto";
       return;
     }
@@ -729,13 +755,13 @@ export default function Board() {
           overflow: "hidden",
           // The whole canvas moves above or below the node placeholders; it
           // cannot interleave with them. See layerOrder.store.
-          // While the frame tool is armed the canvas must be the top surface:
+          // While a drawing tool is armed the canvas must be the top surface:
           // a draw that crossed a Create placeholder used to be lost, because
           // the placeholder is a DOM element above the canvas whenever the
           // canvas is the lower layer, and the browser retargets the rest of
           // the gesture to it.
           zIndex:
-            activeTool === "frame"
+            drawingTool(activeTool)
               ? Z_INDEX.canvasAbove
               : topLayer === "canvas"
                 ? Z_INDEX.canvasAbove

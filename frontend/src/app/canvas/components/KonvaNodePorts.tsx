@@ -40,6 +40,9 @@ export default function KonvaNodePorts() {
   return (
     <>
       {all.map((n) => {
+        // A drawn shape is not a source, but it still covers the ports of
+        // whatever is under it, so it stays in `blockers`.
+        if (n.shape) return null;
         const self: Blocker = { id: n.id, box: n, layer: "canvas", z: n.z };
         // Konva nodes are source-only: a right-edge output port, no input.
         if (isCovered(portProbe(n, "output", scale), self, blockers, topLayer)) return null;

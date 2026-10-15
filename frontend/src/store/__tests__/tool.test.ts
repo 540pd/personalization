@@ -13,7 +13,7 @@ describe("panningTool", () => {
   });
 
   it("is true for the tools that really do pan", () => {
-    const panning: Tool[] = ["link-straight", "link-elbow", "link-curve", "shapes", "text"];
+    const panning: Tool[] = ["link-straight", "link-elbow", "link-curve", "text"];
     panning.forEach((t) => expect(panningTool(t)).toBe(true));
   });
 });
