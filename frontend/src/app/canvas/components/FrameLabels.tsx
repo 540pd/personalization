@@ -37,6 +37,7 @@ export default function FrameLabels() {
   const frames = useFrames((s) => s.frames);
   const selectedIds = useFrames((s) => s.selectedIds);
   const drag = useFrames((s) => s.drag);
+  const resize = useFrames((s) => s.resize);
   const nodes = useKonvaNodes((s) => s.nodes);
   const panels = useNodePanel((s) => s.panels);
   const { x: stageX, y: stageY, scale } = useViewport();
@@ -46,16 +47,18 @@ export default function FrameLabels() {
   return (
     <>
       {Object.values(frames).map((f: FrameRecord) => {
-        // While this frame is being dragged its rect has moved but its record
-        // has not, so the name reads the live offset to stay with it.
+        // While this frame is being dragged or resized its rect has changed
+        // but its record has not, so the name reads the live box to stay with
+        // it -- its position, its max width and what covers it.
+        const box = resize[f.id];
         const dx = drag[f.id]?.dx ?? 0;
         const dy = drag[f.id]?.dy ?? 0;
-        const screenW = f.canvasW * scale;
+        const live = box ? { ...f, ...box } : { ...f, canvasX: f.canvasX + dx, canvasY: f.canvasY + dy };
+        const screenW = live.canvasW * scale;
         if (screenW < LABEL_MIN_NODE_W) return null;
 
         // A selected frame's name always shows, as a selected node's does: it
         // is the handle you are working with.
-        const live = { ...f, canvasX: f.canvasX + dx, canvasY: f.canvasY + dy };
         const selected = selectedIds.includes(f.id);
         if (!selected && frameNameCovered(labelProbe(live, scale), covers)) return null;
 

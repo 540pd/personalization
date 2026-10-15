@@ -261,6 +261,16 @@ export default function FrameLayer() {
       rect.on("transformstart", () => {
         resizeKeyRef.current ??= {};
       });
+      // The name renders from the store, so it reads the live box to keep up
+      // (#156). Not an upsert: that would rebuild the rect mid-gesture.
+      rect.on("transform", () => {
+        useFrames.getState().setResize(f.id, {
+          canvasX: rect.x(),
+          canvasY: rect.y(),
+          canvasW: rect.width() * rect.scaleX(),
+          canvasH: rect.height() * rect.scaleY(),
+        });
+      });
       rect.on("transformend", () => {
         const w = Math.max(1, rect.width() * rect.scaleX());
         const h = Math.max(1, rect.height() * rect.scaleY());
@@ -269,6 +279,7 @@ export default function FrameLayer() {
         useFrames.getState().upsert({
           ...f, canvasX: rect.x(), canvasY: rect.y(), canvasW: w, canvasH: h,
         });
+        useFrames.getState().clearResize(f.id);
         // A resize is its own undo step (#128). Without this the next commit
         // -- a move, say -- folded the new size into a step whose undo went
         // back past it, and an undo straight after a resize removed the
