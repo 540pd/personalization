@@ -344,3 +344,91 @@ test.describe("editing a rectangle", () => {
     expect(near(r.x, 570) && near(r.y, 370)).toBe(true);
   });
 });
+
+// Part 2: Ellipse, Triangle and Diamond. Each fills the box it was dragged
+// in, and is hit-tested on its own outline rather than that box.
+test.describe("ellipse, triangle and diamond", () => {
+  test("the menu lists the shapes in the reference order, with their keys", async ({ page }) => {
+    await openBoard(page);
+    await shapesBtn(page).click();
+    const labels = await page.locator(".floating-dock-submenu button").allInnerTexts();
+    expect(labels.map((l) => l.replace(/\s+/g, " ").trim())).toEqual([
+      "Rectangle R", "Ellipse O", "Triangle", "Diamond",
+    ]);
+  });
+
+  test("O arms Ellipse", async ({ page }) => {
+    await openBoard(page);
+    await page.mouse.click(900, 150);
+    await page.keyboard.press("o");
+    await page.keyboard.press("s");             // S re-arms the same one
+    await drag(page, 400, 300, 560, 420);
+    expect((await shapes(page))[0].kind).toBe("ellipse");
+  });
+
+  for (const [label, kind] of [["Ellipse", "ellipse"], ["Triangle", "triangle"], ["Diamond", "diamond"]]) {
+    test(`${label} fills a wide drag without being forced equal-sided`, async ({ page }) => {
+      await openBoard(page);
+      await shapesBtn(page).click();
+      await menuItem(page, label).click();
+      await drag(page, 400, 300, 640, 400);
+      const [r] = await shapes(page);
+      expect(r.kind).toBe(kind);
+      expect(near(r.w, 240) && near(r.h, 100)).toBe(true);
+      expect((await selection(page)).anchors).toBe(8);
+    });
+
+    // Hit-testing follows paint: the corner of the box is outside every one
+    // of these shapes.
+    test(`${label} is selected from its middle but not from its box's corner`, async ({ page }) => {
+      await openBoard(page);
+      await shapesBtn(page).click();
+      await menuItem(page, label).click();
+      await drag(page, 400, 300, 560, 420);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(200);
+
+      await page.mouse.move(405, 305);
+      await page.mouse.click(405, 305);
+      await page.waitForTimeout(250);
+      expect((await selection(page)).count).toBe(0);
+
+      await page.mouse.move(480, 380);
+      await page.mouse.click(480, 380);
+      await page.waitForTimeout(250);
+      expect((await selection(page)).count).toBe(1);
+    });
+  }
+
+  test("Shift draws a circle", async ({ page }) => {
+    await openBoard(page);
+    await shapesBtn(page).click();
+    await menuItem(page, "Ellipse").click();
+    await drag(page, 400, 300, 560, 360, true);
+    const [r] = await shapes(page);
+    expect(near(r.w, 160) && near(r.h, 160)).toBe(true);
+  });
+
+  test("the menu marks the last shape used, and the button icon stays", async ({ page }) => {
+    await openBoard(page);
+    await shapesBtn(page).click();
+    await menuItem(page, "Ellipse").click();
+    await page.keyboard.press("v");
+    await shapesBtn(page).click();
+    // Still the ellipse once disarmed: it is what S would bring back.
+    await expect(menuItem(page, "Ellipse")).toHaveClass(/floating-dock-submenu-item-active/);
+    await expect(menuItem(page, "Rectangle")).not.toHaveClass(/floating-dock-submenu-item-active/);
+    await expect(shapesBtn(page).locator("svg.lucide-shapes")).toHaveCount(1);
+  });
+
+  test("a pasted diamond is still a diamond", async ({ page }) => {
+    await openBoard(page);
+    await shapesBtn(page).click();
+    await menuItem(page, "Diamond").click();
+    await drag(page, 400, 300, 520, 380);
+    await page.keyboard.press("Control+c");
+    await page.keyboard.press("Control+v");
+    await page.waitForTimeout(300);
+    expect((await shapes(page)).map((r) => r.kind)).toEqual(["diamond", "diamond"]);
+  });
+});

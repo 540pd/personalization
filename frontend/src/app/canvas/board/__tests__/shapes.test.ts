@@ -120,6 +120,11 @@ describe("shapes on the shared node paths", () => {
     expect(useKonvaNodes.getState().nodes.img.shape).toBeUndefined();
   });
 
+  it("pastes an ellipse back as an ellipse", () => {
+    const [copy] = pasteNodes(layer(), copyNodes([rect({ shapeKind: "ellipse" } as Partial<Konva.ShapeConfig>)]));
+    expect((copy as BoardShape).shapeKind()).toBe("ellipse");
+  });
+
   it("pastes back as a BoardShape of the same kind and size", () => {
     const l = layer();
     const [copy] = pasteNodes(l, copyNodes([rect()]));
