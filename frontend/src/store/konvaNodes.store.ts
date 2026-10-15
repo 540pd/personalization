@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ShapeKind } from "./tool.store";
 
 export interface KonvaNodeRecord {
   id: string;
@@ -14,6 +15,9 @@ export interface KonvaNodeRecord {
   // "name": Konva nodes already have a load-bearing .name() ("selectable")
   // and the two would be easy to confuse at a call site.
   label?: string;
+  // Set on shapes drawn from the Shapes menu. A shape is drawing, not
+  // content, so it is never a generation source: no output port.
+  shape?: ShapeKind;
 }
 
 interface KonvaNodesState {

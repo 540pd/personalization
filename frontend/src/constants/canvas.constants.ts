@@ -71,6 +71,29 @@ export const Z_INDEX = {
 
 export const MIN_NODE_SIZE = 60; // canvas units
 
+// --- Drawn shapes ----------------------------------------------------------
+// Neutral until shapes get colour. The fill is what makes the inside of a
+// shape clickable -- Konva hit-tests only what is painted -- and the stroke
+// keeps an edge on a shape sitting on a pale frame. The stroke is in canvas
+// units, so it zooms with the board like the shape it outlines.
+export const SHAPE_STYLE = {
+  fill: "#e5e5e5",
+  stroke: "#404040",
+  strokeWidth: 2,
+} as const;
+
+// A click with a shape tool, rather than a drag, places one this size.
+export const SHAPE_DEFAULT_SIZE = 100; // canvas units
+
+// Smallest a shape may be drawn or resized to. Far below MIN_NODE_SIZE: an
+// image needs room to be recognisable, a shape is often a small marker.
+export const SHAPE_MIN_SIZE = 8; // canvas units
+
+// A press that moves less than this, in SCREEN px, is a click and places the
+// default size. Screen rather than canvas for the same reason as
+// FRAME_MIN_EDGE.
+export const SHAPE_CLICK_SLOP = 4;
+
 // The longest edge of a node's default footprint, in canvas units. Shared by
 // both node types so an imported image and a generated one land at the same
 // size — a generated node used to default to 200, rendering your own output at

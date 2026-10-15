@@ -1,5 +1,6 @@
 import type Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
+import type { ShapeKind } from "@/store/tool.store";
 
 /**
  * Publishes a node's geometry to konvaNodes -- the single source the port
@@ -14,6 +15,9 @@ export function syncNodeGeometry(n: Konva.Shape): void {
   // Skip id-less nodes: an entry keyed by undefined would collide with the
   // next one and neither would get a port.
   if (!id) return;
+  // Read off the node rather than set once at creation, so a shape brought
+  // back by undo or a paste is still known to be one.
+  const shape = n.getAttr("shapeKind") as ShapeKind | undefined;
   useKonvaNodes.getState().upsert({
     id,
     canvasX: n.x(),
@@ -21,6 +25,7 @@ export function syncNodeGeometry(n: Konva.Shape): void {
     canvasW: n.width() * n.scaleX(),
     canvasH: n.height() * n.scaleY(),
     z: n.zIndex(),
+    ...(shape ? { shape } : {}),
   });
 }
 
