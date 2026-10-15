@@ -3,7 +3,7 @@
 // Luma reference: TOOL-01 — Floating creation dock, fixed at bottom-centre.
 // Pointer wired. Create, Links and Shapes open submenus; opening one closes the others.
 // Keyboard: V → pointer, F → frame, R/A/L/O → rectangle/arrow/line/ellipse,
-// S → last-used shape,
+// S → last-used shape, T → text,
 // Esc → pointer + close all submenus.
 // Hover tooltip: pill with label + optional shortcut badge, floats above the button.
 
@@ -453,6 +453,10 @@ export default function FloatingDock() {
       setTool("frame");
     });
 
+    hotkeys("t", (e) => {
+      if (!(e.ctrlKey || e.metaKey || e.altKey)) setTool("text");
+    });
+
     // Bare letters only: Ctrl+R is reload and Ctrl+S is save, and neither
     // should arm a shape on the way past.
     const bare = (e: KeyboardEvent) => !(e.ctrlKey || e.metaKey || e.altKey);
@@ -475,6 +479,7 @@ export default function FloatingDock() {
       hotkeys.unbind("v");
       hotkeys.unbind("escape");
       hotkeys.unbind("f");
+      hotkeys.unbind("t");
       SHAPE_ITEMS.forEach(({ shortcut }) => shortcut && hotkeys.unbind(shortcut.toLowerCase()));
       hotkeys.unbind("s");
       hotkeys.unbind("command+u,ctrl+u");
@@ -785,7 +790,8 @@ export default function FloatingDock() {
             // Frame is armed, not immediate: it stays lit until the drag that
             // draws it finishes. Upload opens a dialog. The rest do nothing
             // yet and stay visibly disabled rather than lying.
-            const isFrame = tool.id === "frame";
+            // Text is armed the same way: lit until the click that places it.
+            const isFrame = tool.id === "frame" || tool.id === "text";
             const isLive = isUpload || isFrame;
 
             return (
@@ -795,19 +801,19 @@ export default function FloatingDock() {
                   tabIndex={isLive ? 0 : -1}
                   onClick={
                     isUpload ? openFilePicker
-                    : isFrame ? () => setTool("frame")
+                    : isFrame ? () => setTool(tool.id as Tool)
                     : undefined
                   }
                   // Both are "pressed" states, but of different kinds: upload
                   // is busy until its files land, frame is armed until drawn.
                   aria-pressed={
                     isUpload ? isUploading
-                    : isFrame ? activeTool === "frame"
+                    : isFrame ? activeTool === tool.id
                     : undefined
                   }
                   className={
                     isUpload ? btnClass(isUploading)
-                    : isFrame ? btnClass(activeTool === "frame")
+                    : isFrame ? btnClass(activeTool === tool.id)
                     : "floating-dock-button-disabled"
                   }
                 >

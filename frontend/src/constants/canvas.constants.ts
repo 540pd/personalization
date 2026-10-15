@@ -77,6 +77,22 @@ export const SHAPE_STYLE = {
   strokeWidth: 2,
 } as const;
 
+// --- Text --------------------------------------------------------------------
+// One style until text formatting arrives. The family is Tailwind's default
+// sans stack, written out because Konva paints with the canvas API and does
+// not see CSS -- the editor uses the same string so the two match exactly.
+export const TEXT_STYLE = {
+  fontSize: 24,
+  fontFamily: "ui-sans-serif, system-ui, sans-serif",
+  fill: "#171717",
+  lineHeight: 1.25,
+  padding: 0,
+} as const;
+
+// Narrowest a fixed-width text may be drawn or resized to: about two
+// characters at the default size.
+export const TEXT_MIN_WIDTH = 24; // canvas units
+
 // A click with a shape tool, rather than a drag, places one this size.
 export const SHAPE_DEFAULT_SIZE = 100; // canvas units
 

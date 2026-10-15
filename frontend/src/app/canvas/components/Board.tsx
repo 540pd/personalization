@@ -16,6 +16,8 @@ import { canvasArea, useCanvasArea } from "../canvasArea";
 import { createFrameHandlers } from "../board/frame";
 import { createShapeDrawHandlers } from "../board/shapeDraw";
 import { bakeScale, isBoardShape } from "../board/shapes";
+import { createTextTool } from "../board/textTool";
+import { bakeTextResize, isBoardText } from "../board/text";
 import { useFrames } from "@/store/frame.store";
 import { selectOnly, registerNodeChromeClear } from "@/lib/canvas/selection";
 import { frameStage } from "@/lib/canvas/frameStage";
@@ -109,7 +111,11 @@ export default function Board() {
     // A shape may go far smaller than an image: it is often a small marker,
     // and it has no picture to keep recognisable.
     function minResizeEdge() {
-      return transformer.nodes().every(isBoardShape) ? SHAPE_MIN_SIZE : MIN_NODE_SIZE;
+      // Text too: a line of it is far shorter than MIN_NODE_SIZE, and would
+      // otherwise refuse every resize from the start.
+      return transformer.nodes().every((n) => isBoardShape(n) || isBoardText(n))
+        ? SHAPE_MIN_SIZE
+        : MIN_NODE_SIZE;
     }
 
     const hover = createHoverOutline(layer, transformer);
@@ -380,6 +386,7 @@ export default function Board() {
     transformer.on("transform", () => {
       (transformer.nodes() as Konva.Shape[]).forEach((n) => {
         if (isBoardShape(n)) bakeScale(n);
+        if (isBoardText(n)) bakeTextResize(n, transformer.getActiveAnchor());
         syncNodeGeometry(n);
       });
       updateSelectionChrome();
@@ -526,16 +533,26 @@ export default function Board() {
       updateSelectionChrome,
       saveSnapshot,
     });
+    // Text places through it too, and opens its editor on the release.
+    const textTool = createTextTool({
+      layer, transformer,
+      applyDraggability: () => applyDraggability(layer),
+      syncAllNodeGeometry,
+      updateSelectionChrome,
+      saveSnapshot,
+    });
     const followMove = (e: PointerEvent) => {
       stage.setPointersPositions(e);
       frame.onMove(stage);
       shapeDraw.onMove(stage, e.shiftKey);
+      textTool.onMove(stage);
     };
     const followUp = (e: PointerEvent) => {
       stage.setPointersPositions(e);
       unfollow();
       frame.onUp(stage);
       shapeDraw.onUp(stage, e.shiftKey);
+      textTool.onUp(stage);
       // This runs on pointerup, before the stage sees the same release as a
       // click on empty board. Without this the click undid the selection.
       releaseEndedDraw = true;
@@ -546,6 +563,7 @@ export default function Board() {
       unfollow();
       frame.cancel();
       shapeDraw.cancel();
+      textTool.cancel();
     };
     const unfollow = () => {
       window.removeEventListener("pointermove", followMove);
@@ -554,11 +572,16 @@ export default function Board() {
       window.removeEventListener("blur", abandon);
     };
     stage.on("mousedown.frame touchstart.frame", () => {
-      if (!frame.onDown(stage) && !shapeDraw.onDown(stage)) return;
+      if (!frame.onDown(stage) && !shapeDraw.onDown(stage) && !textTool.onDown(stage)) return;
       window.addEventListener("pointermove", followMove);
       window.addEventListener("pointerup", followUp);
       window.addEventListener("pointercancel", abandon);
       window.addEventListener("blur", abandon);
+    });
+
+    // Double-click a text to edit it in place.
+    stage.on("dblclick.text dbltap.text", (e) => {
+      if (isBoardText(e.target)) textTool.edit(e.target);
     });
 
     const handleUpload = createUploadHandler({
@@ -592,6 +615,7 @@ export default function Board() {
       if (e.code === "Escape") {
         frame.cancel();
         shapeDraw.cancel();
+        textTool.cancel();
         return;
       }
       // Frames keep their own selection, so they need their own Delete. Keyed
@@ -626,6 +650,8 @@ export default function Board() {
       window.removeEventListener("blur", dnd.reset);
       window.removeEventListener("keydown", handleFrameKeys);
       stage.off(".frame");
+      stage.off(".text");
+      textTool.close();
       unfollow();
       observer.disconnect();
       registerNodeChromeClear(null);

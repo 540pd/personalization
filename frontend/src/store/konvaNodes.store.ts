@@ -18,6 +18,9 @@ export interface KonvaNodeRecord {
   // Set on shapes drawn from the Shapes menu. A shape is drawing, not
   // content, so it is never a generation source: no output port.
   shape?: ShapeKind;
+  // Set on text placed with the Text tool. Like a shape, not a generation
+  // source: no output port.
+  text?: boolean;
   // Lines and arrows only: where the two ends are, in canvas units. The box
   // above says where the line is; this says which way it runs, which is what
   // the endpoint handles need.

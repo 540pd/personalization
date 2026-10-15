@@ -42,7 +42,7 @@ export function shapeKindOf(tool: Tool): ShapeKind | null {
  * instead of re-derived at each call site.
  */
 export function drawingTool(tool: Tool): boolean {
-  return tool === "frame" || shapeKindOf(tool) !== null;
+  return tool === "frame" || tool === "text" || shapeKindOf(tool) !== null;
 }
 
 /** Does a drag with this tool pan the board? */
@@ -52,6 +52,8 @@ export function panningTool(tool: Tool): boolean {
 
 /** The cursor this tool should show while it is armed and idle. */
 export function cursorFor(tool: Tool): string {
+  // Text says where the caret will go; the others mark a corner.
+  if (tool === "text") return "text";
   return drawingTool(tool) ? "crosshair" : "default";
 }
 

@@ -1,8 +1,12 @@
 import type Konva from "konva";
 import { createOutlineRect, traceShape } from "./outline";
 import { isBoardShape, isLineKind } from "./shapes";
+import { isBoardText } from "./text";
 
 const CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
+// A text's sides set its wrap width and its corners its size; top and
+// bottom have nothing to set, because the text's height follows its lines.
+const TEXT_HANDLES = [...CORNERS, "middle-left", "middle-right"];
 const ALL_SIDES = [
   ...CORNERS,
   "top-center", "middle-right", "bottom-center", "middle-left",
@@ -16,7 +20,8 @@ const ALL_SIDES = [
  */
 function fitHandlesTo(transformer: Konva.Transformer, sel: Konva.Shape[]): void {
   const shape = sel.length === 1 && isBoardShape(sel[0]);
-  const anchors = shape ? ALL_SIDES : CORNERS;
+  const text = sel.length === 1 && isBoardText(sel[0]);
+  const anchors = shape ? ALL_SIDES : text ? TEXT_HANDLES : CORNERS;
   // Setting anchors rebuilds them, and this runs on every dragmove frame.
   if (transformer.enabledAnchors().join() !== anchors.join()) {
     transformer.enabledAnchors(anchors);
