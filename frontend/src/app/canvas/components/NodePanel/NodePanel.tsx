@@ -29,6 +29,7 @@ import {
 } from "@/constants/canvas.constants";
 import { isCovered, labelProbe, portProbe, type Blocker, type TopLayer } from "@/lib/canvas/occlusion";
 import { canvasHistory } from "@/lib/canvas/history";
+import { resizeNodeForSettings } from "../../board/aspectResize";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen } from "@/lib/canvas/coords";
@@ -138,9 +139,35 @@ function SinglePanel({
   };
   const setDraft = (next: GenerateDraft) =>
     useNodePanel.getState().setDraft(instance.id, { model: next.model, instruction: next.instruction, settings });
+  // A settings change is an undo step, and one that changes the node's
+  // footprint (aspect ratio) resizes it in the same step (#129). Resizing here,
+  // rather than in an effect after render, is what lets the two share one
+  // commit. Size is written straight to the store so the snapshot holds it.
+  // Compared by value, so an unrelated setting (temperature) does not discard
+  // a manual resize.
+  //
+  // A slider fires on every pixel of a drag; its changes share a coalesce key
+  // per field, so one drag is one step. Choices (ratio, quality) do not, so
+  // two ratio changes in a row are two steps.
+  const settingsKeys = useRef(new Map<string, object>());
   const setSettings = (next: NodeSettings) => {
+    const prev = settings;
     setSettingsState(next);
     useNodePanel.getState().setDraft(instance.id, { model: draft.model, instruction: draft.instruction, settings: next });
+
+    const from = spec.sizeFor(prev);
+    const to = spec.sizeFor(next);
+    if (from.w !== to.w || from.h !== to.h) resizeNodeForSettings(instance.id, to.w, to.h);
+
+    const n = next as unknown as Record<string, unknown>;
+    const p = prev as unknown as Record<string, unknown>;
+    const changed = Object.keys(n).find((k) => n[k] !== p[k]);
+    let key: object | undefined;
+    if (changed && typeof n[changed] === "number") {
+      key = settingsKeys.current.get(changed) ?? {};
+      settingsKeys.current.set(changed, key);
+    }
+    canvasHistory.commit(key);
   };
   const [busy, setBusy] = useState(false);
   // A batch takes as long as its slowest variant, so say how many are coming
@@ -160,19 +187,17 @@ function SinglePanel({
     startW: number; startH: number; startCx: number; startCy: number;
   } | null>(null);
 
-  // Reset to the kind's default footprint when a setting that drives size
-  // changes. Written directly to the store so the size is captured in the next
-  // history snapshot — local state is not part of the snapshot and caused
-  // undo to restore port positions without restoring the visual node size (AC #4).
-  // Compared by value so an unrelated setting (temperature) does not discard
-  // a manual resize.
-  const prevSize = useRef(spec.sizeFor(spec.defaultSettings));
+  // Undo and redo put the node's draft back, settings included, but the form
+  // reads this local copy. Follow the store, compared by value so the round
+  // trip through setSettings does not loop. No draft at all is a real state
+  // to go back to -- a node nobody has edited yet -- and means the defaults.
+  const storedSettings = instance.draft?.settings;
   useEffect(() => {
-    const next = spec.sizeFor(settings);
-    if (next.w === prevSize.current.w && next.h === prevSize.current.h) return;
-    prevSize.current = next;
-    useNodePanel.getState().setSize(instance.id, next.w, next.h);
-  }, [instance.id, settings, spec]);
+    setSettingsState((cur) => {
+      const merged = { ...spec.defaultSettings, ...storedSettings } as NodeSettings;
+      return JSON.stringify(merged) === JSON.stringify(cur) ? cur : merged;
+    });
+  }, [storedSettings, spec]);
 
   // The panel is placed relative to the node, so it has to know how much room
   // is left on screen. The visible canvas, not the window: the left-flip
