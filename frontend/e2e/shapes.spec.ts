@@ -12,8 +12,12 @@ const pointerBtn = (page: Page) => page.locator(".floating-dock button").nth(0);
 // aria-pressed.
 const shapesBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(4);
 const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
+// Matched on the item's own label, exactly: a bare has-text('Arrow') also
+// matches "Block Arrow".
 const menuItem = (page: Page, label: string) =>
-  page.locator(`.floating-dock-submenu button:has-text('${label}')`);
+  page.locator(".floating-dock-submenu button").filter({
+    has: page.locator("span", { hasText: new RegExp(`^${label}$`) }),
+  });
 
 interface ShapeInfo {
   kind: string;
