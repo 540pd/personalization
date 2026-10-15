@@ -1,6 +1,6 @@
 import type Konva from "konva";
 import { createOutlineRect, traceShape } from "./outline";
-import { isBoardShape } from "./shapes";
+import { isBoardShape, isLineKind } from "./shapes";
 
 const CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
 const ALL_SIDES = [
@@ -42,8 +42,11 @@ export function updateSelectionChrome(
 ): void {
   const sel = transformer.nodes() as Konva.Shape[];
   const multi = sel.length > 1;
-  transformer.borderEnabled(!multi);
-  transformer.resizeEnabled(!multi);
+  // A lone line is edited by its two end handles (LineHandles), so the box
+  // around it -- border and resize anchors alike -- stays out of the way.
+  const line = sel.length === 1 && isBoardShape(sel[0]) && isLineKind(sel[0].shapeKind());
+  transformer.borderEnabled(!multi && !line);
+  transformer.resizeEnabled(!multi && !line);
   fitHandlesTo(transformer, sel);
 
   // The rects are pooled rather than created and destroyed per change: this
