@@ -18,6 +18,10 @@ export interface KonvaNodeRecord {
   // Set on shapes drawn from the Shapes menu. A shape is drawing, not
   // content, so it is never a generation source: no output port.
   shape?: ShapeKind;
+  // Lines and arrows only: where the two ends are, in canvas units. The box
+  // above says where the line is; this says which way it runs, which is what
+  // the endpoint handles need.
+  ends?: { a: { x: number; y: number }; b: { x: number; y: number } };
 }
 
 interface KonvaNodesState {

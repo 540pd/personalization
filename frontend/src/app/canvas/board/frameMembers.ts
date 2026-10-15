@@ -14,6 +14,7 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import type { FrameRecord } from "@/store/frame.store";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { boundsOf, containsBox, type Bounds } from "@/lib/canvas/bounds";
+import { syncNodeGeometry } from "./geometry";
 
 export interface Member {
   id: string;
@@ -61,7 +62,14 @@ export function moveMembers(members: FrameMembers, dx: number, dy: number): void
     const y = m.startY + dy;
     // The Konva node is the source of truth for where an image is drawn;
     // konvaNodes mirrors it for ports, wires and labels.
-    stage?.findOne<Konva.Shape>(`#${m.id}`)?.position({ x, y });
+    const node = stage?.findOne<Konva.Shape>(`#${m.id}`);
+    if (node) {
+      node.position({ x, y });
+      // Through syncNodeGeometry rather than x/y alone, so a line's `ends`
+      // move with it and its end handles stay on the line.
+      syncNodeGeometry(node);
+      return;
+    }
     const rec = nodes.nodes[m.id];
     if (rec) nodes.upsert({ ...rec, canvasX: x, canvasY: y });
   });

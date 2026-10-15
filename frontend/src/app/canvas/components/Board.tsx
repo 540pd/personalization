@@ -155,6 +155,9 @@ export default function Board() {
 
     const restoreSnapshot = (snap: Snapshot) => {
       transformer.nodes([]);
+      // The store as well, or anything drawn from it -- a line's end
+      // handles -- would outlive the selection the transformer just dropped.
+      useKonvaSelection.getState().deselect();
       const snapSet = new Set(snap.map((s) => s.node));
       // Remove nodes absent from this snapshot, and their konvaNodes record
       // with them: labels and ports render from the record, so leaving it

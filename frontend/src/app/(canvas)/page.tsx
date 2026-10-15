@@ -10,6 +10,7 @@ const Minimap = dynamic(() => import("@/app/canvas/components/Minimap/Minimap"),
 const Sidebar = dynamic(() => import("@/app/canvas/components/Sidebar/Sidebar"), { ssr: false });
 const NodePanel = dynamic(() => import("@/app/canvas/components/NodePanel/NodePanel"), { ssr: false });
 const KonvaNodePorts = dynamic(() => import("@/app/canvas/components/KonvaNodePorts"), { ssr: false });
+const LineHandles = dynamic(() => import("@/app/canvas/components/LineHandles"), { ssr: false });
 const KonvaNodeLabels = dynamic(() => import("@/app/canvas/components/KonvaNodeLabels"), { ssr: false });
 const ConnectionOverlay = dynamic(() => import("@/app/canvas/components/ConnectionOverlay"), { ssr: false });
 
@@ -26,6 +27,7 @@ export default function CanvasPage() {
       <Minimap />
       <NodePanel />
       <KonvaNodePorts />
+      <LineHandles />
       <KonvaNodeLabels />
     </>
   );

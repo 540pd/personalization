@@ -13,8 +13,18 @@ import { useToolStore, shapeKindOf } from "@/store/tool.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { selectOnly } from "@/lib/canvas/selection";
-import { createShape, drawnBox, type BoardShape, type ShapeBox } from "./shapes";
 import {
+  createShape,
+  drawnBox,
+  isLineKind,
+  lineAttrs,
+  snap45,
+  type BoardShape,
+  type ShapeBox,
+} from "./shapes";
+import type { ShapeKind } from "@/store/tool.store";
+import {
+  LINE_DEFAULT_LENGTH,
   SHAPE_CLICK_SLOP,
   SHAPE_DEFAULT_SIZE,
   SHAPE_MIN_SIZE,
@@ -55,6 +65,40 @@ export function finalBox(start: Konva.Vector2d, drawn: ShapeBox, scale: number):
   };
 }
 
+/**
+ * A line's attrs from the press to the pointer. Shift snaps the angle rather
+ * than squaring a box, and a click places a horizontal default-length line
+ * starting at it. No minimum: a horizontal line is meant to be 0 tall.
+ */
+export function drawnLine(
+  start: Konva.Vector2d,
+  at: Konva.Vector2d,
+  snap: boolean,
+  scale: number,
+  released: boolean
+) {
+  const end = snap ? snap45(start, at) : at;
+  const moved = Math.hypot(end.x - start.x, end.y - start.y) * scale;
+  if (released && moved < SHAPE_CLICK_SLOP) {
+    return lineAttrs(start, { x: start.x + LINE_DEFAULT_LENGTH, y: start.y });
+  }
+  return lineAttrs(start, end);
+}
+
+/** The attrs a draw has reached, for the preview or the final shape. */
+function drawnAttrs(
+  kind: ShapeKind,
+  start: Konva.Vector2d,
+  at: Konva.Vector2d,
+  modifier: boolean,
+  scale: number,
+  released: boolean
+) {
+  if (isLineKind(kind)) return drawnLine(start, at, modifier, scale, released);
+  const box = drawnBox(start, at, modifier);
+  return released ? finalBox(start, box, scale) : box;
+}
+
 export function createShapeDrawHandlers(deps: ShapeDrawDeps) {
   let start: Konva.Vector2d | null = null;
   // The shape being drawn, shown live. Not yet "selectable": until the
@@ -80,7 +124,7 @@ export function createShapeDrawHandlers(deps: ShapeDrawDeps) {
     if (!start || !preview) return;
     const pt = stage.getRelativePointerPosition();
     if (!pt) return;
-    preview.setAttrs(drawnBox(start, pt, square));
+    preview.setAttrs(drawnAttrs(preview.shapeKind(), start, pt, square, stage.scaleX(), false));
     deps.layer.batchDraw();
   };
 
@@ -88,12 +132,12 @@ export function createShapeDrawHandlers(deps: ShapeDrawDeps) {
     if (!start || !preview) return;
     const pt = stage.getRelativePointerPosition() ?? start;
     const node = preview;
-    const box = finalBox(start, drawnBox(start, pt, square), stage.scaleX());
+    const attrs = drawnAttrs(node.shapeKind(), start, pt, square, stage.scaleX(), true);
     start = null;
     preview = null;
 
     const id = crypto.randomUUID();
-    node.setAttrs({ ...box, id, name: "selectable", listening: true });
+    node.setAttrs({ ...attrs, id, name: "selectable", listening: true });
 
     // Pointer first: the new shape has to be draggable straight away, and
     // applyDraggability reads the tool.

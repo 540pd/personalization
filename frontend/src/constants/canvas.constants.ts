@@ -94,6 +94,14 @@ export const SHAPE_MIN_SIZE = 8; // canvas units
 // FRAME_MIN_EDGE.
 export const SHAPE_CLICK_SLOP = 4;
 
+// How far from a line or arrow a click still lands on it, in SCREEN px each
+// side. A 2px line is otherwise close to impossible to hit, and in canvas
+// units it would get harder still the further out the board is zoomed.
+export const LINE_HIT_SLOP = 6;
+
+// Length of a line or arrow placed by a click rather than a drag.
+export const LINE_DEFAULT_LENGTH = 100; // canvas units
+
 // The longest edge of a node's default footprint, in canvas units. Shared by
 // both node types so an imported image and a generated one land at the same
 // size — a generated node used to default to 200, rendering your own output at

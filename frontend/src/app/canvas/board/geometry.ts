@@ -1,6 +1,7 @@
 import type Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import type { ShapeKind } from "@/store/tool.store";
+import { isBoardShape, isLineKind, lineEnds } from "./shapes";
 
 /**
  * Publishes a node's geometry to konvaNodes -- the single source the port
@@ -26,6 +27,7 @@ export function syncNodeGeometry(n: Konva.Shape): void {
     canvasH: n.height() * n.scaleY(),
     z: n.zIndex(),
     ...(shape ? { shape } : {}),
+    ...(isBoardShape(n) && isLineKind(n.shapeKind()) ? { ends: lineEnds(n) } : {}),
   });
 }
 

@@ -2,7 +2,8 @@
 
 // Luma reference: TOOL-01 — Floating creation dock, fixed at bottom-centre.
 // Pointer wired. Create, Links and Shapes open submenus; opening one closes the others.
-// Keyboard: V → pointer, F → frame, R → rectangle, O → ellipse, S → last-used shape,
+// Keyboard: V → pointer, F → frame, R/A/L/O → rectangle/arrow/line/ellipse,
+// S → last-used shape,
 // Esc → pointer + close all submenus.
 // Hover tooltip: pill with label + optional shortcut badge, floats above the button.
 
@@ -159,6 +160,27 @@ const IconRectangle = () => (
   </svg>
 );
 
+const IconArrow = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 13 13 3M7 3h6v6" />
+  </svg>
+);
+
+const IconLine = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+    <path d="M3 13 13 3" />
+  </svg>
+);
+
 const IconEllipse = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
     <ellipse cx="8" cy="8" rx="6" ry="4.5" />
@@ -291,6 +313,8 @@ const LINK_ITEMS = [
 // The Shapes menu, in the reference's order. Doodle is deliberately absent.
 const SHAPE_ITEMS: { kind: ShapeKind; label: string; shortcut?: string; icon: React.ReactNode }[] = [
   { kind: "rect", label: "Rectangle", shortcut: "R", icon: <IconRectangle /> },
+  { kind: "arrow", label: "Arrow", shortcut: "A", icon: <IconArrow /> },
+  { kind: "line", label: "Line", shortcut: "L", icon: <IconLine /> },
   { kind: "ellipse", label: "Ellipse", shortcut: "O", icon: <IconEllipse /> },
   { kind: "triangle", label: "Triangle", icon: <IconTriangle /> },
   { kind: "diamond", label: "Diamond", icon: <IconDiamond /> },
