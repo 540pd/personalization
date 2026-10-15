@@ -47,6 +47,9 @@ describe("shape tools", () => {
 
   it("name the shape they draw", () => {
     expect(shapeKindOf("shape-rect")).toBe("rect");
+    expect(shapeKindOf("shape-ellipse")).toBe("ellipse");
+    expect(shapeKindOf("shape-triangle")).toBe("triangle");
+    expect(shapeKindOf("shape-diamond")).toBe("diamond");
     expect(shapeKindOf("frame")).toBeNull();
     expect(shapeKindOf("pointer")).toBeNull();
   });

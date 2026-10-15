@@ -4,7 +4,7 @@ import { create } from "zustand";
  * What the Shapes menu can draw. The tool for each is "shape-<kind>", so the
  * union of tools grows with this list instead of being kept in step by hand.
  */
-export const SHAPE_KINDS = ["rect"] as const;
+export const SHAPE_KINDS = ["rect", "ellipse", "triangle", "diamond"] as const;
 export type ShapeKind = (typeof SHAPE_KINDS)[number];
 export type ShapeTool = `shape-${ShapeKind}`;
 
