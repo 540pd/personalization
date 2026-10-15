@@ -212,6 +212,15 @@ function SinglePanel({
         ? leftLeft
         : Math.max(minLeft, viewW - PANEL_W - VIEWPORT_MARGIN);
 
+  // A selected or dragged node comes to the front (#106), so its whole
+  // content and its handles show over whatever it overlaps. raisePanel only
+  // reorders within the DOM layer; bringing that layer forward is what lifts
+  // a Create node back over an uploaded image after the image was last moved.
+  const bringToFront = () => {
+    useNodePanel.getState().raisePanel(instance.id);
+    useLayerOrder.getState().raiseDom();
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     isDragging.current = false;
@@ -259,11 +268,7 @@ function SinglePanel({
         }
         // Outside the isActive guard: an already-selected node still has to
         // come forward, or dragging it across a newer one buries it.
-        useNodePanel.getState().raisePanel(instance.id);
-        // raisePanel only reorders within the DOM layer. Bringing that layer
-        // forward is what lets a panel come back over an uploaded image after
-        // the image was last dragged.
-        useLayerOrder.getState().raiseDom();
+        bringToFront();
       }
       onSetCanvasPos(dragStart.current.cx + dx / scale, dragStart.current.cy + dy / scale);
     }
@@ -277,10 +282,13 @@ function SinglePanel({
       // Shift/Ctrl/Cmd+click: add to or drop from the selection, the same
       // modifiers uploaded images and wires accept.
       if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        // Added to the selection, it comes forward; dropped from it, it stays.
+        if (!isActive) bringToFront();
         useNodePanel.getState().togglePanel(instance.id);
       } else {
         // Normal click: clear other selection types.
         selectOnly("panel");
+        bringToFront();
         // Step through states: inactive → active → panel-open → active
         if (!isActive)              onActivate();
         else if (!isPanelOpen)      onOpenPanel();

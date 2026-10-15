@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, uploadImage, imageBox, addPanel, panelBoxes, collapsePanels, setZoom } from "./helpers";
+import { openBoard, uploadImage, imageBox, addPanel, panelBoxes, collapsePanels, setZoom, addPanelAt } from "./helpers";
 
 // A frame is a labelled backdrop, not a container: it sits behind the nodes
 // and does not own them.
@@ -345,6 +345,99 @@ test.describe("one selection at a time", () => {
     expect(h.node).toBe(0);
   });
 
+  // --- wires (#127) ---
+  //
+  // A selected wire draws its visible stroke at 2px instead of 1.5; the
+  // 12px-wide invisible path beside it is the hit target.
+  const selectedWires = (page: Page) => page.locator('svg g > path[stroke-width="2"]').count();
+
+  /** An image wired into a Create node, plus a frame drawn clear of both. */
+  async function wiredPairAndFrame(page: Page) {
+    await openBoard(page);
+    await uploadImage(page, 200, 150);
+    await addPanelAt(page, 420);
+    const img = await imageBox(page);
+
+    const port = (title: string) =>
+      page.evaluate((t) => {
+        return [...document.querySelectorAll(`div[title="${t}"]`)].map((d) => {
+          const r = d.getBoundingClientRect();
+          return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+        });
+      }, title);
+    const out = (await port("Output")).reduce((a, b) =>
+      Math.abs(b.x - (img.x + img.w)) < Math.abs(a.x - (img.x + img.w)) ? b : a
+    );
+    const inp = (await port("Input")).reduce((a, b) => (b.x > a.x ? b : a));
+    await page.mouse.move(out.x, out.y);
+    await page.mouse.down();
+    await page.mouse.move(inp.x, inp.y, { steps: 20 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    expect(await page.locator('svg g > path[stroke-width="12"]').count()).toBe(1);
+
+    await frameBtn(page).click();
+    await drawFrame(page, 260, 60, 460, 200);
+    return img;
+  }
+
+  /** The middle of the one wire, in screen px. */
+  const wireMid = (page: Page) =>
+    page.evaluate(() => {
+      const p = document.querySelector('svg g > path[stroke-width="12"]') as SVGPathElement;
+      const pt = p.getPointAtLength(p.getTotalLength() / 2);
+      const m = p.getScreenCTM()!;
+      return { x: pt.x * m.a + pt.y * m.c + m.e, y: pt.x * m.b + pt.y * m.d + m.f };
+    });
+
+  test("clicking a wire clears the frame selection (#127)", async ({ page }) => {
+    await wiredPairAndFrame(page);
+    await page.mouse.click(360, 130);
+    await page.waitForTimeout(300);
+    expect((await handles(page)).frame).toBe(1);
+
+    const mid = await wireMid(page);
+    await page.mouse.click(mid.x, mid.y);
+    await page.waitForTimeout(400);
+
+    expect(await selectedWires(page)).toBe(1);
+    expect((await handles(page)).frame).toBe(0);
+  });
+
+  test("clicking a frame clears the wire selection", async ({ page }) => {
+    // The direction that already worked; pinned so the fix cannot regress it.
+    await wiredPairAndFrame(page);
+    const mid = await wireMid(page);
+    await page.mouse.click(mid.x, mid.y);
+    await page.waitForTimeout(300);
+    expect(await selectedWires(page)).toBe(1);
+
+    await page.mouse.click(360, 130);
+    await page.waitForTimeout(400);
+    expect((await handles(page)).frame).toBe(1);
+    expect(await selectedWires(page)).toBe(0);
+  });
+
+  test("clicking a wire clears a node's handles, and Delete takes only the wire", async ({ page }) => {
+    const img = await wiredPairAndFrame(page);
+    await page.mouse.click(img.x + img.w / 2, img.y + img.h / 2);
+    await page.waitForTimeout(300);
+    expect((await handles(page)).node).toBe(1);
+
+    const mid = await wireMid(page);
+    await page.mouse.click(mid.x, mid.y);
+    await page.waitForTimeout(400);
+    expect((await handles(page)).node).toBe(0);
+    expect(await selectedWires(page)).toBe(1);
+
+    await page.keyboard.press("Delete");
+    await page.waitForTimeout(400);
+    expect(await page.locator('svg g > path[stroke-width="12"]').count()).toBe(0);
+    expect(await frameCount(page)).toBe(1);
+    const images = await page.evaluate(() => (window as any).Konva.stages[0].find("Image").length);
+    expect(images).toBe(1);
+  });
+
   test("Escape clears the frame selection too", async ({ page }) => {
     await imageAndFrame(page);
     expect((await handles(page)).frame).toBe(1);
@@ -613,6 +706,77 @@ test.describe("frames match nodes", () => {
     const after = await imageBox(page);
     expect(Math.round(after.x - img.x)).toBe(80);
     expect(Math.round(after.y - img.y)).toBe(50);
+  });
+});
+
+// #128: a resize is an undo step of its own.
+test.describe("resizing a frame", () => {
+  /** The one frame's rect on the frame stage, in canvas units (zoom is 1). */
+  const frameRect = (page: Page) =>
+    page.evaluate(() => {
+      type R = { x(): number; y(): number; width(): number; height(): number };
+      const stages = (window as unknown as { Konva: { stages: { find(s: string): R[] }[] } }).Konva.stages;
+      const r = stages.flatMap((s) => s.find(".frame"))[0];
+      return { x: Math.round(r.x()), y: Math.round(r.y()), w: Math.round(r.width()), h: Math.round(r.height()) };
+    });
+
+  /** A 300x220 frame, selected, with its bottom-right anchor at (800, 420). */
+  async function selectedFrame(page: Page) {
+    await openBoard(page);
+    await frameBtn(page).click();
+    await drawFrame(page, 500, 200, 800, 420);
+    await page.mouse.click(650, 310);
+    await page.waitForTimeout(300);
+    return frameRect(page);
+  }
+
+  async function dragCorner(page: Page, dx: number, dy: number) {
+    await page.mouse.move(800, 420);
+    await page.mouse.down();
+    await page.mouse.move(800 + dx, 420 + dy, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+  }
+
+  test("undo straight after a resize restores the size and keeps the frame", async ({ page }) => {
+    const before = await selectedFrame(page);
+    await dragCorner(page, 100, 80);
+    const resized = await frameRect(page);
+    expect(resized.w).toBeGreaterThan(before.w + 50);
+    expect(resized.h).toBeGreaterThan(before.h + 40);
+
+    // Before the fix this removed the frame: the last step was its creation.
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(400);
+    expect(await frameCount(page)).toBe(1);
+    expect(await frameRect(page)).toEqual(before);
+
+    await page.keyboard.press("Control+y");
+    await page.waitForTimeout(400);
+    expect(await frameRect(page)).toEqual(resized);
+  });
+
+  test("resize then move: undo takes back the move only, then the resize", async ({ page }) => {
+    const before = await selectedFrame(page);
+    await dragCorner(page, 100, 80);
+    const resized = await frameRect(page);
+
+    // Move by bare frame well inside, clear of every anchor.
+    await page.mouse.move(600, 300);
+    await page.mouse.down();
+    await page.mouse.move(660, 340, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const moved = await frameRect(page);
+    expect(moved.x).toBe(resized.x + 60);
+
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(400);
+    expect(await frameRect(page)).toEqual(resized);
+
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(400);
+    expect(await frameRect(page)).toEqual(before);
   });
 });
 
