@@ -18,6 +18,7 @@ import {
   drawnBox,
   isLineKind,
   lineAttrs,
+  pointingOf,
   snap45,
   type BoardShape,
   type ShapeBox,
@@ -96,7 +97,11 @@ function drawnAttrs(
 ) {
   if (isLineKind(kind)) return drawnLine(start, at, modifier, scale, released);
   const box = drawnBox(start, at, modifier);
-  return released ? finalBox(start, box, scale) : box;
+  const final = released ? finalBox(start, box, scale) : box;
+  if (kind !== "blockArrow") return final;
+  // A click has no direction, and places the arrow pointing right.
+  const moved = Math.max(box.width, box.height) * scale >= SHAPE_CLICK_SLOP;
+  return { ...final, pointing: moved ? pointingOf(start, at) : "right" };
 }
 
 export function createShapeDrawHandlers(deps: ShapeDrawDeps) {

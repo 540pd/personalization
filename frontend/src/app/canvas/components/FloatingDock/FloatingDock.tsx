@@ -201,6 +201,20 @@ const IconTriangle = () => (
   </svg>
 );
 
+const IconBlockArrow = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinejoin="round"
+  >
+    <path d="M2 6h7V3l5 5-5 5v-3H2z" />
+  </svg>
+);
+
 const IconDiamond = () => (
   <svg
     width="16"
@@ -317,6 +331,7 @@ const SHAPE_ITEMS: { kind: ShapeKind; label: string; shortcut?: string; icon: Re
   { kind: "line", label: "Line", shortcut: "L", icon: <IconLine /> },
   { kind: "ellipse", label: "Ellipse", shortcut: "O", icon: <IconEllipse /> },
   { kind: "triangle", label: "Triangle", icon: <IconTriangle /> },
+  { kind: "blockArrow", label: "Block Arrow", icon: <IconBlockArrow /> },
   { kind: "diamond", label: "Diamond", icon: <IconDiamond /> },
 ];
 

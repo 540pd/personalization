@@ -32,6 +32,25 @@ export interface BoardShapeConfig extends Konva.ShapeConfig {
    * keeps the same bulge on the same side.
    */
   bend?: number;
+  /** Block arrows only: which side of its box the head is on. */
+  pointing?: Pointing;
+}
+
+export type Pointing = "right" | "left" | "up" | "down";
+
+/**
+ * A block arrow's outline, as [along, across] pairs: a shaft half the
+ * thickness and a head the full thickness. The head is the shorter of half
+ * the length and the full thickness, so a long thin arrow does not grow a
+ * head half its length.
+ */
+function blockArrowOutline(length: number, thick: number): [number, number][] {
+  const head = Math.min(length / 2, thick);
+  const neck = length - head;
+  return [
+    [0, thick / 4], [neck, thick / 4], [neck, 0], [length, thick / 2],
+    [neck, thick], [neck, (thick * 3) / 4], [0, (thick * 3) / 4],
+  ];
 }
 
 /** Drawn as a stroke between two points rather than a filled box. */
@@ -81,6 +100,27 @@ export class BoardShape extends Konva.Shape<BoardShapeConfig> {
         ctx.lineTo(w / 2, h);
         ctx.lineTo(0, h / 2);
         break;
+      // Drawn along whichever axis it points, then mapped back onto x/y, so
+      // one outline serves all four directions.
+      case "blockArrow": {
+        const pointing = (this.getAttr("pointing") as Pointing | undefined) ?? "right";
+        const across = pointing === "up" || pointing === "down";
+        const length = across ? h : w;
+        const toXY = ([along, side]: [number, number]): [number, number] => {
+          switch (pointing) {
+            case "right": return [along, side];
+            case "left": return [length - along, side];
+            case "down": return [side, along];
+            case "up": return [side, length - along];
+          }
+        };
+        blockArrowOutline(length, across ? w : h).forEach((pt, i) => {
+          const [px, py] = toXY(pt);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        break;
+      }
     }
     ctx.closePath();
     ctx.fillStrokeShape(this);
@@ -189,6 +229,17 @@ function quadExtent(p0: number, p1: number, p2: number): [number, number] {
     }
   }
   return [lo, hi];
+}
+
+/**
+ * Which way a block arrow drawn from `start` to `at` points: along whichever
+ * axis the drag mostly went, toward where it went.
+ */
+export function pointingOf(start: Konva.Vector2d, at: Konva.Vector2d): Pointing {
+  const dx = at.x - start.x;
+  const dy = at.y - start.y;
+  if (Math.abs(dx) >= Math.abs(dy)) return dx < 0 ? "left" : "right";
+  return dy < 0 ? "up" : "down";
 }
 
 /** A line's two ends, in canvas units. */
