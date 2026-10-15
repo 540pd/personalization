@@ -20,7 +20,7 @@ describe("panningTool", () => {
   });
 
   it("is true for the tools that really do pan", () => {
-    const panning: Tool[] = ["link-straight", "link-elbow", "link-curve", "text"];
+    const panning: Tool[] = ["link-straight", "link-elbow", "link-curve", "sticky-note"];
     panning.forEach((t) => expect(panningTool(t)).toBe(true));
   });
 });
@@ -60,5 +60,14 @@ describe("shape tools", () => {
     useToolStore.getState().setTool("frame");
     expect(useToolStore.getState().lastShape).toBe("rect");
     expect(useToolStore.getState().activeTool).toBe("frame");
+  });
+});
+
+describe("the text tool", () => {
+  // Placing text is a press on the board, so the board must not pan under it.
+  it("draws rather than pans, with a text cursor", () => {
+    expect(drawingTool("text")).toBe(true);
+    expect(panningTool("text")).toBe(false);
+    expect(cursorFor("text")).toBe("text");
   });
 });

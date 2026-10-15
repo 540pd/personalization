@@ -93,7 +93,9 @@ export function pasteNodes(
         ? new Konva.Image(attrs as Konva.ImageConfig)
         : entry.className === "BoardShape"
           ? new BoardShape(attrs as BoardShapeConfig)
-          : new Konva.Rect(attrs as Konva.RectConfig);
+          : entry.className === "Text"
+            ? new Konva.Text(attrs as Konva.TextConfig)
+            : new Konva.Rect(attrs as Konva.RectConfig);
 
     layer.add(node);
 
