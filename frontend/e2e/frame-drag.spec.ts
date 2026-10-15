@@ -320,3 +320,70 @@ test.describe("a selected frame dragged from an image", () => {
     });
   });
 });
+
+// Issue #155. Every pointermove of a Frame drag used to save the whole panel
+// store -- image data URLs and all -- to localStorage, once per panel. The
+// save is now deferred to the end of the gesture.
+test.describe("a frame drag's cost", () => {
+  /** Counts writes of the panel store, from the moment the page loads. */
+  async function countPanelSaves(page: Page) {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __panelSaves: number };
+      w.__panelSaves = 0;
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key: string, value: string) {
+        if (key === "gcos-node-panels") w.__panelSaves++;
+        return setItem.call(this, key, value);
+      };
+    });
+  }
+  const saves = (page: Page) =>
+    page.evaluate(() => (window as unknown as { __panelSaves: number }).__panelSaves);
+
+  /** A Create node with a frame drawn around it -- drawn, so selected. */
+  async function panelInFrame(page: Page) {
+    await openBoard(page);
+    await addPanel(page);
+    await collapsePanels(page);
+    const [node] = await panelBoxes(page);
+    await drawAround(page, node);
+    return node;
+  }
+
+  test("saves the panels once when the drag settles, not on every move", async ({ page }) => {
+    await countPanelSaves(page);
+    const node = await panelInFrame(page);
+    await page.waitForTimeout(400);
+    const before = await saves(page);
+
+    const from = centre(node);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 120, from.y + 60, { steps: 30 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const [moved] = await panelBoxes(page);
+    expect(Math.round(moved.x - node.x)).toBe(120);
+    // 30 moves used to mean 30+ writes.
+    expect((await saves(page)) - before).toBeLessThanOrEqual(2);
+  });
+
+  test("the dragged position survives a reload straight after the drop", async ({ page }) => {
+    const node = await panelInFrame(page);
+    const from = centre(node);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 120, from.y + 60, { steps: 12 });
+    await page.mouse.up();
+    const [moved] = await panelBoxes(page);
+
+    // Inside the save delay: the pending write must not be lost with the page.
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForTimeout(800);
+
+    const [after] = await panelBoxes(page);
+    expect(Math.round(after.x)).toBe(Math.round(moved.x));
+    expect(Math.round(after.y)).toBe(Math.round(moved.y));
+  });
+});
