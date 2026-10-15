@@ -118,7 +118,7 @@ export function createShapeDrawHandlers(deps: ShapeDrawDeps) {
     const pt = stage.getRelativePointerPosition();
     if (!pt) return false;
     start = pt;
-    preview = createShape(kind, { x: pt.x, y: pt.y, width: 0, height: 0 });
+    preview = createShape(kind, { x: pt.x, y: pt.y, width: 0, height: 0 }, useToolStore.getState().color);
     preview.listening(false);
     deps.layer.add(preview);
     deps.layer.batchDraw();

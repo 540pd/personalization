@@ -16,6 +16,7 @@
 import Konva from "konva";
 import type { ShapeKind } from "@/store/tool.store";
 import { LINE_HIT_SLOP, SHAPE_STYLE } from "@/constants/canvas.constants";
+import { outlineFor } from "./palette";
 
 export interface BoardShapeConfig extends Konva.ShapeConfig {
   shapeKind: ShapeKind;
@@ -298,16 +299,21 @@ export interface ShapeBox {
   height: number;
 }
 
-export function createShape(kind: ShapeKind, box: ShapeBox): BoardShape {
+/**
+ * A new shape, in the dock's current colour if one is picked (#159) and the
+ * default style if not.
+ */
+export function createShape(kind: ShapeKind, box: ShapeBox, color?: string | null): BoardShape {
   if (isLineKind(kind)) {
     // No fill: a line has no inside to paint or to click.
     const { stroke, strokeWidth } = SHAPE_STYLE;
     return new BoardShape({
-      stroke, strokeWidth, ...box, shapeKind: kind,
+      stroke: color ?? stroke, strokeWidth, ...box, shapeKind: kind,
       lineCap: "round", lineJoin: "round",
     });
   }
-  return new BoardShape({ ...SHAPE_STYLE, ...box, shapeKind: kind });
+  const colored = color ? { fill: color, stroke: outlineFor(color) } : {};
+  return new BoardShape({ ...SHAPE_STYLE, ...colored, ...box, shapeKind: kind });
 }
 
 /**

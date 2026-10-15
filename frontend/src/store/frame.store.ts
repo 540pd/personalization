@@ -18,6 +18,8 @@ export interface FrameRecord {
   canvasW: number;
   canvasH: number;
   label: string;
+  /** Outline colour from the dock's Color (#159). Absent: the default. */
+  stroke?: string;
 }
 
 /** The rectangle being dragged out right now, in canvas units. */

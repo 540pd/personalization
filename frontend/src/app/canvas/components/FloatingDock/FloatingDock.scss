@@ -97,6 +97,23 @@
 }
 
 /* ---------------------------------
+   Color card (#159): 4 x 3 swatches
+---------------------------------- */
+
+.floating-dock-color-card {
+  @apply grid grid-cols-4 gap-3 p-4 rounded-2xl w-max;
+}
+
+.floating-dock-swatch {
+  @apply w-7 h-7 rounded-full border border-black/10 cursor-pointer transition-transform duration-100 hover:scale-110;
+}
+
+/* The current colour: a ring set off from the swatch, so it reads on white. */
+.floating-dock-swatch-current {
+  @apply ring-2 ring-neutral-900 ring-offset-2;
+}
+
+/* ---------------------------------
    Hidden file input
 ---------------------------------- */
 
