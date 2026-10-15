@@ -353,7 +353,7 @@ test.describe("ellipse, triangle and diamond", () => {
     await shapesBtn(page).click();
     const labels = await page.locator(".floating-dock-submenu button").allInnerTexts();
     expect(labels.map((l) => l.replace(/\s+/g, " ").trim())).toEqual([
-      "Rectangle R", "Ellipse O", "Triangle", "Diamond",
+      "Rectangle R", "Arrow A", "Line L", "Ellipse O", "Triangle", "Diamond",
     ]);
   });
 
@@ -430,5 +430,175 @@ test.describe("ellipse, triangle and diamond", () => {
     await page.keyboard.press("Control+v");
     await page.waitForTimeout(300);
     expect((await shapes(page)).map((r) => r.kind)).toEqual(["diamond", "diamond"]);
+  });
+});
+
+// Part 3: Line and Arrow. Drawn end to end rather than as a box, edited by a
+// handle at each end, and clickable a few px either side of the stroke.
+interface LineInfo { a: { x: number; y: number }; b: { x: number; y: number }; kind: string }
+
+/** Each line's two ends on screen, start (a) then end (b). */
+const lines = (page: Page): Promise<LineInfo[]> =>
+  page.evaluate(() => {
+    const s = (window as any).Konva.stages[0];
+    const c = s.container().getBoundingClientRect();
+    const scr = (x: number, y: number) => ({
+      x: c.left + s.x() + x * s.scaleX(),
+      y: c.top + s.y() + y * s.scaleY(),
+    });
+    return s.find(".selectable")
+      .filter((n: any) => ["line", "arrow"].includes(n.getAttr("shapeKind")))
+      .map((n: any) => {
+        const [ax, ay, bx, by] = n.getAttr("linePoints");
+        return {
+          kind: n.getAttr("shapeKind"),
+          a: scr(n.x() + ax, n.y() + ay),
+          b: scr(n.x() + bx, n.y() + by),
+        };
+      });
+  });
+
+const nearPt = (p: { x: number; y: number }, x: number, y: number, tol = 2) =>
+  near(p.x, x, tol) && near(p.y, y, tol);
+
+async function arm(page: Page, label: string) {
+  await shapesBtn(page).click();
+  await menuItem(page, label).click();
+}
+
+test.describe("line and arrow", () => {
+  test("A arms Arrow and L arms Line", async ({ page }) => {
+    await openBoard(page);
+    await page.mouse.click(900, 150);
+    await page.keyboard.press("a");
+    await drag(page, 300, 300, 400, 250);
+    await page.keyboard.press("l");
+    await drag(page, 300, 400, 400, 450);
+    expect((await lines(page)).map((l) => l.kind)).toEqual(["arrow", "line"]);
+  });
+
+  test("an arrow runs from the press to the release, either way round", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Arrow");
+    await drag(page, 560, 420, 400, 300);
+    const [l] = await lines(page);
+    expect(nearPt(l.a, 560, 420) && nearPt(l.b, 400, 300)).toBe(true);
+  });
+
+  test("Shift snaps the angle to 45 degrees", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Line");
+    await drag(page, 400, 300, 600, 320, true);
+    const [l] = await lines(page);
+    expect(near(l.a.y, l.b.y, 1)).toBe(true);    // horizontal
+  });
+
+  test("a click places a horizontal line of the default length", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Line");
+    await page.mouse.click(400, 300);
+    await page.waitForTimeout(300);
+    const [l] = await lines(page);
+    expect(nearPt(l.a, 400, 300) && nearPt(l.b, 500, 300)).toBe(true);
+  });
+
+  test("a selected line shows a handle at each end and no resize box", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Line");
+    await drag(page, 400, 300, 560, 420);
+    const a = await page.getByTestId("line-handle-a").boundingBox();
+    const b = await page.getByTestId("line-handle-b").boundingBox();
+    expect(a && nearPt({ x: a.x + a.width / 2, y: a.y + a.height / 2 }, 400, 300)).toBe(true);
+    expect(b && nearPt({ x: b.x + b.width / 2, y: b.y + b.height / 2 }, 560, 420)).toBe(true);
+    const tr = await page.evaluate(() => {
+      const t = (window as any).Konva.stages[0].findOne("Transformer");
+      return { border: t.borderEnabled(), resize: t.resizeEnabled() };
+    });
+    expect(tr).toEqual({ border: false, resize: false });
+  });
+
+  test("dragging a handle moves that end only, and is one undo step", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Arrow");
+    await drag(page, 400, 300, 560, 420);
+    await drag(page, 560, 420, 650, 300);
+    let [l] = await lines(page);
+    expect(nearPt(l.a, 400, 300) && nearPt(l.b, 650, 300)).toBe(true);
+
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(250);
+    [l] = await lines(page);
+    expect(nearPt(l.b, 560, 420)).toBe(true);
+  });
+
+  test("Shift on a handle snaps that end around the other", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Line");
+    await drag(page, 400, 300, 560, 420);
+    await drag(page, 560, 420, 600, 290, true);
+    const [l] = await lines(page);
+    expect(near(l.a.y, l.b.y, 1)).toBe(true);
+    expect(nearPt(l.a, 400, 300)).toBe(true);
+  });
+
+  test("dragging the line itself moves both ends", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Line");
+    await drag(page, 400, 300, 560, 300);
+    // Off-centre: the middle of a selected line is its bend handle.
+    await drag(page, 440, 300, 490, 380);
+    const [l] = await lines(page);
+    expect(nearPt(l.a, 450, 380) && nearPt(l.b, 610, 380)).toBe(true);
+  });
+
+  for (const z of [0.5, 1.5]) {
+    test(`is clickable 4px off the stroke at ${z * 100}% zoom`, async ({ page }) => {
+      await openBoard(page);
+      await setZoom(page, z);
+      await arm(page, "Line");
+      await drag(page, 300, 200, 460, 200);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(200);
+      expect((await selection(page)).count).toBe(0);
+      await page.mouse.move(380, 204);
+      await page.mouse.click(380, 204);
+      await page.waitForTimeout(250);
+      expect((await selection(page)).count).toBe(1);
+    });
+  }
+
+  test("is not clickable well clear of the stroke", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Line");
+    await drag(page, 300, 200, 460, 280);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+    // Inside the line's box but 40px off the diagonal.
+    await page.mouse.move(420, 220);
+    await page.mouse.click(420, 220);
+    await page.waitForTimeout(250);
+    expect((await selection(page)).count).toBe(0);
+  });
+
+  test("has no port, and pastes as the same kind", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Arrow");
+    await drag(page, 400, 300, 560, 380);
+    expect(await portCount(page)).toBe(0);
+    await page.keyboard.press("Control+c");
+    await page.keyboard.press("Control+v");
+    await page.waitForTimeout(300);
+    expect((await lines(page)).map((l) => l.kind)).toEqual(["arrow", "arrow"]);
+  });
+
+  test("moves with a Frame when both ends are inside it", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Line");
+    await drag(page, 450, 300, 550, 380);
+    await frameBtn(page).click();
+    await drag(page, 380, 230, 640, 460);
+    await drag(page, 400, 250, 520, 320);
+    const [l] = await lines(page);
+    expect(nearPt(l.a, 570, 370) && nearPt(l.b, 670, 450)).toBe(true);
   });
 });
