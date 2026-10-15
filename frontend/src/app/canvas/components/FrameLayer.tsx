@@ -20,15 +20,12 @@ import { frameStage } from "@/lib/canvas/frameStage";
 import { canvasHistory } from "@/lib/canvas/history";
 import { membersOf, moveMembers, type FrameMembers } from "../board/frameMembers";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
-import { dragFrameFrom } from "../board/frameDrag";
 import { boardStage } from "@/lib/canvas/boardStage";
-import NodeLabel from "./NodeLabel";
+import FrameLabels from "./FrameLabels";
 import {
   COLORS,
   FRAME_CORNER_RADIUS,
   FRAME_MIN_EDGE,
-  LABEL_GAP,
-  LABEL_MIN_NODE_W,
   SELECTION,
   Z_INDEX,
 } from "@/constants/canvas.constants";
@@ -51,7 +48,6 @@ export default function FrameLayer() {
   const frames = useFrames((s) => s.frames);
   const draft = useFrames((s) => s.draft);
   const selectedIds = useFrames((s) => s.selectedIds);
-  const drag = useFrames((s) => s.drag);
   const { x: stageX, y: stageY, scale } = useViewport();
 
   // --- Create the stage lazily, on the first frame ---
@@ -360,31 +356,7 @@ export default function FrameLayer() {
       {/* Names render as siblings, not children: this container has a z-index
           and so forms a stacking context, which a label inside could never
           escape to reach Z_INDEX.labels. */}
-      {Object.values(frames).map((f) => {
-        // While this frame is being dragged its rect has moved but its record
-        // has not, so the name reads the live offset to stay with it.
-        const dx = drag[f.id]?.dx ?? 0;
-        const dy = drag[f.id]?.dy ?? 0;
-        const screenW = f.canvasW * scale;
-        if (screenW < LABEL_MIN_NODE_W) return null;
-        return (
-          <NodeLabel
-            key={f.id}
-            value={f.label}
-            left={stageX + (f.canvasX + dx) * scale}
-            bottom={stageY + (f.canvasY + dy) * scale - LABEL_GAP}
-            maxWidth={screenW}
-            onCommit={(next) => useFrames.getState().upsert({ ...f, label: next })}
-            // The name is a handle for the frame: drag it to move the frame
-            // and its contents, click it to select the frame (#119).
-            onDragFrom={(press) => dragFrameFrom(f, press)}
-            onSelect={() => {
-              selectOnly("frame");
-              useFrames.getState().select(f.id);
-            }}
-          />
-        );
-      })}
+      <FrameLabels />
     </>
   );
 }
