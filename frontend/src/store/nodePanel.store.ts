@@ -55,6 +55,12 @@ export interface PanelInstance {
   // referred to by when it feeds a downstream generation. Derived from the
   // instruction on first generate; renameable.
   label?: string;
+  // True while `label` is one the app derived from the instruction. Such a
+  // label follows the instruction: the next generate with a different prompt
+  // re-derives it (#130). A rename by the user clears this and the name is
+  // never changed for them again. Unset on nodes saved before the flag
+  // existed, which therefore count as user-named -- the safe reading.
+  labelAuto?: boolean;
   // Unset until the user first edits the panel; the kind's defaults apply.
   draft?: PanelDraft;
 }
@@ -101,7 +107,8 @@ interface NodePanelState {
   setOutput:       (id: string, output: PanelOutput) => void;
   /** Record or clear an in-flight job. */
   setJob:          (id: string, job: string | undefined) => void;
-  setLabel:        (id: string, label: string) => void;
+  /** `auto` marks the label as derived by the app; a plain rename clears it. */
+  setLabel:        (id: string, label: string, auto?: boolean) => void;
   setDraft:        (id: string, draft: PanelDraft) => void;
   /**
    * Add copies of a node, one per placement, each with the source's kind,
@@ -299,6 +306,7 @@ export const useNodePanel = create<NodePanelState>()(
         output: src.output,
         draft: src.draft,
         label: src.label,
+        labelAuto: src.labelAuto,
         // No job: the original's in-flight generation stays the original's.
         // Copying it would make both nodes poll the same job.
         isActive: true,
@@ -361,9 +369,9 @@ export const useNodePanel = create<NodePanelState>()(
       panels: s.panels.map((p) => p.id === id ? { ...p, job } : p),
     })),
 
-  setLabel: (id, label) =>
+  setLabel: (id, label, auto = false) =>
     set((s) => ({
-      panels: s.panels.map((p) => p.id === id ? { ...p, label } : p),
+      panels: s.panels.map((p) => p.id === id ? { ...p, label, labelAuto: auto } : p),
     })),
 
   setDraft: (id, draft) =>
@@ -386,6 +394,8 @@ export const useNodePanel = create<NodePanelState>()(
         isPanelOpen: false,
         output: v.output,
         label: v.label,
+        // A copy named from an auto-named source follows its own prompt too.
+        labelAuto: source.labelAuto,
         // Settings copied, not shared: editing one variant's settings must not
         // quietly change its siblings.
         draft: source.draft && {

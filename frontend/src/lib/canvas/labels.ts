@@ -34,6 +34,19 @@ export function takenLabels(): string[] {
  * `base` is stripped of any existing suffix first: copying "cat (2)" yields
  * "cat (3)", not "cat (2) (2)".
  */
+/**
+ * The auto label for `base` on a node currently called `current`.
+ *
+ * Keeps `current` when it is already `base` or a suffixed `base (n)`, so
+ * regenerating with the same prompt does not churn "cat (2)" into "cat (3)".
+ * Otherwise a fresh unique name, not counting `current` itself as taken --
+ * the node is giving that name up.
+ */
+export function relabel(current: string | undefined, base: string, taken: string[]): string {
+  if (current && current.replace(SUFFIX, "") === base.replace(SUFFIX, "")) return current;
+  return uniqueLabel(base, taken.filter((l) => l !== current));
+}
+
 export function uniqueLabel(base: string, taken: string[]): string {
   const stem = base.replace(SUFFIX, "");
   if (!taken.includes(stem)) return stem;
