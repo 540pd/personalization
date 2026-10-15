@@ -27,6 +27,23 @@ export class BoardShape extends Konva.Shape<BoardShapeConfig> {
       case "rect":
         ctx.rect(0, 0, w, h);
         break;
+      // Each fills the box it was drawn in, so a wide drag gives a wide
+      // shape. That is the reason for not using RegularPolygon, which only
+      // has a radius and so is always equal-sided.
+      case "ellipse":
+        ctx.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+        break;
+      case "triangle":
+        ctx.moveTo(w / 2, 0);
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        break;
+      case "diamond":
+        ctx.moveTo(w / 2, 0);
+        ctx.lineTo(w, h / 2);
+        ctx.lineTo(w / 2, h);
+        ctx.lineTo(0, h / 2);
+        break;
     }
     ctx.closePath();
     ctx.fillStrokeShape(this);
