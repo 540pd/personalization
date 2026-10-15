@@ -8,8 +8,8 @@
 // RegularPolygon is sized by a radius. One top-left box keeps every shape on
 // the path images already use.
 //
-// Lines and arrows keep that box too: it is whatever contains the line, and
-// `linePoints` places its two ends inside it. The box is what frames, the
+// Lines and arrows keep that box too: it is whatever contains the line --
+// curve included -- and `linePoints` places its two ends inside it. The box is what frames, the
 // minimap and occlusion read; the ends are only needed to draw the line and
 // to place its handles.
 
@@ -25,6 +25,13 @@ export interface BoardShapeConfig extends Konva.ShapeConfig {
    * line without touching these.
    */
   linePoints?: number[];
+  /**
+   * Lines only: how far the curve's midpoint sits off the straight line
+   * between the ends, in canvas units; positive is to the left going from
+   * a to b. 0 is straight. Kept relative to the ends, so moving either end
+   * keeps the same bulge on the same side.
+   */
+  bend?: number;
 }
 
 /** Drawn as a stroke between two points rather than a filled box. */
@@ -82,12 +89,20 @@ export class BoardShape extends Konva.Shape<BoardShapeConfig> {
   /** The line, and an arrow's open head, in the node's own coordinates. */
   private traceLine(ctx: Konva.Context) {
     const { a, b } = localEnds(this);
+    const bend = lineBend(this);
+    // A quadratic curve whose midpoint is `bend` off the chord. Its control
+    // point is twice as far out, which is why the handle is not placed on it.
+    const c = controlPoint(a, b, bend);
     ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
+    if (bend) ctx.quadraticCurveTo(c.x, c.y, b.x, b.y);
+    else ctx.lineTo(b.x, b.y);
     if (this.shapeKind() !== "arrow") return;
     // An open chevron rather than a filled head, so the whole arrow is one
-    // stroke -- painted, and hit-tested, by the same strokeShape call.
-    const angle = Math.atan2(b.y - a.y, b.x - a.x);
+    // stroke -- painted, and hit-tested, by the same strokeShape call. It
+    // follows the curve's direction at the tip, which is from the control
+    // point, not from the tail.
+    const from = bend ? c : a;
+    const angle = Math.atan2(b.y - from.y, b.x - from.x);
     const len = Math.max(10, this.strokeWidth() * 5);
     for (const side of [-1, 1]) {
       const t = angle + Math.PI + (side * Math.PI) / 6;
@@ -123,6 +138,59 @@ function localEnds(n: BoardShape): LineEnds {
   return { a: { x: ax, y: ay }, b: { x: bx, y: by } };
 }
 
+export function lineBend(n: BoardShape): number {
+  return (n.getAttr("bend") as number | undefined) ?? 0;
+}
+
+/** Unit normal to a->b, on its left. Zero for a line of no length. */
+function normalOf(a: Konva.Vector2d, b: Konva.Vector2d): Konva.Vector2d {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  return len ? { x: dy / len, y: -dx / len } : { x: 0, y: 0 };
+}
+
+/** Where the curve passes halfway along: the middle handle. */
+export function curveMid(a: Konva.Vector2d, b: Konva.Vector2d, bend: number): Konva.Vector2d {
+  const n = normalOf(a, b);
+  return { x: (a.x + b.x) / 2 + n.x * bend, y: (a.y + b.y) / 2 + n.y * bend };
+}
+
+/**
+ * The quadratic control point that puts the curve's midpoint `bend` off the
+ * chord. At t = 0.5 a quadratic is (a + 2c + b) / 4, so c is twice as far out.
+ */
+export function controlPoint(a: Konva.Vector2d, b: Konva.Vector2d, bend: number): Konva.Vector2d {
+  return curveMid(a, b, bend * 2);
+}
+
+/**
+ * The bend that puts the curve's midpoint level with `p`.
+ *
+ * Only the part of `p` square to the line counts, so the curve stays
+ * symmetric and the handle slides along the line's perpendicular bisector.
+ */
+export function bendToward(a: Konva.Vector2d, b: Konva.Vector2d, p: Konva.Vector2d): number {
+  const n = normalOf(a, b);
+  return (p.x - (a.x + b.x) / 2) * n.x + (p.y - (a.y + b.y) / 2) * n.y;
+}
+
+/** Smallest and largest value a quadratic reaches on one axis. */
+function quadExtent(p0: number, p1: number, p2: number): [number, number] {
+  let lo = Math.min(p0, p2);
+  let hi = Math.max(p0, p2);
+  const denom = p0 - 2 * p1 + p2;
+  if (denom) {
+    const t = (p0 - p1) / denom;
+    if (t > 0 && t < 1) {
+      const v = (1 - t) * (1 - t) * p0 + 2 * (1 - t) * t * p1 + t * t * p2;
+      lo = Math.min(lo, v);
+      hi = Math.max(hi, v);
+    }
+  }
+  return [lo, hi];
+}
+
 /** A line's two ends, in canvas units. */
 export function lineEnds(n: BoardShape): LineEnds {
   const { a, b } = localEnds(n);
@@ -132,16 +200,24 @@ export function lineEnds(n: BoardShape): LineEnds {
   };
 }
 
-/** The box and points that put a line's ends at `a` and `b`. */
-export function lineAttrs(a: Konva.Vector2d, b: Konva.Vector2d) {
-  const x = Math.min(a.x, b.x);
-  const y = Math.min(a.y, b.y);
+/**
+ * The box, points and bend for a line from `a` to `b`.
+ *
+ * The box is the curve's own extent, not the chord's, so a frame only
+ * carries a curved line it wholly contains and nothing is hidden behind a
+ * bulge the box does not know about.
+ */
+export function lineAttrs(a: Konva.Vector2d, b: Konva.Vector2d, bend = 0) {
+  const c = controlPoint(a, b, bend);
+  const [x, right] = quadExtent(a.x, c.x, b.x);
+  const [y, bottom] = quadExtent(a.y, c.y, b.y);
   return {
     x,
     y,
-    width: Math.abs(b.x - a.x),
-    height: Math.abs(b.y - a.y),
+    width: right - x,
+    height: bottom - y,
     linePoints: [a.x - x, a.y - y, b.x - x, b.y - y],
+    bend,
   };
 }
 

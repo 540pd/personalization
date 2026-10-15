@@ -610,3 +610,134 @@ test.describe("line and arrow", () => {
     expect(b && nearPt({ x: b.x + b.width / 2, y: b.y + b.height / 2 }, 670, 450)).toBe(true);
   });
 });
+
+// Part 4: bending a line or arrow with its middle handle.
+const bendOf = (page: Page) =>
+  page.evaluate(() => {
+    const n = (window as any).Konva.stages[0].find(".selectable")
+      .find((x: any) => ["line", "arrow"].includes(x.getAttr("shapeKind")));
+    return n.getAttr("bend") ?? 0;
+  });
+
+const handleCentre = async (page: Page, which: "a" | "b" | "bend") => {
+  const r = await page.getByTestId(`line-handle-${which}`).boundingBox();
+  if (!r) throw new Error(`no ${which} handle`);
+  return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+};
+
+/** A straight horizontal line from (400, 300) to (600, 300), selected. */
+async function straightLine(page: Page, label = "Line") {
+  await arm(page, label);
+  await drag(page, 400, 300, 600, 300);
+}
+
+test.describe("bending a line", () => {
+  test("a selected line has a bend handle at its middle", async ({ page }) => {
+    await openBoard(page);
+    await straightLine(page);
+    expect(nearPt(await handleCentre(page, "bend"), 500, 300)).toBe(true);
+  });
+
+  test("dragging the handle bends the line through it", async ({ page }) => {
+    await openBoard(page);
+    await straightLine(page);
+    await drag(page, 500, 300, 500, 240);
+    expect(near(await bendOf(page), 60, 1)).toBe(true);
+    // The handle stays on the curve, at its midpoint.
+    expect(nearPt(await handleCentre(page, "bend"), 500, 240)).toBe(true);
+    // The box holds the bulge.
+    const [r] = await shapes(page);
+    expect(near(r.y, 240) && near(r.h, 60)).toBe(true);
+  });
+
+  test("the curve is clickable and the old chord is not", async ({ page }) => {
+    await openBoard(page);
+    await straightLine(page);
+    await drag(page, 500, 300, 500, 220);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+
+    await page.mouse.move(500, 300);
+    await page.mouse.click(500, 300);              // where the line used to run
+    await page.waitForTimeout(250);
+    expect((await selection(page)).count).toBe(0);
+
+    await page.mouse.move(500, 222);
+    await page.mouse.click(500, 222);              // the top of the curve
+    await page.waitForTimeout(250);
+    expect((await selection(page)).count).toBe(1);
+  });
+
+  test("sliding the handle along the line does not bend it", async ({ page }) => {
+    await openBoard(page);
+    await straightLine(page);
+    await drag(page, 500, 300, 560, 300);
+    expect(await bendOf(page)).toBe(0);
+  });
+
+  test("dragging back near straight snaps straight", async ({ page }) => {
+    await openBoard(page);
+    await straightLine(page);
+    await drag(page, 500, 300, 500, 250);
+    await drag(page, 500, 250, 500, 298);
+    expect(await bendOf(page)).toBe(0);
+  });
+
+  test("double-clicking the handle straightens it, as one undo step", async ({ page }) => {
+    await openBoard(page);
+    await straightLine(page);
+    await drag(page, 500, 300, 500, 250);
+    const h = await handleCentre(page, "bend");
+    await page.mouse.dblclick(h.x, h.y);
+    await page.waitForTimeout(250);
+    expect(await bendOf(page)).toBe(0);
+
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(250);
+    expect(near(await bendOf(page), 50, 1)).toBe(true);
+  });
+
+  test("moving an end keeps the bend", async ({ page }) => {
+    await openBoard(page);
+    await straightLine(page);
+    await drag(page, 500, 300, 500, 250);
+    await drag(page, 600, 300, 700, 300);
+    expect(near(await bendOf(page), 50, 1)).toBe(true);
+    const [l] = await lines(page);
+    expect(nearPt(l.b, 700, 300)).toBe(true);
+  });
+
+  test("an arrow bends the same way, and a bend survives copy and paste", async ({ page }) => {
+    await openBoard(page);
+    await straightLine(page, "Arrow");
+    await drag(page, 500, 300, 500, 360);
+    await page.keyboard.press("Control+c");
+    await page.keyboard.press("Control+v");
+    await page.waitForTimeout(300);
+    const bends = await page.evaluate(() =>
+      (window as any).Konva.stages[0].find(".selectable").map((n: any) => Math.round(n.getAttr("bend")))
+    );
+    expect(bends).toEqual([-60, -60]);
+  });
+
+  test("a Frame around the chord but not the bulge leaves the line behind", async ({ page }) => {
+    await openBoard(page);
+    await straightLine(page);
+    await drag(page, 500, 300, 500, 160);           // bulges up to y=160
+    await frameBtn(page).click();
+    await drag(page, 360, 230, 640, 400);           // holds the ends, not the top
+    await drag(page, 380, 380, 480, 420);
+    const [l] = await lines(page);
+    expect(nearPt(l.a, 400, 300)).toBe(true);
+  });
+
+  for (const z of [0.5, 1.5]) {
+    test(`bends under the pointer at ${z * 100}% zoom`, async ({ page }) => {
+      await openBoard(page);
+      await setZoom(page, z);
+      await straightLine(page);
+      await drag(page, 500, 300, 500, 250);
+      expect(nearPt(await handleCentre(page, "bend"), 500, 250)).toBe(true);
+    });
+  }
+});
