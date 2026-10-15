@@ -44,6 +44,9 @@ export default function FrameLayer() {
   // dropped halfway through just because the frame swept over it.
   const membersRef = useRef<FrameMembers>({ images: [], panels: [] });
   const dragFromRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // One object per resize gesture, shared by every frame it resizes, so the
+  // gesture commits a single undo step however many frames it touched.
+  const resizeKeyRef = useRef<object | null>(null);
 
   const frames = useFrames((s) => s.frames);
   const draft = useFrames((s) => s.draft);
@@ -259,6 +262,9 @@ export default function FrameLayer() {
       // Konva scales rather than resizes, so bake the scale back into width
       // and height -- otherwise the 1px border would be scaled too and the
       // stored size would not match what is drawn.
+      rect.on("transformstart", () => {
+        resizeKeyRef.current ??= {};
+      });
       rect.on("transformend", () => {
         const w = Math.max(1, rect.width() * rect.scaleX());
         const h = Math.max(1, rect.height() * rect.scaleY());
@@ -266,6 +272,16 @@ export default function FrameLayer() {
         rect.size({ width: w, height: h });
         useFrames.getState().upsert({
           ...f, canvasX: rect.x(), canvasY: rect.y(), canvasW: w, canvasH: h,
+        });
+        // A resize is its own undo step (#128). Without this the next commit
+        // -- a move, say -- folded the new size into a step whose undo went
+        // back past it, and an undo straight after a resize removed the
+        // frame. Frames resized together by one transformer each end here,
+        // in the same tick, so they share a key and make one step.
+        const key = resizeKeyRef.current ?? {};
+        canvasHistory.commit(key);
+        queueMicrotask(() => {
+          if (resizeKeyRef.current === key) resizeKeyRef.current = null;
         });
       });
 

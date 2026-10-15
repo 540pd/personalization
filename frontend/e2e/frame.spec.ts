@@ -708,3 +708,74 @@ test.describe("frames match nodes", () => {
     expect(Math.round(after.y - img.y)).toBe(50);
   });
 });
+
+// #128: a resize is an undo step of its own.
+test.describe("resizing a frame", () => {
+  /** The one frame's rect on the frame stage, in canvas units (zoom is 1). */
+  const frameRect = (page: Page) =>
+    page.evaluate(() => {
+      type R = { x(): number; y(): number; width(): number; height(): number };
+      const stages = (window as unknown as { Konva: { stages: { find(s: string): R[] }[] } }).Konva.stages;
+      const r = stages.flatMap((s) => s.find(".frame"))[0];
+      return { x: Math.round(r.x()), y: Math.round(r.y()), w: Math.round(r.width()), h: Math.round(r.height()) };
+    });
+
+  /** A 300x220 frame, selected, with its bottom-right anchor at (800, 420). */
+  async function selectedFrame(page: Page) {
+    await openBoard(page);
+    await frameBtn(page).click();
+    await drawFrame(page, 500, 200, 800, 420);
+    await page.mouse.click(650, 310);
+    await page.waitForTimeout(300);
+    return frameRect(page);
+  }
+
+  async function dragCorner(page: Page, dx: number, dy: number) {
+    await page.mouse.move(800, 420);
+    await page.mouse.down();
+    await page.mouse.move(800 + dx, 420 + dy, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+  }
+
+  test("undo straight after a resize restores the size and keeps the frame", async ({ page }) => {
+    const before = await selectedFrame(page);
+    await dragCorner(page, 100, 80);
+    const resized = await frameRect(page);
+    expect(resized.w).toBeGreaterThan(before.w + 50);
+    expect(resized.h).toBeGreaterThan(before.h + 40);
+
+    // Before the fix this removed the frame: the last step was its creation.
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(400);
+    expect(await frameCount(page)).toBe(1);
+    expect(await frameRect(page)).toEqual(before);
+
+    await page.keyboard.press("Control+y");
+    await page.waitForTimeout(400);
+    expect(await frameRect(page)).toEqual(resized);
+  });
+
+  test("resize then move: undo takes back the move only, then the resize", async ({ page }) => {
+    const before = await selectedFrame(page);
+    await dragCorner(page, 100, 80);
+    const resized = await frameRect(page);
+
+    // Move by bare frame well inside, clear of every anchor.
+    await page.mouse.move(600, 300);
+    await page.mouse.down();
+    await page.mouse.move(660, 340, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const moved = await frameRect(page);
+    expect(moved.x).toBe(resized.x + 60);
+
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(400);
+    expect(await frameRect(page)).toEqual(resized);
+
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(400);
+    expect(await frameRect(page)).toEqual(before);
+  });
+});
