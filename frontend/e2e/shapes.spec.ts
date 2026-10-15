@@ -735,6 +735,66 @@ test.describe("bending a line", () => {
     expect(nearPt(l.a, 400, 300)).toBe(true);
   });
 
+  // #157: the handles of a curved line inside a moved Frame stayed where the
+  // line had been, until the line itself was moved.
+  for (const label of ["Line", "Arrow"]) {
+    test(`a curved ${label}'s handles follow its Frame, through undo and redo`, async ({ page }) => {
+      await openBoard(page);
+      await straightLine(page, label);
+      await drag(page, 500, 300, 500, 250);          // bulges up to y=250
+      await frameBtn(page).click();
+      await drag(page, 360, 200, 640, 360);
+
+      /** Selects the line from the top of its curve, then reads its handles. */
+      const handlesAfterClick = async (x: number, y: number) => {
+        await page.mouse.click(x, y + 2);
+        await page.waitForTimeout(250);
+        return {
+          a: await handleCentre(page, "a"),
+          b: await handleCentre(page, "b"),
+          bend: await handleCentre(page, "bend"),
+        };
+      };
+      const expectHandles = (h: Awaited<ReturnType<typeof handlesAfterClick>>, dx: number, dy: number) => {
+        expect(nearPt(h.a, 400 + dx, 300 + dy)).toBe(true);
+        expect(nearPt(h.b, 600 + dx, 300 + dy)).toBe(true);
+        expect(nearPt(h.bend, 500 + dx, 250 + dy)).toBe(true);
+      };
+
+      // Two moves, one across and one down, each from the Frame's bare area.
+      await drag(page, 380, 340, 480, 340);
+      expectHandles(await handlesAfterClick(600, 250), 100, 0);
+      await drag(page, 480, 340, 480, 400);
+      expectHandles(await handlesAfterClick(600, 310), 100, 60);
+
+      await page.keyboard.press("Control+z");
+      await page.waitForTimeout(250);
+      expectHandles(await handlesAfterClick(600, 250), 100, 0);
+
+      await page.keyboard.press("Control+y");
+      await page.waitForTimeout(250);
+      expectHandles(await handlesAfterClick(600, 310), 100, 60);
+    });
+  }
+
+  for (const z of [0.5, 1.5]) {
+    test(`a curved line's handles follow its Frame at ${z * 100}% zoom`, async ({ page }) => {
+      await openBoard(page);
+      await setZoom(page, z);
+      await straightLine(page);
+      await drag(page, 500, 300, 500, 250);
+      const before = { a: await handleCentre(page, "a"), bend: await handleCentre(page, "bend") };
+      await frameBtn(page).click();
+      // The bulge is 50 screen px whatever the zoom, so this box holds it.
+      await drag(page, 360, 200, 640, 360);
+      await drag(page, 380, 340, 460, 380);          // 80 across, 40 down, on screen
+      await page.mouse.click(before.bend.x + 80, before.bend.y + 42);
+      await page.waitForTimeout(250);
+      expect(nearPt(await handleCentre(page, "a"), before.a.x + 80, before.a.y + 40)).toBe(true);
+      expect(nearPt(await handleCentre(page, "bend"), before.bend.x + 80, before.bend.y + 40)).toBe(true);
+    });
+  }
+
   for (const z of [0.5, 1.5]) {
     test(`bends under the pointer at ${z * 100}% zoom`, async ({ page }) => {
       await openBoard(page);
