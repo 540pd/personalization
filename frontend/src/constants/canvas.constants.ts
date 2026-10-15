@@ -94,6 +94,10 @@ export const SHAPE_CLICK_SLOP = 4;
 // units it would get harder still the further out the board is zoomed.
 export const LINE_HIT_SLOP = 6;
 
+// A bend dragged back to within this of straight, in SCREEN px, snaps
+// straight. Without it a line can only ever be nearly straight again.
+export const LINE_STRAIGHT_SNAP = 4;
+
 // Length of a line or arrow placed by a click rather than a drag.
 export const LINE_DEFAULT_LENGTH = 100; // canvas units
 

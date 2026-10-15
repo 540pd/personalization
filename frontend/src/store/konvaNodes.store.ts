@@ -21,7 +21,7 @@ export interface KonvaNodeRecord {
   // Lines and arrows only: where the two ends are, in canvas units. The box
   // above says where the line is; this says which way it runs, which is what
   // the endpoint handles need.
-  ends?: { a: { x: number; y: number }; b: { x: number; y: number } };
+  ends?: { a: { x: number; y: number }; b: { x: number; y: number }; bend: number };
 }
 
 interface KonvaNodesState {
