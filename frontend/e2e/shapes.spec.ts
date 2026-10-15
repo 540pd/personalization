@@ -12,8 +12,12 @@ const pointerBtn = (page: Page) => page.locator(".floating-dock button").nth(0);
 // aria-pressed.
 const shapesBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(4);
 const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
+// Matched on the item's own label, exactly: a bare has-text('Arrow') also
+// matches "Block Arrow".
 const menuItem = (page: Page, label: string) =>
-  page.locator(`.floating-dock-submenu button:has-text('${label}')`);
+  page.locator(".floating-dock-submenu button").filter({
+    has: page.locator("span", { hasText: new RegExp(`^${label}$`) }),
+  });
 
 interface ShapeInfo {
   kind: string;
@@ -353,7 +357,7 @@ test.describe("ellipse, triangle and diamond", () => {
     await shapesBtn(page).click();
     const labels = await page.locator(".floating-dock-submenu button").allInnerTexts();
     expect(labels.map((l) => l.replace(/\s+/g, " ").trim())).toEqual([
-      "Rectangle R", "Arrow A", "Line L", "Ellipse O", "Triangle", "Diamond",
+      "Rectangle R", "Arrow A", "Line L", "Ellipse O", "Triangle", "Block Arrow", "Diamond",
     ]);
   });
 
@@ -740,4 +744,79 @@ test.describe("bending a line", () => {
       expect(nearPt(await handleCentre(page, "bend"), 500, 250)).toBe(true);
     });
   }
+});
+
+// Part 5: Block Arrow. A box shape like Triangle and Diamond, pointing the
+// way it was dragged.
+const pointingOfFirst = (page: Page) =>
+  page.evaluate(() =>
+    (window as any).Konva.stages[0].find(".selectable")
+      .map((n: any) => n.getAttr("pointing"))
+  );
+
+/** Is the shape under (x, y)? Deselects first, then clicks there. */
+async function hits(page: Page, x: number, y: number) {
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(150);
+  await page.mouse.move(x, y);
+  await page.mouse.click(x, y);
+  await page.waitForTimeout(250);
+  return (await selection(page)).count === 1;
+}
+
+test.describe("block arrow", () => {
+  for (const [dir, from, to] of [
+    ["right", [400, 300], [640, 400]],
+    ["left", [640, 300], [400, 400]],
+    ["down", [400, 300], [500, 540]],
+    ["up", [400, 540], [500, 300]],
+  ] as const) {
+    test(`points ${dir} when dragged ${dir}`, async ({ page }) => {
+      await openBoard(page);
+      await arm(page, "Block Arrow");
+      await drag(page, from[0], from[1], to[0], to[1]);
+      expect(await pointingOfFirst(page)).toEqual([dir]);
+      const [r] = await shapes(page);
+      expect(r.kind).toBe("blockArrow");
+      expect((await selection(page)).anchors).toBe(8);
+    });
+  }
+
+  test("a click places one pointing right", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Block Arrow");
+    await page.mouse.click(500, 350);
+    await page.waitForTimeout(300);
+    expect(await pointingOfFirst(page)).toEqual(["right"]);
+    const [r] = await shapes(page);
+    expect(near(r.cw, 100) && near(r.ch, 100)).toBe(true);
+  });
+
+  // The box is 240x100, so the head is 100 long from x=540. Just inside the
+  // head's top edge is outside the shaft, which is only half as thick.
+  test("is hit-tested on its own outline, head on the side it points", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Block Arrow");
+    await drag(page, 400, 300, 640, 400);
+    expect(await hits(page, 548, 310)).toBe(true);     // in the head
+    expect(await hits(page, 420, 310)).toBe(false);    // above the shaft
+    expect(await hits(page, 420, 350)).toBe(true);     // in the shaft
+
+    await page.keyboard.press("Delete");
+    await arm(page, "Block Arrow");
+    await drag(page, 640, 300, 400, 400);              // same box, pointing left
+    await page.keyboard.press("Escape");
+    expect(await hits(page, 548, 310)).toBe(false);    // now shaft side
+  });
+
+  test("keeps its direction through a resize and a paste", async ({ page }) => {
+    await openBoard(page);
+    await arm(page, "Block Arrow");
+    await drag(page, 400, 300, 500, 500);              // down
+    await drag(page, 500, 500, 560, 560);              // bottom-right handle
+    await page.keyboard.press("Control+c");
+    await page.keyboard.press("Control+v");
+    await page.waitForTimeout(300);
+    expect(await pointingOfFirst(page)).toEqual(["down", "down"]);
+  });
 });

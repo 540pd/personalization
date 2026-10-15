@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useToolStore } from "@/store/tool.store";
-import { BoardShape, bakeScale, createShape, drawnBox, isBoardShape } from "../shapes";
+import { BoardShape, bakeScale, createShape, drawnBox, isBoardShape, pointingOf } from "../shapes";
 import { finalBox } from "../shapeDraw";
 import { copyNodes, pasteNodes } from "../clipboard";
 import { syncNodeGeometry } from "../geometry";
@@ -171,5 +171,20 @@ describe("resize handles", () => {
     updateSelectionChrome(l, tr);
     expect(tr.enabledAnchors()).toHaveLength(4);
     expect(tr.keepRatio()).toBe(true);
+  });
+});
+
+describe("pointingOf", () => {
+  const start = { x: 100, y: 100 };
+
+  it("follows the axis the drag mostly went along", () => {
+    expect(pointingOf(start, { x: 200, y: 150 })).toBe("right");
+    expect(pointingOf(start, { x: 0, y: 150 })).toBe("left");
+    expect(pointingOf(start, { x: 150, y: 220 })).toBe("down");
+    expect(pointingOf(start, { x: 150, y: 0 })).toBe("up");
+  });
+
+  it("prefers sideways on an exact diagonal", () => {
+    expect(pointingOf(start, { x: 150, y: 150 })).toBe("right");
   });
 });
