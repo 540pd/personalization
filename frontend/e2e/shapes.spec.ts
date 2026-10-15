@@ -600,5 +600,13 @@ test.describe("line and arrow", () => {
     await drag(page, 400, 250, 520, 320);
     const [l] = await lines(page);
     expect(nearPt(l.a, 570, 370) && nearPt(l.b, 670, 450)).toBe(true);
+
+    // Its end handles moved too, rather than staying where the frame found it.
+    await page.mouse.click(595, 390);
+    await page.waitForTimeout(250);
+    const a = await page.getByTestId("line-handle-a").boundingBox();
+    const b = await page.getByTestId("line-handle-b").boundingBox();
+    expect(a && nearPt({ x: a.x + a.width / 2, y: a.y + a.height / 2 }, 570, 370)).toBe(true);
+    expect(b && nearPt({ x: b.x + b.width / 2, y: b.y + b.height / 2 }, 670, 450)).toBe(true);
   });
 });
