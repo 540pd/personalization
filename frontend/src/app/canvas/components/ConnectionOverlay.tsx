@@ -8,7 +8,6 @@ import { useEffect, useRef } from "react";
 import { useConnectionStore, type Connection } from "@/store/connection.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
-import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useViewport } from "@/store/viewport.store";
 import { useToolStore } from "@/store/tool.store";
 import type { PanelInstance } from "@/store/nodePanel.store";
@@ -17,6 +16,7 @@ import { COLORS, SNAP_RADIUS, Z_INDEX } from "@/constants/canvas.constants";
 import { toScreen } from "@/lib/canvas/coords";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { canvasHistory } from "@/lib/canvas/history";
+import { selectOnly } from "@/lib/canvas/selection";
 
 // ── Port position helpers ─────────────────────────────────────────────────────
 // Convention (standard, matches ComfyUI/Blueprint): output = RIGHT edge, input = LEFT edge.
@@ -245,9 +245,11 @@ export default function ConnectionOverlay() {
                 if (e.shiftKey || e.ctrlKey || e.metaKey) {
                   useConnectionStore.getState().addConnectionToSelection(conn.id);
                 } else {
+                  // Through selectOnly like every other click path. This one
+                  // cleared nodes and panels by hand and so missed frames
+                  // (#127) -- and the node transformer's chrome with them.
+                  selectOnly("wire");
                   useConnectionStore.getState().selectConnection(conn.id);
-                  useKonvaSelection.getState().deselect();
-                  useNodePanel.getState().closeAllPanels();
                 }
               }}
             />
