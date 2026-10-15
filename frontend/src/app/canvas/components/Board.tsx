@@ -658,6 +658,23 @@ export default function Board() {
       return;
     }
 
+    // Placeholders are the only DOM under a raised canvas: wires, ports,
+    // labels and an open form all paint above it. A small margin takes in
+    // the corner anchors, which sit just outside the node's box.
+    const ANCHOR_MARGIN = 8;
+    const overPlaceholder = (clientX: number, clientY: number) => {
+      const { x: vx, y: vy, scale } = useViewport.getState();
+      return useNodePanel.getState().panels.some((p) => {
+        const b = boundsOf(p);
+        const left = vx + b.x * scale - ANCHOR_MARGIN;
+        const top = vy + b.y * scale - ANCHOR_MARGIN;
+        return (
+          clientX >= left && clientX <= left + b.w * scale + 2 * ANCHOR_MARGIN &&
+          clientY >= top && clientY <= top + b.h * scale + 2 * ANCHOR_MARGIN
+        );
+      });
+    };
+
     const update = (e: PointerEvent) => {
       const r = container.getBoundingClientRect();
       const pt = { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -665,21 +682,25 @@ export default function Board() {
       const overFrame = !!frameStage.current?.getIntersection(pt);
       // Two reasons to let a click through, and only where none of our own
       // shapes is under the cursor:
-      //   canvas in front — so it does not swallow clicks meant for the
-      //                     placeholders underneath (the original reason)
+      //   over a placeholder, canvas in front — so it does not swallow
+      //                     clicks meant for the Create node underneath
+      //                     (the original reason)
       //   over bare frame — so the frames stage below can be clicked at all
       // Anywhere else stays interactive, or the background click that
-      // deselects and disarms the tool would never arrive.
-      const passThrough = !hit && (topLayer === "canvas" || overFrame);
+      // deselects and disarms the tool would never arrive. It used to pass
+      // through over ALL empty board while the canvas was in front -- which
+      // it is after every upload -- so a click on empty board reached the page
+      // instead, and an uploaded image stayed selected (#105). The wheel went
+      // the same way, so zoom stopped working too.
+      const overPanel = topLayer === "canvas" && overPlaceholder(e.clientX, e.clientY);
+      const passThrough = !hit && (overPanel || overFrame);
       container.style.pointerEvents = passThrough ? "none" : "auto";
     };
 
-    if (topLayer !== "canvas") {
-      // Normally fully interactive; only the frame case below can lift that.
-      container.style.pointerEvents = "auto";
-    } else {
-      container.style.pointerEvents = "none";
-    }
+    // Interactive until the pointer says otherwise, in either layer order:
+    // empty board must always receive the click that deselects, and the
+    // wheel. update() lifts it only over a placeholder or a bare frame.
+    container.style.pointerEvents = "auto";
     window.addEventListener("pointermove", update);
     return () => {
       window.removeEventListener("pointermove", update);
