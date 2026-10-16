@@ -22,6 +22,7 @@ import { membersOf, moveMembers, type FrameMembers } from "../board/frameMembers
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { boardStage } from "@/lib/canvas/boardStage";
 import FrameLabels from "./FrameLabels";
+import { announceGesture } from "@/lib/canvas/gesture";
 import { CORNERS } from "../board/selectionChrome";
 import { COLOR_EVENT, type ColorDetail } from "../board/palette";
 import {
@@ -282,6 +283,18 @@ export default function FrameLayer() {
       // stored size would not match what is drawn.
       rect.on("transformstart", () => {
         resizeKeyRef.current ??= {};
+        // The style bar steps aside while a frame is resized (#163).
+        announceGesture(true);
+      });
+      // The name renders from the store, so it reads the live box to keep up
+      // (#156). Not an upsert: that would rebuild the rect mid-gesture.
+      rect.on("transform", () => {
+        useFrames.getState().setResize(f.id, {
+          canvasX: rect.x(),
+          canvasY: rect.y(),
+          canvasW: rect.width() * rect.scaleX(),
+          canvasH: rect.height() * rect.scaleY(),
+        });
       });
       // The name renders from the store, so it reads the live box to keep up
       // (#156). Not an upsert: that would rebuild the rect mid-gesture.
@@ -294,6 +307,7 @@ export default function FrameLayer() {
         });
       });
       rect.on("transformend", () => {
+        announceGesture(false);
         const w = Math.max(1, rect.width() * rect.scaleX());
         const h = Math.max(1, rect.height() * rect.scaleY());
         rect.scale({ x: 1, y: 1 });

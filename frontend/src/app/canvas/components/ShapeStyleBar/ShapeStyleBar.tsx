@@ -2,6 +2,9 @@
 
 // The bar above a selected shape: its Color, Fill and Stroke (#161).
 //
+// Frames get it too, with Color only: a swatch is their outline (#163). So
+// does any selection with a Frame in it: Color is what they all share.
+//
 // Shown only while the selection is all shapes -- rectangle, ellipse,
 // triangle, diamond, block arrow, and lines and arrows (#162) -- and nothing
 // else. A line has no inside, so with one selected there is no Fill, and no
@@ -25,7 +28,9 @@ import { boardStage } from "@/lib/canvas/boardStage";
 import { toScreen } from "@/lib/canvas/coords";
 import { canvasHistory } from "@/lib/canvas/history";
 import { GESTURE_EVENT, type GestureDetail } from "@/lib/canvas/gesture";
-import { SHAPE_STYLE, Z_INDEX } from "@/constants/canvas.constants";
+import {
+  COLORS, LABEL_GAP, LABEL_LINE_HEIGHT, SHAPE_STYLE, Z_INDEX,
+} from "@/constants/canvas.constants";
 import { COLOR_EVENT, PALETTE, type ColorDetail } from "../../board/palette";
 import {
   FILL_MODES, STROKE_MODES, STROKE_WIDTHS,
@@ -39,6 +44,9 @@ import "./ShapeStyleBar.scss";
 const BAR_HEIGHT = 44; // screen px, matches .shape-style-bar
 const GAP = 14; // screen px between the selection box and the bar, clear of the corner handles
 const MIN_TOP = 8; // screen px the bar keeps from the top of the window
+// A Frame's name sits above its top-left corner. The bar goes above that
+// row, so it never covers the name of a narrow Frame.
+const FRAME_NAME_CLEARANCE = LABEL_GAP + LABEL_LINE_HEIGHT;
 
 type Card = "color" | "fill" | "stroke";
 
@@ -188,21 +196,25 @@ export default function ShapeStyleBar() {
   const ids = useKonvaSelection((s) => s.nodeIds);
   const nodes = useKonvaNodes((s) => s.nodes);
   const pointer = useToolStore((s) => s.activeTool === "pointer");
-  const framesSelected = useFrames((s) => s.selectedIds.length > 0);
+  const frameIds = useFrames((s) => s.selectedIds);
+  const frames = useFrames((s) => s.frames);
+  // A Frame dragged by its body or its name: the live offset is in the store.
+  const frameDragging = useFrames((s) => Object.keys(s.drag).length > 0);
   const panelsSelected = useNodePanel((s) => s.panels.some((p) => p.isActive));
   const { x, y, scale } = useViewport();
   const [card, setCard] = useState<Card | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
 
   const records = ids.map((id) => nodes[id]).filter((r): r is KonvaNodeRecord => !!r);
+  const frameRecs = frameIds.map((id) => frames[id]).filter((f) => !!f);
   const shown =
-    pointer && !framesSelected && !panelsSelected &&
-    records.length > 0 && records.length === ids.length &&
+    pointer && !panelsSelected &&
+    records.length + frameRecs.length > 0 && records.length === ids.length &&
     records.every((r) => r.style);
   const busy = useGesture(shown);
 
   // A new selection starts with every card closed.
-  const key = ids.join();
+  const key = `${ids.join()}|${frameIds.join()}`;
   useEffect(() => setCard(null), [key]);
 
   // Closing a card: Esc, or a click anywhere outside the bar. Esc is caught
@@ -225,32 +237,41 @@ export default function ShapeStyleBar() {
     };
   }, [card]);
 
-  if (!shown || busy) return null;
+  if (!shown || busy || frameDragging) return null;
 
   const styles = records.map((r) => r.style!);
   const lines = records.filter((r) => r.shape && isLineKind(r.shape)).length;
+  // With a Frame in the selection, Color only.
+  const colorOnly = frameRecs.length > 0;
   // Fill only when nothing selected is a line; "No stroke" likewise.
-  const hasFill = lines === 0;
+  const hasFill = !colorOnly && lines === 0;
   const strokeModes = hasFill ? STROKE_MODES : STROKE_MODES.filter((m) => m !== "none");
-  const color = common(styles, "color");
-  const fill = common(styles, "fill");
-  const stroke = common(styles, "stroke");
-  const width = common(styles, "width");
-  // undefined: the shapes differ. null: the default grey, which on a line is
-  // its stroke.
+  // A Frame's colour is its outline; unset is the default outline.
+  const colors = [...styles.map((s) => s.color), ...frameRecs.map((f) => f.stroke ?? null)];
+  const color = colors.every((c) => c === colors[0]) ? colors[0] : undefined;
+  const fill = colorOnly ? undefined : common(styles, "fill");
+  const stroke = colorOnly ? undefined : common(styles, "stroke");
+  const width = colorOnly ? undefined : common(styles, "width");
+  // undefined: they differ. null: the default, which on a line is its
+  // stroke and on a Frame its outline.
   const dotHex =
     color === undefined ? undefined
-    : color ?? (lines === records.length ? SHAPE_STYLE.stroke : SHAPE_STYLE.fill);
+    : color ?? (
+      frameRecs.length && !records.length ? COLORS.frameStroke
+      : lines && lines === records.length && !frameRecs.length ? SHAPE_STYLE.stroke
+      : SHAPE_STYLE.fill
+    );
 
-  // The selection's box on screen.
+  // The selection's box on screen, Frames included.
   const vp = { x, y, scale };
-  const left = Math.min(...records.map((r) => r.canvasX));
-  const top = Math.min(...records.map((r) => r.canvasY));
-  const right = Math.max(...records.map((r) => r.canvasX + r.canvasW));
-  const bottom = Math.max(...records.map((r) => r.canvasY + r.canvasH));
+  const boxes = [...records, ...frameRecs];
+  const left = Math.min(...boxes.map((r) => r.canvasX));
+  const top = Math.min(...boxes.map((r) => r.canvasY));
+  const right = Math.max(...boxes.map((r) => r.canvasX + r.canvasW));
+  const bottom = Math.max(...boxes.map((r) => r.canvasY + r.canvasH));
   const a = toScreen({ x: left, y: top }, vp);
   const b = toScreen({ x: right, y: bottom }, vp);
-  const above = a.y - GAP - BAR_HEIGHT;
+  const above = a.y - GAP - (colorOnly ? FRAME_NAME_CLEARANCE : 0) - BAR_HEIGHT;
   const below = above < MIN_TOP;
 
   const toggle = (c: Card) => setCard((open) => (open === c ? null : c));
@@ -291,7 +312,7 @@ export default function ShapeStyleBar() {
         )}
       </div>
 
-      <div className="shape-style-divider" />
+      {!colorOnly && <div className="shape-style-divider" />}
 
       {hasFill && <div className="shape-style-wrapper">
         <button
@@ -317,7 +338,7 @@ export default function ShapeStyleBar() {
         )}
       </div>}
 
-      <div className="shape-style-wrapper">
+      {!colorOnly && <div className="shape-style-wrapper">
         <button
           type="button" aria-label="Shape stroke" aria-expanded={card === "stroke"}
           onClick={() => toggle("stroke")} className={btn("stroke")}
@@ -350,7 +371,7 @@ export default function ShapeStyleBar() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
