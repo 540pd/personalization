@@ -74,9 +74,12 @@ export function moveMembers(members: FrameMembers, dx: number, dy: number): void
     if (rec) nodes.upsert({ ...rec, canvasX: x, canvasY: y });
   });
 
-  members.panels.forEach((m) => {
-    useNodePanel.getState().setCanvasPos(m.id, m.startX + dx, m.startY + dy);
-  });
+  // One write for every panel, not one each (#155).
+  if (members.panels.length) {
+    useNodePanel.getState().setCanvasPositions(
+      Object.fromEntries(members.panels.map((m) => [m.id, { x: m.startX + dx, y: m.startY + dy }]))
+    );
+  }
 
   stage?.batchDraw();
 }

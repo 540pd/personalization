@@ -3,28 +3,22 @@ import { createOutlineRect, traceShape } from "./outline";
 import { isBoardShape, isLineKind } from "./shapes";
 import { isBoardText } from "./text";
 
-const CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
-// A text's sides set its wrap width and its corners its size; top and
-// bottom have nothing to set, because the text's height follows its lines.
-const TEXT_HANDLES = [...CORNERS, "middle-left", "middle-right"];
-const ALL_SIDES = [
-  ...CORNERS,
-  "top-center", "middle-right", "bottom-center", "middle-left",
-];
+// Every resizable node gets these four and no side handles (#160). What a
+// corner does is what differs: see fitHandlesTo.
+export const CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
 
 /**
- * An image has proportions worth keeping, so it resizes from its corners with
- * the ratio locked. A drawn shape has none: it resizes freely from every side
- * and corner, and Shift locks the ratio instead (Konva's default
+ * Corners only, for every kind (#160). An image has proportions worth
+ * keeping, so its corners lock the ratio, and a text's corners scale its font
+ * (bakeTextResize), so they lock it too. A drawn shape has none: its corners
+ * stretch freely, and Shift locks the ratio instead (Konva's default
  * shiftBehavior turns keepRatio on while Shift is held).
  */
 function fitHandlesTo(transformer: Konva.Transformer, sel: Konva.Shape[]): void {
   const shape = sel.length === 1 && isBoardShape(sel[0]);
-  const text = sel.length === 1 && isBoardText(sel[0]);
-  const anchors = shape ? ALL_SIDES : text ? TEXT_HANDLES : CORNERS;
   // Setting anchors rebuilds them, and this runs on every dragmove frame.
-  if (transformer.enabledAnchors().join() !== anchors.join()) {
-    transformer.enabledAnchors(anchors);
+  if (transformer.enabledAnchors().join() !== CORNERS.join()) {
+    transformer.enabledAnchors(CORNERS);
   }
   transformer.keepRatio(!shape);
 }

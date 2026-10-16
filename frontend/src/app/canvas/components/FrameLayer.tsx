@@ -23,6 +23,7 @@ import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { boardStage } from "@/lib/canvas/boardStage";
 import FrameLabels from "./FrameLabels";
 import { announceGesture } from "@/lib/canvas/gesture";
+import { CORNERS } from "../board/selectionChrome";
 import { COLOR_EVENT, type ColorDetail } from "../board/palette";
 import {
   COLORS,
@@ -77,15 +78,17 @@ export default function FrameLayer() {
     stage.add(layer);
 
     // Styled exactly as a node's (Board.tsx), so selecting a frame and
-    // selecting a node look like the same act. Two deliberate differences:
-    // a frame keeps its edge anchors and resizes freely, because it is a
-    // region whose width and height change independently, where a node is a
-    // picture whose corners keep its ratio.
+    // selecting a node look like the same act, corner handles included
+    // (#160). One deliberate difference: a frame's corners stretch freely,
+    // because it is a region whose width and height change independently,
+    // where an image is a picture whose corners keep its ratio. Shift locks
+    // the ratio, as on a shape.
     const transformer = new Konva.Transformer({
       rotateEnabled: false,
       // A flip is rotation:-180 to Konva; the frame's stored box has no
       // notion of it and would describe a rect the shape no longer covers.
       flipEnabled: false,
+      enabledAnchors: CORNERS,
       keepRatio: false,
       borderStroke: COLORS.ink,
       borderStrokeWidth: SELECTION.borderWidth,
@@ -283,6 +286,26 @@ export default function FrameLayer() {
         // The style bar steps aside while a frame is resized (#163).
         announceGesture(true);
       });
+      // The name renders from the store, so it reads the live box to keep up
+      // (#156). Not an upsert: that would rebuild the rect mid-gesture.
+      rect.on("transform", () => {
+        useFrames.getState().setResize(f.id, {
+          canvasX: rect.x(),
+          canvasY: rect.y(),
+          canvasW: rect.width() * rect.scaleX(),
+          canvasH: rect.height() * rect.scaleY(),
+        });
+      });
+      // The name renders from the store, so it reads the live box to keep up
+      // (#156). Not an upsert: that would rebuild the rect mid-gesture.
+      rect.on("transform", () => {
+        useFrames.getState().setResize(f.id, {
+          canvasX: rect.x(),
+          canvasY: rect.y(),
+          canvasW: rect.width() * rect.scaleX(),
+          canvasH: rect.height() * rect.scaleY(),
+        });
+      });
       rect.on("transformend", () => {
         announceGesture(false);
         const w = Math.max(1, rect.width() * rect.scaleX());
@@ -292,6 +315,7 @@ export default function FrameLayer() {
         useFrames.getState().upsert({
           ...f, canvasX: rect.x(), canvasY: rect.y(), canvasW: w, canvasH: h,
         });
+        useFrames.getState().clearResize(f.id);
         // A resize is its own undo step (#128). Without this the next commit
         // -- a move, say -- folded the new size into a step whose undo went
         // back past it, and an undo straight after a resize removed the

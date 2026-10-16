@@ -101,8 +101,8 @@ test.describe("text tool", () => {
     expect(near(t.x, 400)).toBe(true);
     const sel = await selected(page);
     expect(sel.count).toBe(1);
-    expect(sel.anchors).toContain("middle-right");
-    expect(sel.anchors).not.toContain("top-center");
+    // Corners only (#160).
+    expect(sel.anchors).toEqual(["top-left", "top-right", "bottom-left", "bottom-right"]);
   });
 
   test("Enter is a new line, and auto-width grows to the longest line", async ({ page }) => {
@@ -219,18 +219,11 @@ test.describe("text tool", () => {
     expect(await texts(page)).toHaveLength(0);
   });
 
-  test("a side handle sets a wrap width; a corner scales the font", async ({ page }) => {
+  // Setting a wrap width by dragging returns with Alt-drag, after #160.
+  test("a corner scales the font", async ({ page }) => {
     await openBoard(page);
     await placeText(page, 400, 300, "resize me please");
     let [t] = await texts(page);
-
-    // middle-right handle, inward: now fixed-width and wrapped.
-    await drag(page, t.x + t.w, t.y + t.h / 2, t.x + t.w / 2, t.y + t.h / 2);
-    [t] = await texts(page);
-    expect(t.autoWidth).toBe(false);
-    expect(t.scaleX).toBe(1);
-    expect(t.fontSize).toBe(24);
-    expect(t.h).toBeGreaterThan(40);
 
     // bottom-right corner, outward: bigger font, no scale left behind.
     await drag(page, t.x + t.w, t.y + t.h, t.x + t.w * 1.5, t.y + t.h * 1.5);

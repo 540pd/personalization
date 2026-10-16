@@ -30,6 +30,9 @@ export interface FrameDraft {
   height: number;
 }
 
+/** A frame's position and size, in canvas units. */
+export type FrameBox = Pick<FrameRecord, "canvasX" | "canvasY" | "canvasW" | "canvasH">;
+
 /** Live offset of a frame being dragged, in canvas units. */
 export interface FrameDrag {
   dx: number;
@@ -56,6 +59,15 @@ interface FrameState {
    * once and each name has to keep up with its own rect.
    */
   drag: Record<string, FrameDrag>;
+  /**
+   * The live box of a frame being resized, set on every transform and
+   * cleared on transformend (#156).
+   *
+   * The `drag` of a resize: the rect is scaled by Konva and its record only
+   * updated at the end, so without this the name sat at the old top-left and
+   * width for the whole gesture. Separate from `frames` for the same reason.
+   */
+  resize: Record<string, FrameBox>;
 
   upsert: (frame: FrameRecord) => void;
   remove: (id: string) => void;
@@ -66,6 +78,8 @@ interface FrameState {
   setDraft: (draft: FrameDraft | null) => void;
   setDrag: (id: string, drag: FrameDrag) => void;
   clearDrag: () => void;
+  setResize: (id: string, box: FrameBox) => void;
+  clearResize: (id: string) => void;
   /** Replace every frame wholesale. Used by the shared undo timeline. */
   replaceAll: (frames: Record<string, FrameRecord>) => void;
 }
@@ -75,6 +89,7 @@ export const useFrames = create<FrameState>((set) => ({
   selectedIds: [],
   draft: null,
   drag: {},
+  resize: {},
 
   upsert: (frame) =>
     set((s) => ({ frames: { ...s.frames, [frame.id]: { ...s.frames[frame.id], ...frame } } })),
@@ -98,6 +113,14 @@ export const useFrames = create<FrameState>((set) => ({
   setDraft: (draft) => set({ draft }),
   setDrag: (id, drag) => set((s) => ({ drag: { ...s.drag, [id]: drag } })),
   clearDrag: () => set({ drag: {} }),
+  setResize: (id, box) => set((s) => ({ resize: { ...s.resize, [id]: box } })),
+  clearResize: (id) =>
+    set((s) => {
+      if (!(id in s.resize)) return s;
+      const next = { ...s.resize };
+      delete next[id];
+      return { resize: next };
+    }),
   replaceAll: (frames) =>
     set((s) => ({
       frames,
