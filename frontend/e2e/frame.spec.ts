@@ -619,13 +619,13 @@ test.describe("frames match nodes", () => {
     expect(look(frame)).toEqual(look(node));
   });
 
-  test("frames keep edge handles and resize freely", async ({ page }) => {
+  test("frames resize freely from their four corners", async ({ page }) => {
     await openBoard(page);
     await frameBtn(page).click();
     await drawFrame(page, 340, 120, 640, 320);
 
     const { frame } = await transformers(page);
-    expect(frame?.anchors).toBe(8);
+    expect(frame?.anchors).toBe(4);
     expect(frame?.keepRatio).toBe(false);
     expect(frame?.flipEnabled).toBe(false);
   });
@@ -823,8 +823,10 @@ test.describe("resizing a frame", () => {
 
   for (const [handle, from, to] of [
     ["top-left", [500, 200], [420, 140]],
-    ["left edge", [500, 310], [420, 310]],
-    ["top edge", [650, 200], [650, 140]],
+    // Each moves the name along one axis only: a Frame has no side handles
+    // since #160, so these corners stand in for the left and top edges.
+    ["bottom-left", [500, 420], [420, 480]],
+    ["top-right", [800, 200], [860, 140]],
   ] as const) {
     test(`the name follows a resize from the ${handle} handle, mid-gesture`, async ({ page }) => {
       await selectedFrame(page);

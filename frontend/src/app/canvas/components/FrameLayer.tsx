@@ -22,6 +22,7 @@ import { membersOf, moveMembers, type FrameMembers } from "../board/frameMembers
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { boardStage } from "@/lib/canvas/boardStage";
 import FrameLabels from "./FrameLabels";
+import { CORNERS } from "../board/selectionChrome";
 import { COLOR_EVENT, type ColorDetail } from "../board/palette";
 import {
   COLORS,
@@ -76,15 +77,17 @@ export default function FrameLayer() {
     stage.add(layer);
 
     // Styled exactly as a node's (Board.tsx), so selecting a frame and
-    // selecting a node look like the same act. Two deliberate differences:
-    // a frame keeps its edge anchors and resizes freely, because it is a
-    // region whose width and height change independently, where a node is a
-    // picture whose corners keep its ratio.
+    // selecting a node look like the same act, corner handles included
+    // (#160). One deliberate difference: a frame's corners stretch freely,
+    // because it is a region whose width and height change independently,
+    // where an image is a picture whose corners keep its ratio. Shift locks
+    // the ratio, as on a shape.
     const transformer = new Konva.Transformer({
       rotateEnabled: false,
       // A flip is rotation:-180 to Konva; the frame's stored box has no
       // notion of it and would describe a rect the shape no longer covers.
       flipEnabled: false,
+      enabledAnchors: CORNERS,
       keepRatio: false,
       borderStroke: COLORS.ink,
       borderStrokeWidth: SELECTION.borderWidth,

@@ -63,7 +63,8 @@ export function createText(at: Konva.Vector2d, width?: number, color?: string | 
  * Folds a transformer resize into the text's own attrs.
  *
  * A side handle is a wrap width: it changes the width and makes the text
- * fixed-width. A corner handle is a size: it scales the font, and the width
+ * fixed-width. A text shows corners only since #160, so nothing reaches this
+ * branch until Alt-drag brings wrap width back to the corners. A corner handle is a size: it scales the font, and the width
  * with it, keeping proportions. Either way the scale goes back to 1, so a
  * paste or an undo restores exactly the size that was on screen.
  */

@@ -147,7 +147,7 @@ test.describe("drawing a rectangle", () => {
     expect(near(r.w, 160) && near(r.h, 120)).toBe(true);
 
     const sel = await selection(page);
-    expect(sel).toEqual({ count: 1, anchors: 8, kinds: ["BoardShape"] });
+    expect(sel).toEqual({ count: 1, anchors: 4, kinds: ["BoardShape"] });
     await expect(pointerBtn(page)).toHaveAttribute("aria-pressed", "true");
     await expect(shapesBtn(page)).toHaveAttribute("aria-pressed", "false");
   });
@@ -253,14 +253,24 @@ test.describe("editing a rectangle", () => {
     expect(near(r.w, 200, 4) && near(r.h, 200, 4)).toBe(true);
   });
 
-  test("a side handle stretches one dimension only", async ({ page }) => {
+  // #160: corners only. The middle of an edge is just the shape, so a drag
+  // there moves it rather than stretching one side.
+  test("has no side handles: a drag from an edge's middle moves it", async ({ page }) => {
     await openBoard(page);
     await drawRect(page, 400, 300, 500, 380);
-    // middle-right handle
-    await drag(page, 500, 340, 580, 340);
+    await drag(page, 498, 340, 578, 340);
     const [r] = await shapes(page);
-    expect(near(r.w, 180, 4)).toBe(true);
-    expect(near(r.h, 80, 2)).toBe(true);
+    expect(near(r.w, 100, 2) && near(r.h, 80, 2)).toBe(true);
+    expect(near(r.x, 480, 2)).toBe(true);
+  });
+
+  test("Shift on a corner keeps the proportions", async ({ page }) => {
+    await openBoard(page);
+    await drawRect(page, 400, 300, 500, 380);
+    // Bottom-right handle, mostly sideways.
+    await drag(page, 500, 380, 650, 400, true);
+    const [r] = await shapes(page);
+    expect(Math.abs(r.w / r.h - 100 / 80)).toBeLessThan(0.03);
   });
 
   test("drags, and the move is one undo step", async ({ page }) => {
@@ -379,7 +389,7 @@ test.describe("ellipse, triangle and diamond", () => {
       const [r] = await shapes(page);
       expect(r.kind).toBe(kind);
       expect(near(r.w, 240) && near(r.h, 100)).toBe(true);
-      expect((await selection(page)).anchors).toBe(8);
+      expect((await selection(page)).anchors).toBe(4);
     });
 
     // Hit-testing follows paint: the corner of the box is outside every one
@@ -838,7 +848,7 @@ test.describe("block arrow", () => {
       expect(await pointingOfFirst(page)).toEqual([dir]);
       const [r] = await shapes(page);
       expect(r.kind).toBe("blockArrow");
-      expect((await selection(page)).anchors).toBe(8);
+      expect((await selection(page)).anchors).toBe(4);
     });
   }
 
