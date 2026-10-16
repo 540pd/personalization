@@ -20,6 +20,16 @@
   @apply bg-neutral-900 text-white hover:bg-neutral-900 hover:text-white;
 }
 
+/* Bold and Italic: on, but not a card opened. */
+.shape-style-button-on {
+  @apply bg-neutral-200 text-neutral-900 hover:bg-neutral-200;
+}
+
+/* The Size button and options: a number or a letter, not an icon. */
+.shape-style-size {
+  @apply text-sm font-medium tabular-nums;
+}
+
 .shape-style-divider {
   @apply w-px h-5 bg-black/10 mx-0.5;
 }
