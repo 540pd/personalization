@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import hotkeys from "hotkeys-js";
-import { Video, Image, Sparkles, Upload, Shapes } from "lucide-react";
+import { Video, Image, Sparkles, PencilLine, Upload, Shapes } from "lucide-react";
 import {
   useToolStore,
   shapeKindOf,
@@ -35,6 +35,7 @@ const DOCK_ITEM_KIND: Partial<Record<string, NodeKind>> = {
   "generate-image": "image",
   "generate-instruction": "instruction",
   "generate-video": "video",
+  "generate-compose": "compose",
 };
 
 import { PALETTE, DEFAULT_SWATCH, COLOR_EVENT, type ColorDetail } from "../../board/palette";
@@ -271,6 +272,7 @@ const GENERATE_IDS: Tool[] = [
   "generate-instruction",
   "generate-image",
   "generate-video",
+  "generate-compose",
 ];
 
 const GENERATE_ITEMS = [
@@ -288,6 +290,11 @@ const GENERATE_ITEMS = [
     id: "generate-instruction" as Tool,
     label: "Prompt",
     icon: <Sparkles size={16} />,
+  },
+  {
+    id: "generate-compose" as Tool,
+    label: "Compose",
+    icon: <PencilLine size={16} />,
   },
 ];
 
@@ -687,7 +694,8 @@ export default function FloatingDock() {
                         const cx = centre.x - spec.sizeFor(spec.defaultSettings).w / 2 + offset;
                         const cy = centre.y + offset;
 
-                        addPanel(cx, cy, kind);
+                        // A written kind (Compose) has no panel to open.
+                        addPanel(cx, cy, kind, !spec.authored);
                         // A new node must not land behind an uploaded image.
                         useLayerOrder.getState().raiseDom();
                         // Creating a node is an edit, so it belongs on the

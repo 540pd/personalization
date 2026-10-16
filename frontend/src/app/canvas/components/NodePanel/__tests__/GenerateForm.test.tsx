@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import GenerateForm, { type GenerateDraft } from "../GenerateForm";
-import type { NodeKindSpec, NodeSettings, SettingsProps } from "../nodeKinds";
+import type { ImageSettings, NodeKindSpec, SettingsProps } from "../nodeKinds";
 
 // GenerateForm imports no store and no Konva, which is the point: it is the
 // one piece of the panel reachable from a unit test.
@@ -106,7 +106,7 @@ describe("GenerateForm", () => {
 
   it("passes settings changes straight through from the spec's controls", () => {
     const Options = ({ value, onChange }: SettingsProps) => (
-      <button onClick={() => onChange({ ...(value as NodeSettings), aspectRatio: "1:1" })}>ratio</button>
+      <button onClick={() => onChange({ ...(value as ImageSettings), aspectRatio: "1:1" })}>ratio</button>
     );
     const { onSettingsChange } = setup({ spec: { ...baseSpec, Options } });
     fireEvent.click(screen.getByText("ratio"));

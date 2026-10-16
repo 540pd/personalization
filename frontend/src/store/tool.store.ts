@@ -13,6 +13,7 @@ export type Tool =
   | "generate-instruction"
   | "generate-image"
   | "generate-video"
+  | "generate-compose"
   | "link-straight"
   | "link-elbow"
   | "link-curve"
