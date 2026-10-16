@@ -147,9 +147,9 @@ describe("resize handles", () => {
     return tr;
   };
 
-  it("gives a shape all eight handles and a free ratio", () => {
+  it("gives a shape its four corners and a free ratio (#160)", () => {
     const tr = select([rect()]);
-    expect(tr.enabledAnchors()).toHaveLength(8);
+    expect(tr.enabledAnchors()).toEqual(["top-left", "top-right", "bottom-left", "bottom-right"]);
     expect(tr.keepRatio()).toBe(false);
   });
 
