@@ -109,6 +109,28 @@ export function styleAttrs(style: ShapeStyle): Konva.ShapeConfig {
   };
 }
 
+/**
+ * The Konva attrs that draw a line or an arrow in `style` (#162). A line has
+ * no inside, so no fill, and its colour is the swatch itself rather than a
+ * darker outline, as Color already draws it (#159). Never without a stroke:
+ * that is the whole line, so None reads as solid.
+ *
+ * Dashes are longer than a shape's, since a line's round caps grow each dash
+ * by its width and eat into the gap.
+ */
+export function lineStyleAttrs(style: ShapeStyle): Konva.ShapeConfig {
+  const { color, width } = style;
+  const stroke = style.stroke === "none" ? "solid" : style.stroke;
+  return {
+    swatch: color ?? "",
+    strokeMode: stroke,
+    stroke: color ?? SHAPE_STYLE.stroke,
+    strokeWidth: width,
+    dash: stroke === "dashed" ? [width * 3, width * 4] : stroke === "dotted" ? [0, width * 2 + 2] : [],
+    dashEnabled: stroke !== "solid",
+  };
+}
+
 /** True if every attr `attrs` names already has that value on `n`. */
 export function hasAttrs(n: Konva.Node, attrs: Konva.ShapeConfig): boolean {
   return Object.entries(attrs).every(([k, v]) => {

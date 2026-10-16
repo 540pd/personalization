@@ -15,8 +15,8 @@
 
 import Konva from "konva";
 import type { ShapeKind } from "@/store/tool.store";
-import { LINE_HIT_SLOP, SHAPE_STYLE } from "@/constants/canvas.constants";
-import { DEFAULT_STYLE, dotColor, fillDots, styleAttrs } from "./shapeStyle";
+import { LINE_HIT_SLOP } from "@/constants/canvas.constants";
+import { DEFAULT_STYLE, dotColor, fillDots, lineStyleAttrs, styleAttrs } from "./shapeStyle";
 
 export interface BoardShapeConfig extends Konva.ShapeConfig {
   shapeKind: ShapeKind;
@@ -88,6 +88,7 @@ export class BoardShape extends Konva.Shape<BoardShapeConfig> {
       // Stroke only: a line has no inside, and filling the box would make
       // the whole box clickable.
       ctx.strokeShape(this);
+      if (this.shapeKind() === "arrow") this.paintHead(ctx, scene);
       return;
     }
     switch (this.shapeKind()) {
@@ -143,7 +144,7 @@ export class BoardShape extends Konva.Shape<BoardShapeConfig> {
     ctx.fillStrokeShape(this);
   }
 
-  /** The line, and an arrow's open head, in the node's own coordinates. */
+  /** The line, in the node's own coordinates. */
   private traceLine(ctx: Konva.Context) {
     const { a, b } = localEnds(this);
     const bend = lineBend(this);
@@ -153,11 +154,40 @@ export class BoardShape extends Konva.Shape<BoardShapeConfig> {
     ctx.moveTo(a.x, a.y);
     if (bend) ctx.quadraticCurveTo(c.x, c.y, b.x, b.y);
     else ctx.lineTo(b.x, b.y);
-    if (this.shapeKind() !== "arrow") return;
-    // An open chevron rather than a filled head, so the whole arrow is one
-    // stroke -- painted, and hit-tested, by the same strokeShape call. It
-    // follows the curve's direction at the tip, which is from the control
-    // point, not from the tail.
+  }
+
+  /**
+   * An arrow's head, stroked on its own path after the shaft. Always solid
+   * (#162): dashed, a head this short reads as broken. Konva would dash it
+   * along with the shaft, so on the scene a dashed head is stroked directly;
+   * the hit canvas ignores dashes anyway.
+   */
+  private paintHead(ctx: Konva.Context, scene: boolean) {
+    ctx.beginPath();
+    this.traceHead(ctx);
+    if (!scene || !this.dashEnabled()) {
+      ctx.strokeShape(this);
+      return;
+    }
+    ctx.save();
+    ctx.setLineDash([]);
+    ctx.setAttr("strokeStyle", this.stroke());
+    ctx.setAttr("lineWidth", this.strokeWidth());
+    ctx.setAttr("lineCap", "round");
+    ctx.setAttr("lineJoin", "round");
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** An arrow's open head, in the node's own coordinates. */
+  private traceHead(ctx: Konva.Context) {
+    const { a, b } = localEnds(this);
+    const bend = lineBend(this);
+    const c = controlPoint(a, b, bend);
+    // An open chevron rather than a filled head, so it is painted and
+    // hit-tested as a stroke like the shaft. It follows the curve's
+    // direction at the tip, which is from the control point, not from the
+    // tail.
     const from = bend ? c : a;
     const angle = Math.atan2(b.y - from.y, b.x - from.x);
     const len = Math.max(10, this.strokeWidth() * 5);
@@ -322,9 +352,8 @@ export interface ShapeBox {
 export function createShape(kind: ShapeKind, box: ShapeBox, color?: string | null): BoardShape {
   if (isLineKind(kind)) {
     // No fill: a line has no inside to paint or to click.
-    const { stroke, strokeWidth } = SHAPE_STYLE;
     return new BoardShape({
-      stroke: color ?? stroke, strokeWidth, ...box, shapeKind: kind,
+      ...lineStyleAttrs({ ...DEFAULT_STYLE, color: color ?? null }), ...box, shapeKind: kind,
       lineCap: "round", lineJoin: "round",
     });
   }

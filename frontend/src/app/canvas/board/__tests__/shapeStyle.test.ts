@@ -3,7 +3,7 @@ import { outlineFor } from "../palette";
 import { applyColor, applyShapeStyle } from "../recolor";
 import { createShape } from "../shapes";
 import {
-  DEFAULT_STYLE, hasAttrs, patchStyle, readStyle, styleAttrs, tintFor, type ShapeStyle,
+  DEFAULT_STYLE, hasAttrs, lineStyleAttrs, patchStyle, readStyle, styleAttrs, tintFor, type ShapeStyle,
 } from "../shapeStyle";
 import { SHAPE_STYLE } from "@/constants/canvas.constants";
 
@@ -108,15 +108,55 @@ describe("applyShapeStyle", () => {
     expect(applyShapeStyle([rect], { fill: "solid" })).toBe(false);
   });
 
-  it("leaves lines and arrows alone", () => {
+  it("restyles a line's stroke and ignores Fill (#162)", () => {
     const line = createShape("line", box);
-    const before = { ...line.getAttrs() };
-    expect(applyShapeStyle([line], { fill: "none", stroke: "dashed" })).toBe(false);
-    expect(line.getAttrs()).toEqual(before);
+    expect(applyShapeStyle([line], { fill: "none" })).toBe(false);
+    expect(applyShapeStyle([line], { stroke: "dashed", width: 4 })).toBe(true);
+    expect(readStyle(line)).toMatchObject({ stroke: "dashed", width: 4 });
+    expect(line.fill()).toBeUndefined();
+  });
+
+  it("never takes a line's stroke away", () => {
+    const arrow = createShape("arrow", box);
+    applyShapeStyle([arrow], { stroke: "none" });
+    expect(readStyle(arrow).stroke).toBe("solid");
+    expect(arrow.strokeEnabled()).toBe(true);
+  });
+});
+
+describe("lineStyleAttrs (#162)", () => {
+  it("draws the default exactly as lines were drawn before the bar", () => {
+    const line = createShape("line", box);
+    expect(readStyle(line)).toMatchObject({ color: null, stroke: "solid", width: 2 });
+    expect(line.stroke()).toBe(SHAPE_STYLE.stroke);
+    expect(line.dashEnabled()).toBe(false);
+  });
+
+  it("strokes in the swatch itself, not a darker outline, and never fills", () => {
+    const attrs = lineStyleAttrs(style({ color: GREEN }));
+    expect(attrs).toMatchObject({ stroke: GREEN, swatch: GREEN });
+    expect(attrs).not.toHaveProperty("fill");
+  });
+
+  it("dashes and dots in proportion to the width", () => {
+    expect(lineStyleAttrs(style({ stroke: "dashed", width: 2 }))).toMatchObject({ dash: [6, 8], dashEnabled: true });
+    expect(lineStyleAttrs(style({ stroke: "dotted", width: 4 }))).toMatchObject({ dash: [0, 10], dashEnabled: true });
+  });
+
+  it("reads None as solid", () => {
+    expect(lineStyleAttrs(style({ stroke: "none" }))).toMatchObject({ strokeMode: "solid", dashEnabled: false });
   });
 });
 
 describe("Color keeps the fill and stroke", () => {
+  it("recolours a dotted line as a dotted line", () => {
+    const line = createShape("line", box);
+    applyShapeStyle([line], { stroke: "dotted" });
+    applyColor([line], GREEN);
+    expect(readStyle(line)).toMatchObject({ color: GREEN, stroke: "dotted" });
+    expect(line.stroke()).toBe(GREEN);
+  });
+
   it("recolours a Pattern shape as a Pattern shape", () => {
     const rect = createShape("rect", box);
     applyShapeStyle([rect], { fill: "pattern", stroke: "dotted" });
