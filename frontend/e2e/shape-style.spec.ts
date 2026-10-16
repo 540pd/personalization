@@ -117,13 +117,9 @@ test.describe("the shape style bar", () => {
     }
   });
 
-  test("does not show for a line, arrow, text, Frame, image or a mixed selection", async ({ page }) => {
+  // Lines and arrows get the bar too, without Fill: e2e/line-style.spec.ts (#162).
+  test("does not show for text, a Frame, an image or a mixed selection", async ({ page }) => {
     await openBoard(page);
-
-    await drawShape(page, "Line", 300, 200, 500, 260);
-    await expect(bar(page)).toHaveCount(0);
-    await drawShape(page, "Arrow", 300, 300, 500, 360);
-    await expect(bar(page)).toHaveCount(0);
 
     await textBtn(page).click();
     await page.mouse.click(700, 200);

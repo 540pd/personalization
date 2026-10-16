@@ -38,8 +38,11 @@ describe("colorAttrs", () => {
   });
 
   it("strokes a line, and never fills it", () => {
-    expect(colorAttrs(createShape("line", box), "#3b9ef5")).toEqual({ stroke: "#3b9ef5" });
-    expect(colorAttrs(createShape("arrow", box), "#3b9ef5")).toEqual({ stroke: "#3b9ef5" });
+    for (const kind of ["line", "arrow"] as const) {
+      const attrs = colorAttrs(createShape(kind, box), "#3b9ef5");
+      expect(attrs).toMatchObject({ stroke: "#3b9ef5" });
+      expect(attrs).not.toHaveProperty("fill");
+    }
   });
 
   it("leaves an image alone", () => {
