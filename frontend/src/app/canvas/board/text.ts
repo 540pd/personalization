@@ -20,15 +20,73 @@ export function isBoardText(n: Konva.Node): n is Konva.Text {
   return n instanceof Konva.Text && n.hasName("selectable");
 }
 
-/** What the style bar shows for a text box (#164). */
+export type TextAlign = "left" | "center" | "right";
+
+/**
+ * What the style bar shows for a text box: its colour (#164) and format
+ * (#165). A style is the whole box's: Konva.Text has no per-word styling.
+ */
 export interface TextStyle {
   /** A picked colour, or null for the default text colour. */
   color: string | null;
+  size: number;
+  bold: boolean;
+  italic: boolean;
+  align: TextAlign;
 }
+
+/** What the bar can set on a text box. Colour goes through Color (#159). */
+export type TextFormat = Pick<TextStyle, "size" | "bold" | "italic" | "align">;
+
+/** The Size card's presets. M is the default. */
+export const TEXT_SIZES: readonly { label: string; size: number }[] = [
+  { label: "S", size: 16 },
+  { label: "M", size: TEXT_STYLE.fontSize },
+  { label: "L", size: 36 },
+  { label: "XL", size: 56 },
+];
+
+export const TEXT_ALIGNS: readonly TextAlign[] = ["left", "center", "right"];
 
 export function readTextStyle(n: Konva.Text): TextStyle {
   const fill = n.fill();
-  return { color: typeof fill === "string" && fill !== TEXT_STYLE.fill ? fill : null };
+  const style = n.fontStyle();
+  return {
+    color: typeof fill === "string" && fill !== TEXT_STYLE.fill ? fill : null,
+    size: n.fontSize(),
+    bold: style.includes("bold"),
+    italic: style.includes("italic"),
+    align: (n.align() as TextAlign) || "left",
+  };
+}
+
+/** Konva's fontStyle for a weight and a slant: "italic bold", "bold", ... */
+function fontStyleFor(bold: boolean, italic: boolean): string {
+  return [italic ? "italic" : "", bold ? "bold" : ""].filter(Boolean).join(" ") || "normal";
+}
+
+/**
+ * Sets what `patch` names on every text box among `nodes`, leaving the rest
+ * of each one's format its own (#165). The top-left stays put; an
+ * auto-width text refits, a fixed-width one rewraps. Says whether any
+ * changed.
+ */
+export function applyTextFormat(nodes: Konva.Node[], patch: Partial<TextFormat>): boolean {
+  let changed = false;
+  nodes.forEach((n) => {
+    if (!isBoardText(n)) return;
+    const next = { ...readTextStyle(n), ...patch };
+    const attrs = {
+      fontSize: next.size,
+      fontStyle: fontStyleFor(next.bold, next.italic),
+      align: next.align,
+    };
+    if (Object.entries(attrs).every(([k, v]) => n.getAttr(k) === v)) return;
+    n.setAttrs(attrs);
+    fitAutoWidth(n);
+    changed = true;
+  });
+  return changed;
 }
 
 export function isAutoWidth(n: Konva.Text): boolean {
@@ -58,6 +116,10 @@ export function fitAutoWidth(n: Konva.Text): void {
 export function createText(at: Konva.Vector2d, width?: number, color?: string | null): Konva.Text {
   const n = new Konva.Text({
     ...TEXT_STYLE,
+    // Set rather than left to Konva's defaults: an undo restores only the
+    // attrs its snapshot has, so a text made bold after it would stay bold.
+    fontStyle: "normal",
+    align: "left",
     ...(color ? { fill: color } : {}),
     x: at.x,
     y: at.y,

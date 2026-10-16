@@ -166,6 +166,10 @@ export function createTextTool(deps: TextToolDeps) {
         fontSize: `${node.fontSize() * s}px`,
         lineHeight: String(node.lineHeight()),
         fontFamily: node.fontFamily(),
+        // The format too (#165), or the text would jump when editing ends.
+        fontWeight: node.fontStyle().includes("bold") ? "bold" : "normal",
+        fontStyle: node.fontStyle().includes("italic") ? "italic" : "normal",
+        textAlign: node.align(),
         color: String(node.fill()),
         whiteSpace: auto ? "pre" : "pre-wrap",
         overflowWrap: auto ? "normal" : "break-word",

@@ -2,9 +2,10 @@
 
 // The bar above a selected shape: its Color, Fill and Stroke (#161).
 //
-// Frames get it too, with Color only: a swatch is their outline (#163). So
-// does text, whose colour is its letters (#164), and any selection with a
-// Frame or text in it: Color is what they all share.
+// Frames get it too, with Color only: a swatch is their outline (#163).
+// Text gets Color, whose colour is its letters (#164), and its Size, Bold,
+// Italic and Align (#165). A selection mixing kinds gets Color only: it is
+// what they all share.
 //
 // Shown only while the selection is all shapes -- rectangle, ellipse,
 // triangle, diamond, block arrow, and lines and arrows (#162) -- and nothing
@@ -18,6 +19,7 @@
 // every zoom, and it follows the viewport store without the canvas redrawing.
 
 import { useEffect, useRef, useState } from "react";
+import { Bold, Italic, TextAlignCenter, TextAlignEnd, TextAlignStart } from "lucide-react";
 import type Konva from "konva";
 import { useKonvaNodes, type KonvaNodeRecord } from "@/store/konvaNodes.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
@@ -39,6 +41,9 @@ import {
 } from "../../board/shapeStyle";
 import { applyShapeStyle } from "../../board/recolor";
 import { isLineKind } from "../../board/shapes";
+import {
+  applyTextFormat, TEXT_ALIGNS, TEXT_SIZES, type TextAlign, type TextFormat, type TextStyle,
+} from "../../board/text";
 import { syncNodeGeometry } from "../../board/geometry";
 import "./ShapeStyleBar.scss";
 
@@ -49,7 +54,18 @@ const MIN_TOP = 8; // screen px the bar keeps from the top of the window
 // row, so it never covers the name of a narrow Frame.
 const FRAME_NAME_CLEARANCE = LABEL_GAP + LABEL_LINE_HEIGHT;
 
-type Card = "color" | "fill" | "stroke";
+type Card = "color" | "fill" | "stroke" | "size" | "align";
+
+const ALIGN_LABEL: Record<TextAlign, string> = {
+  left: "Align left",
+  center: "Align center",
+  right: "Align right",
+};
+
+const AlignIcon = ({ align }: { align: TextAlign | undefined }) =>
+  align === "center" ? <TextAlignCenter size={18} aria-hidden />
+  : align === "right" ? <TextAlignEnd size={18} aria-hidden />
+  : <TextAlignStart size={18} aria-hidden opacity={align ? 1 : 0.5} />;
 
 const FILL_LABEL: Record<FillMode, string> = {
   none: "No fill",
@@ -152,6 +168,23 @@ function restyle(ids: string[], patch: Partial<ShapeStyle>) {
   canvasHistory.commit();
 }
 
+/** One undo step for a text Size, Bold, Italic or Align pick (#165). */
+function reformat(ids: string[], patch: Partial<TextFormat>) {
+  const nodes = selectedNodes(ids);
+  if (!applyTextFormat(nodes, patch)) return;
+  nodes.forEach((n) => syncNodeGeometry(n as Konva.Shape));
+  // A new size is a new box: let the selection border follow.
+  boardStage.current?.find<Konva.Transformer>("Transformer").forEach((t) => t.forceUpdate());
+  nodes[0]?.getLayer()?.batchDraw();
+  canvasHistory.commit();
+}
+
+/** The value every text shares, or undefined when they differ. */
+function commonText<K extends keyof TextStyle>(styles: TextStyle[], key: K): TextStyle[K] | undefined {
+  const first = styles[0]?.[key];
+  return styles.every((s) => s[key] === first) ? first : undefined;
+}
+
 /**
  * Exactly the dock's Color pick (#159): Board recolours the selection, in one
  * undo step, and the colour is also the one the next shape is drawn in.
@@ -243,8 +276,15 @@ export default function ShapeStyleBar() {
   const styles = records.flatMap((r) => (r.style ? [r.style] : []));
   const texts = records.filter((r) => r.textStyle);
   const lines = records.filter((r) => r.shape && isLineKind(r.shape)).length;
-  // With a Frame or text in the selection, Color only.
+  // Only text: Color and the text controls. Text with anything else, or a
+  // Frame: Color only.
+  const textOnly = texts.length > 0 && texts.length === records.length && !frameRecs.length;
   const colorOnly = frameRecs.length > 0 || texts.length > 0;
+  const textStyles = texts.map((r) => r.textStyle!);
+  const size = commonText(textStyles, "size");
+  const bold = textStyles.every((t) => t.bold);
+  const italic = textStyles.every((t) => t.italic);
+  const align = commonText(textStyles, "align");
   // Fill only when nothing selected is a line; "No stroke" likewise.
   const hasFill = !colorOnly && lines === 0;
   const strokeModes = hasFill ? STROKE_MODES : STROKE_MODES.filter((m) => m !== "none");
@@ -321,6 +361,76 @@ export default function ShapeStyleBar() {
       </div>
 
       {!colorOnly && <div className="shape-style-divider" />}
+
+      {textOnly && <>
+        <div className="shape-style-divider" />
+        <div className="shape-style-wrapper">
+          <button
+            type="button" aria-label="Text size" aria-expanded={card === "size"}
+            onClick={() => toggle("size")} className={`${btn("size")} shape-style-size`}
+          >
+            {size === undefined ? "–" : Math.round(size)}
+          </button>
+          {card !== "size" && <span className="shape-style-tooltip">Size</span>}
+          {card === "size" && (
+            <div className="shape-style-card shape-style-row" role="group" aria-label="Size options">
+              {TEXT_SIZES.map((p) => (
+                <button
+                  key={p.label} type="button" title={`${p.label} ${p.size}`} aria-label={`Size ${p.label}`}
+                  aria-pressed={p.size === size}
+                  onClick={() => { reformat(ids, { size: p.size }); setCard(null); }}
+                  className={["shape-style-option shape-style-size", p.size === size ? "shape-style-option-current" : ""].join(" ")}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="shape-style-wrapper">
+          <button
+            type="button" aria-label="Bold" aria-pressed={bold}
+            onClick={() => { setCard(null); reformat(ids, { bold: !bold }); }}
+            className={["shape-style-button", bold ? "shape-style-button-on" : ""].join(" ")}
+          >
+            <Bold size={18} aria-hidden />
+          </button>
+          <span className="shape-style-tooltip">Bold</span>
+        </div>
+        <div className="shape-style-wrapper">
+          <button
+            type="button" aria-label="Italic" aria-pressed={italic}
+            onClick={() => { setCard(null); reformat(ids, { italic: !italic }); }}
+            className={["shape-style-button", italic ? "shape-style-button-on" : ""].join(" ")}
+          >
+            <Italic size={18} aria-hidden />
+          </button>
+          <span className="shape-style-tooltip">Italic</span>
+        </div>
+        <div className="shape-style-wrapper">
+          <button
+            type="button" aria-label="Text align" aria-expanded={card === "align"}
+            onClick={() => toggle("align")} className={btn("align")}
+          >
+            <AlignIcon align={align} />
+          </button>
+          {card !== "align" && <span className="shape-style-tooltip">Align</span>}
+          {card === "align" && (
+            <div className="shape-style-card shape-style-row" role="group" aria-label="Align options">
+              {TEXT_ALIGNS.map((a) => (
+                <button
+                  key={a} type="button" title={ALIGN_LABEL[a]} aria-label={ALIGN_LABEL[a]}
+                  aria-pressed={a === align}
+                  onClick={() => { reformat(ids, { align: a }); setCard(null); }}
+                  className={["shape-style-option", a === align ? "shape-style-option-current" : ""].join(" ")}
+                >
+                  <AlignIcon align={a} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </>}
 
       {hasFill && <div className="shape-style-wrapper">
         <button
