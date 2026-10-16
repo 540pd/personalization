@@ -5,7 +5,6 @@ import { openBoard, uploadImage, collapsePanels, setZoom } from "./helpers";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
 const shapesBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(4);
 const textBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(5);
 const dockColor = (page: Page) => page.getByRole("button", { name: "Color", exact: true });
@@ -118,7 +117,8 @@ test.describe("the shape style bar", () => {
   });
 
   // Lines and arrows get the bar too, without Fill: e2e/line-style.spec.ts (#162).
-  test("does not show for text, a Frame, an image or a mixed selection", async ({ page }) => {
+  // Frames get the bar with Color only: e2e/frame-style.spec.ts (#163).
+  test("does not show for text, an image or a mixed selection", async ({ page }) => {
     await openBoard(page);
 
     await textBtn(page).click();
@@ -127,10 +127,6 @@ test.describe("the shape style bar", () => {
     await page.keyboard.press("Escape");
     await page.waitForTimeout(250);
     await page.mouse.click(705, 205);
-    await expect(bar(page)).toHaveCount(0);
-
-    await frameBtn(page).click();
-    await drag(page, 300, 450, 500, 600);
     await expect(bar(page)).toHaveCount(0);
 
     // A shape with an image: not all shapes, so no bar.

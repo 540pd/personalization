@@ -22,6 +22,7 @@ import { membersOf, moveMembers, type FrameMembers } from "../board/frameMembers
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { boardStage } from "@/lib/canvas/boardStage";
 import FrameLabels from "./FrameLabels";
+import { announceGesture } from "@/lib/canvas/gesture";
 import { COLOR_EVENT, type ColorDetail } from "../board/palette";
 import {
   COLORS,
@@ -279,8 +280,11 @@ export default function FrameLayer() {
       // stored size would not match what is drawn.
       rect.on("transformstart", () => {
         resizeKeyRef.current ??= {};
+        // The style bar steps aside while a frame is resized (#163).
+        announceGesture(true);
       });
       rect.on("transformend", () => {
+        announceGesture(false);
         const w = Math.max(1, rect.width() * rect.scaleX());
         const h = Math.max(1, rect.height() * rect.scaleY());
         rect.scale({ x: 1, y: 1 });
