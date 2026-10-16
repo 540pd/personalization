@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { ShapeKind } from "./tool.store";
 import type { ShapeStyle } from "@/app/canvas/board/shapeStyle";
+import type { TextStyle } from "@/app/canvas/board/text";
 
 export interface KonvaNodeRecord {
   id: string;
@@ -29,6 +30,8 @@ export interface KonvaNodeRecord {
   // Filled shapes only: their Color, Fill and Stroke, which the style bar
   // above a selected shape shows (#161).
   style?: ShapeStyle;
+  // Text only: what the style bar shows for it (#164).
+  textStyle?: TextStyle;
 }
 
 interface KonvaNodesState {

@@ -3,7 +3,8 @@
 // The bar above a selected shape: its Color, Fill and Stroke (#161).
 //
 // Frames get it too, with Color only: a swatch is their outline (#163). So
-// does any selection with a Frame in it: Color is what they all share.
+// does text, whose colour is its letters (#164), and any selection with a
+// Frame or text in it: Color is what they all share.
 //
 // Shown only while the selection is all shapes -- rectangle, ellipse,
 // triangle, diamond, block arrow, and lines and arrows (#162) -- and nothing
@@ -29,7 +30,7 @@ import { toScreen } from "@/lib/canvas/coords";
 import { canvasHistory } from "@/lib/canvas/history";
 import { GESTURE_EVENT, type GestureDetail } from "@/lib/canvas/gesture";
 import {
-  COLORS, LABEL_GAP, LABEL_LINE_HEIGHT, SHAPE_STYLE, Z_INDEX,
+  COLORS, LABEL_GAP, LABEL_LINE_HEIGHT, SHAPE_STYLE, TEXT_STYLE, Z_INDEX,
 } from "@/constants/canvas.constants";
 import { COLOR_EVENT, PALETTE, type ColorDetail } from "../../board/palette";
 import {
@@ -210,7 +211,7 @@ export default function ShapeStyleBar() {
   const shown =
     pointer && !panelsSelected &&
     records.length + frameRecs.length > 0 && records.length === ids.length &&
-    records.every((r) => r.style);
+    records.every((r) => r.style || r.textStyle);
   const busy = useGesture(shown);
 
   // A new selection starts with every card closed.
@@ -239,26 +240,33 @@ export default function ShapeStyleBar() {
 
   if (!shown || busy || frameDragging) return null;
 
-  const styles = records.map((r) => r.style!);
+  const styles = records.flatMap((r) => (r.style ? [r.style] : []));
+  const texts = records.filter((r) => r.textStyle);
   const lines = records.filter((r) => r.shape && isLineKind(r.shape)).length;
-  // With a Frame in the selection, Color only.
-  const colorOnly = frameRecs.length > 0;
+  // With a Frame or text in the selection, Color only.
+  const colorOnly = frameRecs.length > 0 || texts.length > 0;
   // Fill only when nothing selected is a line; "No stroke" likewise.
   const hasFill = !colorOnly && lines === 0;
   const strokeModes = hasFill ? STROKE_MODES : STROKE_MODES.filter((m) => m !== "none");
   // A Frame's colour is its outline; unset is the default outline.
-  const colors = [...styles.map((s) => s.color), ...frameRecs.map((f) => f.stroke ?? null)];
+  const colors = [
+    ...styles.map((s) => s.color),
+    ...texts.map((r) => r.textStyle!.color),
+    ...frameRecs.map((f) => f.stroke ?? null),
+  ];
   const color = colors.every((c) => c === colors[0]) ? colors[0] : undefined;
   const fill = colorOnly ? undefined : common(styles, "fill");
   const stroke = colorOnly ? undefined : common(styles, "stroke");
   const width = colorOnly ? undefined : common(styles, "width");
   // undefined: they differ. null: the default, which on a line is its
-  // stroke and on a Frame its outline.
+  // stroke, on a Frame its outline and on text its letters.
+  const only = (n: number) => n > 0 && n === records.length + frameRecs.length;
   const dotHex =
     color === undefined ? undefined
     : color ?? (
-      frameRecs.length && !records.length ? COLORS.frameStroke
-      : lines && lines === records.length && !frameRecs.length ? SHAPE_STYLE.stroke
+      only(frameRecs.length) ? COLORS.frameStroke
+      : only(texts.length) ? TEXT_STYLE.fill
+      : only(lines) ? SHAPE_STYLE.stroke
       : SHAPE_STYLE.fill
     );
 
@@ -271,7 +279,7 @@ export default function ShapeStyleBar() {
   const bottom = Math.max(...boxes.map((r) => r.canvasY + r.canvasH));
   const a = toScreen({ x: left, y: top }, vp);
   const b = toScreen({ x: right, y: bottom }, vp);
-  const above = a.y - GAP - (colorOnly ? FRAME_NAME_CLEARANCE : 0) - BAR_HEIGHT;
+  const above = a.y - GAP - (frameRecs.length ? FRAME_NAME_CLEARANCE : 0) - BAR_HEIGHT;
   const below = above < MIN_TOP;
 
   const toggle = (c: Card) => setCard((open) => (open === c ? null : c));

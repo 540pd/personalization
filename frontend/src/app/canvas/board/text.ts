@@ -20,6 +20,17 @@ export function isBoardText(n: Konva.Node): n is Konva.Text {
   return n instanceof Konva.Text && n.hasName("selectable");
 }
 
+/** What the style bar shows for a text box (#164). */
+export interface TextStyle {
+  /** A picked colour, or null for the default text colour. */
+  color: string | null;
+}
+
+export function readTextStyle(n: Konva.Text): TextStyle {
+  const fill = n.fill();
+  return { color: typeof fill === "string" && fill !== TEXT_STYLE.fill ? fill : null };
+}
+
 export function isAutoWidth(n: Konva.Text): boolean {
   return !!n.getAttr("autoWidth");
 }

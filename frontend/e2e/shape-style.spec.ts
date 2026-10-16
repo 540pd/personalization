@@ -6,7 +6,6 @@ import { openBoard, uploadImage, collapsePanels, setZoom } from "./helpers";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 const shapesBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(4);
-const textBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(5);
 const dockColor = (page: Page) => page.getByRole("button", { name: "Color", exact: true });
 const bar = (page: Page) => page.getByTestId("shape-style-bar");
 const colorBtn = (page: Page) => page.getByRole("button", { name: "Shape color" });
@@ -117,17 +116,10 @@ test.describe("the shape style bar", () => {
   });
 
   // Lines and arrows get the bar too, without Fill: e2e/line-style.spec.ts (#162).
-  // Frames get the bar with Color only: e2e/frame-style.spec.ts (#163).
-  test("does not show for text, an image or a mixed selection", async ({ page }) => {
+  // Frames and text get the bar with Color only: e2e/frame-style.spec.ts
+  // (#163), e2e/text-style.spec.ts (#164).
+  test("does not show with an image in the selection", async ({ page }) => {
     await openBoard(page);
-
-    await textBtn(page).click();
-    await page.mouse.click(700, 200);
-    await page.keyboard.type("Hello");
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(250);
-    await page.mouse.click(705, 205);
-    await expect(bar(page)).toHaveCount(0);
 
     // A shape with an image: not all shapes, so no bar.
     await uploadImage(page, 200, 150);
