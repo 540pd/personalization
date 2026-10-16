@@ -79,6 +79,12 @@
   @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-xl bg-white/95 border border-black/10 shadow-xl backdrop-blur-sm overflow-hidden pointer-events-auto;
 }
 
+/* Splits a menu into groups, e.g. model-backed items from Compose (#181).
+   The dock divider's colour, laid flat. */
+.floating-dock-submenu-divider {
+  @apply h-px bg-black/10 mx-3 my-1;
+}
+
 .floating-dock-submenu-item {
   @apply w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors whitespace-nowrap;
 }

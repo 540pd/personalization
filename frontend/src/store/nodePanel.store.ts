@@ -11,7 +11,9 @@ import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.consta
 // resize, selection, ports, connections, labels and the 3-state lifecycle are
 // identical across kinds, and duplicating them is how the same bug gets fixed
 // three times.
-export type NodeKind = "image" | "video" | "instruction";
+// "compose" is the odd one out: the user writes its content rather than
+// generating it (#181).
+export type NodeKind = "image" | "video" | "instruction" | "compose";
 
 // A node's generated result. Typed rather than a bare URL string because a
 // video needs a <video> and an instruction node produces text, not a URL --
@@ -76,7 +78,8 @@ export interface VariantPlacement {
 interface NodePanelState {
   panels:      PanelInstance[];
   selectedId:  string | null;
-  addPanel:        (cx: number, cy: number, kind?: NodeKind) => void;
+  /** `open` false lands the node selected but with no panel: a written kind has none. */
+  addPanel:        (cx: number, cy: number, kind?: NodeKind, open?: boolean) => void;
   removePanel:     (id: string) => void;
   activatePanel:   (id: string) => void; // inactive → active (transformer, no panel)
   raisePanel:      (id: string) => void; // move to the top of the paint order
@@ -106,8 +109,12 @@ interface NodePanelState {
    * an undo step, so undoing a move must not revert the instruction being
    * written. Its settings do come back from the snapshot -- a settings change
    * is a step, and may have resized the node (#129).
+   *
+   * `restoresDraft` names nodes whose whole draft is restored instead: for a
+   * written kind (Compose) the text is the content, and closing its editor
+   * is an undo step (#181).
    */
-  replaceAll:      (panels: PanelInstance[]) => void;
+  replaceAll:      (panels: PanelInstance[], restoresDraft?: (p: PanelInstance) => boolean) => void;
   clearAll:        () => void;
   setSize:         (id: string, w: number, h: number) => void;
   setOutput:       (id: string, output: PanelOutput) => void;
@@ -250,14 +257,14 @@ export const useNodePanel = create<NodePanelState>()(
   // First creation: lands in panel-open state. All others go inactive.
   // The caller commits to the shared history afterwards, so creating a node
   // is itself undoable — it was not, before the two stacks merged.
-  addPanel: (cx, cy, kind = "image") =>
+  addPanel: (cx, cy, kind = "image", open = true) =>
     set((s) => {
       const newId = `panel-${_nextId++}`;
       const newPanels = [
         ...s.panels.map((p) => ({ ...p, isActive: false, isPanelOpen: false })),
         // Seeded from the same helper SinglePanel uses, so the node does not
         // flash at one size then resize on mount.
-        { id: newId, kind, canvasX: cx, canvasY: cy, isActive: true, isPanelOpen: true,
+        { id: newId, kind, canvasX: cx, canvasY: cy, isActive: true, isPanelOpen: open,
           ...placeholderSize(DEFAULT_ASPECT_RATIO) },
       ];
       return { selectedId: newId, panels: newPanels };
@@ -397,12 +404,12 @@ export const useNodePanel = create<NodePanelState>()(
   selectPanel: (id) => set({ selectedId: id }),
 
   // Save current positions to the undo stack (call once per completed drag).
-  replaceAll: (panels) =>
+  replaceAll: (panels, restoresDraft) =>
     set((s) => {
       const drafts = new Map(s.panels.map((p) => [p.id, p.draft]));
       return {
         panels: panels.map((p) => {
-          if (!drafts.has(p.id)) return p;
+          if (!drafts.has(p.id) || restoresDraft?.(p)) return p;
           const current = drafts.get(p.id);
           // Settings are undo steps (they can resize the node), so they come
           // back with the snapshot along with the size they produced. The

@@ -17,6 +17,7 @@ import { toScreen } from "@/lib/canvas/coords";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { canvasHistory } from "@/lib/canvas/history";
 import { selectOnly } from "@/lib/canvas/selection";
+import { kindSpec } from "./NodePanel/kinds";
 
 // ── Port position helpers ─────────────────────────────────────────────────────
 // Convention (standard, matches ComfyUI/Blueprint): output = RIGHT edge, input = LEFT edge.
@@ -95,9 +96,12 @@ export default function ConnectionOverlay() {
   const { x: sx, y: sy, scale: sc } = useViewport();
   const activeTool = useToolStore((s) => s.activeTool);
 
-  // Only panels have input ports (konva nodes are output-only sources).
+  // Only panels have input ports (konva nodes are output-only sources), and
+  // not every kind: a Compose box takes no input (#181).
   const inputPorts: InputPortEntry[] = [
-    ...panels.map((p) => ({ nodeId: p.id, nodeType: "panel" as const, ...panelInputPt(p, sx, sy, sc) })),
+    ...panels
+      .filter((p) => kindSpec(p.kind).acceptsInput !== false)
+      .map((p) => ({ nodeId: p.id, nodeType: "panel" as const, ...panelInputPt(p, sx, sy, sc) })),
   ];
 
   // Always-fresh ref so pointer handlers never see stale data.

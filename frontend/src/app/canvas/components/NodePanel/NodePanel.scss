@@ -24,6 +24,13 @@
   @apply h-full w-full overflow-y-auto rounded-[inherit] px-3 py-2.5 text-left text-[11px] leading-snug text-neutral-700 whitespace-pre-wrap;
 }
 
+// A Compose box's editor (#181): the same type and padding as the text it
+// replaces, so opening it does not shift a line. White marks it as editing.
+.node-panel-compose-editor {
+  @apply m-0 resize-none overflow-y-auto border-0 bg-white px-3 py-2.5 text-left text-[11px] leading-snug text-neutral-700 outline-none;
+  box-sizing: border-box;
+}
+
 .node-panel-placeholder-content {
   @apply flex select-none flex-col items-center gap-2;
 }

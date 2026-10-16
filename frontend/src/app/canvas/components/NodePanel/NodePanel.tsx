@@ -44,7 +44,7 @@ import { relabel, takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { useCanvasArea } from "../../canvasArea";
 import NodeLabel from "../NodeLabel";
 import GenerateForm, { type GenerateDraft } from "./GenerateForm";
-import { kindSpec } from "./kinds";
+import { kindSpec, panelOutput } from "./kinds";
 import type { NodeSettings } from "./nodeKinds";
 import "./NodePanel.scss";
 
@@ -56,6 +56,13 @@ const PANEL_W    = 320;
 function labelFromInstruction(instruction: string): string {
   const words = instruction.trim().split(/\s+/).slice(0, 6).join(" ");
   return words.length > 40 ? `${words.slice(0, 40).trimEnd()}…` : words;
+}
+
+// A Compose box's name comes from its first written line. Markdown markers
+// ("# ", "> ", "- ", "1. ") are syntax, not words, so they are left out (#181).
+function labelFromText(text: string): string {
+  const line = text.split("\n").find((l) => l.trim()) ?? "";
+  return labelFromInstruction(line.replace(/^\s*(#{1,6}|>|[-*+]|\d+[.)])\s+/, ""));
 }
 
 
@@ -177,6 +184,11 @@ function SinglePanel({
   const [genError, setGenError] = useState<string | null>(null);
   const [dragging,    setDragging]    = useState(false);
   const [hovered,     setHovered]     = useState(false);
+  // An authored kind's in-place editor (#181). Local: only one node is
+  // edited at a time, and closing it is what saves the name.
+  const [editing,     setEditing]     = useState(false);
+  // The text when the editor opened: closing it after a change is an undo step.
+  const textAtOpen = useRef("");
 
   const isDragging = useRef(false);
   /** True only between a pointerdown on THIS node and its pointerup. */
@@ -314,8 +326,10 @@ function SinglePanel({
         // Normal click: clear other selection types.
         selectOnly("panel");
         bringToFront();
-        // Step through states: inactive → active → panel-open → active
+        // Step through states: inactive → active → panel-open → active.
+        // An authored kind has no panel, so a click only selects it.
         if (!isActive)              onActivate();
+        else if (spec.authored)     { /* already selected */ }
         else if (!isPanelOpen)      onOpenPanel();
         else                        onClosePanel();
       }
@@ -411,13 +425,15 @@ function SinglePanel({
             return n?.imageUrl ? { kind: "image", url: n.imageUrl, name: n.label } : null;
           }
           const p = panels.find((pp) => pp.id === c.fromNodeId);
-          if (!p?.output) return null;
+          // A Compose box's written text counts as its output (#181).
+          const out = p && panelOutput(p);
+          if (!p || !out) return null;
           // A text node's content IS its reference; an image node points at a
           // data URL. Video is terminal and renders no output port, so it
           // cannot be wired as a source -- the fallthrough keeps that true
           // even if a stale connection outlives a change of kind.
-          if (p.output.type === "text") return { kind: "text", text: p.output.value, name: p.label };
-          if (p.output.type === "image") return { kind: "image", url: p.output.value, name: p.label };
+          if (out.type === "text") return { kind: "text", text: out.value, name: p.label };
+          if (out.type === "image") return { kind: "image", url: out.value, name: p.label };
           return null;
         })
         .filter((r): r is Reference => r !== null);
@@ -571,6 +587,40 @@ function SinglePanel({
     );
   };
 
+  // ── Authored kinds: in-place editing (#181) ──
+  // Every keystroke goes to the store, as the panel's instruction does, so a
+  // reload mid-edit keeps what was written.
+  const handleTextChange = (text: string) =>
+    useNodePanel.getState().setDraft(instance.id, { model: draft.model, instruction: text, settings });
+
+  // Closing the editor names the box from its first line. An auto name
+  // follows the text, as one follows the prompt after a generate (#130); a
+  // name the user chose is kept. A changed text is one undo step with its
+  // name -- unlike a prompt, it is the node's whole content, and without the
+  // step an undone delete brought the box back empty.
+  const finishEditing = () => {
+    setEditing(false);
+    const store = useNodePanel.getState();
+    const current = store.panels.find((p) => p.id === instance.id);
+    const text = current?.draft?.instruction ?? "";
+    if (!current || text === textAtOpen.current) return;
+    if (text.trim() && (!current.label || current.labelAuto)) {
+      const name = relabel(current.label, labelFromText(text), takenLabels());
+      if (name !== current.label || !current.labelAuto) store.setLabel(instance.id, name, true);
+    }
+    canvasHistory.commit();
+  };
+
+  // Opened with the caret after the last character, ready to carry on writing.
+  const focusEditor = (el: HTMLTextAreaElement | null) => {
+    if (!el || document.activeElement === el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  };
+
+  // What the box shows: a written kind shows its text; others their output.
+  const shown = spec.authored ? panelOutput(instance) : instance.output;
+
   return (
     <>
       {/* ── Transformer border + corner anchors — only in active/panel-open states ── */}
@@ -651,7 +701,7 @@ function SinglePanel({
 
       {/* ── Ports — visible unless another panel covers them ── */}
       {/* Input port — placed from shared geometry, same as uploaded images */}
-      {!hideInputPort && (
+      {spec.acceptsInput !== false && !hideInputPort && (
         <div
           title="Input"
           style={{
@@ -705,6 +755,11 @@ function SinglePanel({
     isDragging.current = false;
     setDragging(false);
   }}
+  onDoubleClick={() => {
+    if (!spec.authored) return;
+    textAtOpen.current = draft.instruction;
+    setEditing(true);
+  }}
   onPointerEnter={() => setHovered(true)}
   onPointerLeave={() => setHovered(false)}
   className="node-panel-placeholder"
@@ -730,8 +785,8 @@ function SinglePanel({
     pointerEvents: "auto",
   }}
 >
-  {instance.output ? (
-    <spec.Output value={instance.output.value} />
+  {shown ? (
+    <spec.Output value={shown.value} />
   ) : busy ? (
     // Shown on the node itself, not only in the panel: a video generation
     // runs for minutes and the panel is usually closed by then. The rest of
@@ -747,8 +802,41 @@ function SinglePanel({
   {dragging && <div className="node-panel-drag-overlay" />}
 </button>
 
+      {/* ── In-place editor — an authored kind's double-click (#181). Laid
+           over the box in canvas units and scaled the same way, so the text
+           does not move when it opens. Plain text: a paste keeps markdown
+           as typed. Board shortcuts all ignore keys aimed at a textarea. ── */}
+      {editing && (
+        <textarea
+          ref={focusEditor}
+          aria-label={`${spec.title} text`}
+          className="node-panel-compose-editor"
+          value={draft.instruction}
+          onChange={(e) => handleTextChange(e.target.value)}
+          onBlur={finishEditing}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              e.currentTarget.blur();
+            }
+          }}
+          spellCheck
+          style={{
+            position: "fixed",
+            left: placeholderLeft,
+            top: placeholderTop,
+            width: pw,
+            height: ph,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            zIndex: Z_INDEX.nodes + 1,
+            borderRadius: NODE_CORNER_RADIUS,
+          }}
+        />
+      )}
+
       {/* ── Generation panel ── */}
-      {isPanelOpen && (
+      {isPanelOpen && !spec.authored && (
         <GenerateForm
           spec={spec}
           draft={draft}
@@ -783,7 +871,8 @@ export default function NodePanel() {
   useEffect(() => {
     return canvasHistory.register("panels", {
       capture: () => useNodePanel.getState().panels,
-      restore: (snap) => useNodePanel.getState().replaceAll(snap as PanelInstance[]),
+      restore: (snap) =>
+        useNodePanel.getState().replaceAll(snap as PanelInstance[], (p) => !!kindSpec(p.kind).authored),
     });
   }, []);
 

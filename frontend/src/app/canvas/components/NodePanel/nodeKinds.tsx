@@ -60,7 +60,10 @@ export interface VideoSettings {
   resolution: string;
 }
 
-export type NodeSettings = ImageSettings | InstructionSettings | VideoSettings;
+/** A written kind has nothing to set. */
+export type ComposeSettings = Record<string, never>;
+
+export type NodeSettings = ImageSettings | InstructionSettings | VideoSettings | ComposeSettings;
 
 export interface SettingsProps {
   value: NodeSettings;
@@ -120,6 +123,20 @@ export interface NodeKindSpec {
    * that silently contributed nothing was worse than showing none.
    */
   isSource?: boolean;
+  /**
+   * Can another node feed this one? False renders no input port and refuses
+   * a wire dropped on it. Compose is written, not generated, so there is
+   * nothing for a reference to feed (#181).
+   */
+  acceptsInput?: boolean;
+  /**
+   * The user writes this node's content instead of generating it. Such a
+   * kind has no panel: a click only selects it, and a double-click edits the
+   * text in place. The text is kept in `draft.instruction` -- drafts survive
+   * the lean save that drops generated outputs, and a typed note cannot be
+   * regenerated -- and is fed downstream as a text reference.
+   */
+  authored?: boolean;
   /** Collapsible advanced section. Omit for a kind with no advanced settings. */
   Advanced?: FC<SettingsProps>;
   /** The always-visible row above the submit button. */

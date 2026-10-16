@@ -7,9 +7,9 @@
 // Esc → pointer + close all submenus.
 // Hover tooltip: pill with label + optional shortcut badge, floats above the button.
 
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import hotkeys from "hotkeys-js";
-import { Video, Image, Sparkles, Upload, Shapes } from "lucide-react";
+import { Video, Image, Sparkles, PencilLine, Upload, Shapes } from "lucide-react";
 import {
   useToolStore,
   shapeKindOf,
@@ -35,6 +35,7 @@ const DOCK_ITEM_KIND: Partial<Record<string, NodeKind>> = {
   "generate-image": "image",
   "generate-instruction": "instruction",
   "generate-video": "video",
+  "generate-compose": "compose",
 };
 
 import { PALETTE, DEFAULT_SWATCH, COLOR_EVENT, type ColorDetail } from "../../board/palette";
@@ -271,6 +272,7 @@ const GENERATE_IDS: Tool[] = [
   "generate-instruction",
   "generate-image",
   "generate-video",
+  "generate-compose",
 ];
 
 const GENERATE_ITEMS = [
@@ -289,7 +291,21 @@ const GENERATE_ITEMS = [
     label: "Prompt",
     icon: <Sparkles size={16} />,
   },
+  {
+    id: "generate-compose" as Tool,
+    label: "Compose",
+    icon: <PencilLine size={16} />,
+  },
 ];
+
+// Model-backed items (Video, Image, Prompt) and written ones (Compose) are
+// different kinds of thing, so the Create menu draws a divider where the
+// group changes. Read from the kind's spec, so a new written kind lands on
+// the right side of it without touching this file (#181).
+function isWritten(id: Tool): boolean {
+  const kind = DOCK_ITEM_KIND[id];
+  return !!(kind && NODE_KINDS[kind]?.authored);
+}
 
 const LINK_IDS: Tool[] = ["link-straight", "link-elbow", "link-curve"];
 
@@ -644,66 +660,71 @@ export default function FloatingDock() {
                 className={submenuClass}
                 style={{ width: "max-content" }}
               >
-                {GENERATE_ITEMS.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setTool(item.id);
-                      setIsGenerateMenuOpen(false);
+                {GENERATE_ITEMS.map((item, i) => (
+                  <Fragment key={item.id}>
+                    {i > 0 && isWritten(item.id) !== isWritten(GENERATE_ITEMS[i - 1].id) && (
+                      <div role="separator" className="floating-dock-submenu-divider" />
+                    )}
+                    <button
+                      onClick={() => {
+                        setTool(item.id);
+                        setIsGenerateMenuOpen(false);
 
-                      // Creating a node makes it the selection, so clear the
-                      // others. Without this an uploaded image stayed selected
-                      // alongside the new node, and because each selection
-                      // system has its own Delete handler, one keypress
-                      // destroyed both.
-                      useKonvaSelection.getState().deselect();
-                      useConnectionStore.getState().deselectConnection();
+                        // Creating a node makes it the selection, so clear the
+                        // others. Without this an uploaded image stayed selected
+                        // alongside the new node, and because each selection
+                        // system has its own Delete handler, one keypress
+                        // destroyed both.
+                        useKonvaSelection.getState().deselect();
+                        useConnectionStore.getState().deselectConnection();
 
-                      // Dock item -> node kind. A kind with no registered
-                      // spec (video) still no-ops rather than creating a node
-                      // the panel cannot render.
-                      const kind = DOCK_ITEM_KIND[item.id];
-                      const spec = kind ? NODE_KINDS[kind] : undefined;
-                      if (kind && spec) {
-                        const { x: sx, y: sy, scale: sc } = useViewport.getState();
+                        // Dock item -> node kind. A kind with no registered
+                        // spec (video) still no-ops rather than creating a node
+                        // the panel cannot render.
+                        const kind = DOCK_ITEM_KIND[item.id];
+                        const spec = kind ? NODE_KINDS[kind] : undefined;
+                        if (kind && spec) {
+                          const { x: sx, y: sy, scale: sc } = useViewport.getState();
 
-                        const existing = useNodePanel.getState().panels.length;
+                          const existing = useNodePanel.getState().panels.length;
 
-                        const offset = existing * 24;
+                          const offset = existing * 24;
 
-                        // canvasX is the node's LEFT edge but canvasY is its
-                        // vertical centre, so only x needs the half-width
-                        // shift. Centring it matches uploaded images and keeps
-                        // the Create Image panel on the node's preferred right
-                        // side instead of forcing it to flip.
-                        const centre = viewportCentre(
-                          { x: sx, y: sy, scale: sc },
-                          canvasArea()
-                        );
-                        // canvasX is the node's LEFT edge but canvasY is its
-                        // vertical centre, so only x needs the half-width
-                        // shift. The width comes from the kind's own spec --
-                        // an instruction node is not sized like an image one.
-                        const cx = centre.x - spec.sizeFor(spec.defaultSettings).w / 2 + offset;
-                        const cy = centre.y + offset;
+                          // canvasX is the node's LEFT edge but canvasY is its
+                          // vertical centre, so only x needs the half-width
+                          // shift. Centring it matches uploaded images and keeps
+                          // the Create Image panel on the node's preferred right
+                          // side instead of forcing it to flip.
+                          const centre = viewportCentre(
+                            { x: sx, y: sy, scale: sc },
+                            canvasArea()
+                          );
+                          // canvasX is the node's LEFT edge but canvasY is its
+                          // vertical centre, so only x needs the half-width
+                          // shift. The width comes from the kind's own spec --
+                          // an instruction node is not sized like an image one.
+                          const cx = centre.x - spec.sizeFor(spec.defaultSettings).w / 2 + offset;
+                          const cy = centre.y + offset;
 
-                        addPanel(cx, cy, kind);
-                        // A new node must not land behind an uploaded image.
-                        useLayerOrder.getState().raiseDom();
-                        // Creating a node is an edit, so it belongs on the
-                        // timeline. It was not undoable before the merge.
-                        canvasHistory.commit();
+                          // A written kind (Compose) has no panel to open.
+                          addPanel(cx, cy, kind, !spec.authored);
+                          // A new node must not land behind an uploaded image.
+                          useLayerOrder.getState().raiseDom();
+                          // Creating a node is an edit, so it belongs on the
+                          // timeline. It was not undoable before the merge.
+                          canvasHistory.commit();
 
-                        setTool("pointer");
-                      } else {
-                        closeAllPanels();
-                      }
-                    }}
-                    className={submenuItemClass(activeTool === item.id)}
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </button>
+                          setTool("pointer");
+                        } else {
+                          closeAllPanels();
+                        }
+                      }}
+                      className={submenuItemClass(activeTool === item.id)}
+                    >
+                      {item.icon}
+                      <span>{item.label}</span>
+                    </button>
+                  </Fragment>
                 ))}
               </div>
             )}
