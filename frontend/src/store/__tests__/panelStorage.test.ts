@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StorageValue } from "zustand/middleware";
-import { panelStorage, type PanelInstance } from "../nodePanel.store";
+import { deferredStorage, panelStorage, useNodePanel, type PanelInstance } from "../nodePanel.store";
 
 type Saved = StorageValue<{ panels: PanelInstance[] }> | null;
 // getItem may be sync or async by the interface; this implementation is sync.
@@ -82,5 +82,66 @@ describe("panelStorage", () => {
   it("reads a corrupt entry as nothing saved, rather than throwing", () => {
     store.data.set("k", "{not json");
     expect(read("k")).toBeNull();
+  });
+});
+
+// #155: a Frame drag set positions on every pointermove, and each set wrote
+// the whole board -- images included -- to localStorage.
+describe("deferredStorage", () => {
+  const memory = () => {
+    const data = new Map<string, unknown>();
+    return {
+      data,
+      writes: 0,
+      getItem: (k: string) => (data.get(k) ?? null) as Saved,
+      setItem(k: string, v: unknown) { this.writes++; data.set(k, v); },
+      removeItem: (k: string) => void data.delete(k),
+    };
+  };
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("writes once, the latest value, after changes pause", () => {
+    const inner = memory();
+    const s = deferredStorage(inner as never, 150);
+    for (let i = 0; i < 50; i++) {
+      s.setItem("k", value([{ ...node("a", "img"), canvasX: i }]));
+      vi.advanceTimersByTime(10);
+    }
+    expect(inner.writes).toBe(0);
+    vi.advanceTimersByTime(150);
+    expect(inner.writes).toBe(1);
+    expect((inner.getItem("k") as Saved)!.state.panels[0].canvasX).toBe(49);
+  });
+
+  it("a read sees a write that is still waiting", () => {
+    const inner = memory();
+    const s = deferredStorage(inner as never, 150);
+    s.setItem("k", value([node("a", "img")]));
+    expect((s.getItem("k") as Saved)!.state.panels[0].id).toBe("a");
+  });
+
+  it("a remove drops a waiting write rather than resurrecting it", () => {
+    const inner = memory();
+    const s = deferredStorage(inner as never, 150);
+    s.setItem("k", value([node("a", "img")]));
+    s.removeItem("k");
+    vi.advanceTimersByTime(500);
+    expect(inner.data.has("k")).toBe(false);
+  });
+});
+
+describe("setCanvasPositions", () => {
+  it("moves several panels in one write, and leaves the rest alone", () => {
+    useNodePanel.setState({ panels: [node("a", "x"), node("b", "x"), node("c", "x")] });
+    let notified = 0;
+    const off = useNodePanel.subscribe(() => notified++);
+    useNodePanel.getState().setCanvasPositions({ a: { x: 10, y: 20 }, c: { x: 30, y: 40 } });
+    off();
+    const [a, b, c] = useNodePanel.getState().panels;
+    expect([a.canvasX, a.canvasY, c.canvasX, c.canvasY]).toEqual([10, 20, 30, 40]);
+    expect([b.canvasX, b.canvasY]).toEqual([0, 0]);
+    expect(notified).toBe(1);
   });
 });

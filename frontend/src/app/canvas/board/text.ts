@@ -40,10 +40,14 @@ export function fitAutoWidth(n: Konva.Text): void {
   n.width(Math.ceil(widest) + 1 + n.padding() * 2);
 }
 
-/** A new, empty text with its top-left at `at`. Fixed-width if `width` is given. */
-export function createText(at: Konva.Vector2d, width?: number): Konva.Text {
+/**
+ * A new, empty text with its top-left at `at`. Fixed-width if `width` is
+ * given. In the dock's current colour if one is picked (#159).
+ */
+export function createText(at: Konva.Vector2d, width?: number, color?: string | null): Konva.Text {
   const n = new Konva.Text({
     ...TEXT_STYLE,
+    ...(color ? { fill: color } : {}),
     x: at.x,
     y: at.y,
     text: "",

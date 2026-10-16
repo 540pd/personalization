@@ -93,6 +93,12 @@ interface NodePanelState {
    */
   pastePanels:     (sources: PanelInstance[], offset: number) => Record<string, string>;
   setCanvasPos:    (id: string, x: number, y: number) => void;
+  /**
+   * Move several panels in one write. A Frame drag moves every panel in the
+   * frame on each pointermove; one set per panel notified every subscriber,
+   * and saved the board, once per panel per move (#155).
+   */
+  setCanvasPositions: (positions: Record<string, { x: number; y: number }>) => void;
   selectPanel:     (id: string | null) => void;
   /**
    * Replace every panel wholesale. Used by the shared undo timeline. A panel
@@ -182,6 +188,58 @@ export const panelStorage: PersistStorage<Persisted> = {
     }
   },
 };
+
+/** Quiet time before a save, in ms. Short enough that a reload rarely beats it. */
+export const SAVE_DELAY_MS = 150;
+
+/**
+ * Saves the board once things settle, not on every change.
+ *
+ * persist writes on every set, and a write stringifies every panel -- image
+ * data URLs and all, a megabyte or more each. A Frame drag sets positions on
+ * every pointermove, so the board was serialised and written to localStorage
+ * dozens of times a second, which is most of why a drag trailed the pointer
+ * (#155). Only the latest value is kept; it is written once changes pause
+ * for `delay`, or straight away when the page is hidden or unloaded, so a
+ * reload or a closed tab still keeps the last move.
+ */
+export function deferredStorage<S>(inner: PersistStorage<S>, delay = SAVE_DELAY_MS): PersistStorage<S> {
+  let pending: { name: string; value: StorageValue<S> } | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const flush = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    if (!pending) return;
+    const { name, value } = pending;
+    pending = null;
+    void inner.setItem(name, value);
+  };
+
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") flush();
+    });
+  }
+
+  return {
+    // A read must see the last write, even one still waiting.
+    getItem: (name) => {
+      flush();
+      return inner.getItem(name);
+    },
+    setItem: (name, value) => {
+      pending = { name, value };
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(flush, delay);
+    },
+    removeItem: (name) => {
+      if (pending?.name === name) pending = null;
+      return inner.removeItem(name);
+    },
+  };
+}
 
 export const useNodePanel = create<NodePanelState>()(
   persist(
@@ -328,6 +386,14 @@ export const useNodePanel = create<NodePanelState>()(
       panels: s.panels.map((p) => (p.id === id ? { ...p, canvasX: x, canvasY: y } : p)),
     })),
 
+  setCanvasPositions: (positions) =>
+    set((s) => ({
+      panels: s.panels.map((p) => {
+        const at = positions[p.id];
+        return at ? { ...p, canvasX: at.x, canvasY: at.y } : p;
+      }),
+    })),
+
   selectPanel: (id) => set({ selectedId: id }),
 
   // Save current positions to the undo stack (call once per completed drag).
@@ -408,7 +474,7 @@ export const useNodePanel = create<NodePanelState>()(
     }),
     {
       name: "gcos-node-panels",
-      storage: panelStorage,
+      storage: deferredStorage(panelStorage),
       // Only persist canvas data; UI-open flags and selectedId reset on load.
       partialize: (s) => ({ panels: s.panels }),
       onRehydrateStorage: () => (state) => {

@@ -18,6 +18,8 @@ import { createShapeDrawHandlers } from "../board/shapeDraw";
 import { bakeScale, isBoardShape } from "../board/shapes";
 import { createTextTool } from "../board/textTool";
 import { bakeTextResize, isBoardText } from "../board/text";
+import { applyColor } from "../board/recolor";
+import { COLOR_EVENT, type ColorDetail } from "../board/palette";
 import { useFrames } from "@/store/frame.store";
 import { selectOnly, registerNodeChromeClear } from "@/lib/canvas/selection";
 import { frameStage } from "@/lib/canvas/frameStage";
@@ -604,6 +606,19 @@ export default function Board() {
     });
     window.addEventListener("canvas:upload", handleUpload);
 
+    // A swatch picked in the dock recolours the selected shapes and text
+    // (#159). Committed with the event as its key, so the Frames it also
+    // recolours (FrameLayer) land in the same undo step.
+    const handleColor = (e: Event) => {
+      const { hex } = (e as CustomEvent<ColorDetail>).detail;
+      if (!applyColor(transformer.nodes(), hex)) return;
+      // Republished, so the style bar's dot (#161) shows the new colour.
+      (transformer.nodes() as Konva.Shape[]).forEach(syncNodeGeometry);
+      layer.batchDraw();
+      saveSnapshot(e);
+    };
+    window.addEventListener(COLOR_EVENT, handleColor);
+
     // Files dragged in from the desktop. Window-level, because the browser
     // navigates away on a drop anywhere -- not just over the canvas.
     const dnd = createDragDropHandlers({
@@ -654,6 +669,7 @@ export default function Board() {
       window.removeEventListener("keydown", handleSelectAll);
       window.removeEventListener("keydown", handleEditKeys);
       window.removeEventListener("canvas:upload", handleUpload);
+      window.removeEventListener(COLOR_EVENT, handleColor);
       window.removeEventListener("dragenter", dnd.dragEnter);
       window.removeEventListener("dragover", dnd.dragOver);
       window.removeEventListener("dragleave", dnd.dragLeave);

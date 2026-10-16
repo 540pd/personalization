@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import {
   bendToward,
@@ -9,6 +10,8 @@ import {
   lineEnds,
 } from "../shapes";
 import { syncNodeGeometry } from "../geometry";
+import { moveMembers } from "../frameMembers";
+import { boardStage } from "@/lib/canvas/boardStage";
 
 const a = { x: 0, y: 0 };
 const b = { x: 100, y: 0 };
@@ -66,5 +69,33 @@ describe("a curved line's box", () => {
     n.setAttrs({ ...lineAttrs(a, b, 30), id: "l" });
     syncNodeGeometry(n);
     expect(useKonvaNodes.getState().nodes.l.ends?.bend).toBe(30);
+  });
+});
+
+describe("a curved line inside a moving Frame", () => {
+  afterEach(() => { boardStage.current = null; });
+
+  // #157. Read straight off the store, not through a click: selecting a line
+  // republishes every node, which would hide a move that left `ends` stale.
+  it.each(["line", "arrow"] as const)("republishes the ends and bend of a moved %s", (kind) => {
+    const group = new Konva.Group();
+    const n = createShape(kind, { x: 0, y: 0, width: 0, height: 0 });
+    n.setAttrs({ ...lineAttrs({ x: 10, y: 20 }, { x: 110, y: 20 }, 30), id: "l", name: "selectable" });
+    group.add(n);
+    syncNodeGeometry(n);
+    // A Group stands in for the stage, which jsdom cannot construct.
+    boardStage.current = Object.assign(group, { batchDraw: () => {} }) as unknown as Konva.Stage;
+
+    const { canvasX, canvasY } = useKonvaNodes.getState().nodes.l;
+    const members = { images: [{ id: "l", startX: canvasX, startY: canvasY }], panels: [] };
+    moveMembers(members, 100, 60);
+    moveMembers(members, 150, 40);  // absolute from the start, not cumulative
+
+    const ends = useKonvaNodes.getState().nodes.l.ends!;
+    expect(ends.a.x).toBeCloseTo(160);
+    expect(ends.a.y).toBeCloseTo(60);
+    expect(ends.b.x).toBeCloseTo(260);
+    expect(ends.b.y).toBeCloseTo(60);
+    expect(ends.bend).toBe(30);
   });
 });

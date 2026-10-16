@@ -19,8 +19,6 @@ export type Tool =
   | "frame"
   | ShapeTool
   | "text"
-  | "sticky-note"
-  | "color-picker"
   | "media-upload";
 
 export function shapeTool(kind: ShapeKind): ShapeTool {
@@ -37,8 +35,8 @@ export function shapeKindOf(tool: Tool): ShapeKind | null {
  * Tools that draw a region by dragging, rather than panning the board.
  *
  * "not pointer" used to be a safe shorthand for "this tool pans", because
- * every non-pointer tool did. Frame broke that, and shapes, text and sticky
- * note will break it the same way, so the distinction is named once here
+ * every non-pointer tool did. Frame broke that, and shapes and text broke it
+ * the same way, so the distinction is named once here
  * instead of re-derived at each call site.
  */
 export function drawingTool(tool: Tool): boolean {
@@ -64,14 +62,22 @@ interface ToolState {
    * re-arms it, so drawing several of the same shape is one key each time.
    */
   lastShape: ShapeKind;
+  /**
+   * The dock's current colour (#159): what the next shape or text is drawn
+   * in. null until a swatch is picked, which leaves the defaults in place.
+   */
+  color: string | null;
   setTool: (tool: Tool) => void;
+  setColor: (hex: string) => void;
 }
 
 export const useToolStore = create<ToolState>((set) => ({
   activeTool: "pointer",
   lastShape: "rect",
+  color: null,
   setTool: (tool) => {
     const kind = shapeKindOf(tool);
     set(kind ? { activeTool: tool, lastShape: kind } : { activeTool: tool });
   },
+  setColor: (hex) => set({ color: hex }),
 }));

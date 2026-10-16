@@ -81,9 +81,10 @@ export function createTextTool(deps: TextToolDeps) {
 
     const box = boxFromCorners(from, pt);
     const dragged = box.width * stage.scaleX() >= SHAPE_CLICK_SLOP;
+    const color = useToolStore.getState().color;
     const node = dragged
-      ? createText({ x: box.x, y: box.y }, box.width)
-      : createText(from);
+      ? createText({ x: box.x, y: box.y }, box.width, color)
+      : createText(from, undefined, color);
     // A click is the middle of the first line, not its top edge: that is
     // where the caret is expected to appear.
     if (!dragged) node.y(from.y - (node.fontSize() * node.lineHeight()) / 2);
