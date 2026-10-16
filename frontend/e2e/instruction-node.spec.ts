@@ -53,12 +53,12 @@ async function generateInOpenPanel(page: Page, instruction: string) {
 }
 
 test.describe("node > instruction", () => {
-  test("creates a node whose panel is an Instruction panel", async ({ page }) => {
+  test("creates a node whose panel is a Prompt panel", async ({ page }) => {
     await stubGenerate(page);
     await openBoard(page);
-    await addNode(page, /^Instruction$/);
+    await addNode(page, /^Prompt$/);
 
-    await expect(page.locator("h2.node-panel-title")).toHaveText("Instruction");
+    await expect(page.locator("h2.node-panel-title")).toHaveText("Prompt");
     // A text node has no aspect ratio or quality to choose.
     await expect(page.locator(".node-panel-options")).toHaveCount(0);
   });
@@ -66,7 +66,7 @@ test.describe("node > instruction", () => {
   test("renders generated text inside the node, not overflowing it", async ({ page }) => {
     await stubGenerate(page);
     await openBoard(page);
-    await addNode(page, /^Instruction$/);
+    await addNode(page, /^Prompt$/);
     await generateInOpenPanel(page, "describe the scene");
     await collapsePanels(page);
 
@@ -82,7 +82,7 @@ test.describe("node > instruction", () => {
   test("hits the text endpoint, not the image one", async ({ page }) => {
     const calls = await stubGenerate(page);
     await openBoard(page);
-    await addNode(page, /^Instruction$/);
+    await addNode(page, /^Prompt$/);
     await generateInOpenPanel(page, "describe the scene");
 
     expect(calls).toHaveLength(1);
@@ -95,7 +95,7 @@ test.describe("node > instruction", () => {
   test("gets ports, selection and occlusion like any other node", async ({ page }) => {
     await stubGenerate(page);
     await openBoard(page);
-    await addNode(page, /^Instruction$/);
+    await addNode(page, /^Prompt$/);
     await collapsePanels(page);
     const [first] = await panelBoxes(page);
     await dragFrom(page, first.x + first.w / 2, first.y + first.h / 2, -360);
@@ -118,7 +118,7 @@ test.describe("node > instruction", () => {
     const calls = await stubGenerate(page);
     await openBoard(page);
 
-    await addNode(page, /^Instruction$/);
+    await addNode(page, /^Prompt$/);
     await generateInOpenPanel(page, "describe the mood");
     await collapsePanels(page);
     const [up] = await panelBoxes(page);

@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import hotkeys from "hotkeys-js";
-import { Video, Image, SquareText, Upload, Shapes } from "lucide-react";
+import { Video, Image, Sparkles, Upload, Shapes } from "lucide-react";
 import {
   useToolStore,
   shapeKindOf,
@@ -286,8 +286,8 @@ const GENERATE_ITEMS = [
   },
   {
     id: "generate-instruction" as Tool,
-    label: "Instruction",
-    icon: <SquareText size={16} />,
+    label: "Prompt",
+    icon: <Sparkles size={16} />,
   },
 ];
 
