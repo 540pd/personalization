@@ -243,21 +243,6 @@ const IconText = () => (
   </span>
 );
 
-const IconStickyNote = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinejoin="round"
-  >
-    <path d="M3 2h10a1 1 0 011 1v7.5l-4 3.5H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
-    <path d="M10 13V10h4" strokeLinecap="round" />
-  </svg>
-);
-
 const IconColorPicker = () => (
   <svg width="16" height="16" viewBox="0 0 16 16">
     <circle cx="8" cy="8" r="5" fill="#ef4444" />
@@ -363,11 +348,6 @@ const TOOLS_RIGHT: ToolDef[] = [
     label: "Text",
     shortcut: "T",
     icon: <IconText />,
-  },
-  {
-    id: "sticky-note",
-    label: "Sticky Note",
-    icon: <IconStickyNote />,
   },
   {
     id: "color-picker",

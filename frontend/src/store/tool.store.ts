@@ -19,7 +19,6 @@ export type Tool =
   | "frame"
   | ShapeTool
   | "text"
-  | "sticky-note"
   | "color-picker"
   | "media-upload";
 
@@ -37,8 +36,8 @@ export function shapeKindOf(tool: Tool): ShapeKind | null {
  * Tools that draw a region by dragging, rather than panning the board.
  *
  * "not pointer" used to be a safe shorthand for "this tool pans", because
- * every non-pointer tool did. Frame broke that, and shapes, text and sticky
- * note will break it the same way, so the distinction is named once here
+ * every non-pointer tool did. Frame broke that, and shapes and text broke it
+ * the same way, so the distinction is named once here
  * instead of re-derived at each call site.
  */
 export function drawingTool(tool: Tool): boolean {
