@@ -778,6 +778,118 @@ test.describe("resizing a frame", () => {
     await page.waitForTimeout(400);
     expect(await frameRect(page)).toEqual(before);
   });
+
+  // #156: the name sat at the old top-left and width until the resize ended.
+  /** Each frame's live screen box beside its name's box and max width. */
+  const namesAndRects = (page: Page) =>
+    page.evaluate(() => {
+      type R = { getClientRect(): { x: number; y: number; width: number } };
+      const stages = (window as unknown as { Konva: { stages: { find(s: string): R[] }[] } }).Konva.stages;
+      const rects = stages.flatMap((s) => s.find(".frame")).map((r) => r.getClientRect());
+      const names = [...document.querySelectorAll<HTMLElement>('div[title^="Frame"]')].map((el) => {
+        const sized = el.style.maxWidth ? el : el.parentElement!;
+        const b = el.getBoundingClientRect();
+        return { x: b.x, bottom: b.bottom, maxW: parseFloat(sized.style.maxWidth) };
+      });
+      // Pair by left edge; frames in these tests never share one.
+      rects.sort((a, b) => a.x - b.x);
+      names.sort((a, b) => a.x - b.x);
+      return rects.map((r, i) => ({ rect: r, name: names[i] }));
+    });
+
+  /** Presses at `from`, moves to `to`, and holds there with the button down. */
+  async function holdResize(page: Page, from: [number, number], to: [number, number]) {
+    await page.mouse.move(...from);
+    await page.mouse.down();
+    await page.mouse.move(...to, { steps: 8 });
+    await page.waitForTimeout(200);
+  }
+
+  /**
+   * Every name just above its frame's live top-left, as wide as the live
+   * frame. Stale, the name is off by the whole resize: tens of px.
+   */
+  async function expectNamesOnRects(page: Page) {
+    const pairs = await namesAndRects(page);
+    for (const { rect, name } of pairs) {
+      expect(Math.abs(name.x - rect.x)).toBeLessThanOrEqual(2);
+      // LABEL_GAP (8) above the top edge, give or take the text's leading.
+      expect(rect.y - name.bottom).toBeGreaterThanOrEqual(0);
+      expect(rect.y - name.bottom).toBeLessThanOrEqual(14);
+      expect(Math.abs(name.maxW - rect.width)).toBeLessThanOrEqual(2);
+    }
+    return pairs;
+  }
+
+  for (const [handle, from, to] of [
+    ["top-left", [500, 200], [420, 140]],
+    ["left edge", [500, 310], [420, 310]],
+    ["top edge", [650, 200], [650, 140]],
+  ] as const) {
+    test(`the name follows a resize from the ${handle} handle, mid-gesture`, async ({ page }) => {
+      await selectedFrame(page);
+      const [{ rect: before }] = await namesAndRects(page);
+      await holdResize(page, [...from], [...to]);
+      const [{ rect }] = await expectNamesOnRects(page);
+      // The resize really is under way, not already finished.
+      expect(rect.x !== before.x || rect.y !== before.y).toBe(true);
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+      await expectNamesOnRects(page);
+    });
+  }
+
+  test("a bottom-right resize leaves the name where it is, but widens it", async ({ page }) => {
+    await selectedFrame(page);
+    const [{ name: start }] = await namesAndRects(page);
+    await holdResize(page, [800, 420], [900, 480]);
+    const [{ name }] = await expectNamesOnRects(page);
+    expect(Math.abs(name.x - start.x)).toBeLessThanOrEqual(1);
+    expect(name.maxW).toBeGreaterThan(start.maxW + 80);
+    await page.mouse.up();
+  });
+
+  test("several frames resized together each keep their name", async ({ page }) => {
+    await openBoard(page);
+    await frameBtn(page).click();
+    await drawFrame(page, 300, 200, 500, 400);
+    await frameBtn(page).click();
+    await drawFrame(page, 600, 200, 800, 400);
+    await page.keyboard.press("Control+a");
+    await page.waitForTimeout(300);
+    // The transformer's top-left, round both frames.
+    await holdResize(page, [300, 200], [240, 160]);
+    const pairs = await expectNamesOnRects(page);
+    expect(pairs).toHaveLength(2);
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+
+    // Still one undo step for the pair (#128): the live names add none.
+    const sized = await namesAndRects(page);
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(400);
+    expect(await frameCount(page)).toBe(2);
+    const undone = await expectNamesOnRects(page);
+    expect(undone[0].rect.x).toBeCloseTo(300, -1);
+    await page.keyboard.press("Control+y");
+    await page.waitForTimeout(400);
+    const redone = await expectNamesOnRects(page);
+    expect(redone[0].rect.x).toBeCloseTo(sized[0].rect.x, 0);
+  });
+
+  for (const z of [0.5, 1.5]) {
+    test(`the name follows a top-left resize at ${z * 100}% zoom`, async ({ page }) => {
+      await openBoard(page);
+      await setZoom(page, z);
+      await frameBtn(page).click();
+      await drawFrame(page, 500, 200, 800, 420);
+      await page.mouse.click(650, 310);
+      await page.waitForTimeout(300);
+      await holdResize(page, [500, 200], [430, 150]);
+      await expectNamesOnRects(page);
+      await page.mouse.up();
+    });
+  }
 });
 
 // #108: a frame's name hides behind a node, as a node's name does.
