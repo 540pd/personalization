@@ -88,7 +88,7 @@ function Output({ value }: { value: string }) {
 
 export const instructionKind: NodeKindSpec = {
   kind: "instruction",
-  title: "Instruction",
+  title: "Prompt",
   prompt: "What should this node work out?",
   models: MODELS,
   // Same principle as the other kinds: default to the lite model.

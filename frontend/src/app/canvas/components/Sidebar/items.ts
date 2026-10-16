@@ -1,4 +1,4 @@
-import { Layers, Image, Sparkles, Bot, BarChart3, type LucideIcon } from "lucide-react";
+import { Layers, Image, BrainCircuit, Bot, BarChart3, type LucideIcon } from "lucide-react";
 
 /**
  * The sidebar's destinations, as data.
@@ -45,7 +45,7 @@ export const SIDEBAR_ITEMS: SidebarItemSpec[] = [
   {
     id: "skills",
     label: "Skills",
-    icon: Sparkles,
+    icon: BrainCircuit,
     available: false,
   },
   {
