@@ -31,7 +31,7 @@ export function syncNodeGeometry(n: Konva.Shape): void {
     ...(shape ? { shape } : {}),
     ...(isBoardText(n) ? { text: true } : {}),
     ...(isBoardShape(n) && isLineKind(n.shapeKind()) ? { ends: { ...lineEnds(n), bend: lineBend(n) } } : {}),
-    ...(isBoardShape(n) && !isLineKind(n.shapeKind()) ? { style: readStyle(n) } : {}),
+    ...(isBoardShape(n) ? { style: readStyle(n) } : {}),
   });
 }
 

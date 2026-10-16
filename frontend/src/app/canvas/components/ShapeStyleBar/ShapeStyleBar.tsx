@@ -2,8 +2,10 @@
 
 // The bar above a selected shape: its Color, Fill and Stroke (#161).
 //
-// Shown only while the selection is all filled shapes -- rectangle, ellipse,
-// triangle, diamond, block arrow -- and nothing else. Above the selection
+// Shown only while the selection is all shapes -- rectangle, ellipse,
+// triangle, diamond, block arrow, and lines and arrows (#162) -- and nothing
+// else. A line has no inside, so with one selected there is no Fill, and no
+// "No stroke" either: without its stroke a line is not there. Above the selection
 // rather than inside it, as the reference has it: inside, it would cover a
 // small shape and its corner handles. Flipped below when there is no room
 // above on screen.
@@ -22,6 +24,7 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { toScreen } from "@/lib/canvas/coords";
 import { canvasHistory } from "@/lib/canvas/history";
+import { GESTURE_EVENT, type GestureDetail } from "@/lib/canvas/gesture";
 import { SHAPE_STYLE, Z_INDEX } from "@/constants/canvas.constants";
 import { COLOR_EVENT, PALETTE, type ColorDetail } from "../../board/palette";
 import {
@@ -29,6 +32,7 @@ import {
   type FillMode, type ShapeStyle, type StrokeMode,
 } from "../../board/shapeStyle";
 import { applyShapeStyle } from "../../board/recolor";
+import { isLineKind } from "../../board/shapes";
 import { syncNodeGeometry } from "../../board/geometry";
 import "./ShapeStyleBar.scss";
 
@@ -149,8 +153,9 @@ function pickColor(hex: string) {
 }
 
 /**
- * True while a selected node is being dragged or resized. The bar hides
- * then: it would trail the shape and sit over whatever it is dropped next to.
+ * True while a selected node is being dragged or resized, or a line's end or
+ * bend is. The bar hides then: it would trail the shape and sit over
+ * whatever it is dropped next to.
  */
 function useGesture(active: boolean): boolean {
   const [busy, setBusy] = useState(false);
@@ -165,7 +170,10 @@ function useGesture(active: boolean): boolean {
       t.on("transformstart.styleBar", () => setBusy(true));
       t.on("transformend.styleBar", () => setBusy(false));
     });
+    const onGesture = (e: Event) => setBusy((e as CustomEvent<GestureDetail>).detail.active);
+    window.addEventListener(GESTURE_EVENT, onGesture);
     return () => {
+      window.removeEventListener(GESTURE_EVENT, onGesture);
       stage.off(".styleBar");
       transformers.forEach((t) => t.off(".styleBar"));
       setBusy(false);
@@ -220,12 +228,19 @@ export default function ShapeStyleBar() {
   if (!shown || busy) return null;
 
   const styles = records.map((r) => r.style!);
+  const lines = records.filter((r) => r.shape && isLineKind(r.shape)).length;
+  // Fill only when nothing selected is a line; "No stroke" likewise.
+  const hasFill = lines === 0;
+  const strokeModes = hasFill ? STROKE_MODES : STROKE_MODES.filter((m) => m !== "none");
   const color = common(styles, "color");
   const fill = common(styles, "fill");
   const stroke = common(styles, "stroke");
   const width = common(styles, "width");
-  // undefined: the shapes differ. null: the default grey.
-  const dotHex = color === undefined ? undefined : color ?? SHAPE_STYLE.fill;
+  // undefined: the shapes differ. null: the default grey, which on a line is
+  // its stroke.
+  const dotHex =
+    color === undefined ? undefined
+    : color ?? (lines === records.length ? SHAPE_STYLE.stroke : SHAPE_STYLE.fill);
 
   // The selection's box on screen.
   const vp = { x, y, scale };
@@ -278,7 +293,7 @@ export default function ShapeStyleBar() {
 
       <div className="shape-style-divider" />
 
-      <div className="shape-style-wrapper">
+      {hasFill && <div className="shape-style-wrapper">
         <button
           type="button" aria-label="Shape fill" aria-expanded={card === "fill"}
           onClick={() => toggle("fill")} className={btn("fill")}
@@ -300,7 +315,7 @@ export default function ShapeStyleBar() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="shape-style-wrapper">
         <button
@@ -312,7 +327,7 @@ export default function ShapeStyleBar() {
         {card !== "stroke" && <span className="shape-style-tooltip">Stroke</span>}
         {card === "stroke" && (
           <div className="shape-style-card shape-style-row" role="group" aria-label="Stroke options">
-            {STROKE_MODES.map((m) => (
+            {strokeModes.map((m) => (
               <button
                 key={m} type="button" title={STROKE_LABEL[m]} aria-label={STROKE_LABEL[m]}
                 aria-pressed={m === stroke}

@@ -6,7 +6,7 @@
 import Konva from "konva";
 import { isBoardShape, isLineKind } from "./shapes";
 import { isBoardText } from "./text";
-import { hasAttrs, patchStyle, readStyle, styleAttrs, type ShapeStyle } from "./shapeStyle";
+import { hasAttrs, lineStyleAttrs, patchStyle, readStyle, styleAttrs, type ShapeStyle } from "./shapeStyle";
 
 /**
  * The attrs that give a board item this colour, or null for an item a colour
@@ -14,8 +14,8 @@ import { hasAttrs, patchStyle, readStyle, styleAttrs, type ShapeStyle } from "./
  */
 export function colorAttrs(node: Konva.Node, hex: string): Konva.ShapeConfig | null {
   if (isBoardShape(node)) {
-    // A line has no inside: the colour is the line.
-    if (isLineKind(node.shapeKind())) return { stroke: hex };
+    // A line has no inside: the colour is the line, dashes and all (#162).
+    if (isLineKind(node.shapeKind())) return lineStyleAttrs({ ...readStyle(node), color: hex });
     // Whatever its fill and stroke (#161), only the colour changes.
     return styleAttrs(patchStyle(readStyle(node), { color: hex }));
   }
@@ -37,15 +37,17 @@ export function applyColor(nodes: Konva.Node[], hex: string): boolean {
 }
 
 /**
- * Restyles the filled shapes among `nodes` from the style bar (#161): only
- * what `patch` names changes, the rest of each shape's style stays its own.
- * Says whether any changed.
+ * Restyles the shapes, lines and arrows among `nodes` from the style bar
+ * (#161, #162): only what `patch` names changes, the rest of each one's
+ * style stays its own. Says whether any changed.
  */
 export function applyShapeStyle(nodes: Konva.Node[], patch: Partial<ShapeStyle>): boolean {
   let changed = false;
   nodes.forEach((n) => {
-    if (!isBoardShape(n) || isLineKind(n.shapeKind())) return;
-    const attrs = styleAttrs(patchStyle(readStyle(n), patch));
+    if (!isBoardShape(n)) return;
+    const attrs = isLineKind(n.shapeKind())
+      ? lineStyleAttrs({ ...readStyle(n), ...patch })
+      : styleAttrs(patchStyle(readStyle(n), patch));
     if (hasAttrs(n, attrs)) return;
     n.setAttrs(attrs);
     changed = true;
