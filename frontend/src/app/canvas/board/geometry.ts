@@ -2,7 +2,7 @@ import type Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import type { ShapeKind } from "@/store/tool.store";
 import { isBoardShape, isLineKind, lineBend, lineEnds } from "./shapes";
-import { isBoardText } from "./text";
+import { isBoardText, readTextStyle } from "./text";
 import { readStyle } from "./shapeStyle";
 
 /**
@@ -29,7 +29,7 @@ export function syncNodeGeometry(n: Konva.Shape): void {
     canvasH: n.height() * n.scaleY(),
     z: n.zIndex(),
     ...(shape ? { shape } : {}),
-    ...(isBoardText(n) ? { text: true } : {}),
+    ...(isBoardText(n) ? { text: true, textStyle: readTextStyle(n) } : {}),
     ...(isBoardShape(n) && isLineKind(n.shapeKind()) ? { ends: { ...lineEnds(n), bend: lineBend(n) } } : {}),
     ...(isBoardShape(n) ? { style: readStyle(n) } : {}),
   });

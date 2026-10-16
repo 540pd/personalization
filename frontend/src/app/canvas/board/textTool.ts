@@ -17,6 +17,7 @@ import { useViewport } from "@/store/viewport.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { selectOnly } from "@/lib/canvas/selection";
+import { announceGesture } from "@/lib/canvas/gesture";
 import { toScreen } from "@/lib/canvas/coords";
 import { boxFromCorners } from "./frame";
 import { deleteNodes } from "./clipboard";
@@ -130,7 +131,9 @@ export function createTextTool(deps: TextToolDeps) {
 
     // The canvas copy and its handles step aside: the textarea shows the
     // text while it is being edited, and two copies would not line up
-    // through every keystroke.
+    // through every keystroke. So does the style bar (#164), which would
+    // otherwise stay over the text being typed.
+    announceGesture(true);
     if (!isNew) {
       deps.transformer.nodes([]);
       deps.updateSelectionChrome();
@@ -204,6 +207,7 @@ export function createTextTool(deps: TextToolDeps) {
       ta.removeEventListener("blur", onBlur);
       const value = ta.value;
       ta.remove();
+      announceGesture(false);
 
       if (!value.trim()) {
         if (isNew) {
