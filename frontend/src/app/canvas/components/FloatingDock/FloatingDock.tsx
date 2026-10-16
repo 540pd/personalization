@@ -37,6 +37,7 @@ const DOCK_ITEM_KIND: Partial<Record<string, NodeKind>> = {
   "generate-video": "video",
 };
 
+import { PALETTE, DEFAULT_SWATCH, COLOR_EVENT, type ColorDetail } from "../../board/palette";
 import "./FloatingDock.scss";
 
 // --- icons (inline SVG, currentColor) ---
@@ -243,9 +244,10 @@ const IconText = () => (
   </span>
 );
 
-const IconColorPicker = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16">
-    <circle cx="8" cy="8" r="5" fill="#ef4444" />
+// The current colour, ringed so that white still shows on the white dock.
+const ColorDot = ({ hex }: { hex: string }) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+    <circle cx="8" cy="8" r="6" fill={hex} stroke="rgba(0,0,0,0.15)" strokeWidth="1" />
   </svg>
 );
 
@@ -321,8 +323,9 @@ const SHAPE_ITEMS: { kind: ShapeKind; label: string; shortcut?: string; icon: Re
 ];
 
 interface ToolDef {
-  // "shapes" is the menu button, not a tool: the tools are its items.
-  id: Tool | "shapes";
+  // "shapes" and "color" are menu buttons, not tools: "shapes" arms its
+  // items, and "color" sets a colour without touching the armed tool.
+  id: Tool | "shapes" | "color";
   label: string;
   shortcut?: string;
   icon: React.ReactNode;
@@ -350,9 +353,10 @@ const TOOLS_RIGHT: ToolDef[] = [
     icon: <IconText />,
   },
   {
-    id: "color-picker",
+    id: "color",
     label: "Color",
-    icon: <IconColorPicker />,
+    // Drawn per render from the current colour, so not fixed here.
+    icon: null,
   },
   {
     id: "media-upload",
@@ -378,6 +382,11 @@ export default function FloatingDock() {
   const [isLinksMenuOpen, setIsLinksMenuOpen] = useState(false);
 
   const [isShapesMenuOpen, setIsShapesMenuOpen] = useState(false);
+
+  const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
+  const color = useToolStore((s) => s.color);
+  const colorBtnRef = useRef<HTMLButtonElement>(null);
+  const colorMenuRef = useRef<HTMLDivElement>(null);
 
   const generateBtnRef = useRef<HTMLButtonElement>(null);
   const generateMenuRef = useRef<HTMLDivElement>(null);
@@ -430,6 +439,7 @@ export default function FloatingDock() {
       setIsGenerateMenuOpen(false);
       setIsLinksMenuOpen(false);
       setIsShapesMenuOpen(false);
+      setIsColorMenuOpen(false);
       closeAllPanels();
     });
 
@@ -535,6 +545,32 @@ export default function FloatingDock() {
     return () => document.removeEventListener("mousedown", handler);
   }, [isShapesMenuOpen]);
 
+  // Close Color card on outside click.
+  useEffect(() => {
+    if (!isColorMenuOpen) return;
+
+    const handler = (e: MouseEvent) => {
+      if (
+        !colorBtnRef.current?.contains(e.target as Node) &&
+        !colorMenuRef.current?.contains(e.target as Node)
+      ) {
+        setIsColorMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handler);
+
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isColorMenuOpen]);
+
+  // Sets the colour for what is drawn next, and recolours whatever is
+  // selected now: Board takes shapes and text, FrameLayer the frames (#159).
+  const pickColor = (hex: string) => {
+    useToolStore.getState().setColor(hex);
+    window.dispatchEvent(new CustomEvent<ColorDetail>(COLOR_EVENT, { detail: { hex } }));
+    setIsColorMenuOpen(false);
+  };
+
   const btnClass = (active: boolean) =>
     [
       "floating-dock-button",
@@ -592,6 +628,7 @@ export default function FloatingDock() {
                 setIsGenerateMenuOpen((v) => !v);
                 setIsLinksMenuOpen(false);
                 setIsShapesMenuOpen(false);
+                setIsColorMenuOpen(false);
               }}
               aria-pressed={isGenerateActive || isGenerateMenuOpen}
               className={btnClass(isGenerateActive || isGenerateMenuOpen)}
@@ -681,6 +718,7 @@ export default function FloatingDock() {
                 setIsLinksMenuOpen((v) => !v);
                 setIsGenerateMenuOpen(false);
                 setIsShapesMenuOpen(false);
+                setIsColorMenuOpen(false);
               }}
               aria-pressed={isLinksActive || isLinksMenuOpen}
               className={btnClass(isLinksActive || isLinksMenuOpen)}
@@ -726,6 +764,7 @@ export default function FloatingDock() {
                       setIsShapesMenuOpen((v) => !v);
                       setIsGenerateMenuOpen(false);
                       setIsLinksMenuOpen(false);
+                      setIsColorMenuOpen(false);
                     }}
                     aria-pressed={isShapesActive || isShapesMenuOpen}
                     className={btnClass(isShapesActive || isShapesMenuOpen)}
@@ -763,6 +802,57 @@ export default function FloatingDock() {
                             </span>
                           )}
                         </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            if (tool.id === "color") {
+              return (
+                <div key={tool.id} className="floating-dock-tool-wrapper">
+                  <button
+                    ref={colorBtnRef}
+                    title=""
+                    aria-label="Color"
+                    aria-expanded={isColorMenuOpen}
+                    onClick={() => {
+                      setIsColorMenuOpen((v) => !v);
+                      setIsGenerateMenuOpen(false);
+                      setIsLinksMenuOpen(false);
+                      setIsShapesMenuOpen(false);
+                    }}
+                    // Lit only while the card is open: a colour is a setting,
+                    // not a tool, so there is nothing to stay armed.
+                    className={btnClass(isColorMenuOpen)}
+                  >
+                    <ColorDot hex={color ?? DEFAULT_SWATCH.hex} />
+                  </button>
+
+                  {!isColorMenuOpen && <Tooltip label={tool.label} />}
+
+                  {isColorMenuOpen && (
+                    <div
+                      ref={colorMenuRef}
+                      className={`${submenuClass} floating-dock-color-card`}
+                      role="group"
+                      aria-label="Colors"
+                    >
+                      {PALETTE.map((s) => (
+                        <button
+                          key={s.hex}
+                          type="button"
+                          title={s.name}
+                          aria-label={s.name}
+                          aria-pressed={s.hex === color}
+                          onClick={() => pickColor(s.hex)}
+                          className={[
+                            "floating-dock-swatch",
+                            s.hex === color ? "floating-dock-swatch-current" : "",
+                          ].join(" ")}
+                          style={{ backgroundColor: s.hex }}
+                        />
                       ))}
                     </div>
                   )}

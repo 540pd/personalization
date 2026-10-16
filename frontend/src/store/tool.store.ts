@@ -19,7 +19,6 @@ export type Tool =
   | "frame"
   | ShapeTool
   | "text"
-  | "color-picker"
   | "media-upload";
 
 export function shapeTool(kind: ShapeKind): ShapeTool {
@@ -63,14 +62,22 @@ interface ToolState {
    * re-arms it, so drawing several of the same shape is one key each time.
    */
   lastShape: ShapeKind;
+  /**
+   * The dock's current colour (#159): what the next shape or text is drawn
+   * in. null until a swatch is picked, which leaves the defaults in place.
+   */
+  color: string | null;
   setTool: (tool: Tool) => void;
+  setColor: (hex: string) => void;
 }
 
 export const useToolStore = create<ToolState>((set) => ({
   activeTool: "pointer",
   lastShape: "rect",
+  color: null,
   setTool: (tool) => {
     const kind = shapeKindOf(tool);
     set(kind ? { activeTool: tool, lastShape: kind } : { activeTool: tool });
   },
+  setColor: (hex) => set({ color: hex }),
 }));

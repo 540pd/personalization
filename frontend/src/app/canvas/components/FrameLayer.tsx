@@ -22,6 +22,7 @@ import { membersOf, moveMembers, type FrameMembers } from "../board/frameMembers
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { boardStage } from "@/lib/canvas/boardStage";
 import FrameLabels from "./FrameLabels";
+import { COLOR_EVENT, type ColorDetail } from "../board/palette";
 import {
   COLORS,
   FRAME_CORNER_RADIUS,
@@ -146,6 +147,24 @@ export default function FrameLayer() {
     }),
   []);
 
+  // --- A swatch picked in the dock recolours the selected frames' outlines ---
+  //
+  // Outline only (#159): the fill stays the quiet backdrop #115 made it.
+  // Committed with the event as its key, so shapes and text recoloured by
+  // the same pick (Board) share the one undo step.
+  useEffect(() => {
+    const onColor = (e: Event) => {
+      const { hex } = (e as CustomEvent<ColorDetail>).detail;
+      const { frames, selectedIds, upsert } = useFrames.getState();
+      const changed = selectedIds.filter((id) => frames[id] && frames[id].stroke !== hex);
+      if (!changed.length) return;
+      changed.forEach((id) => upsert({ ...frames[id], stroke: hex }));
+      canvasHistory.commit(e);
+    };
+    window.addEventListener(COLOR_EVENT, onColor);
+    return () => window.removeEventListener(COLOR_EVENT, onColor);
+  }, []);
+
   // --- Hover outline: the same "you can grab this" cue a node shows ---
   //
   // Driven from window pointermove rather than the rect's mouseenter and
@@ -216,7 +235,7 @@ export default function FrameLayer() {
         name: "frame",
         x: f.canvasX, y: f.canvasY, width: f.canvasW, height: f.canvasH,
         fill: COLORS.frameFill,
-        stroke: COLORS.frameStroke,
+        stroke: f.stroke ?? COLORS.frameStroke,
         strokeWidth: 1,
         strokeScaleEnabled: false,
         cornerRadius: FRAME_CORNER_RADIUS,
