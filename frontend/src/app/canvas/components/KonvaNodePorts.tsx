@@ -59,6 +59,8 @@ export default function KonvaNodePorts() {
               e.stopPropagation();
               useConnectionStore.getState().startDrag(n.id, "konva", e.clientX, e.clientY);
             }}
+            // No text selection from the press that starts a wire (#184).
+            onMouseDown={(e) => e.preventDefault()}
             style={{
               ...OUTPUT_PORT_HIT_STYLE,
               left: pt.x - PORT_WIDTH - PORT_HIT_PAD,
