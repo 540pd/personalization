@@ -386,8 +386,12 @@ const TOOLS_RIGHT: ToolDef[] = [
 
 export default function FloatingDock() {
   const { activeTool, setTool, lastShape } = useToolStore();
-  const { addPanel, closeAllPanels } = useNodePanel();
-  const viewport = useViewport();
+  // Actions only, by selector: the whole store changes on every node move,
+  // and re-rendering the dock for each one was the largest single cost of a
+  // Frame drag (#155). The viewport is read when a node is placed, for the
+  // same reason -- it changes on every pan and zoom frame.
+  const addPanel = useNodePanel((s) => s.addPanel);
+  const closeAllPanels = useNodePanel((s) => s.closeAllPanels);
 
   const [isGenerateMenuOpen, setIsGenerateMenuOpen] = useState(false);
 
@@ -644,7 +648,7 @@ export default function FloatingDock() {
                       const kind = DOCK_ITEM_KIND[item.id];
                       const spec = kind ? NODE_KINDS[kind] : undefined;
                       if (kind && spec) {
-                        const { x: sx, y: sy, scale: sc } = viewport;
+                        const { x: sx, y: sy, scale: sc } = useViewport.getState();
 
                         const existing = useNodePanel.getState().panels.length;
 
