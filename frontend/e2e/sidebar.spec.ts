@@ -69,23 +69,25 @@ test.describe("sidebar", () => {
     expect(clipped).toEqual([]);
   });
 
-  test("the user menu breaks out past the rail to show the whole address", async ({ page }) => {
-    // The rail got narrower because nothing in it needed the room. The
-    // address does, so the menu is sized to the text rather than the rail --
-    // it was clipped even at 260.
+  test("the user menu matches the rail and truncates a long address", async ({ page }) => {
+    // The menu is anchored to the identity row at the rail's width, so it
+    // reads as part of the nav (cbee571). A long address is cut with an
+    // ellipsis rather than widening it; the full value stays on hover.
     await openBoard(page);
     await page.locator(".sidebar-identity").click();
 
     const menu = await page.evaluate(() => {
+      const rail = document.querySelector(".sidebar")!.getBoundingClientRect();
       const email = document.querySelector(".sidebar-user-email") as HTMLElement;
       const box = document.querySelector(".sidebar-user-menu")!.getBoundingClientRect();
       return {
-        wider: box.width > 200,
-        clipped: email.scrollWidth > email.clientWidth,
+        insideRail: box.left >= rail.left && box.right <= rail.right,
+        ellipsis: getComputedStyle(email).textOverflow,
+        fullOnHover: email.title === email.textContent?.trim() && email.title.length > 0,
         onScreen: box.left >= 0 && box.right <= window.innerWidth,
       };
     });
-    expect(menu).toEqual({ wider: true, clipped: false, onScreen: true });
+    expect(menu).toEqual({ insideRail: true, ellipsis: "ellipsis", fullOnHover: true, onScreen: true });
   });
 
   test("marks exactly one destination active", async ({ page }) => {
