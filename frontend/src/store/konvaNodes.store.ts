@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ShapeKind } from "./tool.store";
+import type { ShapeStyle } from "@/app/canvas/board/shapeStyle";
 
 export interface KonvaNodeRecord {
   id: string;
@@ -25,6 +26,9 @@ export interface KonvaNodeRecord {
   // above says where the line is; this says which way it runs, which is what
   // the endpoint handles need.
   ends?: { a: { x: number; y: number }; b: { x: number; y: number }; bend: number };
+  // Filled shapes only: their Color, Fill and Stroke, which the style bar
+  // above a selected shape shows (#161).
+  style?: ShapeStyle;
 }
 
 interface KonvaNodesState {

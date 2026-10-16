@@ -3,6 +3,7 @@ import Konva from "konva";
 import { PALETTE, outlineFor } from "../palette";
 import { applyColor, colorAttrs } from "../recolor";
 import { createShape } from "../shapes";
+import { hasAttrs } from "../shapeStyle";
 import { SHAPE_STYLE } from "@/constants/canvas.constants";
 
 // Text is covered in e2e/color.spec.ts: a Konva.Text measures itself on a
@@ -30,7 +31,7 @@ describe("outlineFor", () => {
 
 describe("colorAttrs", () => {
   it("fills a box shape and outlines it darker", () => {
-    expect(colorAttrs(createShape("rect", box), "#3b9ef5")).toEqual({
+    expect(colorAttrs(createShape("rect", box), "#3b9ef5")).toMatchObject({
       fill: "#3b9ef5",
       stroke: outlineFor("#3b9ef5"),
     });
@@ -64,7 +65,7 @@ describe("creating in the current colour", () => {
 
   it("uses the picked colour by the same rules as a recolour", () => {
     const rect = createShape("rect", box, "#c08cf5");
-    expect({ fill: rect.fill(), stroke: rect.stroke() }).toEqual(colorAttrs(rect, "#c08cf5"));
+    expect(hasAttrs(rect, colorAttrs(rect, "#c08cf5")!)).toBe(true);
     const line = createShape("line", box, "#c08cf5");
     expect(line.stroke()).toBe("#c08cf5");
     expect(line.fill()).toBeUndefined();

@@ -1,0 +1,82 @@
+@reference "../../../globals.css";
+
+// The style bar above a selected shape (#161). Same white pill and the same
+// round buttons as the dock, a size down: it sits on the board, next to
+// what it edits, rather than at the edge of the window.
+
+.shape-style-bar {
+  @apply fixed flex items-center gap-1 h-11 px-1.5 rounded-full bg-white/95 border border-black/10 shadow-lg backdrop-blur-sm -translate-x-1/2 select-none;
+}
+
+.shape-style-wrapper {
+  @apply relative flex items-center;
+}
+
+.shape-style-button {
+  @apply w-8 h-8 flex items-center justify-center rounded-full text-neutral-700 transition-colors duration-150 cursor-pointer hover:bg-black/5 hover:text-neutral-900;
+}
+
+.shape-style-button-open {
+  @apply bg-neutral-900 text-white hover:bg-neutral-900 hover:text-white;
+}
+
+.shape-style-divider {
+  @apply w-px h-5 bg-black/10 mx-0.5;
+}
+
+.shape-style-dot {
+  @apply block w-4 h-4 rounded-full border border-black/15;
+}
+
+/* ---------------------------------
+   Tooltip: above the bar, or below it when the bar is
+---------------------------------- */
+
+.shape-style-tooltip {
+  @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-full bg-white border border-black/10 shadow-md px-3 py-1 text-sm text-neutral-700 whitespace-nowrap pointer-events-none;
+
+  display: none;
+}
+
+.shape-style-wrapper:hover .shape-style-tooltip {
+  display: block;
+}
+
+/* ---------------------------------
+   Cards
+---------------------------------- */
+
+.shape-style-card {
+  @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-2xl bg-white/95 border border-black/10 shadow-xl backdrop-blur-sm;
+}
+
+.shape-style-bar-below {
+  .shape-style-tooltip,
+  .shape-style-card {
+    @apply bottom-auto top-full mb-0 mt-2;
+  }
+}
+
+.shape-style-color-card {
+  @apply grid grid-cols-4 gap-3 p-4 w-max;
+}
+
+.shape-style-swatch {
+  @apply w-7 h-7 rounded-full border border-black/10 cursor-pointer transition-transform duration-100 hover:scale-110;
+}
+
+.shape-style-swatch-current {
+  @apply ring-2 ring-neutral-900 ring-offset-2;
+}
+
+.shape-style-row {
+  @apply flex items-center gap-1 p-1.5 rounded-full w-max;
+}
+
+.shape-style-option {
+  @apply w-8 h-8 flex items-center justify-center rounded-full text-neutral-600 cursor-pointer transition-colors duration-100 hover:bg-black/5 hover:text-neutral-900;
+}
+
+.shape-style-option-current {
+  @apply bg-neutral-200 text-neutral-900 hover:bg-neutral-200;
+}

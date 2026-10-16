@@ -16,7 +16,7 @@
 import Konva from "konva";
 import type { ShapeKind } from "@/store/tool.store";
 import { LINE_HIT_SLOP, SHAPE_STYLE } from "@/constants/canvas.constants";
-import { outlineFor } from "./palette";
+import { DEFAULT_STYLE, dotColor, fillDots, styleAttrs } from "./shapeStyle";
 
 export interface BoardShapeConfig extends Konva.ShapeConfig {
   shapeKind: ShapeKind;
@@ -67,9 +67,19 @@ export interface LineEnds {
 }
 
 export class BoardShape extends Konva.Shape<BoardShapeConfig> {
-  // Konva's Shape draws through this for the scene and, with no hitFunc set,
-  // for hit-testing too -- so a click registers exactly where paint does.
+  // Konva's Shape draws the scene through this and hit-testing through
+  // _hitFunc. Both trace the same path, so a click registers exactly where
+  // paint does; only the scene gets a Pattern fill's dots (#161), which on
+  // the hit canvas would punch holes in the shape's hit colour.
   _sceneFunc(ctx: Konva.Context) {
+    this.paint(ctx, true);
+  }
+
+  _hitFunc(ctx: Konva.Context) {
+    this.paint(ctx, false);
+  }
+
+  private paint(ctx: Konva.Context, scene: boolean) {
     const w = this.width();
     const h = this.height();
     ctx.beginPath();
@@ -124,6 +134,12 @@ export class BoardShape extends Konva.Shape<BoardShapeConfig> {
       }
     }
     ctx.closePath();
+    if (scene && this.getAttr("fillMode") === "pattern") {
+      ctx.fillShape(this);
+      fillDots(ctx, dotColor(this));
+      ctx.strokeShape(this);
+      return;
+    }
     ctx.fillStrokeShape(this);
   }
 
@@ -312,8 +328,7 @@ export function createShape(kind: ShapeKind, box: ShapeBox, color?: string | nul
       lineCap: "round", lineJoin: "round",
     });
   }
-  const colored = color ? { fill: color, stroke: outlineFor(color) } : {};
-  return new BoardShape({ ...SHAPE_STYLE, ...colored, ...box, shapeKind: kind });
+  return new BoardShape({ ...styleAttrs({ ...DEFAULT_STYLE, color: color ?? null }), ...box, shapeKind: kind });
 }
 
 /**

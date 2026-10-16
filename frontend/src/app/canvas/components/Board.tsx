@@ -612,6 +612,8 @@ export default function Board() {
     const handleColor = (e: Event) => {
       const { hex } = (e as CustomEvent<ColorDetail>).detail;
       if (!applyColor(transformer.nodes(), hex)) return;
+      // Republished, so the style bar's dot (#161) shows the new colour.
+      (transformer.nodes() as Konva.Shape[]).forEach(syncNodeGeometry);
       layer.batchDraw();
       saveSnapshot(e);
     };

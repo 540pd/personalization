@@ -55,6 +55,9 @@ export const Z_INDEX = {
   wires:       40,
   ports:       50,
   labels:      60,
+  // The Color / Fill / Stroke bar above a selected shape (#161). Over the
+  // labels, since it sits where a label would; under an open Create form.
+  styleBar:    62,
   // A node's open Create form. Not canvas content but the editor for one
   // node, so nothing on the board may sit over it: it shared `nodes` with
   // every placeholder, so a node made later -- an image variant, which lands
