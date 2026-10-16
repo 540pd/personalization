@@ -671,6 +671,10 @@ function SinglePanel({
             e.stopPropagation();
             useConnectionStore.getState().startDrag(instance.id, "panel", e.clientX, e.clientY);
           }}
+          // The wire is this element's pointer gesture. Left to the browser,
+          // the same press also starts a text selection that runs to wherever
+          // the wire is dropped, highlighting any node text in between (#184).
+          onMouseDown={(e) => e.preventDefault()}
           style={{
             ...OUTPUT_PORT_HIT_STYLE,
             left: outPt.x - PORT_WIDTH - PORT_HIT_PAD,
