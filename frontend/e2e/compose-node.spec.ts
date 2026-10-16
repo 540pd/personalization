@@ -37,6 +37,11 @@ test.describe("node > compose", () => {
     await openBoard(page);
     await page.locator(".floating-dock button").nth(1).click();
     await expect(page.locator(".floating-dock-submenu button")).toHaveText(["Video", "Image", "Prompt", "Compose"]);
+    // One divider, between the model-backed items and Compose.
+    const order = await page.locator(".floating-dock-submenu > *").evaluateAll((els) =>
+      els.map((e) => (e.getAttribute("role") === "separator" ? "|" : e.textContent?.trim()))
+    );
+    expect(order).toEqual(["Video", "Image", "Prompt", "|", "Compose"]);
   });
 
   test("lands selected with its empty state and no panel", async ({ page }) => {
