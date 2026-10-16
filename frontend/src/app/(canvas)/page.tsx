@@ -11,6 +11,7 @@ const Sidebar = dynamic(() => import("@/app/canvas/components/Sidebar/Sidebar"),
 const NodePanel = dynamic(() => import("@/app/canvas/components/NodePanel/NodePanel"), { ssr: false });
 const KonvaNodePorts = dynamic(() => import("@/app/canvas/components/KonvaNodePorts"), { ssr: false });
 const LineHandles = dynamic(() => import("@/app/canvas/components/LineHandles"), { ssr: false });
+const ShapeStyleBar = dynamic(() => import("@/app/canvas/components/ShapeStyleBar/ShapeStyleBar"), { ssr: false });
 const KonvaNodeLabels = dynamic(() => import("@/app/canvas/components/KonvaNodeLabels"), { ssr: false });
 const ConnectionOverlay = dynamic(() => import("@/app/canvas/components/ConnectionOverlay"), { ssr: false });
 
@@ -28,6 +29,7 @@ export default function CanvasPage() {
       <NodePanel />
       <KonvaNodePorts />
       <LineHandles />
+      <ShapeStyleBar />
       <KonvaNodeLabels />
     </>
   );
