@@ -1,27 +1,36 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /**
- * "Clear board?" (#197). Styled as Brand's discard prompt, which is the one
- * confirm the app already has.
+ * The confirms in front of the board actions -- "Clear board?" (#197) and
+ * "Replace current board?" (#199). Styled as Brand's discard prompt, the one
+ * confirm the app had.
  *
  * Cancel takes focus, so Enter on an unread dialog keeps the board.
  * aria-modal is load-bearing as well as correct: the capture-phase Delete
  * handlers (NodePanel, ConnectionOverlay) skip events from inside a modal.
  */
-export default function ClearBoardDialog({
-  count,
+export default function BoardConfirmDialog({
+  title,
+  children,
+  confirmLabel,
+  tone,
   onCancel,
-  onSaveFirst,
   onConfirm,
+  onSaveFirst,
 }: {
-  count: number;
+  title: string;
+  /** The one-line description under the title. */
+  children: ReactNode;
+  confirmLabel: string;
+  /** danger (red) only for what cannot be had back without Undo; primary (black) otherwise. */
+  tone: "danger" | "primary";
   onCancel: () => void;
-  /** Saves the board to a file and leaves the dialog open. */
-  onSaveFirst: () => void;
   onConfirm: () => void;
+  /** When given, a "Save to file first" link that saves and leaves the dialog open. */
+  onSaveFirst?: () => void;
 }) {
   const id = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -55,35 +64,41 @@ export default function ClearBoardDialog({
 
   return createPortal(
     <div
-      className="clear-board-backdrop"
+      className="board-confirm-backdrop"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
     >
       <div
         ref={dialogRef}
-        className="clear-board-dialog"
+        className="board-confirm"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={`${id}-title`}
         aria-describedby={`${id}-desc`}
         onKeyDown={onKeyDown}
       >
-        <h3 id={`${id}-title`} className="clear-board-title">
-          Clear board?
+        <h3 id={`${id}-title`} className="board-confirm-title">
+          {title}
         </h3>
-        <p id={`${id}-desc`} className="clear-board-text">
-          This removes all {count === 1 ? "1 item" : `${count} items`} from PlaySpace.
+        <p id={`${id}-desc`} className="board-confirm-text">
+          {children}
         </p>
-        <div className="clear-board-actions">
-          <button type="button" className="clear-board-save" onClick={onSaveFirst}>
-            Save to file first
-          </button>
-          <button ref={cancelRef} type="button" className="clear-board-cancel" onClick={onCancel}>
+        <div className="board-confirm-actions">
+          {onSaveFirst && (
+            <button type="button" className="board-confirm-save" onClick={onSaveFirst}>
+              Save to file first
+            </button>
+          )}
+          <button ref={cancelRef} type="button" className="board-confirm-cancel" onClick={onCancel}>
             Cancel
           </button>
-          <button type="button" className="clear-board-confirm" onClick={onConfirm}>
-            Clear
+          <button
+            type="button"
+            className={tone === "danger" ? "board-confirm-danger" : "board-confirm-primary"}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
           </button>
         </div>
       </div>

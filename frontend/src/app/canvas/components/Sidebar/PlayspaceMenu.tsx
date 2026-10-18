@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, Eraser } from "lucide-react";
+import { Download, Eraser, FolderOpen } from "lucide-react";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import { useSidebar, sidebarInset } from "@/store/sidebar.store";
 
@@ -16,13 +16,12 @@ const GAP = 8;
  * scrolls (overflow-y: auto), which would clip a menu opening beside it.
  * It opens at the rail's outer edge, top-aligned with the Playspace row --
  * the same side the user menu opens on when the rail is minimized.
- *
- * Open file... joins this list in #199, under Save to file.
  */
 export default function PlayspaceMenu({
   anchor,
   isEmpty,
   onSave,
+  onOpen,
   onClear,
   onClose,
 }: {
@@ -31,6 +30,8 @@ export default function PlayspaceMenu({
   /** Nothing to save or clear: both are disabled. */
   isEmpty: boolean;
   onSave: () => void;
+  /** Opens the file picker; called within the click, which a picker needs. */
+  onOpen: () => void;
   onClear: () => void;
   /** `restoreFocus` is false when focus is about to go somewhere else on purpose. */
   onClose: (restoreFocus: boolean) => void;
@@ -107,6 +108,19 @@ export default function PlayspaceMenu({
       >
         <Download className="sidebar-item-icon" aria-hidden />
         Save to file
+      </button>
+      {/* Never disabled: opening a file is how an empty board gets content. */}
+      <button
+        type="button"
+        role="menuitem"
+        className="sidebar-item playspace-menu-item"
+        onClick={() => {
+          onClose(true);
+          onOpen();
+        }}
+      >
+        <FolderOpen className="sidebar-item-icon" aria-hidden />
+        Open file…
       </button>
       <div className="playspace-menu-divider" role="separator" />
       <button

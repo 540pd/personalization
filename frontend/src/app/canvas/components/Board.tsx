@@ -25,8 +25,10 @@ import { selectOnly, registerNodeChromeClear } from "@/lib/canvas/selection";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { applyDraggability } from "../board/draggability";
-import { createEditKeysHandler, deleteNodes, selectNodes } from "../board/clipboard";
+import { createEditKeysHandler, createNode, deleteNodes, selectNodes } from "../board/clipboard";
 import { CLEAR_EVENT } from "../board/clearBoard";
+import { LOAD_EVENT, type BoardFile } from "../board/boardFile";
+import { imageHitFunc } from "../board/upload";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { updateSelectionChrome as applySelectionChrome } from "../board/selectionChrome";
 import { syncNodeGeometry, syncAllNodeGeometry as syncAllGeometry } from "../board/geometry";
@@ -681,6 +683,59 @@ export default function Board() {
     };
     window.addEventListener(CLEAR_EVENT, handleClear);
 
+    // Open file (#199): the board becomes the file's, as one undo step. The
+    // file is already checked (parseBoardFile); this only places it. Ids are
+    // kept as saved -- wires point at them.
+    const handleLoad = (e: Event) => {
+      const file = (e as CustomEvent<BoardFile>).detail;
+      frame.cancel();
+      shapeDraw.cancel();
+      textTool.close();
+      textTool.cancel();
+      transformer.nodes([]);
+      deleteNodes(layer.find(".selectable") as Konva.Shape[]);
+      useKonvaSelection.getState().deselect();
+
+      file.nodes.forEach((entry) => {
+        const attrs: Record<string, unknown> = { ...entry.attrs, name: "selectable" };
+        if (entry.className === "Image" && entry.imageUrl) {
+          // Neither survives JSON. The picture decodes after the node is
+          // placed, so the layer redraws once it has.
+          const img = new window.Image();
+          img.onload = () => layer.batchDraw();
+          img.src = entry.imageUrl;
+          attrs.image = img;
+          attrs.hitFunc = imageHitFunc;
+        }
+        const node = createNode(entry.className, attrs);
+        layer.add(node);
+        if (entry.imageUrl || entry.label) {
+          useKonvaNodes.getState().upsert({
+            id: node.id(),
+            canvasX: node.x(),
+            canvasY: node.y(),
+            canvasW: node.width() * node.scaleX(),
+            canvasH: node.height() * node.scaleY(),
+            imageUrl: entry.imageUrl,
+            label: entry.label,
+          });
+        }
+      });
+
+      useNodePanel.getState().loadPanels(file.panels);
+      useFrames.getState().replaceAll(Object.fromEntries(file.frames.map((f) => [f.id, f])));
+      useFrames.getState().clearSelection();
+      useConnectionStore.getState().replaceConnections(file.connections);
+      useLayerOrder.setState({ topLayer: file.topLayer });
+      applyDraggability(layer);
+      hideHover();
+      syncAllNodeGeometry();
+      updateSelectionChrome();
+      layer.batchDraw();
+      saveSnapshot();
+    };
+    window.addEventListener(LOAD_EVENT, handleLoad);
+
     const observer = new ResizeObserver(() => {
       stage.width(container.offsetWidth);
       stage.height(container.offsetHeight);
@@ -703,6 +758,7 @@ export default function Board() {
       window.removeEventListener("blur", dnd.reset);
       window.removeEventListener("keydown", handleFrameKeys);
       window.removeEventListener(CLEAR_EVENT, handleClear);
+      window.removeEventListener(LOAD_EVENT, handleLoad);
       stage.off(".frame");
       stage.off(".text");
       textTool.close();

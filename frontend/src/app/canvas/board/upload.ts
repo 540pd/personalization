@@ -72,6 +72,19 @@ function placeNode(
   deps.saveSnapshot();
 }
 
+/**
+ * Bounding-rect hit detection for an uploaded image, so clicks on transparent
+ * PNG areas still register -- Konva defaults to per-pixel alpha for images.
+ * Exported for a board file (#199): a function cannot be saved, so a loaded
+ * image gets this one back.
+ */
+export function imageHitFunc(ctx: Konva.Context, shape: Konva.Shape) {
+  ctx.beginPath();
+  ctx.rect(0, 0, shape.width(), shape.height());
+  ctx.closePath();
+  ctx.fillStrokeShape(shape);
+}
+
 function addImage(
   deps: UploadDeps,
   file: File,
@@ -105,14 +118,7 @@ function addImage(
       stroke: "rgba(255,255,255,0.95)",
       strokeWidth: 1.5,
       strokeScaleEnabled: false,
-      // Bounding-rect hit detection, so clicks on transparent PNG areas still
-      // register -- Konva defaults to per-pixel alpha for images.
-      hitFunc(ctx: Konva.Context, shape: Konva.Shape) {
-        ctx.beginPath();
-        ctx.rect(0, 0, shape.width(), shape.height());
-        ctx.closePath();
-        ctx.fillStrokeShape(shape);
-      },
+      hitFunc: imageHitFunc,
     });
 
     // A data URL so downstream nodes can send it to the backend as a

@@ -65,6 +65,21 @@ export function copySelection(selected: Konva.Shape[]): Clipboard {
   return { konva: copyNodes(selected), panels, connections };
 }
 
+/**
+ * A board node of `className` from its attrs. Shared by paste and by opening
+ * a board file (#199), which store nodes the same way. An unknown class falls
+ * back to a Rect -- the media placeholder.
+ */
+export function createNode(className: string, attrs: Record<string, unknown>): Konva.Shape {
+  return className === "Image"
+    ? new Konva.Image(attrs as unknown as Konva.ImageConfig)
+    : className === "BoardShape"
+      ? new BoardShape(attrs as unknown as BoardShapeConfig)
+      : className === "Text"
+        ? new Konva.Text(attrs as Konva.TextConfig)
+        : new Konva.Rect(attrs as Konva.RectConfig);
+}
+
 /** Re-creates copied nodes on `layer`, offset, and returns them. */
 export function pasteNodes(
   layer: Konva.Layer,
@@ -88,14 +103,7 @@ export function pasteNodes(
       name: "selectable",
     };
 
-    const node: Konva.Shape =
-      entry.className === "Image"
-        ? new Konva.Image(attrs as Konva.ImageConfig)
-        : entry.className === "BoardShape"
-          ? new BoardShape(attrs as BoardShapeConfig)
-          : entry.className === "Text"
-            ? new Konva.Text(attrs as Konva.TextConfig)
-            : new Konva.Rect(attrs as Konva.RectConfig);
+    const node = createNode(entry.className, attrs);
 
     layer.add(node);
 

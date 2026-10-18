@@ -24,11 +24,14 @@ export default function SidebarNav({
   active,
   onSelect,
   onSaveBoard,
+  onOpenBoard,
   onClearBoard,
 }: {
   active: SectionId;
   onSelect: (id: SectionId) => void;
   onSaveBoard: () => void;
+  /** `trigger` is where focus goes back to once a confirm closes. */
+  onOpenBoard: (trigger: HTMLElement | null) => void;
   /** `trigger` is where focus goes back to once the confirm closes. */
   onClearBoard: (trigger: HTMLElement | null) => void;
 }) {
@@ -99,6 +102,7 @@ export default function SidebarNav({
           anchor={anchor}
           isEmpty={itemCount === 0}
           onSave={onSaveBoard}
+          onOpen={() => onOpenBoard(anchor.querySelector<HTMLElement>('[aria-haspopup="menu"]'))}
           onClear={() => onClearBoard(anchor.querySelector<HTMLElement>('[aria-haspopup="menu"]'))}
           onClose={closeMenu}
         />
