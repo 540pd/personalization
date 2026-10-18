@@ -69,6 +69,11 @@ export function filterItems<T extends Listed>(items: readonly T[], query: string
   );
 }
 
+/** Same strings in the same order -- tags and skill lists, for "has this changed?". */
+export function sameList(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((x, i) => x === b[i]);
+}
+
 /** A new item id, prefixed by its kind ("skill-…", "agent-…"). */
 export function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;

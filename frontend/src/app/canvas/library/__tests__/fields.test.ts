@@ -7,6 +7,7 @@ import {
   nameError,
   newId,
   normalizeTag,
+  sameList,
   sortByName,
   uniqueName,
   type Listed,
@@ -72,5 +73,14 @@ describe("table helpers", () => {
     expect(filterItems(items, "brief", null).map((s) => s.id)).toEqual(["c"]);
     expect(filterItems(items, "", "brand").map((s) => s.id)).toEqual(["b", "c"]);
     expect(filterItems(items, "warm", "image")).toEqual([]);
+  });
+});
+
+describe("sameList", () => {
+  it("compares strings in order", () => {
+    expect(sameList(["a", "b"], ["a", "b"])).toBe(true);
+    expect(sameList(["a", "b"], ["b", "a"])).toBe(false);
+    expect(sameList(["a"], ["a", "b"])).toBe(false);
+    expect(sameList([], [])).toBe(true);
   });
 });

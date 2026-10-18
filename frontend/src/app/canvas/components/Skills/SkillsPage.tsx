@@ -1,26 +1,38 @@
 "use client";
 
 // Luma reference: SKILL-01. The Skills page (#206): every skill in a table,
-// and Upload skill.
+// Upload skill, and each row opening Edit skill (#210).
 
 import { useMemo, useRef, useState } from "react";
-import { FileText, Upload } from "lucide-react";
+import { FileText, Pencil, Upload } from "lucide-react";
 import { useSection } from "@/store/section.store";
 import { useSkills } from "@/store/skills.store";
 import LibraryPage, {
+  ActionsHeader,
   LibraryAction,
   LibraryEmpty,
   LibraryNoMatch,
+  LibraryRow,
   LibraryToolbar,
   TagsCell,
   useLibraryFilters,
   useLibraryToast,
+  useReturnFocus,
 } from "../Library/LibraryPage";
-import UploadSkillDialog from "./UploadSkillDialog";
+import UploadSkillDialog, { type SkillSaved } from "./UploadSkillDialog";
 import { allTags, filterItems, sortByName } from "../../library/fields";
-import { formatSize } from "../../skills/skillFile";
+import { formatSize, type Skill } from "../../skills/skillFile";
 
 const skillsPhrase = (n: number) => (n === 1 ? "1 skill" : `${n} skills`);
+
+const SAVED_TOAST: Record<SkillSaved, (name: string) => string> = {
+  added: (name) => `${name} added`,
+  replaced: (name) => `${name} replaced`,
+  saved: (name) => `${name} saved`,
+};
+
+/** The dialog over the page: Upload (maybe with a dropped file) or Edit. */
+type Dialog = { kind: "upload"; file?: File } | { kind: "edit"; skill: Skill };
 
 export default function SkillsPage() {
   const shown = useSection((s) => s.section === "skills");
@@ -35,22 +47,25 @@ function Page() {
     () => sortByName(filterItems(skills, filters.query, filters.tag)),
     [skills, filters.query, filters.tag],
   );
-  // undefined: closed. null: open with no file yet. A File: opened by a drop.
-  const [upload, setUpload] = useState<File | null | undefined>(undefined);
+  const [dialog, setDialog] = useState<Dialog | null>(null);
   const [toast, showToast] = useLibraryToast();
   const actionRef = useRef<HTMLButtonElement>(null);
+  const focus = useReturnFocus(actionRef);
 
-  const closeUpload = () => {
-    setUpload(undefined);
-    // The empty state's button may have just turned into the header's.
-    requestAnimationFrame(() => actionRef.current?.focus());
+  const open = (next: Dialog, from: HTMLElement | null) => {
+    focus.from(from);
+    setDialog(next);
+  };
+  const close = () => {
+    setDialog(null);
+    focus.restore();
   };
 
   const action = (inEmpty: boolean) => (
     <LibraryAction
       label="Upload skill"
       icon={<Upload size={15} aria-hidden />}
-      onClick={() => setUpload(null)}
+      onClick={() => open({ kind: "upload" }, actionRef.current)}
       buttonRef={actionRef}
       inEmpty={inEmpty}
     />
@@ -61,7 +76,7 @@ function Page() {
       title="Skills"
       subtitle="Reusable instructions you can add to any Prompt panel."
       action={skills.length > 0 ? action(false) : undefined}
-      onFileDrop={(file) => upload === undefined && setUpload(file)}
+      onFileDrop={(file) => !dialog && open({ kind: "upload", file }, actionRef.current)}
     >
       {skills.length === 0 ? (
         <LibraryEmpty
@@ -91,6 +106,7 @@ function Page() {
                   <col className="library-col-name" />
                   <col className="library-col-description" />
                   <col className="library-col-tags" />
+                  <col className="library-col-actions" />
                 </colgroup>
                 <thead>
                   <tr>
@@ -99,11 +115,23 @@ function Page() {
                     </th>
                     <th scope="col">Description</th>
                     <th scope="col">Tags</th>
+                    <ActionsHeader />
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((skill) => (
-                    <tr key={skill.id}>
+                    <LibraryRow
+                      key={skill.id}
+                      label={skill.name}
+                      onOpen={(from) => open({ kind: "edit", skill }, from)}
+                      menu={[
+                        {
+                          label: "Edit…",
+                          icon: Pencil,
+                          onSelect: (trigger) => open({ kind: "edit", skill }, trigger),
+                        },
+                      ]}
+                    >
                       <td>
                         <span className="library-cell-name">{skill.name}</span>
                         <span className="library-cell-file">
@@ -116,7 +144,7 @@ function Page() {
                       <td>
                         <TagsCell tags={skill.tags} />
                       </td>
-                    </tr>
+                    </LibraryRow>
                   ))}
                 </tbody>
               </table>
@@ -125,13 +153,16 @@ function Page() {
         </>
       )}
 
-      {upload !== undefined && (
+      {dialog && (
         <UploadSkillDialog
-          initialFile={upload ?? undefined}
-          onClose={closeUpload}
-          onUploaded={(name, replaced) => {
-            closeUpload();
-            showToast(replaced ? `${name} replaced` : `${name} added`);
+          // A new dialog per skill: its fields start from the one being edited.
+          key={dialog.kind === "edit" ? dialog.skill.id : "upload"}
+          editing={dialog.kind === "edit" ? dialog.skill : undefined}
+          initialFile={dialog.kind === "upload" ? dialog.file : undefined}
+          onClose={close}
+          onSaved={(name, how) => {
+            close();
+            showToast(SAVED_TOAST[how](name));
           }}
           onSaveFailed={() => showToast("Couldn't save the skill.", true)}
         />

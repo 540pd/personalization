@@ -364,3 +364,46 @@
 .library-example-link:focus-visible {
   @apply rounded-sm outline-2 outline-offset-2 outline-neutral-900;
 }
+
+// ── rows you can open (#210) ─────────────────────────────────────────────
+.library-col-actions {
+  width: 44px;
+}
+
+.library-row {
+  @apply cursor-pointer;
+}
+
+.library-row:focus-visible {
+  @apply outline-2 -outline-offset-2 outline-neutral-900;
+}
+
+.library-cell-actions {
+  @apply text-right;
+
+  // The cell's own padding would push the button out of line with the header.
+  .library-table & {
+    @apply px-1 py-2;
+  }
+}
+
+// Shown on hover and keyboard focus only, like the rail's options dot; kept
+// while its menu is open.
+.library-row-menu-button {
+  @apply inline-flex size-7 items-center justify-center rounded-full text-neutral-600 opacity-0;
+  @apply transition-[opacity,background-color] hover:bg-black/[0.06] hover:text-neutral-900;
+}
+
+.library-row:hover .library-row-menu-button,
+.library-row:focus-within .library-row-menu-button,
+.library-row-menu-button-open {
+  @apply opacity-100;
+}
+
+.library-row-menu-button-open {
+  @apply bg-black/[0.08] text-neutral-900;
+}
+
+.library-row-menu-button:focus-visible {
+  @apply opacity-100 outline-2 outline-offset-0 outline-neutral-900;
+}
