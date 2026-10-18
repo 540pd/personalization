@@ -153,6 +153,10 @@
   @apply disabled:text-neutral-300 disabled:cursor-default disabled:hover:bg-transparent;
 }
 
+.playspace-menu-divider {
+  @apply h-px my-1 mx-2 bg-black/[0.08];
+}
+
 // Brand's discard prompt (brand-confirm), on a backdrop of its own: that
 // one is positioned inside the Brand popup.
 .clear-board-backdrop {
@@ -172,7 +176,14 @@
 }
 
 .clear-board-actions {
-  @apply mt-5 flex justify-end gap-2;
+  @apply mt-5 flex items-center justify-end gap-2;
+}
+
+// Pushes Cancel and Clear to the right; the way out of losing the board
+// sits apart from the two buttons that decide.
+.clear-board-save {
+  @apply mr-auto text-sm text-neutral-700 underline underline-offset-[3px];
+  @apply transition-colors hover:text-neutral-900;
 }
 
 .clear-board-cancel {
@@ -193,6 +204,10 @@
 .board-toast {
   @apply fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2;
   @apply h-10 px-4 rounded-full bg-neutral-900 text-sm font-medium text-white shadow-lg;
+}
+
+.board-toast-error-icon {
+  @apply text-red-300;
 }
 
 .board-toast-sep {
