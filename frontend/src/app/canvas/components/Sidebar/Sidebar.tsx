@@ -11,7 +11,7 @@
 // Everything else is data: the destinations come from items.ts, the user
 // from the identity seam in auth/useIdentity.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSidebar, sidebarInset } from "@/store/sidebar.store";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import { useIdentity, useIdentityStore } from "@/auth/useIdentity";
@@ -20,10 +20,17 @@ import SidebarNav from "./SidebarNav";
 import SidebarFooter from "./SidebarFooter";
 import BrandDialog from "../Brand/BrandDialog";
 import BrandSavedToast from "../Brand/BrandSavedToast";
+import ClearBoardDialog from "./ClearBoardDialog";
+import BoardClearedToast from "./BoardClearedToast";
 import { DEFAULT_SECTION, type SectionId } from "./items";
+import { requestClearBoard, useBoardItemCount } from "../../board/clearBoard";
+import { canvasHistory } from "@/lib/canvas/history";
 import "./Sidebar.scss";
 
 const TOAST_MS = 2500;
+// Longer than Brand's: this one carries an Undo, and needs time to be read
+// and reached.
+const CLEARED_TOAST_MS = 5000;
 
 export default function Sidebar() {
   const collapsed = useSidebar((s) => s.collapsed);
@@ -35,11 +42,28 @@ export default function Sidebar() {
   // A timestamp rather than a flag, so saving again restarts the timer.
   const [brandSavedAt, setBrandSavedAt] = useState<number | null>(null);
 
+  const itemCount = useBoardItemCount();
+  const [clearOpen, setClearOpen] = useState(false);
+  const [clearedAt, setClearedAt] = useState<number | null>(null);
+  // The options trigger, so focus can go back to it once the confirm closes.
+  const clearTriggerRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (brandSavedAt === null) return;
     const t = setTimeout(() => setBrandSavedAt(null), TOAST_MS);
     return () => clearTimeout(t);
   }, [brandSavedAt]);
+
+  useEffect(() => {
+    if (clearedAt === null) return;
+    const t = setTimeout(() => setClearedAt(null), CLEARED_TOAST_MS);
+    return () => clearTimeout(t);
+  }, [clearedAt]);
+
+  const closeClear = () => {
+    setClearOpen(false);
+    clearTriggerRef.current?.focus();
+  };
 
   return (
     <aside
@@ -52,7 +76,14 @@ export default function Sidebar() {
       style={{ width: sidebarInset(collapsed), zIndex: Z_INDEX.rail }}
     >
       <SidebarHeader minimized={collapsed} onToggle={toggle} />
-      <SidebarNav active={active} onSelect={setActive} />
+      <SidebarNav
+        active={active}
+        onSelect={setActive}
+        onClearBoard={(trigger) => {
+          clearTriggerRef.current = trigger;
+          setClearOpen(true);
+        }}
+      />
       <SidebarFooter
         user={user}
         // A popup, not a page: a client's brand is set once and rarely
@@ -73,6 +104,25 @@ export default function Sidebar() {
         />
       )}
       {brandSavedAt !== null && <BrandSavedToast />}
+      {clearOpen && (
+        <ClearBoardDialog
+          count={itemCount}
+          onCancel={closeClear}
+          onConfirm={() => {
+            closeClear();
+            requestClearBoard();
+            setClearedAt(Date.now());
+          }}
+        />
+      )}
+      {clearedAt !== null && (
+        <BoardClearedToast
+          onUndo={() => {
+            canvasHistory.undo();
+            setClearedAt(null);
+          }}
+        />
+      )}
     </aside>
   );
 }
