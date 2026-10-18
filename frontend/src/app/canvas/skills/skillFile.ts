@@ -1,19 +1,14 @@
-// Skills (#206): reading an uploaded markdown file and checking the Upload
-// skill form. Pure functions, so the rules are tested without a DOM.
+// Markdown files (#206): checking one picked for Upload skill -- or for an
+// agent's Import .md (#208) -- and reading what it can pre-fill. Pure
+// functions, so the rules are tested without a DOM.
+
+import { MAX_DESCRIPTION, MAX_NAME, MAX_TAGS, normalizeTag, type Listed } from "../library/fields";
 
 export const MAX_SKILL_BYTES = 100 * 1024;
-export const MAX_NAME = 60;
-export const MAX_DESCRIPTION = 200;
-export const MAX_TAG = 24;
-export const MAX_TAGS = 5;
 
 const EXTENSIONS = [".md", ".markdown"];
 
-export interface Skill {
-  id: string;
-  name: string;
-  description: string;
-  tags: string[];
+export interface Skill extends Listed {
   fileName: string;
   /** Bytes, as the file reported it. */
   size: number;
@@ -22,7 +17,7 @@ export interface Skill {
   createdAt: number;
 }
 
-/** Why a picked file cannot be a skill, before reading it; null if it may be. */
+/** Why a picked file cannot be used, before reading it; null if it may be. */
 export function fileProblem(file: { name: string; size: number }): string | null {
   const lower = file.name.toLowerCase();
   if (!EXTENSIONS.some((ext) => lower.endsWith(ext))) return `${file.name} isn't a markdown file`;
@@ -43,89 +38,96 @@ function unquote(value: string): string {
   return v;
 }
 
-/**
- * What the form can pre-fill from a file: front matter `name` / `description`
- * first, then the first `# heading`, then the file name. Only flat
- * `key: value` front matter is read -- that is all a SKILL.md header holds.
- */
-export function metaFromFile(text: string, fileName: string): { name: string; description: string } {
-  let name = "";
-  let description = "";
-  let body = text;
+const FRONT_MATTER = /^﻿?---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 
-  const front = /^﻿?---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(text);
-  if (front) {
-    body = text.slice(front[0].length);
-    for (const line of front[1].split(/\r?\n/)) {
-      const m = /^([A-Za-z_][\w-]*)\s*:\s*(.*)$/.exec(line);
-      if (!m) continue;
-      const key = m[1].toLowerCase();
-      if (key === "name" && !name) name = unquote(m[2]);
-      if (key === "description" && !description) description = unquote(m[2]);
+/** The file without its front matter, if it opens with one. */
+export function stripFrontMatter(text: string): string {
+  const front = FRONT_MATTER.exec(text);
+  return front ? text.slice(front[0].length) : text;
+}
+
+/** Front matter values: a string, or a list for `[a, b]` and `- a` items. */
+export type FrontMatter = Record<string, string | string[]>;
+
+function listItems(value: string): string[] {
+  return value
+    .split(",")
+    .map(unquote)
+    .filter(Boolean);
+}
+
+/**
+ * The front matter's keys (lower case) and values. Only what an agent or
+ * skill header holds: `key: value`, `key: [a, b]`, and `key:` followed by
+ * `- a` lines. Anything else is skipped, never an error.
+ */
+export function readFrontMatter(text: string): FrontMatter {
+  const out: FrontMatter = {};
+  const front = FRONT_MATTER.exec(text);
+  if (!front) return out;
+  let listKey: string | null = null;
+  for (const line of front[1].split(/\r?\n/)) {
+    const item = /^\s*-\s+(.*)$/.exec(line);
+    if (item && listKey) {
+      const v = unquote(item[1]);
+      if (v) (out[listKey] as string[]).push(v);
+      continue;
+    }
+    listKey = null;
+    const m = /^([A-Za-z_][\w-]*)\s*:\s*(.*)$/.exec(line);
+    if (!m) continue;
+    const key = m[1].toLowerCase();
+    if (key in out) continue;
+    const value = m[2].trim();
+    if (!value) {
+      out[key] = [];
+      listKey = key;
+    } else if (value.startsWith("[") && value.endsWith("]")) {
+      out[key] = listItems(value.slice(1, -1));
+    } else {
+      out[key] = unquote(value);
     }
   }
+  return out;
+}
 
+/** A front matter value as one string ("" if absent or a list). */
+export function frontString(front: FrontMatter, key: string): string {
+  const v = front[key];
+  return typeof v === "string" ? v : "";
+}
+
+/** A front matter value as a list; a lone string counts as one item. */
+export function frontList(front: FrontMatter, key: string): string[] {
+  const v = front[key];
+  return Array.isArray(v) ? v : v ? listItems(v) : [];
+}
+
+/**
+ * What a form can pre-fill from a file: front matter `name` / `description`
+ * first, then the first `# heading`, then the file name; `tags` from front
+ * matter only.
+ */
+export function metaFromFile(text: string, fileName: string): { name: string; description: string; tags: string[] } {
+  const front = readFrontMatter(text);
+  let name = frontString(front, "name");
   if (!name) {
-    const heading = /^#[ \t]+(.+?)[ \t#]*$/m.exec(body);
+    const heading = /^#[ \t]+(.+?)[ \t#]*$/m.exec(stripFrontMatter(text));
     if (heading) name = heading[1].trim();
   }
   if (!name) name = nameFromFileName(fileName);
 
-  return { name: name.slice(0, MAX_NAME), description: description.slice(0, MAX_DESCRIPTION) };
-}
-
-/** Lower case, runs of spaces to "-", at most MAX_TAG characters; "" if nothing is left. */
-export function normalizeTag(raw: string): string {
-  return raw.trim().toLowerCase().replace(/\s+/g, "-").replace(/,/g, "").slice(0, MAX_TAG);
-}
-
-export function nameError(name: string): string | null {
-  const n = name.trim();
-  if (!n) return "Enter a name";
-  if (n.length > MAX_NAME) return `Keep it to ${MAX_NAME} characters`;
-  return null;
-}
-
-export function descriptionError(description: string): string | null {
-  const d = description.trim();
-  if (!d) return "Enter a description";
-  if (d.length > MAX_DESCRIPTION) return `Keep it to ${MAX_DESCRIPTION} characters`;
-  return null;
-}
-
-const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-
-/** The skill already using this name, ignoring case. */
-export function findByName(skills: readonly Skill[], name: string): Skill | undefined {
-  return skills.find((s) => sameName(s.name, name));
-}
-
-/** "Brand voice" → "Brand voice (2)", or the first number not yet taken. */
-export function uniqueName(skills: readonly Skill[], name: string): string {
-  const base = name.trim();
-  for (let i = 2; ; i++) {
-    const candidate = `${base} (${i})`;
-    if (!findByName(skills, candidate)) return candidate;
+  const tags: string[] = [];
+  for (const raw of frontList(front, "tags")) {
+    const tag = normalizeTag(raw);
+    if (tag && !tags.includes(tag) && tags.length < MAX_TAGS) tags.push(tag);
   }
-}
 
-export function sortByName(skills: readonly Skill[]): Skill[] {
-  return [...skills].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-}
-
-/** Every tag in use, alphabetical, once each. */
-export function allTags(skills: readonly Skill[]): string[] {
-  return [...new Set(skills.flatMap((s) => s.tags))].sort();
-}
-
-/** Search on name or description, ignoring case; optionally only skills with `tag`. */
-export function filterSkills(skills: readonly Skill[], query: string, tag: string | null): Skill[] {
-  const q = query.trim().toLowerCase();
-  return skills.filter(
-    (s) =>
-      (!tag || s.tags.includes(tag)) &&
-      (!q || s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q)),
-  );
+  return {
+    name: name.slice(0, MAX_NAME),
+    description: frontString(front, "description").slice(0, MAX_DESCRIPTION),
+    tags,
+  };
 }
 
 /** "512 B", "2.1 KB". */

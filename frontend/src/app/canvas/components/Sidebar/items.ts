@@ -53,7 +53,8 @@ export const SIDEBAR_ITEMS: SidebarItemSpec[] = [
     id: "agents",
     label: "Agents",
     icon: Bot,
-    available: false,
+    // #208: saved Prompt-panel setups, a page like Skills.
+    available: true,
   },
   // Last: the working surfaces come first, and this one reports on them
   // rather than being somewhere you go to make something.
