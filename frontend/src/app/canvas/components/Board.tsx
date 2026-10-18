@@ -28,6 +28,7 @@ import { applyDraggability } from "../board/draggability";
 import { createEditKeysHandler, createNode, deleteNodes, selectNodes } from "../board/clipboard";
 import { CLEAR_EVENT } from "../board/clearBoard";
 import { LOAD_EVENT, type BoardFile } from "../board/boardFile";
+import { readSavedCanvas, startCanvasPersistence } from "../board/canvasPersistence";
 import { imageHitFunc } from "../board/upload";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { updateSelectionChrome as applySelectionChrome } from "../board/selectionChrome";
@@ -683,11 +684,11 @@ export default function Board() {
     };
     window.addEventListener(CLEAR_EVENT, handleClear);
 
-    // Open file (#199): the board becomes the file's, as one undo step. The
-    // file is already checked (parseBoardFile); this only places it. Ids are
-    // kept as saved -- wires point at them.
-    const handleLoad = (e: Event) => {
-      const file = (e as CustomEvent<BoardFile>).detail;
+    // Puts a checked board (parseBoardFile) on the stage in place of what is
+    // there, keeping its ids -- wires point at them. Shared by Open file (#199)
+    // and by the restore after a reload (#203), which leaves the panels alone:
+    // they rehydrate themselves.
+    const placeBoard = (file: BoardFile, { panels }: { panels: boolean }) => {
       frame.cancel();
       shapeDraw.cancel();
       textTool.close();
@@ -722,7 +723,7 @@ export default function Board() {
         }
       });
 
-      useNodePanel.getState().loadPanels(file.panels);
+      if (panels) useNodePanel.getState().loadPanels(file.panels);
       useFrames.getState().replaceAll(Object.fromEntries(file.frames.map((f) => [f.id, f])));
       useFrames.getState().clearSelection();
       useConnectionStore.getState().replaceConnections(file.connections);
@@ -732,9 +733,26 @@ export default function Board() {
       syncAllNodeGeometry();
       updateSelectionChrome();
       layer.batchDraw();
+    };
+
+    // Open file (#199): the board becomes the file's, as one undo step.
+    const handleLoad = (e: Event) => {
+      placeBoard((e as CustomEvent<BoardFile>).detail, { panels: true });
       saveSnapshot();
     };
     window.addEventListener(LOAD_EVENT, handleLoad);
+
+    // The board as it was before the reload (#203). The restored board is the
+    // first undo entry, not a step: there is nothing before it to go back to.
+    // Saving starts only after this, so the empty stage that exists until now
+    // can never overwrite what was saved.
+    const saved = readSavedCanvas();
+    if (saved) {
+      placeBoard(saved, { panels: false });
+      canvasHistory.clear();
+      saveSnapshot();
+    }
+    const stopPersistence = startCanvasPersistence(() => layerRef.current);
 
     const observer = new ResizeObserver(() => {
       stage.width(container.offsetWidth);
@@ -759,6 +777,8 @@ export default function Board() {
       window.removeEventListener("keydown", handleFrameKeys);
       window.removeEventListener(CLEAR_EVENT, handleClear);
       window.removeEventListener(LOAD_EVENT, handleLoad);
+      // Before the stage goes: a pending save reads it.
+      stopPersistence();
       stage.off(".frame");
       stage.off(".text");
       textTool.close();

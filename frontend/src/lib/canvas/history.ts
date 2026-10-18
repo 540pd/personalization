@@ -47,6 +47,12 @@ export interface History {
   canRedo(): boolean;
   /** Drop every entry. For a fresh board, or a torn-down stage. */
   clear(): void;
+  /**
+   * Called after every commit, undo and redo: each is the board changing in a
+   * way the user made. What saves the board (#203) listens here. Returns an
+   * unsubscribe function.
+   */
+  subscribe(listener: () => void): () => void;
   readonly size: number;
 }
 
@@ -56,6 +62,8 @@ export function createHistory(limit: number = DEFAULT_LIMIT): History {
   let idx = -1;
   // Key of the newest entry, if it was committed with one.
   let lastKey: object | undefined;
+  const listeners = new Set<() => void>();
+  const notify = () => listeners.forEach((l) => l());
 
   const apply = (entry: Entry) => {
     for (const [key, adapter] of adapters) {
@@ -79,6 +87,7 @@ export function createHistory(limit: number = DEFAULT_LIMIT): History {
       for (const [key, adapter] of adapters) entry[key] = adapter.capture();
       if (coalesceKey && coalesceKey === lastKey && idx === entries.length - 1) {
         entries[idx] = entry;
+        notify();
         return;
       }
       lastKey = coalesceKey;
@@ -86,6 +95,7 @@ export function createHistory(limit: number = DEFAULT_LIMIT): History {
       entries.push(entry);
       if (entries.length > limit) entries.shift();
       idx = entries.length - 1;
+      notify();
     },
 
     undo() {
@@ -94,6 +104,7 @@ export function createHistory(limit: number = DEFAULT_LIMIT): History {
       lastKey = undefined;
       idx -= 1;
       apply(entries[idx]);
+      notify();
       return true;
     },
 
@@ -101,6 +112,7 @@ export function createHistory(limit: number = DEFAULT_LIMIT): History {
       if (idx >= entries.length - 1) return false;
       idx += 1;
       apply(entries[idx]);
+      notify();
       return true;
     },
 
@@ -111,6 +123,13 @@ export function createHistory(limit: number = DEFAULT_LIMIT): History {
       entries = [];
       idx = -1;
       lastKey = undefined;
+    },
+
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
 
     get size() {
