@@ -27,6 +27,7 @@ import type { UploadDetail } from "../../board/upload";
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { useUpload } from "@/store/upload.store";
+import { boardIsShown } from "@/store/section.store";
 import { NODE_KINDS } from "@/app/canvas/components/NodePanel/kinds";
 import type { NodeKind } from "@/store/nodePanel.store";
 
@@ -446,6 +447,12 @@ export default function FloatingDock() {
   };
 
   useEffect(() => {
+    // Every binding below is a board tool, so none may fire while another
+    // page covers the board (#206). One gate on hotkeys' filter, which already
+    // keeps them out of text fields, rather than a check in each.
+    const defaultFilter = hotkeys.filter;
+    hotkeys.filter = (e) => boardIsShown() && defaultFilter(e);
+
     hotkeys("v", () => {
       setTool("pointer");
     });
@@ -486,6 +493,7 @@ export default function FloatingDock() {
     });
 
     return () => {
+      hotkeys.filter = defaultFilter;
       hotkeys.unbind("v");
       hotkeys.unbind("escape");
       hotkeys.unbind("f");

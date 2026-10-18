@@ -37,6 +37,7 @@ import { boundsOf } from "@/lib/canvas/bounds";
 import { layoutVariants } from "../../board/variants";
 import { dragFrameFrom, selectedFrameAround } from "../../board/frameDrag";
 import { useFrames } from "@/store/frame.store";
+import { boardIsShown } from "@/store/section.store";
 // Prompts usually open with boilerplate ("a highly detailed photorealistic
 // image of a …"), so first-N-words collides often — hence uniqueLabel on
 // every auto-generated name here.
@@ -878,6 +879,8 @@ export default function NodePanel() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Not while another page covers the board (#206).
+      if (!boardIsShown()) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       // Capture phase runs before a modal can stop the event, so it has to
       // opt out itself: Backspace on a popup's button must not delete here.

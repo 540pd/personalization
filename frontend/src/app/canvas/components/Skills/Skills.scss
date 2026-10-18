@@ -1,0 +1,329 @@
+@reference "../../../globals.css";
+
+// The Skills page (#206). Left edge and z-index come from TypeScript
+// (sidebarInset, Z_INDEX.page), as the rail's do, so the page and the rail
+// cannot disagree about where one ends.
+.skills-page {
+  @apply fixed top-0 right-0 bottom-0 flex flex-col gap-5 overflow-y-auto;
+  @apply bg-white px-10 py-8 text-neutral-900 outline-none;
+  // Follows the rail's width change, at the rail's pace.
+  transition: left 150ms ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.skills-page-dropping {
+  @apply ring-2 ring-inset ring-neutral-900/60;
+}
+
+// ── header ──────────────────────────────────────────────────────────────
+.skills-header {
+  @apply flex items-end gap-4;
+}
+
+.skills-header-text {
+  @apply flex-1 min-w-0;
+}
+
+.skills-title {
+  @apply text-[22px] font-semibold leading-tight;
+}
+
+.skills-subtitle {
+  @apply mt-1 text-sm text-neutral-500;
+}
+
+.skills-upload-button {
+  @apply inline-flex shrink-0 items-center gap-2 h-[38px] px-[18px] rounded-full;
+  @apply bg-neutral-900 text-sm font-medium text-white transition-colors hover:bg-neutral-800;
+}
+
+.skills-upload-button:focus-visible,
+.skills-filter-chip:focus-visible,
+.skills-no-match button:focus-visible {
+  @apply outline-2 outline-offset-2 outline-neutral-900;
+}
+
+// ── empty ───────────────────────────────────────────────────────────────
+.skills-empty {
+  @apply flex flex-1 flex-col items-center justify-center gap-1.5 p-10 text-center;
+  @apply rounded-[20px] border-[1.5px] border-dashed border-neutral-300;
+}
+
+.skills-empty-icon {
+  @apply mb-2 flex size-[52px] items-center justify-center rounded-full bg-neutral-100 text-neutral-600;
+}
+
+.skills-empty-title {
+  @apply text-base font-semibold;
+}
+
+.skills-empty-text {
+  @apply max-w-[380px] text-sm leading-[21px] text-neutral-500;
+}
+
+.skills-empty-button {
+  @apply mt-3.5;
+}
+
+.skills-empty-hint {
+  @apply mt-1 text-xs text-neutral-500;
+}
+
+// ── toolbar ─────────────────────────────────────────────────────────────
+.skills-toolbar {
+  @apply flex flex-wrap items-center gap-2.5;
+}
+
+.skills-search {
+  @apply flex w-[280px] max-w-full h-9 items-center gap-2 rounded-full bg-neutral-100 px-3 text-neutral-500;
+  @apply focus-within:ring-2 focus-within:ring-black/10;
+}
+
+.skills-search-input {
+  @apply min-w-0 flex-1 bg-transparent text-[13px] text-neutral-900 outline-none placeholder:text-neutral-500;
+}
+
+.skills-tag-filter {
+  @apply ml-1.5 flex flex-wrap items-center gap-1.5;
+}
+
+.skills-tag-filter-label {
+  @apply mr-1 text-[13px] text-neutral-500;
+}
+
+.skills-filter-chip {
+  @apply h-[30px] px-3 rounded-full border border-black/10 bg-white text-[13px] text-neutral-700;
+  @apply transition-colors hover:bg-black/5;
+}
+
+.skills-filter-chip-on {
+  @apply border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800;
+}
+
+.skills-count {
+  @apply ml-auto text-[13px] text-neutral-500;
+}
+
+// ── table ───────────────────────────────────────────────────────────────
+.skills-table-wrap {
+  @apply overflow-x-auto;
+}
+
+.skills-table {
+  @apply w-full min-w-[560px] table-fixed border-collapse text-sm;
+
+  th {
+    @apply px-3 py-2.5 border-b border-neutral-200 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500;
+  }
+
+  td {
+    @apply px-3 py-3 border-b border-neutral-100 align-middle;
+  }
+
+  tbody tr {
+    @apply transition-colors hover:bg-neutral-50;
+  }
+}
+
+.skills-col-name {
+  width: 30%;
+}
+
+.skills-col-description {
+  width: 46%;
+}
+
+.skills-col-tags {
+  width: 24%;
+}
+
+.skills-cell-name {
+  @apply block truncate font-medium text-neutral-900;
+}
+
+.skills-cell-file {
+  @apply block truncate text-xs text-neutral-500;
+}
+
+.skills-cell-description {
+  @apply truncate text-neutral-700;
+}
+
+.skills-cell-tags {
+  @apply flex flex-wrap gap-1;
+}
+
+.skills-tag {
+  @apply rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700;
+}
+
+.skills-cell-none {
+  @apply text-neutral-400;
+}
+
+.skills-no-match {
+  @apply flex flex-col items-center gap-3 py-16 text-sm text-neutral-500;
+}
+
+// ── Upload skill dialog ─────────────────────────────────────────────────
+.skill-dialog-backdrop {
+  @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20;
+}
+
+.skill-dialog {
+  @apply flex w-[520px] max-w-full max-h-full flex-col overflow-y-auto rounded-2xl bg-white shadow-2xl text-neutral-900;
+}
+
+.skill-dialog-header {
+  @apply flex items-start justify-between px-6 pt-6 pb-1;
+}
+
+.skill-dialog-title {
+  @apply text-base font-semibold;
+}
+
+.skill-dialog-subtitle {
+  @apply mt-1 text-sm text-neutral-500;
+}
+
+.skill-dialog-close {
+  @apply flex size-7 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-600;
+}
+
+.skill-dialog-body {
+  @apply flex flex-col gap-3 px-6 pt-4 pb-6;
+}
+
+.skill-field-label-row {
+  @apply flex items-baseline justify-between;
+}
+
+.skill-field-label {
+  @apply mb-1.5 block text-[13px] font-medium text-neutral-700;
+}
+
+.skill-field-optional {
+  @apply font-normal text-neutral-500;
+}
+
+.skill-field-count {
+  @apply text-xs text-neutral-500;
+}
+
+// Always rendered, empty or not, so a message appearing does not shift the form.
+.skill-field-hint,
+.skill-field-error {
+  @apply mt-1.5 min-h-4 text-xs leading-4;
+}
+
+.skill-field-hint {
+  @apply text-neutral-500;
+}
+
+.skill-field-error {
+  @apply text-red-600;
+}
+
+.skill-input {
+  @apply block w-full h-10 rounded-xl bg-neutral-100 px-3.5 text-sm text-neutral-900 outline-none;
+  @apply placeholder:text-neutral-400 focus:ring-2 focus:ring-black/10;
+}
+
+.skill-input[aria-invalid="true"] {
+  @apply ring-2 ring-red-500/40;
+}
+
+.skill-textarea {
+  @apply h-auto resize-none py-2.5;
+}
+
+.skill-file-drop {
+  @apply flex w-full h-28 flex-col items-center justify-center gap-1.5 rounded-xl;
+  @apply border-[1.5px] border-dashed border-neutral-300 bg-neutral-50 text-neutral-600;
+  @apply transition-colors hover:border-neutral-400 hover:bg-neutral-100;
+}
+
+.skill-file-drop-over {
+  @apply border-neutral-900 bg-neutral-100;
+}
+
+.skill-file-drop-title {
+  @apply text-sm font-medium text-neutral-900;
+}
+
+.skill-file-drop-hint {
+  @apply text-xs text-neutral-500;
+}
+
+.skill-file-chosen {
+  @apply flex items-center gap-3 rounded-xl border border-neutral-200 py-3 pr-2 pl-3;
+}
+
+.skill-file-icon {
+  @apply flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600;
+}
+
+.skill-file-text {
+  @apply min-w-0 flex-1;
+}
+
+.skill-file-name {
+  @apply block truncate text-sm font-medium;
+}
+
+.skill-file-meta {
+  @apply block text-xs text-neutral-500;
+}
+
+.skill-file-change {
+  @apply h-[30px] px-3 rounded-full text-[13px] font-medium text-neutral-700 transition-colors hover:bg-black/5;
+}
+
+.skill-tags-field {
+  @apply relative;
+}
+
+.skill-tags-box {
+  @apply flex min-h-10 flex-wrap items-center gap-1.5 rounded-xl bg-neutral-100 px-2.5 py-1.5;
+  @apply focus-within:ring-2 focus-within:ring-black/10;
+}
+
+.skill-tag-chip {
+  @apply inline-flex h-[26px] items-center gap-0.5 rounded-full border border-neutral-200 bg-white pr-1 pl-2.5 text-[13px];
+}
+
+.skill-tag-remove {
+  @apply flex size-5 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-black/5 hover:text-neutral-900;
+}
+
+.skill-tags-input {
+  @apply min-w-20 flex-1 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400;
+}
+
+.skill-tag-suggestions {
+  @apply absolute left-0 top-full z-10 -mt-5 w-48 rounded-xl border border-black/[0.08] bg-white p-1 shadow-md;
+}
+
+.skill-tag-suggestion {
+  @apply flex h-8 cursor-pointer items-center rounded-full px-2.5 text-[13px] text-neutral-700 hover:bg-black/5;
+}
+
+.skill-tag-suggestion-active {
+  @apply bg-black/5 text-neutral-900;
+}
+
+.skill-dialog-actions {
+  @apply mt-2 flex justify-end gap-2;
+}
+
+.skill-dialog-submit {
+  @apply h-9 px-4 rounded-full bg-black text-sm font-semibold text-white transition-colors hover:bg-neutral-800;
+  @apply disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-black;
+}
+
+.skill-dialog button:focus-visible {
+  @apply outline-2 outline-offset-2 outline-neutral-900;
+}

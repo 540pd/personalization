@@ -35,6 +35,7 @@ import { updateSelectionChrome as applySelectionChrome } from "../board/selectio
 import { syncNodeGeometry, syncAllNodeGeometry as syncAllGeometry } from "../board/geometry";
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
+import { boardIsShown } from "@/store/section.store";
 import { COLORS, Z_INDEX, MIN_NODE_SIZE, SHAPE_MIN_SIZE, SELECTION } from "@/constants/canvas.constants";
 
 // imageUrl and label live in konvaNodes, not on the shape, and Delete drops
@@ -46,6 +47,9 @@ type Snapshot = Array<{
   imageUrl?: string;
   label?: string;
 }>;
+
+/** A canvas area no point is inside, for while another page covers the board. */
+const NO_AREA = { left: 0, top: 0, width: -1, height: -1 };
 
 export default function Board() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -457,6 +461,7 @@ export default function Board() {
 
     // Space-to-pan: temporarily enable dragging regardless of active tool.
     const handleSpaceDown = (e: KeyboardEvent) => {
+      if (!boardIsShown()) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.code !== "Space" || isSpacePanning.current) return;
       e.preventDefault();
@@ -480,6 +485,8 @@ export default function Board() {
     // one in capture phase and stopImmediatePropagation its way to priority;
     // with a single timeline there is nothing to arbitrate.
     const handleUndoRedo = (e: KeyboardEvent) => {
+      // Not while another page covers the board (#206): an undo nobody can see.
+      if (!boardIsShown()) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const mod = e.ctrlKey || e.metaKey;
       if (!mod) return;
@@ -491,6 +498,7 @@ export default function Board() {
     // Ctrl/Cmd + A → select every uploaded image, node and wire.
     // Escape → clear all three. NodePanel's own Escape collapses the panels.
     const handleSelectAll = (e: KeyboardEvent) => {
+      if (!boardIsShown()) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
       if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;
@@ -522,13 +530,16 @@ export default function Board() {
     };
     window.addEventListener("keydown", handleSelectAll);
 
-    const handleEditKeys = createEditKeysHandler({
+    const editKeys = createEditKeysHandler({
       layer, transformer,
       applyDraggability: () => applyDraggability(layer),
       syncAllNodeGeometry,
       updateSelectionChrome,
       saveSnapshot,
     });
+    const handleEditKeys = (e: KeyboardEvent) => {
+      if (boardIsShown()) editKeys(e);
+    };
     window.addEventListener("keydown", handleEditKeys);
 
     // Place uploaded files on the canvas, centered in the current viewport.
@@ -626,7 +637,10 @@ export default function Board() {
     // Files dragged in from the desktop. Window-level, because the browser
     // navigates away on a drop anywhere -- not just over the canvas.
     const dnd = createDragDropHandlers({
-      area: canvasArea,
+      // No canvas to drop on while another page covers it (#206): the drop is
+      // still cancelled -- the browser must not navigate to the file -- but
+      // nothing lands on the board and no affordance shows.
+      area: () => (boardIsShown() ? canvasArea() : NO_AREA),
       setActive: setDropActive,
       onDrop: (files, at) => {
         window.dispatchEvent(new CustomEvent("canvas:upload", { detail: { files, at } }));
@@ -642,6 +656,7 @@ export default function Board() {
     window.addEventListener("blur", dnd.reset);
 
     const handleFrameKeys = (e: KeyboardEvent) => {
+      if (!boardIsShown()) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.code === "Escape") {
         frame.cancel();

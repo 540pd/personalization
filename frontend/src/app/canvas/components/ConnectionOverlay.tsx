@@ -12,6 +12,7 @@ import { useViewport } from "@/store/viewport.store";
 import { useToolStore } from "@/store/tool.store";
 import type { PanelInstance } from "@/store/nodePanel.store";
 import type { KonvaNodeRecord } from "@/store/konvaNodes.store";
+import { boardIsShown } from "@/store/section.store";
 import { COLORS, SNAP_RADIUS, Z_INDEX } from "@/constants/canvas.constants";
 import { toScreen } from "@/lib/canvas/coords";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
@@ -158,6 +159,7 @@ export default function ConnectionOverlay() {
   // Delete key removes all selected connections.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!boardIsShown()) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       // Capture phase runs before a modal can stop the event; see NodePanel.
       if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;

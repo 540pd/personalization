@@ -46,7 +46,8 @@ export const SIDEBAR_ITEMS: SidebarItemSpec[] = [
     id: "skills",
     label: "Skills",
     icon: BrainCircuit,
-    available: false,
+    // #206: a page of its own, shown over the board.
+    available: true,
   },
   {
     id: "agents",
