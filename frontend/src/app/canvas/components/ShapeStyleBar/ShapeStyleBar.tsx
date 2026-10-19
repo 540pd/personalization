@@ -2,7 +2,8 @@
 
 // The bar above a selected shape: its Color, Fill and Stroke (#161).
 //
-// Frames get it too, with Color only: a swatch is their outline (#163).
+// Frames get it too, with Color: a swatch is their outline (#163). One Frame
+// alone also gets Auto layout, or Remove auto layout while it is on (#225).
 // Text gets Color, whose colour is its letters (#164), and its Size, Bold,
 // Italic and Align (#165). A selection mixing kinds gets Color only: it is
 // what they all share.
@@ -46,6 +47,7 @@ import {
   applyTextFormat, TEXT_ALIGNS, TEXT_SIZES, type TextAlign, type TextFormat, type TextStyle,
 } from "../../board/text";
 import { syncNodeGeometry } from "../../board/geometry";
+import { applyAutoLayout, canAutoLayout, removeAutoLayout } from "../../board/autoLayout";
 import "./ShapeStyleBar.scss";
 
 const BAR_HEIGHT = 44; // screen px, matches .shape-style-bar
@@ -133,6 +135,25 @@ const StrokeIcon = ({ mode, width = 2 }: { mode: StrokeMode | undefined; width?:
       opacity={mode === "none" ? 0.5 : 1}
     />
     {mode === "none" && <line x1="6" y1="15" x2="16" y2="3" stroke="currentColor" strokeWidth="1.5" />}
+  </svg>
+);
+
+// Auto layout's icon shows what a click will do, as Luma's does: tidy tiles
+// to lay them out, loose tiles to stop (#225).
+const LayoutIcon = ({ on }: { on: boolean }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+    <rect x="2" y="4" width="20" height="16" rx="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    {on ? <>
+      <rect x="5" y="6.5" width="5" height="4" rx="1" fill="currentColor" />
+      <rect x="12.5" y="8" width="5" height="4" rx="1" fill="currentColor" />
+      <rect x="6.5" y="13" width="5" height="4" rx="1" fill="currentColor" />
+      <rect x="14" y="13.5" width="5" height="4" rx="1" fill="currentColor" />
+    </> : <>
+      <rect x="5" y="7" width="6" height="4" rx="1" fill="currentColor" />
+      <rect x="13" y="7" width="6" height="4" rx="1" fill="currentColor" />
+      <rect x="5" y="13" width="6" height="4" rx="1" fill="currentColor" />
+      <rect x="13" y="13" width="6" height="4" rx="1" fill="currentColor" />
+    </>}
   </svg>
 );
 
@@ -235,7 +256,8 @@ export default function ShapeStyleBar() {
   const frames = useFrames((s) => s.frames);
   // A Frame dragged by its body or its name: the live offset is in the store.
   const frameDragging = useFrames((s) => Object.keys(s.drag).length > 0);
-  const panelsSelected = useNodePanel((s) => s.panels.some((p) => p.isActive));
+  const panels = useNodePanel((s) => s.panels);
+  const panelsSelected = panels.some((p) => p.isActive);
   const { x, y, scale } = useViewport();
   const [card, setCard] = useState<Card | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
@@ -318,6 +340,12 @@ export default function ShapeStyleBar() {
       : SHAPE_STYLE.fill
     );
 
+  // One Frame alone: Auto layout. Disabled on an empty one, with nothing to
+  // lay out; subscribed to `nodes` and `panels`, so one moved in enables it.
+  const layoutFrame = !records.length && frameRecs.length === 1 ? frameRecs[0] : null;
+  const layoutable = !!layoutFrame && canAutoLayout(layoutFrame);
+  const layoutLabel = layoutFrame?.layout ? "Remove auto layout" : "Auto layout";
+
   // The selection's box on screen, Frames included.
   const vp = { x, y, scale };
   const boxes = [...records, ...frameRecs];
@@ -376,6 +404,26 @@ export default function ShapeStyleBar() {
           </div>
         )}
       </div>
+
+      {layoutFrame && <>
+        <div className="shape-style-divider" />
+        <div className="shape-style-wrapper">
+          <button
+            type="button" aria-label={layoutLabel} disabled={!layoutable}
+            onClick={() => {
+              setCard(null);
+              if (layoutFrame.layout) removeAutoLayout(layoutFrame.id);
+              else applyAutoLayout(layoutFrame.id);
+            }}
+            className="shape-style-button"
+          >
+            <LayoutIcon on={!!layoutFrame.layout} />
+          </button>
+          <span className="shape-style-tooltip">
+            {layoutable ? layoutLabel : "Add something to the frame first"}
+          </span>
+        </div>
+      </>}
 
       {!colorOnly && <div className="shape-style-divider" />}
 

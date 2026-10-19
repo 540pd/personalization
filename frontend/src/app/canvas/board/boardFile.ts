@@ -238,6 +238,11 @@ function readFrame(v: unknown): FrameRecord | null {
   return {
     id: v.id, canvasX: v.canvasX, canvasY: v.canvasY, canvasW: v.canvasW, canvasH: v.canvasH, label: v.label,
     ...(isStr(v.stroke) ? { stroke: v.stroke } : {}),
+    // Auto layout (#225). Optional, so a file from before it reads as before,
+    // and a reader from before it drops it and keeps the Frame as it is.
+    ...(isObj(v.layout) && Array.isArray(v.layout.children) && v.layout.children.every(isStr)
+      ? { layout: { children: v.layout.children as string[] } }
+      : {}),
   };
 }
 
