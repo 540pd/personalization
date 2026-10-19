@@ -11,7 +11,7 @@
 //
 // This container sits at Z_INDEX.frames and never flips.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Konva from "konva";
 import { useFrames } from "@/store/frame.store";
 import { selectOnly } from "@/lib/canvas/selection";
@@ -48,11 +48,21 @@ export default function FrameLayer() {
   // One object per resize gesture, shared by every frame it resizes, so the
   // gesture commits a single undo step however many frames it touched.
   const resizeKeyRef = useRef<object | null>(null);
+  const [boardReady, setBoardReady] = useState(false);
 
   const frames = useFrames((s) => s.frames);
   const draft = useFrames((s) => s.draft);
   const selectedIds = useFrames((s) => s.selectedIds);
   const { x: stageX, y: stageY, scale } = useViewport();
+
+  // Restored frames are present on the first render. Do not construct their
+  // stage before Board's: other canvas code assumes Board is Konva.stages[0].
+  useEffect(() => {
+    if (boardStage.current) { setBoardReady(true); return; }
+    const ready = () => setBoardReady(true);
+    window.addEventListener("canvas:board-ready", ready);
+    return () => window.removeEventListener("canvas:board-ready", ready);
+  }, []);
 
   // --- Create the stage lazily, on the first frame ---
   //
@@ -230,6 +240,7 @@ export default function FrameLayer() {
   // Rebuild rather than reconcile: a board holds a handful of frames, and
   // writes only happen on dragend/transformend, so this never runs mid-gesture.
   useEffect(() => {
+    if (!boardReady) return;
     if (!Object.keys(frames).length && !stageRef.current) return;
     ensureStage();
     const layer = layerRef.current;
@@ -336,7 +347,7 @@ export default function FrameLayer() {
     });
 
     layer.batchDraw();
-  }, [frames]);
+  }, [frames, boardReady]);
 
   // --- Attach the transformer to whatever is selected ---
   //

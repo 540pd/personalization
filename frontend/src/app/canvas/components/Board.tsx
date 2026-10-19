@@ -9,6 +9,7 @@ import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { createUploadHandler } from "../board/upload";
+import { restoreFrameImages, saveFrameImagePositions } from "../board/frameImageStorage";
 import { dragFrameFrom, selectedFrameAround } from "../board/frameDrag";
 import { boundsOf } from "@/lib/canvas/bounds";
 import { createDragDropHandlers } from "../board/dragDrop";
@@ -129,6 +130,7 @@ export default function Board() {
     layerRef.current = layer;
     transformerRef.current = transformer;
     hoverRef.current = hover;
+    window.dispatchEvent(new Event("canvas:board-ready"));
 
     const syncAllNodeGeometry = () => syncAllGeometry(layer);
     // A selected or dragged node comes to the front (#106), so its whole
@@ -209,7 +211,10 @@ export default function Board() {
       restore: (snap) => restoreSnapshot(snap as Snapshot),
     });
 
-    const saveSnapshot = (coalesceKey?: object) => canvasHistory.commit(coalesceKey);
+    const saveSnapshot = (coalesceKey?: object) => {
+      saveFrameImagePositions(useFrames.getState().frames);
+      canvasHistory.commit(coalesceKey);
+    };
 
     // The transformer lives here and nowhere else, so selectOnly() cannot drop
     // node handles without a hand up from Board.
@@ -221,7 +226,14 @@ export default function Board() {
 
     // Snapshot initial state (demo node).
     canvasHistory.clear();
-    saveSnapshot();
+    canvasHistory.commit();
+    let disposed = false;
+    void restoreFrameImages(layer).then(() => {
+      if (disposed) return;
+      applyDraggability(layer);
+      syncAllNodeGeometry();
+      canvasHistory.commit();
+    });
 
     // --- Stage events ---
 
@@ -658,6 +670,7 @@ export default function Board() {
     observer.observe(container);
 
     return () => {
+      disposed = true;
       window.removeEventListener("keydown", handleSpaceDown);
       window.removeEventListener("keyup", handleSpaceUp);
       window.removeEventListener("keydown", handleUndoRedo);
