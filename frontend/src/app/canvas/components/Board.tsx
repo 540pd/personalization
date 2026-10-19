@@ -24,6 +24,7 @@ import { useFrames } from "@/store/frame.store";
 import { selectOnly, registerNodeChromeClear } from "@/lib/canvas/selection";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { boardStage } from "@/lib/canvas/boardStage";
+import { bindWheelZoom } from "@/lib/canvas/wheelZoom";
 import { applyDraggability } from "../board/draggability";
 import { createEditKeysHandler, selectNodes } from "../board/clipboard";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
@@ -299,13 +300,7 @@ export default function Board() {
       layer.batchDraw();
     });
 
-    // Wheel → zoom toward cursor.
-    stage.on("wheel", (e) => {
-      e.evt.preventDefault();
-      const pointer = stage.getPointerPosition();
-      if (!pointer) return;
-      useViewport.getState().zoomToPoint(e.evt.deltaY, pointer.x, pointer.y);
-    });
+    bindWheelZoom(stage);
 
     // Where the current press began, in screen px. A drag handed to a frame
     // (#119) measures from here rather than from where Konva noticed it, or
