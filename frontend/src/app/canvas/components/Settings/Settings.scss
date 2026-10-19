@@ -1,0 +1,82 @@
+@reference "../../../globals.css";
+
+// The Settings page (#214). Its frame is the library page's (.library-page):
+// same left edge, z-index and header, so the pages over the board agree.
+
+.settings-group {
+  @apply flex flex-col gap-2 max-w-[720px];
+}
+
+.settings-group-title {
+  @apply m-0 text-xs font-semibold uppercase tracking-wide text-neutral-500;
+}
+
+.settings-card {
+  @apply flex flex-col rounded-xl border border-neutral-200;
+}
+
+.settings-row {
+  @apply flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4;
+
+  & + & {
+    @apply border-t border-neutral-100;
+  }
+}
+
+.settings-row-text {
+  @apply flex-1 min-w-[240px];
+}
+
+.settings-row-label {
+  @apply text-sm font-medium text-neutral-900;
+}
+
+.settings-row-help {
+  @apply mt-0.5 text-[13px] text-neutral-500;
+}
+
+// ── choice: a segmented control over native radios ─────────────────────
+.settings-choice {
+  @apply m-0 flex shrink-0 gap-0.5 rounded-full border border-neutral-200 bg-neutral-50 p-[3px];
+}
+
+.settings-choice-option {
+  @apply relative flex h-[30px] cursor-pointer items-center gap-1.5 rounded-full px-3;
+  @apply text-[13px] text-neutral-600 transition-colors hover:text-neutral-900;
+
+  &.is-selected {
+    @apply bg-white font-medium text-neutral-900 shadow-sm;
+  }
+
+  &:has(.settings-choice-input:focus-visible) {
+    @apply outline-2 outline-offset-1 outline-neutral-900;
+  }
+}
+
+.settings-choice-input {
+  @apply absolute inset-0 m-0 cursor-pointer opacity-0;
+}
+
+// ── toggle ─────────────────────────────────────────────────────────────
+.settings-switch {
+  @apply flex h-[26px] w-11 shrink-0 cursor-pointer rounded-full border-0 bg-neutral-300 p-[3px] transition-colors;
+  @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900;
+
+  &[aria-checked="true"] {
+    @apply justify-end bg-neutral-900;
+  }
+}
+
+.settings-switch-thumb {
+  @apply h-5 w-5 rounded-full bg-white shadow-sm;
+}
+
+// ── footer ─────────────────────────────────────────────────────────────
+.settings-footer {
+  @apply flex max-w-[720px] justify-end;
+}
+
+.settings-reset {
+  @apply h-9 rounded-full border border-neutral-200 bg-white px-3.5 text-[13px] text-neutral-700;
+  @apply transition-colors hover:bg-neutral-50 disabled:cursor-default disabled:text-neutral-400 disabled:hover:bg-white;
+}

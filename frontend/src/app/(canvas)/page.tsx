@@ -16,6 +16,7 @@ const KonvaNodeLabels = dynamic(() => import("@/app/canvas/components/KonvaNodeL
 const ConnectionOverlay = dynamic(() => import("@/app/canvas/components/ConnectionOverlay"), { ssr: false });
 const SkillsPage = dynamic(() => import("@/app/canvas/components/Skills/SkillsPage"), { ssr: false });
 const AgentsPage = dynamic(() => import("@/app/canvas/components/Agents/AgentsPage"), { ssr: false });
+const SettingsPage = dynamic(() => import("@/app/canvas/components/Settings/SettingsPage"), { ssr: false });
 
 export default function CanvasPage() {
   return (
@@ -33,9 +34,10 @@ export default function CanvasPage() {
       <LineHandles />
       <ShapeStyleBar />
       <KonvaNodeLabels />
-      {/* Over the board, not instead of it: the board stays mounted (#206, #208). */}
+      {/* Over the board, not instead of it: the board stays mounted (#206, #208, #214). */}
       <SkillsPage />
       <AgentsPage />
+      <SettingsPage />
     </>
   );
 }

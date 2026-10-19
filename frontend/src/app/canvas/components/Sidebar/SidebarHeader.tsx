@@ -7,6 +7,8 @@ import { SIDEBAR_ITEMS, type SectionId } from "./items";
 /** The page after "Studio /": the board keeps its product spelling. */
 function pageName(section: SectionId): string {
   if (section === "playspace") return "PlaySpace";
+  // Not a rail item (#214), so the header is the one place that says where you are.
+  if (section === "settings") return "Settings";
   return SIDEBAR_ITEMS.find((i) => i.id === section)?.label ?? "PlaySpace";
 }
 

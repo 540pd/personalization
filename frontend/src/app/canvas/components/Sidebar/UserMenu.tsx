@@ -1,23 +1,35 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { LogOut, Palette } from "lucide-react";
+import { LogOut, Palette, Settings } from "lucide-react";
 import type { Identity } from "@/auth/useIdentity";
 
+const SETTINGS_KEYS = "Meta+, Control+,";
+
+/** How the Settings key reads on this machine: ⌘, on a Mac, Ctrl+, elsewhere. */
+function settingsShortcut(): string {
+  return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘," : "Ctrl+,";
+}
+
 /**
- * The popover above the identity row: email, Brand, Sign out.
+ * The popover above the identity row: email, Brand, Settings, Sign out.
  *
  * Opens upward because the trigger is pinned to the bottom of the rail.
+ * Signed out (local dev only), it holds just Settings (#214): settings are
+ * kept in the browser, so they need no account.
  */
 export default function UserMenu({
   user,
   onClose,
   onBrand,
+  onSettings,
   onSignOut,
 }: {
-  user: Identity;
+  /** null while nobody is signed in. */
+  user: Identity | null;
   onClose: () => void;
   onBrand: () => void;
+  onSettings: () => void;
   onSignOut: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -41,20 +53,35 @@ export default function UserMenu({
 
   return (
     <div ref={ref} className="sidebar-user-menu" role="menu">
-      {/* Long addresses are the norm here, so the element truncates rather
-          than widening the rail; the full value stays available on hover. */}
-      <div className="sidebar-user-email" title={user.email}>
-        {user.email}
-      </div>
+      {user ? (
+        // Long addresses are the norm here, so the element truncates rather
+        // than widening the rail; the full value stays available on hover.
+        <div className="sidebar-user-email" title={user.email}>
+          {user.email}
+        </div>
+      ) : (
+        <div className="sidebar-user-email">Not signed in</div>
+      )}
 
-      <button type="button" role="menuitem" className="sidebar-item" onClick={onBrand}>
-        <Palette className="sidebar-item-icon" aria-hidden />
-        <span className="sidebar-item-label">Brand</span>
+      {user && (
+        <button type="button" role="menuitem" className="sidebar-item" onClick={onBrand}>
+          <Palette className="sidebar-item-icon" aria-hidden />
+          <span className="sidebar-item-label">Brand</span>
+        </button>
+      )}
+      <button type="button" role="menuitem" className="sidebar-item" onClick={onSettings} aria-keyshortcuts={SETTINGS_KEYS}>
+        <Settings className="sidebar-item-icon" aria-hidden />
+        <span className="sidebar-item-label">Settings</span>
+        <kbd className="sidebar-item-shortcut" aria-hidden>
+          {settingsShortcut()}
+        </kbd>
       </button>
-      <button type="button" role="menuitem" className="sidebar-item" onClick={onSignOut}>
-        <LogOut className="sidebar-item-icon" aria-hidden />
-        <span className="sidebar-item-label">Sign out</span>
-      </button>
+      {user && (
+        <button type="button" role="menuitem" className="sidebar-item" onClick={onSignOut}>
+          <LogOut className="sidebar-item-icon" aria-hidden />
+          <span className="sidebar-item-label">Sign out</span>
+        </button>
+      )}
     </div>
   );
 }

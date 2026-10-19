@@ -178,6 +178,9 @@ export default function Sidebar() {
         // A popup, not a page: a client's brand is set once and rarely
         // changes, so it should not take the canvas away (#72).
         onBrand={() => setBrandOpen(true)}
+        // A page, not a popup (#214): settings will grow, and they are not
+        // a client's one-off setup.
+        onSettings={() => setActive("settings")}
         // Locally this just clears the dev identity, so the signed-out state
         // is reachable without a restart. Deployed, IAP owns sign-out at
         // /_gcp_iap/clear_login_cookie.
