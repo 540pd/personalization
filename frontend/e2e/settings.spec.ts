@@ -106,7 +106,7 @@ test.describe("Settings", () => {
     }
 
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("gcos-settings")!));
-    expect(stored).toEqual({ version: 1, settings: { linkStyle: "link-elbow" } });
+    expect(stored).toEqual({ version: 1, settings: { linkStyle: "link-elbow", showNodeNames: true } });
 
     // Arrow keys move the choice.
     await openSettings(page);

@@ -15,6 +15,8 @@ import { useFrames, type FrameRecord } from "@/store/frame.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
+import { useSettings } from "@/store/settings.store";
+import { useHoveredNode } from "@/store/hover.store";
 import { boundsOf, contains, type NodeBox } from "@/lib/canvas/bounds";
 import { labelProbe } from "@/lib/canvas/occlusion";
 import { selectOnly } from "@/lib/canvas/selection";
@@ -41,6 +43,9 @@ export default function FrameLabels() {
   const nodes = useKonvaNodes((s) => s.nodes);
   const panels = useNodePanel((s) => s.panels);
   const { x: stageX, y: stageY, scale } = useViewport();
+  // Names off (#215) covers frame names too: shown on hover or selection.
+  const alwaysNames = useSettings((s) => s.settings.showNodeNames);
+  const hoveredId = useHoveredNode(!alwaysNames);
 
   const covers: NodeBox[] = [...Object.values(nodes), ...panels];
 
@@ -70,6 +75,7 @@ export default function FrameLabels() {
             bottom={stageY + live.canvasY * scale - LABEL_GAP}
             maxWidth={screenW}
             onCommit={(next) => useFrames.getState().upsert({ ...f, label: next })}
+            hidden={!alwaysNames && !selected && hoveredId !== f.id}
             // The name is a handle for the frame: drag it to move the frame
             // and its contents, click it to select the frame (#119).
             onDragFrom={(press) => dragFrameFrom(f, press)}
