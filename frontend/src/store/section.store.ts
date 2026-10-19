@@ -14,12 +14,35 @@ import { DEFAULT_SECTION, type SectionId } from "@/app/canvas/components/Sidebar
  */
 interface SectionState {
   section: SectionId;
+  /** Goes to `section`, unless the page on screen holds it back (see setLeaveGuard). */
   setSection: (section: SectionId) => void;
 }
 
-export const useSection = create<SectionState>((set) => ({
+/**
+ * Asked before the page on screen is left (#219: Brand with unsaved edits).
+ * Return true to hold the move back; call `proceed` later to make it.
+ */
+export type LeaveGuard = (proceed: () => void) => boolean;
+
+let leaveGuard: LeaveGuard | null = null;
+
+/**
+ * The page on screen sets this while leaving it would lose something, and
+ * clears it (null) once it would not. Every way out -- the rail, the user
+ * menu, ⌘, -- goes through setSection, so one guard covers them all.
+ */
+export function setLeaveGuard(guard: LeaveGuard | null) {
+  leaveGuard = guard;
+}
+
+export const useSection = create<SectionState>((set, get) => ({
   section: DEFAULT_SECTION,
-  setSection: (section) => set({ section }),
+  setSection: (section) => {
+    if (section === get().section) return;
+    const go = () => set({ section });
+    if (leaveGuard?.(go)) return;
+    go();
+  },
 }));
 
 /**

@@ -1,39 +1,37 @@
 @reference "../../../globals.css";
 
 // GCOS reference: docs/sidebar/gcos_user_click_brand*.png
-// Above every canvas layer (the highest of those is a node label at 52).
+// The Brand page (#219). Its frame is the library page's (.library-page):
+// same left edge, z-index and header as Settings, Skills and Agents.
 
-// ── shell ───────────────────────────────────────────────────────────────
-.brand-overlay {
-  @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40;
+// ── page ────────────────────────────────────────────────────────────────
+.brand-section {
+  @apply flex flex-col gap-3;
 }
 
-// Header and footer fixed, only the body scrolls: with six cards the Save
-// button would otherwise sit far below the fold.
-.brand-dialog {
-  @apply flex flex-col w-[900px] max-w-full max-h-[85vh] overflow-hidden;
-  @apply rounded-2xl bg-neutral-100 shadow-2xl text-neutral-900;
+// Two cards a row where there is room, one on a narrow window -- never
+// three: each card's floor is the wider of 380px and half the row.
+.brand-cards {
+  @apply grid gap-4;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(380px, calc((100% - 1rem) / 2))), 1fr));
 }
 
-.brand-dialog-head {
-  @apply flex items-center justify-between px-8 pt-6 pb-4 border-b border-black/[0.08];
+// Pinned to the bottom of the scrolling page. The negative margins take it
+// to the page's edges, past .library-page's px-10 / pb-8, and -bottom-8
+// because a sticky box stops at the padding (it would rest 32px up); mt-auto
+// sits it at the bottom when the fields are shorter than the window.
+.brand-save-bar {
+  @apply sticky -bottom-8 z-10 mt-auto -mx-10 -mb-8 flex items-center justify-end gap-2;
+  @apply px-10 py-3.5 bg-white border-t border-neutral-200;
+  box-shadow: 0 -6px 16px rgb(0 0 0 / 0.04);
 }
 
-.brand-dialog-title {
-  @apply text-2xl font-bold;
+.brand-save-state {
+  @apply mr-auto flex items-center gap-2 text-[13px] text-amber-800;
 }
 
-.brand-icon-button {
-  @apply w-8 h-8 flex items-center justify-center rounded-full text-neutral-500;
-  @apply transition-colors hover:bg-black/5 hover:text-neutral-800;
-}
-
-.brand-dialog-body {
-  @apply flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-5;
-}
-
-.brand-dialog-foot {
-  @apply flex justify-end gap-2 px-8 py-4 border-t border-black/[0.08];
+.brand-save-dot {
+  @apply w-2 h-2 rounded-full bg-amber-700;
 }
 
 // ── fields ──────────────────────────────────────────────────────────────
@@ -160,45 +158,12 @@
   @apply disabled:bg-neutral-400 disabled:cursor-not-allowed;
 }
 
-.brand-danger {
-  @apply h-9 px-4 rounded-full bg-red-600 text-sm font-semibold text-white;
-  @apply transition-colors hover:bg-red-700;
-}
-
-.brand-dialog-foot .brand-pill,
-.brand-dialog-foot .brand-primary {
+.brand-save-bar .brand-pill,
+.brand-save-bar .brand-primary {
   @apply h-10;
 }
 
-// Focus rings only for keyboard users, on every control in the popup.
-.brand-overlay :is(button, input[type="checkbox"]):focus-visible {
+// Focus rings only for keyboard users, on every control on the page.
+.library-page :is(.brand-card, .brand-profile, .brand-save-bar) :is(button, input[type="checkbox"]):focus-visible {
   @apply outline-2 outline-offset-2 outline-neutral-900;
-}
-
-// ── discard prompt ──────────────────────────────────────────────────────
-.brand-confirm-backdrop {
-  @apply absolute inset-0 flex items-center justify-center bg-black/20;
-}
-
-.brand-confirm {
-  @apply w-[360px] max-w-full rounded-2xl bg-white p-6 shadow-2xl;
-}
-
-.brand-confirm-title {
-  @apply text-base font-semibold;
-}
-
-.brand-confirm-text {
-  @apply mt-1 text-sm text-neutral-500;
-}
-
-.brand-confirm-actions {
-  @apply mt-5 flex justify-end gap-2;
-}
-
-// ── saved toast ─────────────────────────────────────────────────────────
-// Top, not bottom: the floating dock owns the bottom centre.
-.brand-toast {
-  @apply fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2;
-  @apply h-10 px-4 rounded-full bg-neutral-900 text-sm font-medium text-white shadow-lg;
 }

@@ -19,8 +19,6 @@ import { useIdentity, useIdentityStore } from "@/auth/useIdentity";
 import SidebarHeader from "./SidebarHeader";
 import SidebarNav from "./SidebarNav";
 import SidebarFooter from "./SidebarFooter";
-import BrandDialog from "../Brand/BrandDialog";
-import BrandSavedToast from "../Brand/BrandSavedToast";
 import BoardConfirmDialog from "./BoardConfirmDialog";
 import BoardToast from "./BoardToast";
 import { requestClearBoard, useBoardItemCount } from "../../board/clearBoard";
@@ -35,7 +33,7 @@ import { canvasHistory } from "@/lib/canvas/history";
 import "./Sidebar.scss";
 
 const TOAST_MS = 2500;
-// Longer than Brand's for a toast with an Undo, which needs time to be read
+// Longer for a toast with an Undo, which needs time to be read
 // and reached, and for a failure, which needs reading.
 const LONG_TOAST_MS = 5000;
 
@@ -60,9 +58,6 @@ export default function Sidebar() {
   const signOut = useIdentityStore((s) => s.signOut);
   const active = useSection((s) => s.section);
   const setActive = useSection((s) => s.setSection);
-  const [brandOpen, setBrandOpen] = useState(false);
-  // A timestamp rather than a flag, so saving again restarts the timer.
-  const [brandSavedAt, setBrandSavedAt] = useState<number | null>(null);
 
   const itemCount = useBoardItemCount();
   const [confirm, setConfirm] = useState<BoardConfirm | null>(null);
@@ -73,12 +68,6 @@ export default function Sidebar() {
   // for it: the board may have changed while the picker was open.
   const itemCountRef = useRef(itemCount);
   itemCountRef.current = itemCount;
-
-  useEffect(() => {
-    if (brandSavedAt === null) return;
-    const t = setTimeout(() => setBrandSavedAt(null), TOAST_MS);
-    return () => clearTimeout(t);
-  }, [brandSavedAt]);
 
   useEffect(() => {
     if (boardToast === null) return;
@@ -175,9 +164,9 @@ export default function Sidebar() {
       />
       <SidebarFooter
         user={user}
-        // A popup, not a page: a client's brand is set once and rarely
-        // changes, so it should not take the canvas away (#72).
-        onBrand={() => setBrandOpen(true)}
+        // A page over the board, like Settings (#219). It was a popup (#72),
+        // but one that had grown to nearly the whole window.
+        onBrand={() => setActive("brand")}
         // A page, not a popup (#214): settings will grow, and they are not
         // a client's one-off setup.
         onSettings={() => setActive("settings")}
@@ -186,16 +175,6 @@ export default function Sidebar() {
         // /_gcp_iap/clear_login_cookie.
         onSignOut={signOut}
       />
-      {brandOpen && (
-        <BrandDialog
-          onClose={() => setBrandOpen(false)}
-          onSaved={() => {
-            setBrandOpen(false);
-            setBrandSavedAt(Date.now());
-          }}
-        />
-      )}
-      {brandSavedAt !== null && <BrandSavedToast />}
       {confirm?.kind === "clear" && (
         <BoardConfirmDialog
           title="Clear board?"
