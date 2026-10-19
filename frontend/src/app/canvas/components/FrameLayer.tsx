@@ -231,6 +231,15 @@ export default function FrameLayer() {
     const layer = layerRef.current;
     if (!layer) return;
 
+    // Delete / undo / redo mid-resize: drop the resize without saving it (#183).
+    const transformer = transformerRef.current;
+    if (transformer?.isTransforming()) {
+      transformer.nodes([]);
+      transformer.stopTransform();
+      announceGesture(false);
+      resizeKeyRef.current = null;
+    }
+
     layer.find(".frame").forEach((n) => n.destroy());
 
     Object.values(frames).forEach((f) => {
@@ -296,16 +305,6 @@ export default function FrameLayer() {
           canvasH: rect.height() * rect.scaleY(),
         });
       });
-      // The name renders from the store, so it reads the live box to keep up
-      // (#156). Not an upsert: that would rebuild the rect mid-gesture.
-      rect.on("transform", () => {
-        useFrames.getState().setResize(f.id, {
-          canvasX: rect.x(),
-          canvasY: rect.y(),
-          canvasW: rect.width() * rect.scaleX(),
-          canvasH: rect.height() * rect.scaleY(),
-        });
-      });
       rect.on("transformend", () => {
         announceGesture(false);
         const w = Math.max(1, rect.width() * rect.scaleX());
@@ -350,6 +349,9 @@ export default function FrameLayer() {
     const layer = layerRef.current;
     const transformer = transformerRef.current;
     if (!layer || !transformer) return;
+
+    // Escape mid-resize: end it while still attached, so transformend saves it (#183).
+    if (transformer.isTransforming()) transformer.stopTransform();
 
     const selected = selectedIds
       .map((id) => layer.findOne<Konva.Rect>(`#${id}`))

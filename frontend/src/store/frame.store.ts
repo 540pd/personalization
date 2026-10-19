@@ -97,7 +97,10 @@ export const useFrames = create<FrameState>((set) => ({
     set((s) => {
       const next = { ...s.frames };
       delete next[id];
-      return { frames: next, selectedIds: s.selectedIds.filter((sid) => sid !== id) };
+      // Deleted mid-resize: drop its live box too (#183).
+      const resize = { ...s.resize };
+      delete resize[id];
+      return { frames: next, selectedIds: s.selectedIds.filter((sid) => sid !== id), resize };
     }),
   select: (id) =>
     set((s) => {
@@ -126,5 +129,7 @@ export const useFrames = create<FrameState>((set) => ({
       frames,
       // An undo can remove frames out from under the selection.
       selectedIds: s.selectedIds.filter((sid) => !!frames[sid]),
+      // Live resize boxes are stale after an undo / redo (#183).
+      resize: {},
     })),
 }));
