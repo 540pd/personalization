@@ -32,10 +32,11 @@ import { canvasHistory } from "@/lib/canvas/history";
 import { resizeNodeForSettings } from "../../board/aspectResize";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
-import { toScreen } from "@/lib/canvas/coords";
+import { toCanvas, toScreen } from "@/lib/canvas/coords";
 import { boundsOf } from "@/lib/canvas/bounds";
 import { layoutVariants } from "../../board/variants";
 import { dragFrameFrom, selectedFrameAround } from "../../board/frameDrag";
+import { dropIntoLayout, trackLayoutDrag } from "../../board/autoLayoutDrop";
 import { useFrames } from "@/store/frame.store";
 import { boardIsShown } from "@/store/section.store";
 import { useSettings } from "@/store/settings.store";
@@ -50,6 +51,12 @@ import GenerateForm, { type GenerateDraft } from "./GenerateForm";
 import { kindSpec, panelOutput } from "./kinds";
 import type { NodeSettings } from "./nodeKinds";
 import "./NodePanel.scss";
+
+/** Where a pointer event is on the board, in canvas units. */
+const pointerOnCanvas = (e: React.PointerEvent) => {
+  const { x, y, scale } = useViewport.getState();
+  return toCanvas({ x: e.clientX, y: e.clientY }, { x, y, scale });
+};
 
 const PANEL_W    = 320;
 // A generated node needs a name before it can be referenced by a downstream
@@ -290,7 +297,7 @@ function SinglePanel({
       // here, past the threshold, so a plain click still selects this node.
       // An active node is the selection itself and drags on its own.
       if (!isDragging.current && !isActive) {
-        const frame = selectedFrameAround(boundsOf(instance));
+        const frame = selectedFrameAround(boundsOf(instance), instance.id);
         if (frame) {
           // The frame follows the pointer from here on; this node's own
           // move and up handlers stand down.
@@ -316,6 +323,8 @@ function SinglePanel({
         bringToFront();
       }
       onSetCanvasPos(dragStart.current.cx + dx / scale, dragStart.current.cy + dy / scale);
+      // Over an auto layout row: show where it would land (#228).
+      trackLayoutDrag(instance.id, pointerOnCanvas(e));
     }
   };
 
@@ -342,6 +351,9 @@ function SinglePanel({
         else                        onClosePanel();
       }
     } else {
+      // Into, within or out of an auto layout row, before the commit so the
+      // drop and the new order are one undo step (#228).
+      dropIntoLayout(instance.id, pointerOnCanvas(e));
       // Completed a real drag — save position so Ctrl+Z can undo it.
       canvasHistory.commit();
     }

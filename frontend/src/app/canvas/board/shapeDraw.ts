@@ -24,6 +24,7 @@ import {
   type ShapeBox,
 } from "./shapes";
 import type { ShapeKind } from "@/store/tool.store";
+import { joinLayout } from "./autoLayoutDrop";
 import {
   LINE_DEFAULT_LENGTH,
   SHAPE_CLICK_SLOP,
@@ -158,6 +159,8 @@ export function createShapeDrawHandlers(deps: ShapeDrawDeps) {
     useKonvaSelection.getState().select(id);
 
     deps.syncAllNodeGeometry();
+    // Drawn fully inside a Frame with auto layout: it joins the row (#228).
+    joinLayout(id);
     deps.updateSelectionChrome();
     deps.layer.batchDraw();
     deps.saveSnapshot();

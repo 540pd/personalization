@@ -10,6 +10,7 @@ import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { createUploadHandler } from "../board/upload";
 import { dragFrameFrom, selectedFrameAround } from "../board/frameDrag";
+import { clearLayoutDrag, dropIntoLayout, trackLayoutDrag } from "../board/autoLayoutDrop";
 import { boundsOf } from "@/lib/canvas/bounds";
 import { createDragDropHandlers } from "../board/dragDrop";
 import { canvasArea, useCanvasArea } from "../canvasArea";
@@ -337,7 +338,7 @@ export default function Board() {
         // Konva's drag threshold is passed.
         if (!transformer.nodes().includes(n)) {
           const rec = useKonvaNodes.getState().nodes[n.id()];
-          const frame = rec ? selectedFrameAround(boundsOf(rec)) : null;
+          const frame = rec ? selectedFrameAround(boundsOf(rec), n.id()) : null;
           if (rec && frame) {
             handedOff = n;
             n.stopDrag();
@@ -386,6 +387,10 @@ export default function Board() {
         showHover(e.target as Konva.Shape);
         syncNodeGeometry(e.target as Konva.Shape);
         updateSelectionChrome(); // outlines follow the moving node
+        // One item over an auto layout row: show where it would land (#228).
+        // Several move as before.
+        const pt = stage.getRelativePointerPosition();
+        if (pt && transformer.nodes().length <= 1) trackLayoutDrag(e.target.id(), pt);
       }
     });
 
@@ -398,8 +403,13 @@ export default function Board() {
         handedOff = null;
       } else if (e.target.hasName("selectable")) {
         stage.container().style.cursor = "default";
-        saveSnapshot();
         syncNodeGeometry(e.target as Konva.Shape);
+        // Into, within or out of an auto layout row, before the commit so the
+        // drop and the new order are one undo step (#228).
+        const pt = stage.getRelativePointerPosition();
+        if (pt && transformer.nodes().length <= 1) dropIntoLayout(e.target.id(), pt);
+        else clearLayoutDrag();
+        saveSnapshot();
       }
     });
 

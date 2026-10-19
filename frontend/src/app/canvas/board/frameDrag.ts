@@ -29,12 +29,16 @@ const boundsOfFrame = (f: FrameRecord): Bounds => ({
  *
  * Several can be selected after Ctrl+A, and frames can overlap; the smallest
  * is the one the node most plainly belongs to.
+ *
+ * Not a Frame with auto layout that `nodeId` is a child of: there a drag on
+ * a child moves the child, to reorder it or take it out (#228).
  */
-export function selectedFrameAround(box: Bounds): FrameRecord | null {
+export function selectedFrameAround(box: Bounds, nodeId?: string): FrameRecord | null {
   const { frames, selectedIds } = useFrames.getState();
   const around = selectedIds
     .map((id) => frames[id])
-    .filter((f): f is FrameRecord => !!f && containsBox(boundsOfFrame(f), box));
+    .filter((f): f is FrameRecord => !!f && containsBox(boundsOfFrame(f), box))
+    .filter((f) => !(nodeId && f.layout?.children.includes(nodeId)));
   around.sort((a, b) => a.canvasW * a.canvasH - b.canvasW * b.canvasH);
   return around[0] ?? null;
 }
