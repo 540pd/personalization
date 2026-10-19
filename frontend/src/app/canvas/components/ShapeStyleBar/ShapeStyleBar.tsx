@@ -18,7 +18,7 @@
 // DOM rather than Konva, like the line handles: a constant on-screen size at
 // every zoom, and it follows the viewport store without the canvas redrawing.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Bold, Italic, TextAlignCenter, TextAlignEnd, TextAlignStart } from "lucide-react";
 import type Konva from "konva";
 import { useKonvaNodes, type KonvaNodeRecord } from "@/store/konvaNodes.store";
@@ -29,6 +29,7 @@ import { useFrames } from "@/store/frame.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { toScreen } from "@/lib/canvas/coords";
+import { barMeetsNames, frameNameBox, nameTextWidth, type ScreenBox } from "@/lib/canvas/styleBarPlacement";
 import { canvasHistory } from "@/lib/canvas/history";
 import { GESTURE_EVENT, type GestureDetail } from "@/lib/canvas/gesture";
 import {
@@ -50,8 +51,8 @@ import "./ShapeStyleBar.scss";
 const BAR_HEIGHT = 44; // screen px, matches .shape-style-bar
 const GAP = 14; // screen px between the selection box and the bar, clear of the corner handles
 const MIN_TOP = 8; // screen px the bar keeps from the top of the window
-// A Frame's name sits above its top-left corner. The bar goes above that
-// row, so it never covers the name of a narrow Frame.
+// A Frame's name sits above its top-left corner. Where the bar would sit on
+// a selected Frame's name, it goes above that row instead (#223).
 const FRAME_NAME_CLEARANCE = LABEL_GAP + LABEL_LINE_HEIGHT;
 
 type Card = "color" | "fill" | "stroke" | "size" | "align";
@@ -238,6 +239,13 @@ export default function ShapeStyleBar() {
   const { x, y, scale } = useViewport();
   const [card, setCard] = useState<Card | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  // The bar's width, to tell whether it meets a Frame's name. Measured after
+  // each render and before paint, so a new width never shows misplaced.
+  const [barW, setBarW] = useState(0);
+  useLayoutEffect(() => {
+    const w = barRef.current?.offsetWidth ?? 0;
+    if (w !== barW) setBarW(w);
+  });
 
   const records = ids.map((id) => nodes[id]).filter((r): r is KonvaNodeRecord => !!r);
   const frameRecs = frameIds.map((id) => frames[id]).filter((f) => !!f);
@@ -319,7 +327,16 @@ export default function ShapeStyleBar() {
   const bottom = Math.max(...boxes.map((r) => r.canvasY + r.canvasH));
   const a = toScreen({ x: left, y: top }, vp);
   const b = toScreen({ x: right, y: bottom }, vp);
-  const above = a.y - GAP - (frameRecs.length ? FRAME_NAME_CLEARANCE : 0) - BAR_HEIGHT;
+  const centre = (a.x + b.x) / 2;
+  const bar: ScreenBox = {
+    left: centre - barW / 2, right: centre + barW / 2,
+    top: a.y - GAP - BAR_HEIGHT, bottom: a.y - GAP,
+  };
+  const names = frameRecs
+    .map((f) => frameNameBox(f, vp, nameTextWidth(f.label)))
+    .filter((n): n is ScreenBox => !!n);
+  const lift = barMeetsNames(bar, names) ? FRAME_NAME_CLEARANCE : 0;
+  const above = bar.top - lift;
   const below = above < MIN_TOP;
 
   const toggle = (c: Card) => setCard((open) => (open === c ? null : c));
@@ -332,7 +349,7 @@ export default function ShapeStyleBar() {
       data-testid="shape-style-bar"
       data-placement={below ? "below" : "above"}
       className={["shape-style-bar", below ? "shape-style-bar-below" : ""].join(" ")}
-      style={{ left: (a.x + b.x) / 2, top: below ? b.y + GAP : above, zIndex: Z_INDEX.styleBar }}
+      style={{ left: centre, top: below ? b.y + GAP : above, zIndex: Z_INDEX.styleBar }}
       // The board must not take a press on the bar as a click on empty board.
       onPointerDown={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}

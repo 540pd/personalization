@@ -52,7 +52,7 @@ const frameLooks = (page: Page): Promise<{ stroke: string; fill: string }[]> =>
 const frameName = (page: Page, name: string) => page.locator(`div[title="${name}"]`);
 
 test.describe("the style bar on Frames", () => {
-  test("shows Color only, centred above the Frame's name", async ({ page }) => {
+  test("shows Color only, centred above the Frame, clear of its name", async ({ page }) => {
     await openBoard(page);
     await drawFrame(page, 350, 250, 750, 500);
 
@@ -61,9 +61,12 @@ test.describe("the style bar on Frames", () => {
     await expect(page.getByRole("button", { name: "Shape fill" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Shape stroke" })).toHaveCount(0);
 
+    // Wide: the name is nowhere near the centred bar, so the bar sits as
+    // close as it does over a shape (#223).
     const box = (await bar(page).boundingBox())!;
     const name = (await frameName(page, "Frame").boundingBox())!;
-    expect(box.y + box.height).toBeLessThan(name.y);
+    expect(Math.round(250 - (box.y + box.height))).toBe(14);
+    expect(box.x).toBeGreaterThan(name.x + name.width);
     expect(Math.abs(box.x + box.width / 2 - 550)).toBeLessThan(3);
   });
 
