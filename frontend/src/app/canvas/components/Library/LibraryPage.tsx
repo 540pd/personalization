@@ -231,11 +231,14 @@ export function LibraryNoMatch({ noun, onClear }: { noun: string; onClear: () =>
  * goes back to once whatever it opened closes.
  */
 export function LibraryRow({
+  id,
   label,
   onOpen,
   menu,
   children,
 }: {
+  /** The item's id; focus finds the next row by it after a removal (#211). */
+  id: string;
   /** The item's name, for the row's and the menu's accessible names. */
   label: string;
   onOpen: (from: HTMLElement) => void;
@@ -245,6 +248,7 @@ export function LibraryRow({
   return (
     <tr
       className="library-row"
+      data-item-id={id}
       tabIndex={0}
       aria-label={`${label}, open to edit`}
       onClick={(e) => onOpen(e.currentTarget)}
@@ -303,19 +307,36 @@ export function TagsCell({ tags }: { tags: string[] }) {
 interface Toast {
   message: string;
   error?: boolean;
+  onUndo?: () => void;
   at: number;
 }
 
-/** One toast at a time; a failure stays up longer. */
-export function useLibraryToast(): [ReactNode, (message: string, error?: boolean) => void] {
+/**
+ * One toast at a time, so a new one replaces -- and takes the Undo of -- the
+ * last. A failure, or one with Undo (#211), stays up longer.
+ */
+export function useLibraryToast(): [ReactNode, (message: string, error?: boolean, onUndo?: () => void) => void] {
   const [toast, setToast] = useState<Toast | null>(null);
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), toast.error ? 5000 : 2500);
+    const t = setTimeout(() => setToast(null), toast.error || toast.onUndo ? 5000 : 2500);
     return () => clearTimeout(t);
   }, [toast]);
-  const node = toast ? <BoardToast message={toast.message} error={toast.error} /> : null;
-  return [node, (message, error = false) => setToast({ message, error, at: Date.now() })];
+  const node = toast ? (
+    <BoardToast
+      message={toast.message}
+      error={toast.error}
+      onUndo={
+        toast.onUndo
+          ? () => {
+              setToast(null);
+              toast.onUndo?.();
+            }
+          : undefined
+      }
+    />
+  ) : null;
+  return [node, (message, error = false, onUndo) => setToast({ message, error, onUndo, at: Date.now() })];
 }
 
 /**

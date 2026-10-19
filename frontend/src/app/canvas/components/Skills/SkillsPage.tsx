@@ -1,12 +1,13 @@
 "use client";
 
 // Luma reference: SKILL-01. The Skills page (#206): every skill in a table,
-// Upload skill, and each row opening Edit skill (#210).
+// Upload skill, each row opening Edit skill (#210), and Remove… (#211).
 
 import { useMemo, useRef, useState } from "react";
-import { FileText, Pencil, Upload } from "lucide-react";
+import { FileText, Pencil, Trash2, Upload } from "lucide-react";
 import { useSection } from "@/store/section.store";
 import { useSkills } from "@/store/skills.store";
+import { useAgents } from "@/store/agents.store";
 import LibraryPage, {
   ActionsHeader,
   LibraryAction,
@@ -20,6 +21,7 @@ import LibraryPage, {
   useReturnFocus,
 } from "../Library/LibraryPage";
 import UploadSkillDialog, { type SkillSaved } from "./UploadSkillDialog";
+import { useRemoval } from "../Library/useRemoval";
 import { allTags, filterItems, sortByName } from "../../library/fields";
 import { formatSize, type Skill } from "../../skills/skillFile";
 
@@ -51,6 +53,18 @@ function Page() {
   const [toast, showToast] = useLibraryToast();
   const actionRef = useRef<HTMLButtonElement>(null);
   const focus = useReturnFocus(actionRef);
+  const agents = useAgents((s) => s.agents);
+  const removal = useRemoval({
+    items: skills,
+    rows,
+    noun: "skills",
+    // Agents keep the id; it just stops matching, so Undo needs no repair.
+    usedBy: (skill) => sortByName(agents.filter((a) => a.skillIds.includes(skill.id))).map((a) => a.name),
+    remove: useSkills.getState().remove,
+    restore: useSkills.getState().restore,
+    showToast,
+    emptyFocus: actionRef,
+  });
 
   const open = (next: Dialog, from: HTMLElement | null) => {
     focus.from(from);
@@ -122,6 +136,7 @@ function Page() {
                   {rows.map((skill) => (
                     <LibraryRow
                       key={skill.id}
+                      id={skill.id}
                       label={skill.name}
                       onOpen={(from) => open({ kind: "edit", skill }, from)}
                       menu={[
@@ -129,6 +144,12 @@ function Page() {
                           label: "Edit…",
                           icon: Pencil,
                           onSelect: (trigger) => open({ kind: "edit", skill }, trigger),
+                        },
+                        {
+                          label: "Remove…",
+                          icon: Trash2,
+                          separated: true,
+                          onSelect: (trigger) => removal.request(skill, trigger),
                         },
                       ]}
                     >
@@ -167,6 +188,7 @@ function Page() {
           onSaveFailed={() => showToast("Couldn't save the skill.", true)}
         />
       )}
+      {removal.dialog}
       {toast}
     </LibraryPage>
   );

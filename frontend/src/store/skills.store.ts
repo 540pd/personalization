@@ -59,6 +59,10 @@ interface SkillsState {
   add: (skill: Skill) => boolean;
   /** Swaps the skill with `skill.id` for `skill`; false if it could not be saved. */
   replace: (skill: Skill) => boolean;
+  /** Removes it (#211); false (and nothing changes) if that could not be saved. */
+  remove: (id: string) => boolean;
+  /** Puts a removed skill back where it was in the list -- Undo (#211). */
+  restore: (skill: Skill, index: number) => boolean;
 }
 
 export const useSkills = create<SkillsState>((set, get) => {
@@ -71,5 +75,11 @@ export const useSkills = create<SkillsState>((set, get) => {
     skills: typeof window === "undefined" ? [] : loadSkills(),
     add: (skill) => commit([...get().skills, skill]),
     replace: (skill) => commit(get().skills.map((s) => (s.id === skill.id ? skill : s))),
+    remove: (id) => commit(get().skills.filter((x) => x.id !== id)),
+    restore: (skill, index) => {
+      const next = get().skills.filter((x) => x.id !== skill.id);
+      next.splice(Math.max(0, Math.min(index, next.length)), 0, skill);
+      return commit(next);
+    },
   };
 });
