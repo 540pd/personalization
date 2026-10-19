@@ -19,7 +19,9 @@ import { useViewport } from "@/store/viewport.store";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { canvasHistory } from "@/lib/canvas/history";
 import { membersOf, moveMembers, type FrameMembers } from "../board/frameMembers";
-import { startAutoLayoutSync } from "../board/autoLayout";
+import {
+  finishRearrange, rearrangeLive, startAutoLayoutSync, startRearrange, type ChildBox,
+} from "../board/autoLayout";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { boardStage } from "@/lib/canvas/boardStage";
 import FrameLabels from "./FrameLabels";
@@ -49,6 +51,9 @@ export default function FrameLayer() {
   // One object per resize gesture, shared by every frame it resizes, so the
   // gesture commits a single undo step however many frames it touched.
   const resizeKeyRef = useRef<object | null>(null);
+  // Per Frame with auto layout being resized: its items in the order they
+  // had when the resize began, repacked live to the dragged shape (#232).
+  const rearrangeRef = useRef<Map<string, ChildBox[]>>(new Map());
 
   const frames = useFrames((s) => s.frames);
   const draft = useFrames((s) => s.draft);
@@ -288,28 +293,25 @@ export default function FrameLayer() {
       // stored size would not match what is drawn.
       rect.on("transformstart", () => {
         resizeKeyRef.current ??= {};
+        if (f.layout) rearrangeRef.current.set(f.id, startRearrange(f.id));
         // The style bar steps aside while a frame is resized (#163).
         announceGesture(true);
       });
       // The name renders from the store, so it reads the live box to keep up
       // (#156). Not an upsert: that would rebuild the rect mid-gesture.
-      rect.on("transform", () => {
-        useFrames.getState().setResize(f.id, {
-          canvasX: rect.x(),
-          canvasY: rect.y(),
-          canvasW: rect.width() * rect.scaleX(),
-          canvasH: rect.height() * rect.scaleY(),
-        });
-      });
       // The name renders from the store, so it reads the live box to keep up
       // (#156). Not an upsert: that would rebuild the rect mid-gesture.
       rect.on("transform", () => {
-        useFrames.getState().setResize(f.id, {
+        const box = {
           canvasX: rect.x(),
           canvasY: rect.y(),
           canvasW: rect.width() * rect.scaleX(),
           canvasH: rect.height() * rect.scaleY(),
-        });
+        };
+        useFrames.getState().setResize(f.id, box);
+        // With auto layout, its items follow the shape being dragged (#232).
+        const order = rearrangeRef.current.get(f.id);
+        if (order) rearrangeLive(order, { x: box.canvasX, y: box.canvasY, w: box.canvasW, h: box.canvasH });
       });
       rect.on("transformend", () => {
         announceGesture(false);
@@ -317,9 +319,16 @@ export default function FrameLayer() {
         const h = Math.max(1, rect.height() * rect.scaleY());
         rect.scale({ x: 1, y: 1 });
         rect.size({ width: w, height: h });
-        useFrames.getState().upsert({
-          ...f, canvasX: rect.x(), canvasY: rect.y(), canvasW: w, canvasH: h,
-        });
+        const order = rearrangeRef.current.get(f.id);
+        rearrangeRef.current.delete(f.id);
+        if (order) {
+          // Packed to the final shape, then snapped to fit: one step (#232).
+          finishRearrange(f.id, order, { x: rect.x(), y: rect.y(), w, h });
+        } else {
+          useFrames.getState().upsert({
+            ...f, canvasX: rect.x(), canvasY: rect.y(), canvasW: w, canvasH: h,
+          });
+        }
         useFrames.getState().clearResize(f.id);
         // A resize is its own undo step (#128). Without this the next commit
         // -- a move, say -- folded the new size into a step whose undo went
@@ -360,10 +369,8 @@ export default function FrameLayer() {
       .map((id) => layer.findOne<Konva.Rect>(`#${id}`))
       .filter((r): r is Konva.Rect => !!r);
     transformer.nodes(selected);
-    // A Frame with auto layout hugs its children, so it has no size of its
-    // own to drag (#225): no corner handles while one is in the selection.
-    const hugging = selectedIds.some((id) => frames[id]?.layout);
-    transformer.enabledAnchors(hugging ? [] : CORNERS);
+    // Every Frame has its corners. On one with auto layout, dragging one
+    // rearranges its items to the shape being dragged (#232).
     transformer.moveToTop();
     layer.batchDraw();
   }, [frames, selectedIds]);
