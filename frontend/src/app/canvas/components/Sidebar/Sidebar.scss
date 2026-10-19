@@ -297,8 +297,22 @@
     @apply w-full justify-center;
   }
 
+  // One row, the expanded header's own 48px (#221): the mark, then the
+  // collapse button. Stacking them put the button 32px lower than when
+  // expanded -- off the pointer that had just pressed it -- and pushed every
+  // nav item 28px down.
+  // gap-1: the button's icon already sits inside 4px of its own box, so
+  // the gap you see is about 8px.
   .sidebar-header {
-    @apply flex-col h-auto px-0 pt-3 pb-2 gap-2;
+    @apply relative justify-center px-0 gap-1;
+  }
+
+  // The two tooltips open from the row, not from their own anchors: from
+  // the mark's, a tooltip would open over the button beside it. Static
+  // anchors make the row (full rail width) their containing block, so both
+  // open at the rail's outer edge, centred on the row -- one at a time.
+  .sidebar-header .sidebar-tip {
+    @apply static w-auto;
   }
 
   .sidebar-brandmark {
