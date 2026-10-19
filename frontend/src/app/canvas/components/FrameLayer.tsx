@@ -21,6 +21,7 @@ import { canvasHistory } from "@/lib/canvas/history";
 import { membersOf, moveMembers, type FrameMembers } from "../board/frameMembers";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { boardStage } from "@/lib/canvas/boardStage";
+import { bindWheelZoom } from "@/lib/canvas/wheelZoom";
 import FrameLabels from "./FrameLabels";
 import { announceGesture } from "@/lib/canvas/gesture";
 import { CORNERS } from "../board/selectionChrome";
@@ -113,6 +114,9 @@ export default function FrameLayer() {
     stage.on("click tap", (e) => {
       if (e.target === stage) selectOnly(null);
     });
+
+    // Over a bare frame the wheel lands here, not on Board's stage (#142).
+    bindWheelZoom(stage);
 
     const observer = new ResizeObserver(() => {
       stage.width(container.offsetWidth);
