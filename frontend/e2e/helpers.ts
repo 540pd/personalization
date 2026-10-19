@@ -115,8 +115,9 @@ export async function addPanel(page: Page) {
 /**
  * Put the nav rail away.
  *
- * The minimap and zoom bar are hidden while the rail is open -- they share
- * the bottom-left corner -- so any spec about them has to collapse it first.
+ * Specs about the minimap and zoom bar measure them beside the 64px rail.
+ * They were hidden beside the full rail until #204; the expanded case has its
+ * own spec (zoom-bar.spec.ts).
  */
 export async function collapseSidebar(page: Page) {
   await page.locator(".sidebar-collapse-button").click();

@@ -326,24 +326,24 @@ test.describe("sidebar", () => {
       expect(dock!.x).toBeGreaterThan(SIDEBAR_WIDTH);
     });
 
-    test("the minimap is hidden while the rail is expanded, and sits beside the icon rail", async ({ page }) => {
-      // Both want the bottom-left corner. Hidden beside the full rail;
-      // beside the 64px one there is room for both.
+    test("the zoom bar sits beside the rail in both states", async ({ page }) => {
+      // #204: it used to be hidden beside the full rail. Now it follows the
+      // canvas edge, 24px clear of whichever rail is showing.
       await openBoard(page);
-      await expect(page.locator(".minimap-container")).toHaveCount(0);
+      await expect(page.locator(".minimap-container")).toBeVisible();
+      let bar = await page.locator(".minimap-container").boundingBox();
+      expect(bar!.x).toBeGreaterThanOrEqual(SIDEBAR_WIDTH + 24 - 1);
 
       await page.locator(".sidebar-collapse-button").click();
-      await expect(page.locator(".minimap-container")).toBeVisible();
-      const map = await page.locator(".minimap-container").boundingBox();
-      expect(map!.x).toBeGreaterThan(RAIL_WIDTH);
-      expect(map!.x).toBeLessThan(SIDEBAR_WIDTH);
+      await page.waitForTimeout(250);
+      bar = await page.locator(".minimap-container").boundingBox();
+      expect(bar!.x).toBeGreaterThan(RAIL_WIDTH);
+      expect(bar!.x).toBeLessThan(SIDEBAR_WIDTH);
     });
 
-    test("zoom shortcuts still work while the panel is hidden", async ({ page }) => {
-      // The reason hiding is acceptable at all. If the component unmounted,
-      // its keydown listener would go with it and this would fail.
+    test("zoom shortcuts work with the rail expanded", async ({ page }) => {
       await openBoard(page);
-      await expect(page.locator(".minimap-container")).toHaveCount(0);
+      await expect(page.locator(".minimap-container")).toBeVisible();
 
       await setZoom(page, 0.5);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

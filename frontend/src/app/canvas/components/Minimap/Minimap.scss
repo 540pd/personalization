@@ -1,9 +1,20 @@
 @reference "../../../globals.css";
 
-// `left` is set inline from the canvas area: the rail covers the bottom-left
-// corner this used to sit in.
+// `left` and `bottom` are set inline: `left` from the canvas area, which
+// starts at the rail's edge, and `bottom` lifted clear of the dock when the
+// two would meet (#204).
 .minimap-container {
-  @apply fixed bottom-6 z-50;
+  @apply fixed z-50;
+  // The rail's own width transition (Sidebar.scss), so the bar keeps its
+  // 24px from the rail's edge throughout a toggle: never under the rail as
+  // it shrinks, never jumping once it is done.
+  transition:
+    left 150ms ease-out,
+    bottom 150ms ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
 
 .minimap-zoom-menu {
