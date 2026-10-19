@@ -12,13 +12,16 @@ import { create } from "zustand";
 // containment when a drag starts. The exception is a frame with auto layout
 // (#225), which keeps its children by id, in order.
 
-/** Auto layout: the children, laid out in this order in one row. */
+/**
+ * Auto layout: a row of columns, each a stack of children top to bottom
+ * (#230). A plain row, as #225 made it, is one child per column.
+ */
 export interface FrameLayout {
   /**
-   * Konva node and panel ids. One whose node is gone is skipped, and kept, so
-   * an undo that brings the node back finds it in its slot.
+   * Konva node and panel ids, by column. One whose node is gone is skipped,
+   * and kept, so an undo that brings the node back finds it in its place.
    */
-  children: string[];
+  columns: string[][];
 }
 
 export interface FrameRecord {

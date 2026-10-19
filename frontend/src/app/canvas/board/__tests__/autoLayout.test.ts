@@ -1,12 +1,13 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
-  applyAutoLayout, canAutoLayout, layoutRow, orderChildren, reflowAutoLayouts, removeAutoLayout,
-  type ChildBox,
+  applyAutoLayout, canAutoLayout, layoutColumns, orderChildren, reflowAutoLayouts, removeAutoLayout,
+  withoutIds, type ChildBox,
 } from "../autoLayout";
 import { useFrames, type FrameRecord } from "@/store/frame.store";
 import { useKonvaNodes, type KonvaNodeRecord } from "@/store/konvaNodes.store";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { canvasHistory } from "@/lib/canvas/history";
+import { boardStage } from "@/lib/canvas/boardStage";
 
 const box = (id: string, x: number, y: number, w: number, h: number): ChildBox => ({ id, x, y, w, h });
 
@@ -17,12 +18,38 @@ describe("orderChildren", () => {
   });
 });
 
-describe("layoutRow", () => {
-  it("pads 16, gaps 16, aligns tops and hugs the row", () => {
-    const row = layoutRow({ x: 100, y: 200 }, [box("a", 0, 0, 90, 60), box("b", 0, 0, 90, 80)]);
-    expect(row.positions).toEqual({ a: { x: 116, y: 216 }, b: { x: 222, y: 216 } });
-    expect(row.w).toBe(16 + 90 + 16 + 90 + 16);
-    expect(row.h).toBe(16 + 80 + 16);
+describe("layoutColumns", () => {
+  it("one item per column is a row: pads 16, gaps 16, aligns tops, hugs", () => {
+    const g = layoutColumns({ x: 100, y: 200 }, [[box("a", 0, 0, 90, 60)], [box("b", 0, 0, 90, 80)]]);
+    expect(g.positions).toEqual({ a: { x: 116, y: 216 }, b: { x: 222, y: 216 } });
+    expect(g.w).toBe(16 + 90 + 16 + 90 + 16);
+    expect(g.h).toBe(16 + 80 + 16);
+  });
+
+  it("stacks a column top to bottom, aligned left, as wide as its widest", () => {
+    const g = layoutColumns({ x: 0, y: 0 }, [
+      [box("a", 0, 0, 90, 60)],
+      [box("b", 0, 0, 120, 60), box("c", 0, 0, 70, 50)],
+      [box("d", 0, 0, 90, 80)],
+    ]);
+    expect(g.positions).toEqual({
+      a: { x: 16, y: 16 },
+      b: { x: 122, y: 16 }, c: { x: 122, y: 16 + 60 + 16 },
+      d: { x: 122 + 120 + 16, y: 16 },
+    });
+    expect(g.w).toBe(16 + 90 + 16 + 120 + 16 + 90 + 16);
+    expect(g.h).toBe(16 + 60 + 16 + 50 + 16);
+  });
+
+  it("an empty column takes no space", () => {
+    const g = layoutColumns({ x: 0, y: 0 }, [[box("a", 0, 0, 90, 60)], [], [box("b", 0, 0, 90, 60)]]);
+    expect(g.positions.b).toEqual({ x: 16 + 90 + 16, y: 16 });
+  });
+});
+
+describe("withoutIds", () => {
+  it("takes the ids out, and the columns they empty", () => {
+    expect(withoutIds([["a"], ["b", "c"], ["d"]], new Set(["a", "c"]))).toEqual([["b"], ["d"]]);
   });
 });
 
@@ -46,10 +73,10 @@ describe("auto layout on a Frame", () => {
     useNodePanel.setState({ panels: [panel("p", 420, 150)] });
   });
 
-  it("lays everything inside out in a row, left to right, and hugs it", () => {
+  it("lays everything inside out one per column, left to right, and hugs it", () => {
     expect(applyAutoLayout("f")).toBe(true);
     // b (x 50), a (x 300), p (x 420).
-    expect(f().layout).toEqual({ children: ["b", "a", "p"] });
+    expect(f().layout).toEqual({ columns: [["b"], ["a"], ["p"]] });
     expect(n("b")).toMatchObject({ canvasX: 16, canvasY: 16 });
     expect(n("a")).toMatchObject({ canvasX: 16 + 120 + 16, canvasY: 16 });
     expect(p("p")).toMatchObject({ canvasX: 16 + 120 + 16 + 90 + 16, canvasY: 16 + 40 });
@@ -97,13 +124,21 @@ describe("auto layout on a Frame", () => {
       expect(reflowAutoLayouts()).toBe(false);
     });
 
+    it("lays out a stack (#230)", () => {
+      useFrames.getState().upsert({ ...f(), layout: { columns: [["b"], ["a", "p"]] } });
+      reflowAutoLayouts();
+      expect(n("a")).toMatchObject({ canvasX: 16 + 120 + 16, canvasY: 16 });
+      expect(p("p")).toMatchObject({ canvasX: 16 + 120 + 16, canvasY: 16 + 60 + 16 + 40 });
+      expect(f()).toMatchObject({ canvasW: 16 + 120 + 16 + 100 + 16, canvasH: 16 + 60 + 16 + 80 + 16 });
+    });
+
     it("closes the gap a deleted child leaves, and keeps its id for undo", () => {
       useKonvaNodes.getState().remove("b");
       expect(reflowAutoLayouts()).toBe(true);
       expect(n("a")).toMatchObject({ canvasX: 16 });
       expect(p("p")).toMatchObject({ canvasX: 16 + 90 + 16 });
       expect(f().canvasW).toBe(16 + 90 + 16 + 100 + 16);
-      expect(f().layout?.children).toEqual(["b", "a", "p"]);
+      expect(f().layout?.columns).toEqual([["b"], ["a"], ["p"]]);
     });
 
     it("follows a child that grows", () => {
@@ -113,19 +148,18 @@ describe("auto layout on a Frame", () => {
       expect(f().canvasH).toBe(16 + 150 + 16);
     });
 
-    it("drops a child dragged clear of the Frame", () => {
+    it("drops a child dragged clear of the Frame, and its emptied column", () => {
       useKonvaNodes.getState().upsert({ ...n("a"), canvasX: 2000, canvasY: 2000 });
       reflowAutoLayouts();
-      expect(f().layout?.children).toEqual(["b", "p"]);
+      expect(f().layout?.columns).toEqual([["b"], ["p"]]);
       expect(n("a")).toMatchObject({ canvasX: 2000 });
       expect(p("p")).toMatchObject({ canvasX: 16 + 120 + 16 });
     });
 
-    it("puts a child dropped inside back in its slot", () => {
+    it("puts a child dropped inside back in its place", () => {
       useKonvaNodes.getState().upsert({ ...n("a"), canvasX: 30, canvasY: 50 });
       reflowAutoLayouts();
       expect(n("a")).toMatchObject({ canvasX: 16 + 120 + 16, canvasY: 16 });
-      expect(f().layout?.children).toEqual(["b", "a", "p"]);
     });
 
     it("keeps its children when the Frame moves with them, as a drag does", () => {
@@ -135,7 +169,28 @@ describe("auto layout on a Frame", () => {
       }
       useNodePanel.getState().setCanvasPositions({ p: { x: p("p").canvasX + 1000, y: p("p").canvasY + 500 } });
       expect(reflowAutoLayouts()).toBe(false);
-      expect(f().layout?.children).toEqual(["b", "a", "p"]);
+      expect(f().layout?.columns).toEqual([["b"], ["a"], ["p"]]);
+    });
+
+    describe("with nothing left in it (#230)", () => {
+      beforeEach(() => { boardStage.current = {} as never; });
+      afterEach(() => { boardStage.current = null; });
+
+      it("turns auto layout off, and the Frame keeps its size", () => {
+        const { canvasW, canvasH } = f();
+        useKonvaNodes.setState({ nodes: {} });
+        useNodePanel.setState({ panels: [] });
+        reflowAutoLayouts();
+        expect(f().layout).toBeUndefined();
+        expect(f()).toMatchObject({ canvasW, canvasH });
+      });
+    });
+
+    it("but not while the board isn't up: a loading board's nodes aren't known yet", () => {
+      useKonvaNodes.setState({ nodes: {} });
+      useNodePanel.setState({ panels: [] });
+      reflowAutoLayouts();
+      expect(f().layout).toEqual({ columns: [["b"], ["a"], ["p"]] });
     });
   });
 });

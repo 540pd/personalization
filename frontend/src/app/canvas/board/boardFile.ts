@@ -232,17 +232,30 @@ function readNode(v: unknown): BoardFileNode | null {
   };
 }
 
+/**
+ * A Frame's auto layout: columns of ids (#230). A Frame saved with #225's flat
+ * list of children reads as one child per column, which is how it looked.
+ * Optional, so a file from before either reads as before, and a reader from
+ * before it drops it and keeps the Frame as it is.
+ */
+function readLayout(v: unknown): Pick<FrameRecord, "layout"> {
+  if (!isObj(v)) return {};
+  const ids = (x: unknown): x is string[] => Array.isArray(x) && x.every(isStr);
+  if (Array.isArray(v.columns) && v.columns.every(ids)) {
+    const columns = (v.columns as string[][]).filter((c) => c.length);
+    return columns.length ? { layout: { columns } } : {};
+  }
+  if (ids(v.children) && v.children.length) return { layout: { columns: v.children.map((c) => [c]) } };
+  return {};
+}
+
 function readFrame(v: unknown): FrameRecord | null {
   if (!isObj(v) || !isStr(v.id) || !isStr(v.label)) return skip("frame", v);
   if (!isNum(v.canvasX) || !isNum(v.canvasY) || !isNum(v.canvasW) || !isNum(v.canvasH)) return skip("frame", v);
   return {
     id: v.id, canvasX: v.canvasX, canvasY: v.canvasY, canvasW: v.canvasW, canvasH: v.canvasH, label: v.label,
     ...(isStr(v.stroke) ? { stroke: v.stroke } : {}),
-    // Auto layout (#225). Optional, so a file from before it reads as before,
-    // and a reader from before it drops it and keeps the Frame as it is.
-    ...(isObj(v.layout) && Array.isArray(v.layout.children) && v.layout.children.every(isStr)
-      ? { layout: { children: v.layout.children as string[] } }
-      : {}),
+    ...readLayout(v.layout),
   };
 }
 
