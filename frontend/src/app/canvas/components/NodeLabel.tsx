@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { LABEL_FONT_SIZE, LABEL_LINE_HEIGHT, Z_INDEX } from "@/constants/canvas.constants";
+import { trackPointer } from "@/lib/dom/pointer";
 
 // A line box is taller than the glyphs it holds; the surplus sits half above
 // and half below. Without allowing for it the rendered gap is this much wider
@@ -119,23 +120,15 @@ export default function NodeLabel({
     if (e.button !== 0) return;
     e.stopPropagation();
     const press = { x: e.clientX, y: e.clientY };
-    let dragged = false;
-    const stop = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-    const move = (ev: PointerEvent) => {
-      if (Math.hypot(ev.clientX - press.x, ev.clientY - press.y) <= DRAG_THRESHOLD) return;
-      dragged = true;
-      stop();
-      onDragFrom?.(press);
-    };
-    const up = () => {
-      stop();
-      if (!dragged) onSelect?.();
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    // A cancelled press is neither: it does not select.
+    const stop = trackPointer({
+      onMove: (ev) => {
+        if (Math.hypot(ev.clientX - press.x, ev.clientY - press.y) <= DRAG_THRESHOLD) return;
+        stop();
+        onDragFrom?.(press);
+      },
+      onUp: () => onSelect?.(),
+    });
   };
   const isHandle = !!(onDragFrom || onSelect);
 

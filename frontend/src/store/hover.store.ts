@@ -6,6 +6,7 @@ import { useFrames } from "@/store/frame.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { useViewport } from "@/store/viewport.store";
 import { hoverTargetAt, type HoverCandidate } from "@/lib/canvas/hoverTarget";
+import { disposeAll, listen } from "@/lib/dom/listen";
 
 /**
  * The node under the pointer, by id -- a panel, an image or shape, or a
@@ -46,16 +47,15 @@ function onLeave() {
 }
 
 let users = 0;
+const off: Array<() => void> = [];
 
 function track() {
   if (users++ === 0) {
-    window.addEventListener("pointermove", onMove);
-    document.documentElement.addEventListener("pointerleave", onLeave);
+    off.push(listen(window, "pointermove", onMove), listen(document.documentElement, "pointerleave", onLeave));
   }
   return () => {
     if (--users === 0) {
-      window.removeEventListener("pointermove", onMove);
-      document.documentElement.removeEventListener("pointerleave", onLeave);
+      disposeAll(off);
       onLeave();
     }
   };

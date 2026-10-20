@@ -10,6 +10,7 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { stagePositionFor, type Point, type Rect } from "@/lib/canvas/coords";
 import { minimapWorld, viewportBounds } from "./world";
 import { boundsFrom } from "./boardBounds";
+import { trackPointer } from "@/lib/dom/pointer";
 
 export const MAP_W = 200;
 export const MAP_H = 130;
@@ -82,16 +83,7 @@ export default function MinimapView({ area }: { area: Rect }) {
         const pt = toCanvasPoint(me.clientX, me.clientY);
         if (pt) centreOn(pt);
       };
-      const onUp = () => {
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
-        window.removeEventListener("pointercancel", onUp);
-      };
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", onUp);
-      // A cancelled gesture never fires pointerup; without this the listeners
-      // leak and the next click is swallowed as a drag.
-      window.addEventListener("pointercancel", onUp);
+      trackPointer({ onMove });
     },
     [toCanvasPoint, centreOn]
   );

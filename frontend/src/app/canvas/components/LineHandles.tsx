@@ -23,6 +23,7 @@ import { announceGesture } from "@/lib/canvas/gesture";
 import { bendToward, curveMid, lineAttrs, snap45, type BoardShape } from "../board/shapes";
 import { syncNodeGeometry } from "../board/geometry";
 import { COLORS, LINE_STRAIGHT_SNAP, SELECTION, Z_INDEX } from "@/constants/canvas.constants";
+import { trackPointer } from "@/lib/dom/pointer";
 
 const END_HANDLE_SIZE = 10; // screen px
 // Smaller, so it reads as a different kind of control from the ends.
@@ -74,17 +75,13 @@ function dragGrip(e: React.PointerEvent, id: string, grip: Grip, ends: Ends) {
     const p = toCanvas({ x: ev.clientX, y: ev.clientY }, useViewport.getState());
     apply(node, attrsFor(grip, ends, p, ev.shiftKey));
   };
-  const up = () => {
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", up);
-    window.removeEventListener("pointercancel", up);
+  // A cancelled drag ends where it is, as a release would.
+  const end = () => {
     if (!moved) return;
     announceGesture(false);
     canvasHistory.commit();
   };
-  window.addEventListener("pointermove", move);
-  window.addEventListener("pointerup", up);
-  window.addEventListener("pointercancel", up);
+  trackPointer({ onMove: move, onUp: end, onCancel: end });
 }
 
 /** Double-clicking the middle handle straightens the line. */

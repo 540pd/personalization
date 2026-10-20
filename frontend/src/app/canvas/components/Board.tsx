@@ -41,6 +41,7 @@ import { boardIsShown } from "@/store/section.store";
 import { boardKeyAllowed } from "@/lib/canvas/boardKeys";
 import { disposeAll, listen } from "@/lib/dom/listen";
 import { COLORS, Z_INDEX, MIN_NODE_SIZE, SHAPE_MIN_SIZE, SELECTION } from "@/constants/canvas.constants";
+import { trackPointer } from "@/lib/dom/pointer";
 
 // imageUrl and label live in konvaNodes, not on the shape, and Delete drops
 // that record -- so they ride along, or an undone delete would bring back an
@@ -590,6 +591,7 @@ export default function Board() {
       updateSelectionChrome,
       saveSnapshot,
     });
+    let unfollow = () => {};
     const followMove = (e: PointerEvent) => {
       stage.setPointersPositions(e);
       frame.onMove(stage);
@@ -598,7 +600,6 @@ export default function Board() {
     };
     const followUp = (e: PointerEvent) => {
       stage.setPointersPositions(e);
-      unfollow();
       frame.onUp(stage);
       shapeDraw.onUp(stage, e.shiftKey);
       textTool.onUp(stage);
@@ -609,23 +610,13 @@ export default function Board() {
     // Losing the window or the gesture abandons the draw rather than leaving
     // a preview stranded. Escape is handled with the frame keys below.
     const abandon = () => {
-      unfollow();
       frame.cancel();
       shapeDraw.cancel();
       textTool.cancel();
     };
-    const unfollow = () => {
-      window.removeEventListener("pointermove", followMove);
-      window.removeEventListener("pointerup", followUp);
-      window.removeEventListener("pointercancel", abandon);
-      window.removeEventListener("blur", abandon);
-    };
     stage.on("mousedown.frame touchstart.frame", () => {
       if (!frame.onDown(stage) && !shapeDraw.onDown(stage) && !textTool.onDown(stage)) return;
-      window.addEventListener("pointermove", followMove);
-      window.addEventListener("pointerup", followUp);
-      window.addEventListener("pointercancel", abandon);
-      window.addEventListener("blur", abandon);
+      unfollow = trackPointer({ onMove: followMove, onUp: followUp, onCancel: abandon });
     });
 
     // Double-click a text to edit it in place.
