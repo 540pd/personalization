@@ -18,7 +18,7 @@ import { useFrames, type FrameRecord } from "@/store/frame.store";
 import { useLayoutDrop, type DropLine } from "@/store/layoutDrop.store";
 import { containsBox, contains, type Bounds } from "@/lib/canvas/bounds";
 import type { Point } from "@/lib/canvas/coords";
-import { FRAME_LAYOUT_GAP, FRAME_LAYOUT_PADDING } from "@/constants/canvas.constants";
+import { FRAME_LAYOUT_GAP, FRAME_LAYOUT_NAME_BAND, FRAME_LAYOUT_PADDING } from "@/constants/canvas.constants";
 import { childBoxes, childrenOf, withoutIds, type ChildBox } from "./autoLayout";
 
 const areaOf = (f: FrameRecord): Bounds => ({ x: f.canvasX, y: f.canvasY, w: f.canvasW, h: f.canvasH });
@@ -108,7 +108,8 @@ export function dropTarget(frame: Bounds, columns: string[][], pt: Point): { pla
       placement: { kind: "stack", column: col.index, index: col.ids.indexOf(hit.id) + (below ? 1 : 0) },
       line: {
         x: col.bounds.x, length: col.bounds.w, vertical: false,
-        y: below ? hit.y + hit.h + gap / 2 : hit.y - gap / 2,
+        // Above a named item, the gap is above its name band (#235).
+        y: below ? hit.y + hit.h + gap / 2 : hit.y - (hit.named ? FRAME_LAYOUT_NAME_BAND : 0) - gap / 2,
       },
     };
   }

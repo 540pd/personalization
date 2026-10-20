@@ -66,6 +66,13 @@ describe("dropping into a Frame with auto layout", () => {
     expect(t.line).toEqual({ x: 16, y: 16 + 60 + 8, length: 90, vertical: false });
   });
 
+  it("on a named item's top: the flat line is above its name band (#235)", () => {
+    useKonvaNodes.getState().upsert({ ...useKonvaNodes.getState().nodes.c, label: "hero", canvasY: 60 });
+    const t = dropTarget({ x: 0, y: 0, w: 334, h: 200 }, [["a"], ["c"]], { x: 273, y: 64 });
+    expect(t.placement).toEqual({ kind: "stack", column: 1, index: 0 });
+    expect(t.line).toMatchObject({ y: 60 - 24 - 8, vertical: false });
+  });
+
   it("over a gap: a new column between", () => {
     const t = dropTarget({ x: 0, y: 0, w: 334, h: 112 }, [["a"], ["c"]], { x: 115, y: 100 });
     expect(t.placement).toEqual({ kind: "column", index: 1 });

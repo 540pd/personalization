@@ -80,6 +80,45 @@ describe("readingOrder", () => {
   });
 });
 
+describe("room for names (#235)", () => {
+  const named = (id: string, w = 90, h = 60): ChildBox => ({ id, x: 0, y: 0, w, h, named: true });
+  const plain = (id: string, w = 90, h = 30): ChildBox => ({ id, x: 0, y: 0, w, h });
+
+  it("a row of named items starts below a 24 band, 8 below the Frame's edge", () => {
+    const g = layoutColumns({ x: 0, y: 0 }, [[named("a")], [named("b")]]);
+    expect(g.positions).toEqual({ a: { x: 16, y: 32 }, b: { x: 122, y: 32 } });
+    expect(g.h).toBe(8 + 24 + 60 + 16);
+  });
+
+  it("a row mixing named and plain items keeps their tops in line", () => {
+    const g = layoutColumns({ x: 0, y: 0 }, [[plain("s")], [named("a")]]);
+    expect(g.positions.s.y).toBe(32);
+    expect(g.positions.a.y).toBe(32);
+  });
+
+  it("in a column, only a named item gets a band above it", () => {
+    const g = layoutColumns({ x: 0, y: 0 }, [[named("a"), plain("s"), named("b")]]);
+    expect(g.positions).toEqual({
+      a: { x: 16, y: 32 },
+      s: { x: 16, y: 32 + 60 + 16 },
+      b: { x: 16, y: 32 + 60 + 16 + 30 + 16 + 24 },
+    });
+    expect(g.h).toBe(32 + 60 + 16 + 30 + 16 + 24 + 60 + 16);
+  });
+
+  it("no names, no band: as before", () => {
+    expect(layoutColumns({ x: 0, y: 0 }, [[plain("s")]]).positions.s.y).toBe(16);
+  });
+
+  it("packing counts the bands, so its size is what's drawn", () => {
+    const boxes = [named("a"), plain("s"), named("b")];
+    const p = packColumns(boxes, 1);
+    const g = layoutColumns({ x: 0, y: 0 }, [boxes]);
+    expect(p.h).toBe(g.h);
+    expect(p.w).toBe(g.w);
+  });
+});
+
 describe("withoutIds", () => {
   it("takes the ids out, and the columns they empty", () => {
     expect(withoutIds([["a"], ["b", "c"], ["d"]], new Set(["a", "c"]))).toEqual([["b"], ["d"]]);
@@ -243,6 +282,20 @@ describe("auto layout on a Frame", () => {
         finishRearrange("f", startRearrange("f"), { x: 0, y: 0, w: 150, h: 900 });
         expect(f().layout).toEqual({ columns: [["b", "a", "p"]] });
       });
+    });
+
+    it("gives a named image its band, and lays out again when a panel gets a name (#235)", () => {
+      useKonvaNodes.getState().upsert({ ...n("b"), label: "beach" });
+      reflowAutoLayouts();
+      expect(n("b")).toMatchObject({ canvasX: 16, canvasY: 8 + 24 });
+      // Every column starts below the band.
+      expect(n("a")).toMatchObject({ canvasY: 8 + 24 });
+      const before = f().canvasH;
+      useNodePanel.getState().setCanvasPositions({ p: { x: p("p").canvasX, y: p("p").canvasY } });
+      useNodePanel.setState({ panels: useNodePanel.getState().panels.map((q) => ({ ...q, label: "hero" })) });
+      reflowAutoLayouts();
+      expect(f().canvasH).toBe(before);
+      expect(p("p")).toMatchObject({ canvasY: 8 + 24 + 40 });
     });
 
     describe("with nothing left in it (#230)", () => {
