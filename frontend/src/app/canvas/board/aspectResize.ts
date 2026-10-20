@@ -10,13 +10,9 @@
 //     silently be left behind by the next drag.
 
 import { useNodePanel } from "@/store/nodePanel.store";
-import { useFrames, type FrameRecord } from "@/store/frame.store";
+import { useFrames } from "@/store/frame.store";
 import { boundsOf, containsBox, type Bounds } from "@/lib/canvas/bounds";
 import { VARIANT_PADDING } from "./variants";
-
-const frameBounds = (f: FrameRecord): Bounds => ({
-  x: f.canvasX, y: f.canvasY, w: f.canvasW, h: f.canvasH,
-});
 
 /**
  * `frame` grown just enough to hold `box` with `pad` of margin on each side it
@@ -54,7 +50,7 @@ export function resizeNodeForSettings(id: string, w: number, h: number): boolean
   const after: Bounds = { x: before.x, y: before.y, w, h };
   // Decided before the resize: "was it inside", not "is it inside".
   const hosts = Object.values(useFrames.getState().frames).filter((f) =>
-    containsBox(frameBounds(f), before)
+    containsBox(boundsOf(f), before)
   );
 
   store.setSize(id, w, h);
@@ -62,7 +58,7 @@ export function resizeNodeForSettings(id: string, w: number, h: number): boolean
   store.setCanvasPos(id, panel.canvasX, before.y + h / 2);
 
   for (const f of hosts) {
-    const grown = grownToFit(frameBounds(f), after);
+    const grown = grownToFit(boundsOf(f), after);
     if (grown) {
       useFrames.getState().upsert({
         ...f, canvasX: grown.x, canvasY: grown.y, canvasW: grown.w, canvasH: grown.h,

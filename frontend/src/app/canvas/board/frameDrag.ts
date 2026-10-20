@@ -17,14 +17,10 @@ import { useViewport } from "@/store/viewport.store";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { canvasHistory } from "@/lib/canvas/history";
 import { selectOnly } from "@/lib/canvas/selection";
-import { containsBox, type Bounds } from "@/lib/canvas/bounds";
+import { boundsOf, byArea, containsBox, type Bounds } from "@/lib/canvas/bounds";
 import { childrenOf } from "./autoLayout";
 import { membersOf, moveMembers } from "./frameMembers";
 import { trackPointer } from "@/lib/dom/pointer";
-
-const boundsOfFrame = (f: FrameRecord): Bounds => ({
-  x: f.canvasX, y: f.canvasY, w: f.canvasW, h: f.canvasH,
-});
 
 /**
  * The selected frame `box` sits fully inside, if any.
@@ -39,10 +35,45 @@ export function selectedFrameAround(box: Bounds, nodeId?: string): FrameRecord |
   const { frames, selectedIds } = useFrames.getState();
   const around = selectedIds
     .map((id) => frames[id])
-    .filter((f): f is FrameRecord => !!f && containsBox(boundsOfFrame(f), box))
+    .filter((f): f is FrameRecord => !!f && containsBox(boundsOf(f), box))
     .filter((f) => !(nodeId && f.layout && childrenOf(f.layout).includes(nodeId)));
-  around.sort((a, b) => a.canvasW * a.canvasH - b.canvasW * b.canvasH);
+  around.sort(byArea);
   return around[0] ?? null;
+}
+
+export interface FrameMove {
+  /** The frame is `dx`, `dy` from where it was, in canvas units. */
+  move(dx: number, dy: number): void;
+  /** Lands it at the last offset, as one undo step. */
+  end(): void;
+}
+
+/**
+ * Moves `frame` and everything resting in it. Membership is fixed now, so a
+ * node is not picked up or dropped halfway through just because the frame
+ * swept over it. Shared by a drag on the frame's own rect (FrameLayer) and
+ * one handed over from a node inside it (dragFrameFrom).
+ */
+export function beginFrameMove(frame: FrameRecord): FrameMove {
+  const members = membersOf(frame);
+  let dx = 0;
+  let dy = 0;
+  return {
+    move(x, y) {
+      dx = x;
+      dy = y;
+      // Everything resting on the frame travels with it.
+      moveMembers(members, dx, dy);
+      // The name renders from the store, so it reads the live offset to keep up.
+      useFrames.getState().setDrag(frame.id, { dx, dy });
+    },
+    end() {
+      useFrames.getState().clearDrag();
+      useFrames.getState().upsert({ ...frame, canvasX: frame.canvasX + dx, canvasY: frame.canvasY + dy });
+      // One step for the frame and everything it carried.
+      canvasHistory.commit();
+    },
+  };
 }
 
 /**
@@ -55,7 +86,7 @@ export function selectedFrameAround(box: Bounds, nodeId?: string): FrameRecord |
  * move is one undo step.
  */
 export function dragFrameFrom(frame: FrameRecord, press: { x: number; y: number }): void {
-  const members = membersOf(frame);
+  const moving = beginFrameMove(frame);
   const rect = frameStage.current?.findOne<Konva.Rect>(`#${frame.id}`);
   let dx = 0;
   let dy = 0;
@@ -67,9 +98,7 @@ export function dragFrameFrom(frame: FrameRecord, press: { x: number; y: number 
   const apply = () => {
     rect?.position({ x: frame.canvasX + dx, y: frame.canvasY + dy });
     rect?.getLayer()?.batchDraw();
-    moveMembers(members, dx, dy);
-    // The name renders from the store, so it reads the live offset to keep up.
-    useFrames.getState().setDrag(frame.id, { dx, dy });
+    moving.move(dx, dy);
   };
 
   const onMove = (e: PointerEvent) => {
@@ -83,9 +112,7 @@ export function dragFrameFrom(frame: FrameRecord, press: { x: number; y: number 
     // Last offset seen, not the end event's: a cancel carries no meaningful
     // position.
     apply();
-    useFrames.getState().clearDrag();
-    useFrames.getState().upsert({ ...frame, canvasX: frame.canvasX + dx, canvasY: frame.canvasY + dy });
-    canvasHistory.commit();
+    moving.end();
   };
 
   trackPointer({ onMove, onUp: onEnd, onCancel: onEnd });

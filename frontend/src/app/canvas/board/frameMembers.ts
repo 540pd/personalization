@@ -13,7 +13,7 @@ import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import type { FrameRecord } from "@/store/frame.store";
 import { boardStage } from "@/lib/canvas/boardStage";
-import { boundsOf, containsBox, type Bounds } from "@/lib/canvas/bounds";
+import { boundsOf, containsBox } from "@/lib/canvas/bounds";
 import { syncNodeGeometry } from "./geometry";
 
 export interface Member {
@@ -28,13 +28,9 @@ export interface FrameMembers {
   panels: Member[];
 }
 
-const frameBounds = (f: FrameRecord): Bounds => ({
-  x: f.canvasX, y: f.canvasY, w: f.canvasW, h: f.canvasH,
-});
-
 /** Everything fully inside `frame` right now. */
 export function membersOf(frame: FrameRecord): FrameMembers {
-  const outer = frameBounds(frame);
+  const outer = boundsOf(frame);
 
   const images = Object.values(useKonvaNodes.getState().nodes)
     .filter((n) => containsBox(outer, boundsOf(n)))

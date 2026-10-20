@@ -293,7 +293,7 @@ export function reflowAutoLayouts(): boolean {
   let changed = false;
   for (const frame of Object.values(useFrames.getState().frames)) {
     if (!frame.layout) continue;
-    const area: Bounds = { x: frame.canvasX, y: frame.canvasY, w: frame.canvasW, h: frame.canvasH };
+    const area = boundsOf(frame);
     const present = frame.layout.columns.map((col) => childBoxes(col));
     // Dropped clear of the Frame: it has left the layout.
     const left = new Set(present.flat().filter((b) => !overlaps(area, b)).map((b) => b.id));

@@ -40,8 +40,6 @@ export function frameAround(boxes: readonly SelectedBox[], padding = FRAME_LAYOU
   return { x: left, y: top, w: right - left, h: bottom - top };
 }
 
-const frameBounds = (f: FrameRecord): Bounds => ({ x: f.canvasX, y: f.canvasY, w: f.canvasW, h: f.canvasH });
-
 /**
  * Whether these can be framed: two or more, no Frame among them, and not all
  * inside one Frame already -- Frames don't nest yet, so a Frame inside
@@ -53,7 +51,7 @@ export function canFrame(
   framesSelected: number,
 ): boolean {
   if (boxes.length < 2 || framesSelected > 0) return false;
-  return !frames.some((f) => boxes.every((b) => containsBox(frameBounds(f), b)));
+  return !frames.some((f) => boxes.every((b) => containsBox(boundsOf(f), b)));
 }
 
 /**
