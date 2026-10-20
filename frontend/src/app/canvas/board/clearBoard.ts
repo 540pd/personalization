@@ -2,17 +2,18 @@
 //
 // An event rather than a store action because the Konva nodes are not in a
 // store: they live on Board's layer, and only Board holds the layer and the
-// transformer. Same move as "canvas:upload" and COLOR_EVENT.
+// transformer. Same move as uploadEvent and colorEvent.
 
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useFrames } from "@/store/frame.store";
+import { canvasEvent } from "@/lib/canvas/events";
 
-/** Board listens; the Clear board confirm dispatches it. */
-export const CLEAR_EVENT = "canvas:clear";
+/** Board listens; the Clear board confirm emits it. */
+export const clearBoardEvent = canvasEvent("canvas:clear");
 
 export function requestClearBoard(): void {
-  window.dispatchEvent(new Event(CLEAR_EVENT));
+  clearBoardEvent.emit();
 }
 
 /**

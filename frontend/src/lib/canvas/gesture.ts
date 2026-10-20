@@ -4,12 +4,14 @@
 // and bend handles are DOM (LineHandles), so they announce theirs here, for
 // the style bar to hide behind (#162).
 
-export const GESTURE_EVENT = "canvas:gesture";
+import { canvasEvent } from "@/lib/canvas/events";
 
 export interface GestureDetail {
   active: boolean;
 }
 
+export const gestureEvent = canvasEvent<GestureDetail>("canvas:gesture");
+
 export function announceGesture(active: boolean): void {
-  window.dispatchEvent(new CustomEvent<GestureDetail>(GESTURE_EVENT, { detail: { active } }));
+  gestureEvent.emit({ active });
 }

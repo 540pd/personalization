@@ -3,6 +3,8 @@
 // A fixed palette, as in the reference: no custom colours and no opacity.
 // The order is the card's, row by row.
 
+import { canvasEvent } from "@/lib/canvas/events";
+
 export interface Swatch {
   name: string;
   hex: string;
@@ -40,9 +42,9 @@ export function outlineFor(hex: string): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }
 
-/** The dock's event when a swatch is picked. Board and FrameLayer listen. */
-export const COLOR_EVENT = "canvas:color";
-
 export interface ColorDetail {
   hex: string;
 }
+
+/** A swatch picked in the dock or the style bar. Board and FrameLayer listen. */
+export const colorEvent = canvasEvent<ColorDetail>("canvas:color");

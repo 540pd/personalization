@@ -23,7 +23,7 @@ import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { viewportCentre } from "@/lib/canvas/coords";
 import { canvasArea } from "../../canvasArea";
-import type { UploadDetail } from "../../board/upload";
+import { uploadEvent } from "../../board/upload";
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { useUpload } from "@/store/upload.store";
@@ -39,7 +39,7 @@ const DOCK_ITEM_KIND: Partial<Record<string, NodeKind>> = {
   "generate-compose": "compose",
 };
 
-import { PALETTE, DEFAULT_SWATCH, COLOR_EVENT, type ColorDetail } from "../../board/palette";
+import { PALETTE, DEFAULT_SWATCH, colorEvent } from "../../board/palette";
 import "./FloatingDock.scss";
 
 // --- icons (inline SVG, currentColor) ---
@@ -437,11 +437,7 @@ export default function FloatingDock() {
     }
 
     // No `at`: a picked file has no cursor position, so it goes to the centre.
-    window.dispatchEvent(
-      new CustomEvent<UploadDetail>("canvas:upload", {
-        detail: { files },
-      }),
-    );
+    uploadEvent.emit({ files });
 
     e.target.value = "";
   };
@@ -591,7 +587,7 @@ export default function FloatingDock() {
   // selected now: Board takes shapes and text, FrameLayer the frames (#159).
   const pickColor = (hex: string) => {
     useToolStore.getState().setColor(hex);
-    window.dispatchEvent(new CustomEvent<ColorDetail>(COLOR_EVENT, { detail: { hex } }));
+    colorEvent.emit({ hex });
     setIsColorMenuOpen(false);
   };
 

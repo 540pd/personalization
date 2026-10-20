@@ -33,11 +33,11 @@ import { boardStage } from "@/lib/canvas/boardStage";
 import { toScreen } from "@/lib/canvas/coords";
 import { barMeetsNames, frameNameBox, nameTextWidth, type ScreenBox } from "@/lib/canvas/styleBarPlacement";
 import { canvasHistory } from "@/lib/canvas/history";
-import { GESTURE_EVENT, type GestureDetail } from "@/lib/canvas/gesture";
+import { gestureEvent } from "@/lib/canvas/gesture";
 import {
   COLORS, LABEL_GAP, LABEL_LINE_HEIGHT, SHAPE_STYLE, TEXT_STYLE, Z_INDEX,
 } from "@/constants/canvas.constants";
-import { COLOR_EVENT, PALETTE, type ColorDetail } from "../../board/palette";
+import { colorEvent, PALETTE } from "../../board/palette";
 import {
   FILL_MODES, STROKE_MODES, STROKE_WIDTHS,
   type FillMode, type ShapeStyle, type StrokeMode,
@@ -232,7 +232,7 @@ function commonText<K extends keyof TextStyle>(styles: TextStyle[], key: K): Tex
  */
 function pickColor(hex: string) {
   useToolStore.getState().setColor(hex);
-  window.dispatchEvent(new CustomEvent<ColorDetail>(COLOR_EVENT, { detail: { hex } }));
+  colorEvent.emit({ hex });
 }
 
 /**
@@ -253,10 +253,9 @@ function useGesture(active: boolean): boolean {
       t.on("transformstart.styleBar", () => setBusy(true));
       t.on("transformend.styleBar", () => setBusy(false));
     });
-    const onGesture = (e: Event) => setBusy((e as CustomEvent<GestureDetail>).detail.active);
-    window.addEventListener(GESTURE_EVENT, onGesture);
+    const stopGesture = gestureEvent.on(({ active }) => setBusy(active));
     return () => {
-      window.removeEventListener(GESTURE_EVENT, onGesture);
+      stopGesture();
       stage.off(".styleBar");
       transformers.forEach((t) => t.off(".styleBar"));
       setBusy(false);

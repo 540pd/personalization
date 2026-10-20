@@ -28,7 +28,7 @@ import FrameLabels from "./FrameLabels";
 import AutoLayoutDropLine from "./AutoLayoutDropLine";
 import { announceGesture } from "@/lib/canvas/gesture";
 import { CORNERS } from "../board/selectionChrome";
-import { COLOR_EVENT, type ColorDetail } from "../board/palette";
+import { colorEvent } from "../board/palette";
 import {
   COLORS,
   FRAME_CORNER_RADIUS,
@@ -168,16 +168,13 @@ export default function FrameLayer() {
   // Committed with the event as its key, so shapes and text recoloured by
   // the same pick (Board) share the one undo step.
   useEffect(() => {
-    const onColor = (e: Event) => {
-      const { hex } = (e as CustomEvent<ColorDetail>).detail;
+    return colorEvent.on(({ hex }, e) => {
       const { frames, selectedIds, upsert } = useFrames.getState();
       const changed = selectedIds.filter((id) => frames[id] && frames[id].stroke !== hex);
       if (!changed.length) return;
       changed.forEach((id) => upsert({ ...frames[id], stroke: hex }));
       canvasHistory.commit(e);
-    };
-    window.addEventListener(COLOR_EVENT, onColor);
-    return () => window.removeEventListener(COLOR_EVENT, onColor);
+    });
   }, []);
 
   // --- Hover outline: the same "you can grab this" cue a node shows ---
