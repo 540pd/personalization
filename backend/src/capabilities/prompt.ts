@@ -22,6 +22,19 @@ export function buildSystemInstruction(agent?: AgentContext, skills: SkillContex
   return blocks.length ? blocks.join("\n\n") : undefined;
 }
 
+/**
+ * An image or video prompt with its @skills ahead of it (#240). These models
+ * take no system instruction, so each skill goes first under its heading,
+ * then the prompt as typed -- which still says `@brand-voice` where it means
+ * one. Unchanged when there are none.
+ */
+export function withSkills(instruction: string, skills: SkillContext[] = []): string {
+  const named = skills.filter((s) => s.content.trim());
+  if (!named.length) return instruction;
+  const blocks = named.map((s) => `## Skill: ${s.name}\n\n${s.content.trim()}`);
+  return [...blocks, `## Prompt\n\n${instruction}`].join("\n\n");
+}
+
 export interface ContentPart {
   text?: string;
   inlineData?: { mimeType: string; data: string };

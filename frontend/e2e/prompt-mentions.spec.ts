@@ -170,14 +170,6 @@ test.describe("Prompt panel: @ skills and agents (#239)", () => {
     await expect(page.getByRole("heading", { name: "Skills", level: 1 })).toBeVisible();
   });
 
-  test("an Image panel has no @ menu yet (#240)", async ({ page }) => {
-    await seed(page);
-    await addNode(page, /^Image$/);
-    await box(page).click();
-    await box(page).pressSequentially("@");
-    await expect(menu(page)).toHaveCount(0);
-  });
-
   for (const zoom of [0.5, 1.5]) {
     test(`at ${zoom * 100}% the menu opens under the @ at its usual size`, async ({ page }) => {
       await seed(page);

@@ -8,6 +8,7 @@ import { generateImageV2 } from "@/api/canvas.api";
 import type { AspectRatioV2, Reference } from "@/types/canvas.types";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 import type { ImageSettings, NodeKindSpec, NodeSettings, SettingsProps } from "../nodeKinds";
+import type { MentionContext } from "../../../mentions/mentions";
 
 // To add a new model: append an entry with the Vertex AI model ID as `id` and
 // the display name as `label`. The `id` value is sent verbatim to the backend
@@ -181,6 +182,8 @@ export const imageKind: NodeKindSpec = {
   kind: "image",
   title: "Create Image",
   prompt: "Describe the image...",
+  // Skills only: an agent is a Prompt-panel setup with a text model (#240).
+  mentions: "skills",
   models: MODELS,
   // Cheapest model and smallest size by default. A node is usually created to
   // try an idea, and the picker is right there when a draft is worth a better
@@ -199,15 +202,15 @@ export const imageKind: NodeKindSpec = {
   Output,
   Advanced,
   Options,
-  async generate({ modelId, instruction, settings, references }) {
-    const result = await generateImageV2(requestFor(modelId, instruction, settings, references));
+  async generate({ modelId, instruction, settings, references, context }) {
+    const result = await generateImageV2(requestFor(modelId, instruction, settings, references, context));
     if (!result.imageUrl) throw new Error("Generation returned no image.");
     return { type: "image", value: result.imageUrl };
   },
   variantCount: (settings) => (settings as ImageSettings).variants ?? 1,
-  async generateVariants({ modelId, instruction, settings, references }, count) {
+  async generateVariants({ modelId, instruction, settings, references, context }, count) {
     const result = await generateImageV2({
-      ...requestFor(modelId, instruction, settings, references),
+      ...requestFor(modelId, instruction, settings, references, context),
       variants: count,
     });
     const urls = result.imageUrls ?? [];
@@ -226,7 +229,8 @@ function requestFor(
   modelId: string,
   instruction: string,
   settings: NodeSettings,
-  references: Reference[]
+  references: Reference[],
+  context?: MentionContext
 ) {
   const s = settings as ImageSettings;
   return {
@@ -240,5 +244,6 @@ function requestFor(
     thinking: s.thinking,
     temperature: s.temperature,
     references: references.length ? references : undefined,
+    ...(context?.skills ? { skills: context.skills } : {}),
   };
 }

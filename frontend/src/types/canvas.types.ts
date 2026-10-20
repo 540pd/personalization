@@ -48,6 +48,8 @@ export interface GenerateVideoParams {
   durationSeconds?: number;
   resolution?: string;
   references?: Reference[];
+  /** The prompt's @skills, each once, without front matter (#240). */
+  skills?: { name: string; content: string }[];
 }
 
 /** Async generation: the POST returns a job, the result arrives by polling. */
@@ -83,6 +85,8 @@ export interface GenerateImageV2Params {
   references?: Reference[];
   /** How many images to generate. Omitted means one, in the original shape. */
   variants?: number;
+  /** The prompt's @skills, each once, without front matter (#240). */
+  skills?: { name: string; content: string }[];
 }
 
 /** One variant that failed, by its position in the requested batch. */

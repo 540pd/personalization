@@ -225,7 +225,7 @@ export default function MentionInput({
           <div
             id={MENU_ID}
             role="listbox"
-            aria-label="Skills and agents"
+            aria-label={scope === "skills-and-agents" ? "Skills and agents" : "Skills"}
             className="mention-menu"
             style={{ left: menuPos.left, top: menuPos.top, zIndex: Z_INDEX.mentionMenu }}
             // Keeps focus in the textarea, so the caret and the menu survive a click.

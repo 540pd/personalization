@@ -139,6 +139,8 @@ export const videoKind: NodeKindSpec = {
   kind: "video",
   title: "Create Video",
   prompt: "Describe the video...",
+  // Skills only, as in an Image panel (#240).
+  mentions: "skills",
   models: MODELS,
   // Shortest clip and smallest resolution the picker offers. Video is the
   // slowest and most expensive kind, so the default should be a quick look.
@@ -149,7 +151,7 @@ export const videoKind: NodeKindSpec = {
   EmptyState,
   Output,
   Advanced,
-  async generate({ modelId, instruction, settings, references, onJobStarted, signal }) {
+  async generate({ modelId, instruction, settings, references, context, onJobStarted, signal }) {
     const s = settings as VideoSettings;
     const { jobId } = await startVideo({
       modelId,
@@ -157,6 +159,7 @@ export const videoKind: NodeKindSpec = {
       durationSeconds: s.durationSeconds,
       resolution: s.resolution,
       references: references.length ? references : undefined,
+      ...(context?.skills ? { skills: context.skills } : {}),
     });
     // Persist before waiting, not after: the wait is where a reload happens.
     onJobStarted?.(jobId);
