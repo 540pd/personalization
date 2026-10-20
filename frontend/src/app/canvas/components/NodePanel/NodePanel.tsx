@@ -4,7 +4,7 @@
 // Each Node → Image click creates an independent placeholder + panel instance.
 // Instances are stored in the nodePanelStore array and rendered here.
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
@@ -38,7 +38,10 @@ import { layoutVariants } from "../../board/variants";
 import { dragFrameFrom, selectedFrameAround } from "../../board/frameDrag";
 import { dropIntoLayout, trackLayoutDrag } from "../../board/autoLayoutDrop";
 import { useFrames } from "@/store/frame.store";
-import { boardIsShown } from "@/store/section.store";
+import { boardIsShown, useSection } from "@/store/section.store";
+import { useSkills } from "@/store/skills.store";
+import { useAgents } from "@/store/agents.store";
+import { mentionContext, resolveMentions } from "../../mentions/mentions";
 import { useSettings } from "@/store/settings.store";
 import { useHoveredNode } from "@/store/hover.store";
 // Prompts usually open with boilerplate ("a highly detailed photorealistic
@@ -420,6 +423,11 @@ function SinglePanel({
     return name;
   };
 
+  // What @ can name in the Instruction (#239).
+  const skills = useSkills((s) => s.skills);
+  const agents = useAgents((s) => s.agents);
+  const mentionables = useMemo(() => ({ skills, agents }), [skills, agents]);
+
   const handleGenerate = async () => {
     if (!draft.instruction.trim() || busy) return;
     // Saved before the request, so variant copies are made from what was sent.
@@ -458,6 +466,17 @@ function SinglePanel({
         })
         .filter((r): r is Reference => r !== null);
 
+      // Looked up now, by handle: an edited skill applies to this Create.
+      const context = spec.mentions
+        ? mentionContext(
+            resolveMentions(
+              draft.instruction,
+              { skills: useSkills.getState().skills, agents: useAgents.getState().agents },
+              spec.mentions,
+            ),
+          )
+        : undefined;
+
       // More than one result cannot live in this node -- it holds a single
       // output and feeds a single reference -- so a batch goes to the board
       // as image nodes in a Frame of their own, and this node stays as it was.
@@ -469,6 +488,7 @@ function SinglePanel({
             instruction: draft.instruction.trim(),
             settings,
             references,
+            context,
             signal: controller.signal,
           },
           count
@@ -531,6 +551,7 @@ function SinglePanel({
         instruction: draft.instruction.trim(),
         settings,
         references,
+        context,
         // Persisted the moment the backend hands it back, so a reload during
         // a multi-minute video generation resumes rather than loses it.
         onJobStarted: (jobId) => useNodePanel.getState().setJob(instance.id, jobId),
@@ -872,6 +893,8 @@ function SinglePanel({
           onClose={onClosePanel}
           onInstructionBlur={handleInstructionBlur}
           onSubmit={handleGenerate}
+          mentionables={mentionables}
+          onOpenLibrary={(section) => useSection.getState().setSection(section)}
         />
       )}
     </>

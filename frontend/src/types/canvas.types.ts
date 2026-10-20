@@ -29,6 +29,10 @@ export interface GenerateTextParams {
   instruction: string;
   temperature?: number;
   references?: Reference[];
+  /** The prompt's @agent (#239): its instructions lead the system instruction. */
+  agent?: { name: string; instructions: string };
+  /** The prompt's @skills and the agent's own, each once, without front matter (#239). */
+  skills?: { name: string; content: string }[];
 }
 
 export interface GenerateTextResult {

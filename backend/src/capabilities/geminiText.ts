@@ -10,7 +10,7 @@ import type {
   TextGenerationParams,
   TextGenerationResult,
 } from "./types.js";
-import { buildContentParts } from "./prompt.js";
+import { buildContentParts, buildSystemInstruction } from "./prompt.js";
 
 function makeGenAI(): GoogleGenAI {
   return new GoogleGenAI({
@@ -28,7 +28,9 @@ function mockText(params: TextGenerationParams): string {
     ? ` (with ${params.references.length} reference${params.references.length > 1 ? "s" : ""}: ` +
       `${params.references.map((r, i) => r.name?.trim() || `Reference ${i + 1}`).join(", ")})`
     : "";
-  return `[mock] ${params.instruction}${refs}`;
+  const agent = params.agent ? ` (as ${params.agent.name})` : "";
+  const skills = params.skills?.length ? ` (with skills: ${params.skills.map((s) => s.name).join(", ")})` : "";
+  return `[mock] ${params.instruction}${refs}${agent}${skills}`;
 }
 
 export class GeminiTextCapability implements TextCapability {
@@ -47,6 +49,9 @@ export class GeminiTextCapability implements TextCapability {
     if (typeof params.temperature === "number") {
       config["temperature"] = params.temperature;
     }
+
+    const system = buildSystemInstruction(params.agent, params.skills);
+    if (system) config["systemInstruction"] = system;
 
     const parts = buildContentParts(params.instruction, params.references);
 

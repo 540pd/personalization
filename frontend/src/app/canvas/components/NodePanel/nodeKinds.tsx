@@ -12,6 +12,7 @@ import type { FC } from "react";
 import type { NodeKind, PanelOutput } from "@/store/nodePanel.store";
 import type { Reference } from "@/types/canvas.types";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
+import type { MentionContext, MentionScope } from "../../mentions/mentions";
 
 /**
  * What a given model actually takes.
@@ -77,6 +78,8 @@ export interface GenerateArgs {
   instruction: string;
   settings: NodeSettings;
   references: Reference[];
+  /** The agent and skills the prompt's @ handles name (#239); absent when none. */
+  context?: MentionContext;
   /**
    * Asynchronous kinds call this as soon as the backend hands back a job id,
    * so it is persisted before the wait begins. Without it a reload during a
@@ -93,6 +96,8 @@ export interface NodeKindSpec {
   title: string;
   /** Instruction textarea placeholder. */
   prompt: string;
+  /** What `@` offers in the Instruction (#239). Omitted: no @ menu. */
+  mentions?: MentionScope;
   models: ModelOption[];
   /**
    * Model selected on a new node. Explicit rather than models[0], so the

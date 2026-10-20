@@ -78,6 +78,9 @@ export const Z_INDEX = {
   // the whole canvas whenever an image had been dragged last. Below the rail,
   // which still covers everything, as the layering spec requires.
   panelForm:   65,
+  // The @ menu under a panel's Instruction (#239): over the form it belongs
+  // to, under a page that covers the board.
+  mentionMenu: 66,
   // A rail destination other than the board -- the Skills page (#206). It
   // covers the board and everything on it, the open Create form included,
   // so none of it can be clicked through; the rail still sits over its edge.
