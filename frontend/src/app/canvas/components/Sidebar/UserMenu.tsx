@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
+import { useDismiss } from "@/lib/dom/useDismiss";
 import { LogOut, Palette, Settings } from "lucide-react";
 import type { Identity } from "@/auth/useIdentity";
 
@@ -34,22 +35,9 @@ export default function UserMenu({
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      // The parent is the anchor that also holds the trigger, which toggles
-      // the menu itself; closing here too would make its click reopen it.
-      if (!ref.current?.parentElement?.contains(e.target as Node)) onClose();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
+  // The parent is the anchor that also holds the trigger, which toggles
+  // the menu itself; closing here too would make its click reopen it.
+  useDismiss(true, [() => ref.current?.parentElement], onClose, { escape: "bubble" });
 
   return (
     <div ref={ref} className="sidebar-user-menu" role="menu">

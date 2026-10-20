@@ -4,6 +4,7 @@
 // The order is the card's, row by row.
 
 import { canvasEvent } from "@/lib/canvas/events";
+import { useToolStore } from "@/store/tool.store";
 
 export interface Swatch {
   name: string;
@@ -48,3 +49,14 @@ export interface ColorDetail {
 
 /** A swatch picked in the dock or the style bar. Board and FrameLayer listen. */
 export const colorEvent = canvasEvent<ColorDetail>("canvas:color");
+
+/**
+ * A swatch pick, the same from the dock and the style bar (#159): the colour
+ * is the one the next shape is drawn in, and whatever is selected now is
+ * recoloured in one undo step -- Board takes shapes and text, FrameLayer the
+ * frames.
+ */
+export function pickColor(hex: string): void {
+  useToolStore.getState().setColor(hex);
+  colorEvent.emit({ hex });
+}

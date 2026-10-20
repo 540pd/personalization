@@ -6,6 +6,7 @@
 // Clicking the zoom % opens a shortcut menu above the panel.
 
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import { useDismiss } from "@/lib/dom/useDismiss";
 import { useViewport } from "@/store/viewport.store";
 import { useCanvasArea, canvasArea } from "../../canvasArea";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
@@ -152,14 +153,7 @@ export default function Minimap() {
     return () => window.removeEventListener("keydown", handler);
   }, [zoom, reset, zoomToFit, zoomToSelection]);
 
-  useEffect(() => {
-    if (!isZoomMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) setIsZoomMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [isZoomMenuOpen]);
+  useDismiss(isZoomMenuOpen, [containerRef], () => setIsZoomMenuOpen(false));
 
   const at100 = Math.round(scale * 100) === 100;
   const hasSelection = selectedNodeIds.length > 0 || panels.some((p) => p.isActive);

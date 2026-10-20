@@ -6,7 +6,8 @@
 // Deliberately free of store imports: everything arrives as props, so it can
 // be unit-tested without a Konva stage or a live store.
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useMemo } from "react";
+import { useDismiss } from "@/lib/dom/useDismiss";
 import { X, ChevronDown, Check, Loader2 } from "lucide-react";
 import { COLORS, Z_INDEX } from "@/constants/canvas.constants";
 import type { NodeKindSpec, NodeSettings } from "./nodeKinds";
@@ -62,14 +63,7 @@ export default function GenerateForm({
   const { model, instruction } = draft;
 
   // Close the model picker on outside click.
-  useEffect(() => {
-    if (!isModelOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (!modelPickerRef.current?.contains(e.target as Node)) setIsModelOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [isModelOpen]);
+  useDismiss(isModelOpen, [modelPickerRef], () => setIsModelOpen(false));
 
   const canSubmit = !!instruction.trim() && !busy;
 
