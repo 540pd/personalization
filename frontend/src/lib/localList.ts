@@ -75,3 +75,40 @@ export function localList<T>({
 export function stringArray(value: unknown): string[] | null {
   return Array.isArray(value) && value.every((t) => typeof t === "string") ? (value as string[]) : null;
 }
+
+export interface ListActions<T> {
+  /** Adds an item; false (and nothing changes) if it could not be saved. */
+  add: (item: T) => boolean;
+  /** Swaps the item with `item.id` for `item`; false if it could not be saved. */
+  replace: (item: T) => boolean;
+  /** Removes it (#211); false (and nothing changes) if that could not be saved. */
+  remove: (id: string) => boolean;
+  /** Puts a removed item back where it was in the list -- Undo (#211). */
+  restore: (item: T, index: number) => boolean;
+}
+
+/**
+ * A library store's edits (#206, #208). Each one is saved first, and the
+ * store's state only changes (`set`) once `save` has taken it.
+ */
+export function listActions<T extends { id: string }>(
+  get: () => readonly T[],
+  save: (items: T[]) => boolean,
+  set: (items: T[]) => void,
+): ListActions<T> {
+  const commit = (next: T[]) => {
+    if (!save(next)) return false;
+    set(next);
+    return true;
+  };
+  return {
+    add: (item) => commit([...get(), item]),
+    replace: (item) => commit(get().map((x) => (x.id === item.id ? item : x))),
+    remove: (id) => commit(get().filter((x) => x.id !== id)),
+    restore: (item, index) => {
+      const next = get().filter((x) => x.id !== item.id);
+      next.splice(Math.max(0, Math.min(index, next.length)), 0, item);
+      return commit(next);
+    },
+  };
+}

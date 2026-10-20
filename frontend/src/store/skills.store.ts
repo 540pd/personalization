@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { withHandles } from "@/app/canvas/library/fields";
 import { nameFromFileName, type Skill } from "@/app/canvas/skills/skillFile";
-import { localList, stringArray } from "@/lib/localList";
+import { listActions, localList, stringArray, type ListActions } from "@/lib/localList";
 
 /**
  * The user's skills (#206), kept in localStorage under their own key.
@@ -58,33 +58,11 @@ export const loadSkills = (from?: Storage): Skill[] =>
 /** False when storage refused the write. Never throws. */
 export const saveSkills = storage.save;
 
-interface SkillsState {
+interface SkillsState extends ListActions<Skill> {
   skills: Skill[];
-  /** Adds a skill; false (and nothing changes) if it could not be saved. */
-  add: (skill: Skill) => boolean;
-  /** Swaps the skill with `skill.id` for `skill`; false if it could not be saved. */
-  replace: (skill: Skill) => boolean;
-  /** Removes it (#211); false (and nothing changes) if that could not be saved. */
-  remove: (id: string) => boolean;
-  /** Puts a removed skill back where it was in the list -- Undo (#211). */
-  restore: (skill: Skill, index: number) => boolean;
 }
 
-export const useSkills = create<SkillsState>((set, get) => {
-  const commit = (next: Skill[]) => {
-    if (!saveSkills(next)) return false;
-    set({ skills: next });
-    return true;
-  };
-  return {
-    skills: typeof window === "undefined" ? [] : loadSkills(),
-    add: (skill) => commit([...get().skills, skill]),
-    replace: (skill) => commit(get().skills.map((s) => (s.id === skill.id ? skill : s))),
-    remove: (id) => commit(get().skills.filter((x) => x.id !== id)),
-    restore: (skill, index) => {
-      const next = get().skills.filter((x) => x.id !== skill.id);
-      next.splice(Math.max(0, Math.min(index, next.length)), 0, skill);
-      return commit(next);
-    },
-  };
-});
+export const useSkills = create<SkillsState>((set, get) => ({
+  skills: typeof window === "undefined" ? [] : loadSkills(),
+  ...listActions(() => get().skills, saveSkills, (skills) => set({ skills })),
+}));
