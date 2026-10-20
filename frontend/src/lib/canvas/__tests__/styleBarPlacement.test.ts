@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { FrameRecord } from "@/store/frame.store";
-import { barMeetsNames, frameNameBox, NAME_CLEARANCE, type ScreenBox } from "../styleBarPlacement";
+import {
+  BAR_GAP, BAR_HEIGHT, FRAME_NAME_CLEARANCE, barMeetsNames, barPlacement, frameNameBox, NAME_CLEARANCE,
+  type ScreenBox,
+} from "../styleBarPlacement";
 
 const frame = (x: number, y: number, w: number, h = 200): FrameRecord => ({
   id: "f", label: "Frame", canvasX: x, canvasY: y, canvasW: w, canvasH: h,
@@ -57,5 +60,51 @@ describe("barMeetsNames", () => {
 
   it("is false with no names", () => {
     expect(barMeetsNames(bar(367), [])).toBe(false);
+  });
+});
+
+describe("barPlacement", () => {
+  // Every name 35 px wide on screen.
+  const measure = () => 35;
+  const shape = (x: number, y: number, w = 400, h = 200, label?: string) =>
+    ({ canvasX: x, canvasY: y, canvasW: w, canvasH: h, label });
+
+  it("centres the bar above the selection, a gap clear of it", () => {
+    const p = barPlacement({ items: [shape(350, 250)], frames: [], vp: at100, barW: 200, measure });
+    expect(p).toEqual({ centre: 550, top: 250 - BAR_GAP - BAR_HEIGHT, below: false });
+  });
+
+  it("spans every selected item, Frames included", () => {
+    const p = barPlacement({ items: [shape(0, 300, 100, 100)], frames: [frame(500, 250, 100)], vp: at100, barW: 100, measure });
+    expect(p.centre).toBe(300);
+    expect(p.top).toBe(250 - BAR_GAP - BAR_HEIGHT);
+  });
+
+  it("follows pan and zoom, keeping its own screen size", () => {
+    const p = barPlacement({ items: [shape(100, 400)], frames: [], vp: { x: 10, y: 20, scale: 0.5 }, barW: 200, measure });
+    expect(p.centre).toBe(10 + (100 + 200) * 0.5);
+    expect(p.top).toBe(20 + 400 * 0.5 - BAR_GAP - BAR_HEIGHT);
+  });
+
+  it("stays put over a Frame whose name it does not meet (#223)", () => {
+    const p = barPlacement({ items: [], frames: [frame(350, 250, 400)], vp: at100, barW: 200, measure });
+    expect(p.top).toBe(250 - BAR_GAP - BAR_HEIGHT);
+  });
+
+  it("lifts over a Frame's name it would sit on", () => {
+    const p = barPlacement({ items: [], frames: [frame(350, 250, 400)], vp: at100, barW: 400, measure });
+    expect(p.top).toBe(250 - BAR_GAP - BAR_HEIGHT - FRAME_NAME_CLEARANCE);
+  });
+
+  it("lifts over a named item's name, and not over an unnamed one's (#243)", () => {
+    const named = barPlacement({ items: [shape(350, 250, 400, 200, "Image 1")], frames: [], vp: at100, barW: 400, measure });
+    expect(named.top).toBe(250 - BAR_GAP - BAR_HEIGHT - FRAME_NAME_CLEARANCE);
+    const unnamed = barPlacement({ items: [shape(350, 250)], frames: [], vp: at100, barW: 400, measure });
+    expect(unnamed.top).toBe(250 - BAR_GAP - BAR_HEIGHT);
+  });
+
+  it("flips below when there is no room above on screen", () => {
+    const p = barPlacement({ items: [shape(0, 50)], frames: [], vp: at100, barW: 200, measure });
+    expect(p).toEqual({ centre: 200, top: 50 + 200 + BAR_GAP, below: true });
   });
 });
