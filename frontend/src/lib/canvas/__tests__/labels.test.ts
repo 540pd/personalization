@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useNodePanel } from "@/store/nodePanel.store";
-import { relabel, takenLabels, uniqueLabel } from "../labels";
+import { labelFromInstruction, labelFromText, relabel, takenLabels, uniqueLabel } from "../labels";
 
 beforeEach(() => {
   useKonvaNodes.setState({ nodes: {} });
@@ -112,5 +112,46 @@ describe("labelAuto", () => {
     useNodePanel.getState().addVariants("a", [{ canvasX: 50, canvasY: 0, output: { type: "image", value: "x" }, label: "sunset (2)" }]);
     const copy = useNodePanel.getState().panels.at(-1)!;
     expect(copy).toMatchObject({ label: "sunset (2)", labelAuto: true });
+  });
+});
+
+describe("labelFromInstruction", () => {
+  it("keeps the first six words", () => {
+    expect(labelFromInstruction("  a cat on a red sofa in the sun ")).toBe("a cat on a red sofa");
+  });
+
+  it("collapses runs of whitespace", () => {
+    expect(labelFromInstruction("a\n\ncat   sleeping")).toBe("a cat sleeping");
+  });
+
+  it("cuts past 40 characters with an ellipsis", () => {
+    const label = labelFromInstruction("photorealistic extraordinarily detailed magnificent landscape");
+    expect(label).toBe("photorealistic extraordinarily detailed…");
+  });
+
+  it("is empty for an empty instruction", () => {
+    expect(labelFromInstruction("   ")).toBe("");
+  });
+});
+
+describe("labelFromText", () => {
+  it("names a box from its first written line", () => {
+    expect(labelFromText("\n\nBrand voice\nmore below")).toBe("Brand voice");
+  });
+
+  it("leaves out markdown markers", () => {
+    expect(labelFromText("# Heading")).toBe("Heading");
+    expect(labelFromText("> quoted")).toBe("quoted");
+    expect(labelFromText("- item")).toBe("item");
+    expect(labelFromText("1. first")).toBe("first");
+    expect(labelFromText("2) second")).toBe("second");
+  });
+
+  it("keeps a marker that is part of a word", () => {
+    expect(labelFromText("#hashtag")).toBe("#hashtag");
+  });
+
+  it("is empty when nothing is written", () => {
+    expect(labelFromText("\n  \n")).toBe("");
   });
 });

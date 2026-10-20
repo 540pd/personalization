@@ -54,3 +54,19 @@ export function uniqueLabel(base: string, taken: string[]): string {
   while (taken.includes(`${stem} (${n})`)) n += 1;
   return `${stem} (${n})`;
 }
+
+// A generated node needs a name before it can be referenced by a downstream
+// one, so derive a readable default from the instruction. Natural words rather
+// than a slug: this string is also what a downstream generation refers to it
+// by, and "Image 3" would be useless as context.
+export function labelFromInstruction(instruction: string): string {
+  const words = instruction.trim().split(/\s+/).slice(0, 6).join(" ");
+  return words.length > 40 ? `${words.slice(0, 40).trimEnd()}…` : words;
+}
+
+// A Compose box's name comes from its first written line. Markdown markers
+// ("# ", "> ", "- ", "1. ") are syntax, not words, so they are left out (#181).
+export function labelFromText(text: string): string {
+  const line = text.split("\n").find((l) => l.trim()) ?? "";
+  return labelFromInstruction(line.replace(/^\s*(#{1,6}|>|[-*+]|\d+[.)])\s+/, ""));
+}
