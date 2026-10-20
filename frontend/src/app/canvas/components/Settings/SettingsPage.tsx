@@ -8,6 +8,7 @@
 
 import { useEffect } from "react";
 import { useSection } from "@/store/section.store";
+import { dialogIsOpen, isEditableTarget } from "@/lib/dom/keys";
 import { useSettings } from "@/store/settings.store";
 import LibraryPage, { useLibraryToast } from "../Library/LibraryPage";
 import { isDefault, settingGroups, type SettingSpec } from "../../settings/settings";
@@ -18,21 +19,17 @@ function isSettingsKey(e: KeyboardEvent): boolean {
   return e.key === "," && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey;
 }
 
-/** Typing a comma with a modifier in a field is the field's business. */
-function isTyping(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || target.closest("input, textarea, select, [contenteditable='true']") !== null;
-}
 
 export default function SettingsPage() {
   const shown = useSection((s) => s.section === "settings");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!isSettingsKey(e) || isTyping(e.target)) return;
-      // Not from under a dialog: switching pages would drop what it holds,
-      // an Upload or Edit dialog's unsaved fields among them.
-      if (document.querySelector('[aria-modal="true"]')) return;
+      // Typing a comma with a modifier in a field is the field's business.
+      if (!isSettingsKey(e) || isEditableTarget(e.target)) return;
+      // Not from under a dialog, wherever focus is: switching pages would drop
+      // what it holds, an Upload or Edit dialog's unsaved fields among them.
+      if (dialogIsOpen()) return;
       e.preventDefault();
       useSection.getState().setSection("settings");
     };

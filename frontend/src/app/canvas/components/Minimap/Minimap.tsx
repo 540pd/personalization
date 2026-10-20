@@ -10,7 +10,7 @@ import { useViewport } from "@/store/viewport.store";
 import { useCanvasArea, canvasArea } from "../../canvasArea";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useNodePanel } from "@/store/nodePanel.store";
-import { boardIsShown } from "@/store/section.store";
+import { boardKeyAllowed } from "@/lib/canvas/boardKeys";
 import { unionBounds } from "./world";
 import { zoomStep, fitTo } from "./zoom";
 import { currentBounds, currentSelectionBounds } from "./boardBounds";
@@ -114,10 +114,9 @@ export default function Minimap() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (!boardIsShown()) return;
       // Same guard Board uses. Without it, Ctrl+– while writing a prompt
       // zoomed the canvas instead of reaching the field.
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (!boardKeyAllowed(e)) return;
 
       const mod = e.ctrlKey || e.metaKey;
       if (mod && (e.code === "Equal" || e.code === "NumpadAdd")) {

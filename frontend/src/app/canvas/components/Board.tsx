@@ -38,6 +38,8 @@ import { syncNodeGeometry, syncAllNodeGeometry as syncAllGeometry } from "../boa
 import { canvasHistory } from "@/lib/canvas/history";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { boardIsShown } from "@/store/section.store";
+import { boardKeyAllowed } from "@/lib/canvas/boardKeys";
+import { disposeAll, listen } from "@/lib/dom/listen";
 import { COLORS, Z_INDEX, MIN_NODE_SIZE, SHAPE_MIN_SIZE, SELECTION } from "@/constants/canvas.constants";
 
 // imageUrl and label live in konvaNodes, not on the shape, and Delete drops
@@ -129,6 +131,9 @@ export default function Board() {
         ? SHAPE_MIN_SIZE
         : MIN_NODE_SIZE;
     }
+
+    // Every window listener below, removed together on unmount.
+    const off: Array<() => void> = [];
 
     const hover = createHoverOutline(layer, transformer);
     const showHover = hover.show;
@@ -481,8 +486,7 @@ export default function Board() {
 
     // Space-to-pan: temporarily enable dragging regardless of active tool.
     const handleSpaceDown = (e: KeyboardEvent) => {
-      if (!boardIsShown()) return;
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (!boardKeyAllowed(e)) return;
       if (e.code !== "Space" || isSpacePanning.current) return;
       e.preventDefault();
       isSpacePanning.current = true;
@@ -497,8 +501,8 @@ export default function Board() {
       }
       stage.container().style.cursor = "default";
     };
-    window.addEventListener("keydown", handleSpaceDown);
-    window.addEventListener("keyup", handleSpaceUp);
+    off.push(listen(window, "keydown", handleSpaceDown));
+    off.push(listen(window, "keyup", handleSpaceUp));
 
     // Ctrl/Cmd + Z → undo; Ctrl/Cmd + Y or Ctrl/Cmd + Shift + Z → redo.
     // The only undo/redo listener in the app. NodePanel used to run a second
@@ -506,22 +510,18 @@ export default function Board() {
     // with a single timeline there is nothing to arbitrate.
     const handleUndoRedo = (e: KeyboardEvent) => {
       // Not while another page covers the board (#206): an undo nobody can see.
-      if (!boardIsShown()) return;
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (!boardKeyAllowed(e)) return;
       const mod = e.ctrlKey || e.metaKey;
       if (!mod) return;
       if (e.code === "KeyZ" && !e.shiftKey) { e.preventDefault(); canvasHistory.undo(); }
       if (e.code === "KeyY" || (e.code === "KeyZ" && e.shiftKey)) { e.preventDefault(); canvasHistory.redo(); }
     };
-    window.addEventListener("keydown", handleUndoRedo);
+    off.push(listen(window, "keydown", handleUndoRedo));
 
     // Ctrl/Cmd + A → select every uploaded image, node and wire.
     // Escape → clear all three. NodePanel's own Escape collapses the panels.
     const handleSelectAll = (e: KeyboardEvent) => {
-      if (!boardIsShown()) return;
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
-      if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;
+      if (!boardKeyAllowed(e)) return;
 
       if (e.code === "Escape") {
         selectOnly(null);
@@ -548,7 +548,7 @@ export default function Board() {
       updateSelectionChrome();
       layer.batchDraw();
     };
-    window.addEventListener("keydown", handleSelectAll);
+    off.push(listen(window, "keydown", handleSelectAll));
 
     const editKeys = createEditKeysHandler({
       layer, transformer,
@@ -558,9 +558,9 @@ export default function Board() {
       saveSnapshot,
     });
     const handleEditKeys = (e: KeyboardEvent) => {
-      if (boardIsShown()) editKeys(e);
+      if (boardKeyAllowed(e)) editKeys(e);
     };
-    window.addEventListener("keydown", handleEditKeys);
+    off.push(listen(window, "keydown", handleEditKeys));
 
     // Place uploaded files on the canvas, centered in the current viewport.
     // Frame: drag on the board to draw a backdrop. The draw starts on the
@@ -639,7 +639,7 @@ export default function Board() {
       syncAllNodeGeometry,
       saveSnapshot,
     });
-    window.addEventListener("canvas:upload", handleUpload);
+    off.push(listen(window, "canvas:upload", handleUpload));
 
     // A swatch picked in the dock recolours the selected shapes and text
     // (#159). Committed with the event as its key, so the Frames it also
@@ -652,7 +652,7 @@ export default function Board() {
       layer.batchDraw();
       saveSnapshot(e);
     };
-    window.addEventListener(COLOR_EVENT, handleColor);
+    off.push(listen(window, COLOR_EVENT, handleColor));
 
     // Files dragged in from the desktop. Window-level, because the browser
     // navigates away on a drop anywhere -- not just over the canvas.
@@ -666,30 +666,27 @@ export default function Board() {
         window.dispatchEvent(new CustomEvent("canvas:upload", { detail: { files, at } }));
       },
     });
-    window.addEventListener("dragenter", dnd.dragEnter);
-    window.addEventListener("dragover", dnd.dragOver);
-    window.addEventListener("dragleave", dnd.dragLeave);
-    window.addEventListener("drop", dnd.drop);
+    off.push(listen(window, "dragenter", dnd.dragEnter));
+    off.push(listen(window, "dragover", dnd.dragOver));
+    off.push(listen(window, "dragleave", dnd.dragLeave));
+    off.push(listen(window, "drop", dnd.drop));
     // A drag that ends outside the window never fires dragleave, so the
     // affordance would stick on until the next drag.
-    window.addEventListener("dragend", dnd.reset);
-    window.addEventListener("blur", dnd.reset);
+    off.push(listen(window, "dragend", dnd.reset));
+    off.push(listen(window, "blur", dnd.reset));
 
     const handleFrameKeys = (e: KeyboardEvent) => {
-      if (!boardIsShown()) return;
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (!boardKeyAllowed(e)) return;
       if (e.code === "Escape") {
         frame.cancel();
         shapeDraw.cancel();
         textTool.cancel();
         return;
       }
-      // F: a Frame around two or more selected items (#243). Not while text is
-      // being edited in place or a dialog is up, nor with a modifier held.
-      // Shift+F: the one selected Frame goes, its items stay, selected (#244).
+      // F: a Frame around two or more selected items (#243), not with a
+      // modifier held. Shift+F: the one selected Frame goes, its items stay,
+      // selected (#244).
       if (e.code === "KeyF" && !e.altKey && !e.ctrlKey && !e.metaKey) {
-        if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
-        if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;
         const done = e.shiftKey ? removeSelectedFrame() : createFrameFromSelection();
         if (done) e.preventDefault();
         return;
@@ -703,7 +700,7 @@ export default function Board() {
         saveSnapshot(e);
       }
     };
-    window.addEventListener("keydown", handleFrameKeys);
+    off.push(listen(window, "keydown", handleFrameKeys));
 
     // Clear board (#197). Everything goes, then one commit, so a single Ctrl+Z
     // brings it all back. Konva nodes are remove()d, not destroyed, for the
@@ -727,7 +724,7 @@ export default function Board() {
       layer.batchDraw();
       saveSnapshot();
     };
-    window.addEventListener(CLEAR_EVENT, handleClear);
+    off.push(listen(window, CLEAR_EVENT, handleClear));
 
     // Puts a checked board (parseBoardFile) on the stage in place of what is
     // there, keeping its ids -- wires point at them. Shared by Open file (#199)
@@ -785,7 +782,7 @@ export default function Board() {
       placeBoard((e as CustomEvent<BoardFile>).detail, { panels: true });
       saveSnapshot();
     };
-    window.addEventListener(LOAD_EVENT, handleLoad);
+    off.push(listen(window, LOAD_EVENT, handleLoad));
 
     // The board as it was before the reload (#203). The restored board is the
     // first undo entry, not a step: there is nothing before it to go back to.
@@ -806,22 +803,7 @@ export default function Board() {
     observer.observe(container);
 
     return () => {
-      window.removeEventListener("keydown", handleSpaceDown);
-      window.removeEventListener("keyup", handleSpaceUp);
-      window.removeEventListener("keydown", handleUndoRedo);
-      window.removeEventListener("keydown", handleSelectAll);
-      window.removeEventListener("keydown", handleEditKeys);
-      window.removeEventListener("canvas:upload", handleUpload);
-      window.removeEventListener(COLOR_EVENT, handleColor);
-      window.removeEventListener("dragenter", dnd.dragEnter);
-      window.removeEventListener("dragover", dnd.dragOver);
-      window.removeEventListener("dragleave", dnd.dragLeave);
-      window.removeEventListener("drop", dnd.drop);
-      window.removeEventListener("dragend", dnd.reset);
-      window.removeEventListener("blur", dnd.reset);
-      window.removeEventListener("keydown", handleFrameKeys);
-      window.removeEventListener(CLEAR_EVENT, handleClear);
-      window.removeEventListener(LOAD_EVENT, handleLoad);
+      disposeAll(off);
       // Before the stage goes: a pending save reads it.
       stopPersistence();
       stage.off(".frame");
@@ -932,9 +914,9 @@ export default function Board() {
     // empty board must always receive the click that deselects, and the
     // wheel. update() lifts it only over a placeholder or a bare frame.
     container.style.pointerEvents = "auto";
-    window.addEventListener("pointermove", update);
+    const stop = listen(window, "pointermove", update);
     return () => {
-      window.removeEventListener("pointermove", update);
+      stop();
       container.style.pointerEvents = "auto";
     };
   }, [topLayer, activeTool]);
