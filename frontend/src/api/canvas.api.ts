@@ -1,5 +1,5 @@
 import { getIdToken, notifySessionExpired } from "@/auth/authState";
-import type { Board, GenerateImageParams, GenerateImageResult, GenerateImageV2Params, GenerateImageV2Result, GenerateTextParams, GenerateTextResult, GenerateVideoParams, JobAccepted, JobState } from "@/types/canvas.types";
+import type { GenerateImageV2Params, GenerateImageV2Result, GenerateTextParams, GenerateTextResult, GenerateVideoParams, JobAccepted, JobState } from "@/types/canvas.types";
 
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = getIdToken();
@@ -19,27 +19,6 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   }
 
   return res;
-}
-
-export async function getBoards(): Promise<Board[]> {
-  const res = await apiFetch("boards");
-  if (!res.ok) throw new Error(`getBoards failed: ${res.status}`);
-  return res.json();
-}
-
-export async function getBoard(id: string): Promise<Board> {
-  const res = await apiFetch(`boards/${id}`);
-  if (!res.ok) throw new Error(`getBoard failed: ${res.status}`);
-  return res.json();
-}
-
-export async function generateImage(params: GenerateImageParams): Promise<GenerateImageResult> {
-  const res = await apiFetch("generate", {
-    method: "POST",
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) throw new Error(`generateImage failed: ${res.status}`);
-  return res.json();
 }
 
 export async function generateImageV2(params: GenerateImageV2Params): Promise<GenerateImageV2Result> {
