@@ -95,3 +95,8 @@
 .shape-style-option-current {
   @apply bg-neutral-200 text-neutral-900 hover:bg-neutral-200;
 }
+
+/* A shortcut in a tooltip: Create frame F (#243) */
+.shape-style-kbd {
+  @apply ml-1.5 rounded bg-neutral-100 px-1.5 py-px font-sans text-xs text-neutral-500;
+}

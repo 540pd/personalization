@@ -22,6 +22,7 @@ import { bakeTextResize, isBoardText } from "../board/text";
 import { applyColor } from "../board/recolor";
 import { COLOR_EVENT, type ColorDetail } from "../board/palette";
 import { useFrames } from "@/store/frame.store";
+import { createFrameFromSelection } from "../board/frameSelection";
 import { selectOnly, registerNodeChromeClear } from "@/lib/canvas/selection";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { boardStage } from "@/lib/canvas/boardStage";
@@ -672,6 +673,14 @@ export default function Board() {
         frame.cancel();
         shapeDraw.cancel();
         textTool.cancel();
+        return;
+      }
+      // F: a Frame around two or more selected items (#243). Not while text is
+      // being edited in place or a dialog is up, nor with a modifier held.
+      if (e.code === "KeyF" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
+        if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;
+        if (createFrameFromSelection()) e.preventDefault();
         return;
       }
       // Frames keep their own selection, so they need their own Delete. Keyed

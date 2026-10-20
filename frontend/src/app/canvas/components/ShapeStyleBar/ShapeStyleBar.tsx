@@ -48,6 +48,8 @@ import {
 } from "../../board/text";
 import { syncNodeGeometry } from "../../board/geometry";
 import { applyAutoLayout, canAutoLayout, removeAutoLayout } from "../../board/autoLayout";
+import { canFrame, createFrameFromSelection, selectedBoxes } from "../../board/frameSelection";
+import { boundsOf } from "@/lib/canvas/bounds";
 import "./ShapeStyleBar.scss";
 
 const BAR_HEIGHT = 44; // screen px, matches .shape-style-bar
@@ -138,6 +140,13 @@ const StrokeIcon = ({ mode, width = 2 }: { mode: StrokeMode | undefined; width?:
   </svg>
 );
 
+// Create frame (#243): Luma's corners, a Frame to come around the selection.
+const CreateFrameIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
+    <path d="M2.5 6V2.5H6M12 2.5h3.5V6M15.5 12v3.5H12M6 15.5H2.5V12" />
+  </svg>
+);
+
 // Auto layout's icon shows what a click will do, as Luma's does: tidy tiles
 // to lay them out, loose tiles to stop (#225).
 const LayoutIcon = ({ on }: { on: boolean }) => (
@@ -168,6 +177,7 @@ const WidthIcon = ({ width }: { width: number }) => (
 
 /** The value every record shares, or undefined when they differ. */
 function common<K extends keyof ShapeStyle>(styles: ShapeStyle[], key: K): ShapeStyle[K] | undefined {
+  if (!styles.length) return undefined;
   const first = styles[0][key];
   return styles.every((s) => s[key] === first) ? first : undefined;
 }
@@ -271,10 +281,16 @@ export default function ShapeStyleBar() {
 
   const records = ids.map((id) => nodes[id]).filter((r): r is KonvaNodeRecord => !!r);
   const frameRecs = frameIds.map((id) => frames[id]).filter((f) => !!f);
-  const shown =
-    pointer && !panelsSelected &&
+  // Color, Fill, Stroke and the rest: only for shapes, text and Frames.
+  const styleable =
+    !panelsSelected &&
     records.length + frameRecs.length > 0 && records.length === ids.length &&
     records.every((r) => r.style || r.textStyle);
+  // Create frame (#243): two or more of anything but Frames. Images and
+  // generated nodes get a bar for it alone. Recomputed with the stores above.
+  const selected = pointer ? selectedBoxes() : [];
+  const framable = canFrame(selected, Object.values(frames), frameRecs.length);
+  const shown = pointer && (styleable || framable);
   const busy = useGesture(shown);
 
   // A new selection starts with every card closed.
@@ -348,7 +364,11 @@ export default function ShapeStyleBar() {
 
   // The selection's box on screen, Frames included.
   const vp = { x, y, scale };
-  const boxes = [...records, ...frameRecs];
+  const panelBoxes = panels.filter((p) => p.isActive).map((p) => {
+    const b = boundsOf(p);
+    return { canvasX: b.x, canvasY: b.y, canvasW: b.w, canvasH: b.h };
+  });
+  const boxes = [...records, ...frameRecs, ...panelBoxes];
   const left = Math.min(...boxes.map((r) => r.canvasX));
   const top = Math.min(...boxes.map((r) => r.canvasY));
   const right = Math.max(...boxes.map((r) => r.canvasX + r.canvasW));
@@ -360,9 +380,18 @@ export default function ShapeStyleBar() {
     left: centre - barW / 2, right: centre + barW / 2,
     top: a.y - GAP - BAR_HEIGHT, bottom: a.y - GAP,
   };
-  const names = frameRecs
-    .map((f) => frameNameBox(f, vp, nameTextWidth(f.label)))
-    .filter((n): n is ScreenBox => !!n);
+  // Names above: a selected Frame's, and an image's or generated node's (#243).
+  const itemNames = [
+    ...records.flatMap((r) => (r.label ? [{ box: r, label: r.label }] : [])),
+    ...panels.filter((p) => p.isActive && p.label).map((p) => {
+      const b = boundsOf(p);
+      return { box: { canvasX: b.x, canvasY: b.y, canvasW: b.w }, label: p.label! };
+    }),
+  ];
+  const names = [
+    ...frameRecs.map((f) => frameNameBox(f, vp, nameTextWidth(f.label))),
+    ...itemNames.map((n) => frameNameBox(n.box, vp, nameTextWidth(n.label))),
+  ].filter((n): n is ScreenBox => !!n);
   const lift = barMeetsNames(bar, names) ? FRAME_NAME_CLEARANCE : 0;
   const above = bar.top - lift;
   const below = above < MIN_TOP;
@@ -382,6 +411,7 @@ export default function ShapeStyleBar() {
       onPointerDown={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
+      {styleable && <>
       <div className="shape-style-wrapper">
         <button
           type="button" aria-label="Shape color" aria-expanded={card === "color"}
@@ -555,6 +585,23 @@ export default function ShapeStyleBar() {
           </div>
         )}
       </div>}
+      </>}
+
+      {framable && <>
+        {styleable && <div className="shape-style-divider" />}
+        <div className="shape-style-wrapper">
+          <button
+            type="button" aria-label="Create frame"
+            onClick={() => { setCard(null); createFrameFromSelection(); }}
+            className="shape-style-button"
+          >
+            <CreateFrameIcon />
+          </button>
+          <span className="shape-style-tooltip">
+            Create frame <kbd className="shape-style-kbd">F</kbd>
+          </span>
+        </div>
+      </>}
     </div>
   );
 }
