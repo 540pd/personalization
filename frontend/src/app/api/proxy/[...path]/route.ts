@@ -11,6 +11,41 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4000";
 const IS_PRODUCTION = !!process.env.K_SERVICE;
 const auth = new GoogleAuth();
 
+// How long the proxy waits for the backend to answer. Set by the slowest
+// synchronous route, POST /generate/image: up to 10 variants of a 4K image,
+// each a full model call, all in the one request. Video does not count --
+// its start route answers 202 at once and the client polls. Five minutes is
+// Cloud Run's default request timeout, so the proxy never gives up on a
+// request the backend would still have finished. Not exported: Next allows
+// only route handlers and config as exports of a route file.
+const BACKEND_TIMEOUT_MS = 5 * 60 * 1000;
+
+type ErrorBody = { error: string; message: string };
+
+function errorResponse(status: number, body: ErrorBody): NextResponse {
+  return NextResponse.json(body, { status });
+}
+
+/**
+ * True when a catch-all segment would step outside /api/ on the backend.
+ *
+ * Next decodes each segment once, so `%2f` arrives here as a `/` inside a
+ * segment and `%2e%2e` as `..`. Checked once more after a second decode too:
+ * a segment that still reads `%2e%2e` is itself a `..` to the URL parser.
+ */
+function isUnsafeSegment(segment: string): boolean {
+  let decoded = segment;
+  try {
+    decoded = decodeURIComponent(segment);
+  } catch {
+    // A stray `%` that is not an escape: nothing further to decode, and it is
+    // re-encoded as %25 below.
+  }
+  return [segment, decoded].some(
+    (s) => s === "" || s === "." || s === ".." || s.includes("/") || s.includes("\\")
+  );
+}
+
 async function getInfraToken(targetUrl: string): Promise<string | null> {
   // TODO: mint a Cloud Run OIDC token for service-to-service auth.
   // The target audience is the backend Cloud Run service URL.
@@ -26,7 +61,12 @@ async function getInfraToken(targetUrl: string): Promise<string | null> {
 
 async function handler(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
-  const targetPath = path.join("/");
+  if (!path?.length || path.some(isUnsafeSegment)) {
+    return errorResponse(400, { error: "invalid_path", message: "Invalid API path." });
+  }
+  // Re-encoded, since Next handed them over decoded: a segment carrying a
+  // `?`, `#` or `%` must stay one path segment on the backend too.
+  const targetPath = path.map(encodeURIComponent).join("/");
   const targetUrl = `${BACKEND_URL}/api/${targetPath}`;
 
   const url = new URL(targetUrl);
@@ -65,13 +105,33 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
   const cookie = req.headers.get("cookie");
   if (cookie) forwardHeaders.set("cookie", cookie);
 
-  const body = req.method !== "GET" && req.method !== "HEAD" ? await req.text() : undefined;
+  // Bytes, not text: req.text() decodes as UTF-8, which corrupts a binary
+  // upload. Buffered rather than streamed, so fetch needs no duplex: "half";
+  // the backend caps JSON bodies at 10 MB anyway.
+  const body = req.method !== "GET" && req.method !== "HEAD" ? await req.arrayBuffer() : undefined;
 
-  const backendResponse = await fetch(url.toString(), {
-    method: req.method,
-    headers: forwardHeaders,
-    body,
-  });
+  let backendResponse: Response;
+  try {
+    backendResponse = await fetch(url.toString(), {
+      method: req.method,
+      headers: forwardHeaders,
+      body,
+      signal: AbortSignal.timeout(BACKEND_TIMEOUT_MS),
+    });
+  } catch (err) {
+    // A JSON answer the client can read, rather than Next's own 500 page.
+    if ((err as { name?: unknown } | null)?.name === "TimeoutError") {
+      return errorResponse(504, {
+        error: "backend_timeout",
+        message: `The backend did not answer within ${BACKEND_TIMEOUT_MS / 1000} seconds.`,
+      });
+    }
+    console.error(`[proxy] ${req.method} /api/${targetPath} failed`, err);
+    return errorResponse(502, {
+      error: "backend_unavailable",
+      message: "The backend could not be reached.",
+    });
+  }
 
   const responseHeaders = new Headers();
   const setCookie = backendResponse.headers.get("set-cookie");
