@@ -2,17 +2,19 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { modalKeys } from "../Modal/modalKeys";
 
 /**
  * The confirms in front of the board actions -- "Clear board?" (#197) and
- * "Replace current board?" (#199). Styled as Brand's discard prompt, the one
- * confirm the app had.
+ * "Replace current board?" (#199) -- and the library's: Remove… (#211),
+ * Replace or Keep both (#206), Discard changes (#210). Styled as Brand's
+ * discard prompt, the one confirm the app had.
  *
  * Cancel takes focus, so Enter on an unread dialog keeps the board.
  * aria-modal is load-bearing as well as correct: the capture-phase Delete
  * handlers (NodePanel, ConnectionOverlay) skip events from inside a modal.
  */
-export default function BoardConfirmDialog({
+export default function ConfirmDialog({
   title,
   children,
   confirmLabel,
@@ -42,40 +44,14 @@ export default function BoardConfirmDialog({
   const id = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const keys = modalKeys(dialogRef, onCancel);
 
   useEffect(() => {
     cancelRef.current?.focus();
   }, []);
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    // Board's window listeners would otherwise see Backspace and Ctrl+Z.
-    e.stopPropagation();
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onCancel();
-      return;
-    }
-    if (e.key !== "Tab") return;
-    const buttons = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>("button") ?? []);
-    if (!buttons.length) return;
-    const first = buttons[0];
-    const last = buttons[buttons.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
-
   return createPortal(
-    <div
-      className="board-confirm-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
+    <div className="board-confirm-backdrop" onMouseDown={keys.onBackdropMouseDown}>
       <div
         ref={dialogRef}
         className="board-confirm"
@@ -83,7 +59,7 @@ export default function BoardConfirmDialog({
         aria-modal="true"
         aria-labelledby={`${id}-title`}
         aria-describedby={`${id}-desc`}
-        onKeyDown={onKeyDown}
+        onKeyDown={keys.onKeyDown}
       >
         <h3 id={`${id}-title`} className="board-confirm-title">
           {title}

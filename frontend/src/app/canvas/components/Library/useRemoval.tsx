@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode, type RefObject } from "react";
-import BoardConfirmDialog from "../Sidebar/BoardConfirmDialog";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import type { Listed } from "../../library/fields";
 
 /**
@@ -75,7 +75,7 @@ export function useRemoval<T extends Listed>({
 
   const users = pending && usedBy ? usedBy(pending.item) : [];
   const dialog = pending ? (
-    <BoardConfirmDialog
+    <ConfirmDialog
       title={`Remove “${pending.item.name}”?`}
       confirmLabel="Remove"
       tone="danger"
@@ -87,7 +87,7 @@ export function useRemoval<T extends Listed>({
       onConfirm={confirm}
     >
       {users.length ? usersSentence(users) : `It will be removed from your ${noun}.`}
-    </BoardConfirmDialog>
+    </ConfirmDialog>
   ) : null;
 
   return { request: (item, trigger) => setPending({ item, trigger }), dialog };

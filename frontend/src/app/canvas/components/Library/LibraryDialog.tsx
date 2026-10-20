@@ -3,7 +3,8 @@
 import { useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import BoardConfirmDialog from "../Sidebar/BoardConfirmDialog";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { modalKeys } from "@/components/Modal/modalKeys";
 
 const isFileDrag = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
 
@@ -33,37 +34,16 @@ export default function LibraryDialog({
   const id = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    e.stopPropagation();
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onRequestClose();
-      return;
-    }
-    if (e.key !== "Tab") return;
-    const focusable = Array.from(
-      dialogRef.current?.querySelectorAll<HTMLElement>(
-        "button:not(:disabled), input:not([readonly]), textarea, [tabindex='0']",
-      ) ?? [],
-    );
-    if (!focusable.length) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
+  const keys = modalKeys(
+    dialogRef,
+    onRequestClose,
+    "button:not(:disabled), input:not([readonly]), textarea, [tabindex='0']",
+  );
 
   return createPortal(
     <div
       className="library-dialog-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onRequestClose();
-      }}
+      onMouseDown={keys.onBackdropMouseDown}
       onDragOver={(e) => {
         if (!isFileDrag(e)) return;
         e.preventDefault();
@@ -84,7 +64,7 @@ export default function LibraryDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${id}-title`}
-        onKeyDown={onKeyDown}
+        onKeyDown={keys.onKeyDown}
       >
         <div className="library-dialog-header">
           <div>
@@ -103,18 +83,6 @@ export default function LibraryDialog({
     </div>,
     document.body,
   );
-}
-
-/** A fresh file input per pick, as Open file does: one kept in the page would make "the file input" ambiguous. */
-export function pickMarkdownFile(onPicked: (file: File) => void): void {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = ".md,.markdown,text/markdown";
-  input.addEventListener("change", () => {
-    const picked = input.files?.[0];
-    if (picked) onPicked(picked);
-  });
-  input.click();
 }
 
 /** Under Name: an error if there is one, else a hint (possibly empty). */
@@ -137,7 +105,7 @@ export function DiscardChanges({
   onDiscard: () => void;
 }) {
   return (
-    <BoardConfirmDialog
+    <ConfirmDialog
       title="Discard changes?"
       confirmLabel="Discard"
       tone="danger"
@@ -146,6 +114,6 @@ export function DiscardChanges({
       secondary={{ label: "Keep editing", onClick: onKeepEditing }}
     >
       Your changes to {name} won&apos;t be saved.
-    </BoardConfirmDialog>
+    </ConfirmDialog>
   );
 }

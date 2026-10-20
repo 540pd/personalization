@@ -11,7 +11,7 @@
 // Everything else is data: the destinations come from items.ts, the user
 // from the identity seam in auth/useIdentity.
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useSidebar, sidebarInset } from "@/store/sidebar.store";
 import { useSection } from "@/store/section.store";
 import { Z_INDEX } from "@/constants/canvas.constants";
@@ -19,8 +19,6 @@ import { useIdentity, useIdentityStore } from "@/auth/useIdentity";
 import SidebarHeader from "./SidebarHeader";
 import SidebarNav from "./SidebarNav";
 import SidebarFooter from "./SidebarFooter";
-import BoardConfirmDialog from "./BoardConfirmDialog";
-import BoardToast from "./BoardToast";
 import { requestClearBoard, useBoardItemCount } from "../../board/clearBoard";
 import {
   parseBoardFile,
@@ -30,21 +28,10 @@ import {
   type BoardFile,
 } from "../../board/boardFile";
 import { canvasHistory } from "@/lib/canvas/history";
+import { pickFile } from "@/lib/dom/pickFile";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/components/Toast/useToast";
 import "./Sidebar.scss";
-
-const TOAST_MS = 2500;
-// Longer for a toast with an Undo, which needs time to be read
-// and reached, and for a failure, which needs reading.
-const LONG_TOAST_MS = 5000;
-
-/** One toast at a time for the board actions; a new one replaces the last. */
-interface BoardToastState {
-  message: string;
-  error?: boolean;
-  undo?: boolean;
-  /** So repeating the same action restarts the timer. */
-  at: number;
-}
 
 /** The confirm in front of a board action, if one is up. */
 type BoardConfirm = { kind: "clear" } | { kind: "replace"; file: BoardFile; name: string };
@@ -61,7 +48,9 @@ export default function Sidebar() {
 
   const itemCount = useBoardItemCount();
   const [confirm, setConfirm] = useState<BoardConfirm | null>(null);
-  const [boardToast, setBoardToast] = useState<BoardToastState | null>(null);
+  // One toast at a time for the board actions; a new one replaces the last.
+  // Their Undo is the shared timeline's.
+  const [toast, showToast] = useToast();
   // The options trigger, so focus can go back to it once a confirm closes.
   const triggerRef = useRef<HTMLElement | null>(null);
   // Read when a file arrives, which can be long after the click that asked
@@ -69,19 +58,9 @@ export default function Sidebar() {
   const itemCountRef = useRef(itemCount);
   itemCountRef.current = itemCount;
 
-  useEffect(() => {
-    if (boardToast === null) return;
-    const ms = boardToast.undo || boardToast.error ? LONG_TOAST_MS : TOAST_MS;
-    const t = setTimeout(() => setBoardToast(null), ms);
-    return () => clearTimeout(t);
-  }, [boardToast]);
-
   const saveBoard = () => {
-    setBoardToast(
-      saveBoardToFile()
-        ? { message: "Board saved to file", at: Date.now() }
-        : { message: "Couldn't save the board.", error: true, at: Date.now() },
-    );
+    if (saveBoardToFile()) showToast("Board saved to file");
+    else showToast("Couldn't save the board.", true);
   };
 
   const closeConfirm = () => {
@@ -94,7 +73,7 @@ export default function Sidebar() {
     // so the fit measures the loaded board.
     requestLoadBoard(file);
     zoomToFitBoard();
-    setBoardToast({ message: "Board opened", undo: true, at: Date.now() });
+    showToast("Board opened", false, () => canvasHistory.undo());
   };
 
   const openChosen = async (chosen: File) => {
@@ -107,14 +86,12 @@ export default function Sidebar() {
     }
     const parsed = parseBoardFile(text);
     if (!parsed.ok) {
-      setBoardToast({
-        message:
-          parsed.error === "newer"
-            ? "This board was saved by a newer version of PlaySpace."
-            : "This file isn't a PlaySpace board.",
-        error: true,
-        at: Date.now(),
-      });
+      showToast(
+        parsed.error === "newer"
+          ? "This board was saved by a newer version of PlaySpace."
+          : "This file isn't a PlaySpace board.",
+        true,
+      );
       return;
     }
     // Nothing to lose, nothing to ask.
@@ -122,21 +99,8 @@ export default function Sidebar() {
     else setConfirm({ kind: "replace", file: parsed.file, name: chosen.name });
   };
 
-  // A fresh input per pick, never one kept in the page: a second
-  // input[type=file] beside the dock's upload makes any lookup of "the file
-  // input" ambiguous -- the e2e upload helper's among them -- and a new one
-  // also fires change for the same file picked twice. Called within the
-  // menu click, which the picker needs.
-  const pickBoardFile = () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json,application/json";
-    input.addEventListener("change", () => {
-      const chosen = input.files?.[0];
-      if (chosen) void openChosen(chosen);
-    });
-    input.click();
-  };
+  // Called within the menu click, which the picker needs.
+  const pickBoardFile = () => pickFile(".json,application/json", (chosen) => void openChosen(chosen));
 
   return (
     <aside
@@ -176,7 +140,7 @@ export default function Sidebar() {
         onSignOut={signOut}
       />
       {confirm?.kind === "clear" && (
-        <BoardConfirmDialog
+        <ConfirmDialog
           title="Clear board?"
           confirmLabel="Clear"
           tone="danger"
@@ -186,14 +150,14 @@ export default function Sidebar() {
           onConfirm={() => {
             closeConfirm();
             requestClearBoard();
-            setBoardToast({ message: "Board cleared", undo: true, at: Date.now() });
+            showToast("Board cleared", false, () => canvasHistory.undo());
           }}
         >
           This removes all {itemsPhrase(itemCount)} from PlaySpace.
-        </BoardConfirmDialog>
+        </ConfirmDialog>
       )}
       {confirm?.kind === "replace" && (
-        <BoardConfirmDialog
+        <ConfirmDialog
           title="Replace current board?"
           confirmLabel="Replace"
           tone="primary"
@@ -205,22 +169,9 @@ export default function Sidebar() {
           }}
         >
           Opening {confirm.name} will replace the {itemsPhrase(itemCount)} on the board.
-        </BoardConfirmDialog>
+        </ConfirmDialog>
       )}
-      {boardToast !== null && (
-        <BoardToast
-          message={boardToast.message}
-          error={boardToast.error}
-          onUndo={
-            boardToast.undo
-              ? () => {
-                  canvasHistory.undo();
-                  setBoardToast(null);
-                }
-              : undefined
-          }
-        />
-      )}
+      {toast}
     </aside>
   );
 }

@@ -10,7 +10,8 @@ import { useEffect } from "react";
 import { useSection } from "@/store/section.store";
 import { dialogIsOpen, isEditableTarget } from "@/lib/dom/keys";
 import { useSettings } from "@/store/settings.store";
-import LibraryPage, { useLibraryToast } from "../Library/LibraryPage";
+import { useToast } from "@/components/Toast/useToast";
+import LibraryPage from "../Library/LibraryPage";
 import { isDefault, settingGroups, type SettingSpec } from "../../settings/settings";
 import "./Settings.scss";
 
@@ -42,7 +43,7 @@ export default function SettingsPage() {
 
 function Page() {
   const settings = useSettings((s) => s.settings);
-  const [toast, showToast] = useLibraryToast();
+  const [toast, showToast] = useToast();
 
   const change = (spec: SettingSpec, value: string | boolean) => {
     const ok = useSettings.getState().set(spec.id, value as never);

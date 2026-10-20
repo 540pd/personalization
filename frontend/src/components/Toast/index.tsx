@@ -5,10 +5,11 @@ import { AlertCircle, Check } from "lucide-react";
 
 /**
  * The board actions' confirmations: "Board cleared · Undo", "Board saved to
- * file", and their failures. Same pill as "Brand saved"; an Undo is the
- * shared timeline's undo, exactly what Ctrl+Z does.
+ * file", and their failures. Same pill as "Brand saved" and the library
+ * pages' toasts; a board action's Undo is the shared timeline's undo,
+ * exactly what Ctrl+Z does. Shown through useToast.
  */
-export default function BoardToast({
+export default function Toast({
   message,
   error = false,
   onUndo,

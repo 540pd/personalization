@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import BoardConfirmDialog from "../Sidebar/BoardConfirmDialog";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import LibraryDialog, { DiscardChanges, NameNote } from "./LibraryDialog";
 import type { LibraryItemForm } from "./useLibraryItemForm";
 import { HANDLE_HINT, MAX_DESCRIPTION, MAX_NAME, toHandle } from "../../library/fields";
@@ -28,7 +28,7 @@ export function LibraryItemDialog({
   const { confirm, editing } = form;
   const confirmDialog =
     confirm?.kind === "duplicate" ? (
-      <BoardConfirmDialog
+      <ConfirmDialog
         title={`Replace “${confirm.existing.name}”?`}
         confirmLabel="Replace"
         tone="primary"
@@ -37,7 +37,7 @@ export function LibraryItemDialog({
         secondary={{ label: "Keep both", onClick: () => form.save("keep") }}
       >
         {capitalize(form.noun.a)} with this name already exists. Replacing it swaps in this file, description and tags.
-      </BoardConfirmDialog>
+      </ConfirmDialog>
     ) : confirm?.kind === "discard" && editing ? (
       <DiscardChanges name={editing.name} onKeepEditing={form.cancelConfirm} onDiscard={form.onClose} />
     ) : null;

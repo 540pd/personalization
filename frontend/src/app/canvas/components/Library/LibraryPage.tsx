@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import { Search } from "lucide-react";
 import { useSidebar, sidebarInset } from "@/store/sidebar.store";
 import { Z_INDEX } from "@/constants/canvas.constants";
-import BoardToast from "../Sidebar/BoardToast";
 import RowMenu, { type RowMenuItem } from "./RowMenu";
 import "./Library.scss";
 
@@ -302,41 +301,6 @@ export function TagsCell({ tags }: { tags: string[] }) {
       —
     </span>
   );
-}
-
-interface Toast {
-  message: string;
-  error?: boolean;
-  onUndo?: () => void;
-  at: number;
-}
-
-/**
- * One toast at a time, so a new one replaces -- and takes the Undo of -- the
- * last. A failure, or one with Undo (#211), stays up longer.
- */
-export function useLibraryToast(): [ReactNode, (message: string, error?: boolean, onUndo?: () => void) => void] {
-  const [toast, setToast] = useState<Toast | null>(null);
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), toast.error || toast.onUndo ? 5000 : 2500);
-    return () => clearTimeout(t);
-  }, [toast]);
-  const node = toast ? (
-    <BoardToast
-      message={toast.message}
-      error={toast.error}
-      onUndo={
-        toast.onUndo
-          ? () => {
-              setToast(null);
-              toast.onUndo?.();
-            }
-          : undefined
-      }
-    />
-  ) : null;
-  return [node, (message, error = false, onUndo) => setToast({ message, error, onUndo, at: Date.now() })];
 }
 
 /**
