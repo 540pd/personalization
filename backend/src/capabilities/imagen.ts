@@ -4,15 +4,14 @@
 // with a console.warn rather than throwing. This lets the backend start and
 // serve requests locally without GCP credentials.
 
-import { GoogleGenAI } from "@google/genai";
 import type {
   ImageCapability,
-  ImageGenerationParams,
   ImageGenerationResult,
   ImageGenerationV2Params,
   Reference,
 } from "./types.js";
 import { buildContentParts } from "./prompt.js";
+import { makeGenAI } from "./genai.js";
 
 
 const MOCK_IMAGE_URL =
@@ -28,33 +27,7 @@ const THINKING_LEVEL: Record<string, string> = {
   Full:    "HIGH",
 };
 
-function makeGenAI(): GoogleGenAI {
-  return new GoogleGenAI({
-    vertexai: true,
-    project: process.env.VERTEX_PROJECT_ID!,
-    location: process.env.VERTEX_LOCATION ?? "global",
-  });
-}
-
 export class ImagenCapability implements ImageCapability {
-  async generate(params: ImageGenerationParams): Promise<ImageGenerationResult> {
-    if (!process.env.VERTEX_PROJECT_ID) {
-      console.warn(
-        "[ImagenCapability] VERTEX_PROJECT_ID not set — returning mock image. " +
-          "Set VERTEX_PROJECT_ID to enable real generation."
-      );
-      return { imageUrl: MOCK_IMAGE_URL, modelUsed: "mock" };
-    }
-
-    // Legacy endpoint — delegates to generateV2 using the default model.
-    return this.generateV2({
-      modelId: "gemini-3.1-flash-image",
-      instruction: params.prompt,
-      aspectRatio: params.aspectRatio,
-      userId: params.userId,
-    });
-  }
-
   async generateV2(params: ImageGenerationV2Params): Promise<ImageGenerationResult> {
     if (!process.env.VERTEX_PROJECT_ID) {
       console.warn(

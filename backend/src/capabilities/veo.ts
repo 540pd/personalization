@@ -14,20 +14,13 @@
 // hand-rolled REST call. The model picker and the job contract are unchanged
 // by adding it later — it is one more branch in generateVideo.
 
-import { GoogleGenAI, VideoGenerationReferenceType } from "@google/genai";
+import { VideoGenerationReferenceType } from "@google/genai";
 import type { VideoGenerationParams, VideoGenerationResult } from "./types.js";
+import { makeGenAI } from "./genai.js";
 
 // The Veo sample pins a region. Video models are not served from "global",
 // which is what the image and text capabilities default to.
 const VIDEO_LOCATION = process.env.VERTEX_VIDEO_LOCATION ?? "us-central1";
-
-function makeGenAI(): GoogleGenAI {
-  return new GoogleGenAI({
-    vertexai: true,
-    project: process.env.VERTEX_PROJECT_ID!,
-    location: VIDEO_LOCATION,
-  });
-}
 
 const MOCK_VIDEO_URL =
   "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQ==";
@@ -89,7 +82,7 @@ export class VeoCapability {
       return { videoUrl: MOCK_VIDEO_URL, modelUsed: "mock" };
     }
 
-    const ai = makeGenAI();
+    const ai = makeGenAI(VIDEO_LOCATION);
     const images = referenceImages(params);
 
     let operation = await ai.models.generateVideos({

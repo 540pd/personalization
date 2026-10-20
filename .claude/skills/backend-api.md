@@ -27,7 +27,7 @@ even though source files are `.ts` — this is the NodeNext ESM requirement.
 - **No key → mock mode, never throw** — `VERTEX_PROJECT_ID` absent = console.warn + placeholder, not a crash.
 - **`.js` extensions on all imports** — `import { foo } from "./lib/foo.js"` even though file is `foo.ts`.
 - **Validate request bodies inline** — `typeof prompt !== "string"` checks, no Zod.
-- **`ImageCapability` is the only generation contract** — route code calls `getCapability().generate()`, never Vertex AI directly.
+- **`ImageCapability` is the only generation contract** — route code goes through `services/generationService.ts` (`getCapability().generateV2()`), never Vertex AI directly.
 - **Session token checked before Google token** — local HMAC verify first (no network), Google verify only as fallback.
 - **Global error handler last** — 4-argument `ErrorRequestHandler` at the bottom of `createApp()`.
 

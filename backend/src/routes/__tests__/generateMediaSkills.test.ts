@@ -10,7 +10,7 @@ const { generateV2, generateVideo } = vi.hoisted(() => ({
 }));
 
 vi.mock("../../capabilities/index.js", () => ({
-  getCapability: () => ({ generate: vi.fn(), generateV2 }),
+  getCapability: () => ({ generateV2 }),
   getTextCapability: () => ({ generateText: vi.fn() }),
   getVideoCapability: () => ({ generateVideo, getVideo: vi.fn() }),
 }));
@@ -54,6 +54,13 @@ describe("@skills on image and video (#240)", () => {
     const res = await image({ skills: [{ name: "x" }] });
     expect(res.status).toBe(400);
     expect(generateV2).not.toHaveBeenCalled();
+  });
+
+  it("reads references, preferring the image route's older referenceImages name", async () => {
+    await image({ references: [{ url: "data:new" }] });
+    expect(generateV2.mock.calls[0][0].references).toEqual([{ kind: "image", url: "data:new" }]);
+    await image({ references: [{ url: "data:new" }], referenceImages: ["data:old"] });
+    expect(generateV2.mock.calls[1][0].references).toEqual([{ kind: "image", url: "data:old" }]);
   });
 
   it("puts each skill ahead of a video prompt, and refuses malformed ones before a job", async () => {
