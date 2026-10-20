@@ -9,7 +9,6 @@
 // uses. Everything else in konvaNodes is recomputed by syncNodeGeometry.
 
 import type Konva from "konva";
-import { useKonvaNodes } from "@/store/konvaNodes.store";
 import {
   useNodePanel,
   type NodeKind,
@@ -29,6 +28,7 @@ import { fitTo } from "../components/Minimap/zoom";
 import { unionBounds } from "../components/Minimap/world";
 import { currentBounds } from "../components/Minimap/boardBounds";
 import { canvasEvent } from "@/lib/canvas/events";
+import { nodeEntry, type NodeEntry } from "./nodeEntry";
 
 export const BOARD_FILE_FORMAT = "gcos-playspace";
 export const BOARD_FILE_VERSION = 1;
@@ -37,13 +37,7 @@ export const BOARD_FILE_VERSION = 1;
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 
 /** A Konva node as stored: what the clipboard copies, minus anything not JSON. */
-export interface BoardFileNode {
-  className: string;
-  attrs: Record<string, Json>;
-  /** Uploaded images only: the picture itself, as a data URL. */
-  imageUrl?: string;
-  label?: string;
-}
+export type BoardFileNode = NodeEntry<Record<string, Json>>;
 
 /**
  * A panel without the parts that describe this session rather than the
@@ -99,17 +93,10 @@ export function plainAttrs(attrs: Record<string, unknown>): Record<string, Json>
  * than the stage so a test can pass a Konva.Group: jsdom has no Stage.
  */
 export function serializeBoard(container: Konva.Container, now = new Date()): BoardFile {
-  const records = useKonvaNodes.getState().nodes;
   // find() returns ascending z, so this array is already the paint order.
-  const nodes = (container.find(".selectable") as Konva.Shape[]).map((n): BoardFileNode => {
-    const rec = records[n.id()];
-    return {
-      className: n.getClassName(),
-      attrs: plainAttrs(n.getAttrs()),
-      ...(rec?.imageUrl ? { imageUrl: rec.imageUrl } : {}),
-      ...(rec?.label ? { label: rec.label } : {}),
-    };
-  });
+  const nodes = (container.find(".selectable") as Konva.Shape[]).map(
+    (n): BoardFileNode => nodeEntry(n, plainAttrs(n.getAttrs())),
+  );
   const panels = useNodePanel
     .getState()
     .panels.map(({ isActive: _a, isPanelOpen: _o, job: _j, ...rest }) => rest);

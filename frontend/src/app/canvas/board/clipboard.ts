@@ -14,24 +14,13 @@ import { useLayerOrder } from "@/store/layerOrder.store";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { BoardShape, type BoardShapeConfig } from "./shapes";
 import { isPageKey } from "@/lib/dom/keys";
-
-/**
- * One entry per copied node, so a multi-selection round-trips intact.
- *
- * imageUrl and label ride alongside the Konva attrs because both live in
- * konvaNodes, not on the shape -- without imageUrl a pasted image cannot be
- * used as a generation reference, and without label it pastes nameless.
- */
-export interface ClipboardEntry {
-  className: string;
-  attrs: Record<string, unknown>;
-  imageUrl?: string;
-  label?: string;
-}
+import { nodeEntry, type NodeEntry } from "./nodeEntry";
+import { nodeBox } from "./geometry";
+import type { BoardLayerDeps } from "./boardContext";
 
 /** Everything one Ctrl+C captured. */
 export interface Clipboard {
-  konva: ClipboardEntry[];
+  konva: NodeEntry[];
   panels: PanelInstance[];
   /** Only wires with both ends among the copied nodes. */
   connections: Connection[];
@@ -42,14 +31,8 @@ const EMPTY_CLIPBOARD: Clipboard = { konva: [], panels: [], connections: [] };
 /** Offset so a paste does not land exactly on its original. */
 const PASTE_OFFSET = 20;
 
-export function copyNodes(selected: Konva.Shape[]): ClipboardEntry[] {
-  const registered = useKonvaNodes.getState().nodes;
-  return selected.map((n) => ({
-    className: n.getClassName(),
-    attrs: { ...n.getAttrs() },
-    imageUrl: registered[n.id()]?.imageUrl,
-    label: registered[n.id()]?.label,
-  }));
+export function copyNodes(selected: Konva.Shape[]): NodeEntry[] {
+  return selected.map((n) => nodeEntry(n));
 }
 
 /**
@@ -84,7 +67,7 @@ export function createNode(className: string, attrs: Record<string, unknown>): K
 /** Re-creates copied nodes on `layer`, offset, and returns them. */
 export function pasteNodes(
   layer: Konva.Layer,
-  clipboard: ClipboardEntry[]
+  clipboard: NodeEntry[]
 ): Konva.Shape[] {
   // Seeded once from the board, then grown as this batch is placed: pasting a
   // multi-selection of two "cat"s must yield "cat (2)" and "cat (3)", and the
@@ -116,10 +99,7 @@ export function pasteNodes(
     if (entry.imageUrl || label) {
       useKonvaNodes.getState().upsert({
         id,
-        canvasX: node.x(),
-        canvasY: node.y(),
-        canvasW: node.width() * node.scaleX(),
-        canvasH: node.height() * node.scaleY(),
+        ...nodeBox(node),
         imageUrl: entry.imageUrl,
         label,
       });
@@ -153,18 +133,8 @@ export function selectNodes(transformer: Konva.Transformer, nodes: Konva.Shape[]
   nodes.slice(1).forEach((n) => sel.addToSelection(n.id()));
 }
 
-export interface EditKeysDeps {
-  layer: Konva.Layer;
-  transformer: Konva.Transformer;
-  applyDraggability: () => void;
-  syncAllNodeGeometry: () => void;
-  updateSelectionChrome: () => void;
-  /** Pass the event to share one undo step with other Delete handlers. */
-  saveSnapshot: (coalesceKey?: object) => void;
-}
-
 /** Keydown handler for Delete, Ctrl+C and Ctrl+V. */
-export function createEditKeysHandler(deps: EditKeysDeps) {
+export function createEditKeysHandler(deps: BoardLayerDeps) {
   let clipboard: Clipboard = EMPTY_CLIPBOARD;
 
   return (e: KeyboardEvent) => {

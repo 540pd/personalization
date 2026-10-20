@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useToolStore } from "@/store/tool.store";
-import { copyNodes, pasteNodes, deleteNodes, type ClipboardEntry } from "../clipboard";
+import { copyNodes, pasteNodes, deleteNodes } from "../clipboard";
+import type { NodeEntry } from "../nodeEntry";
 import { applyDraggability } from "../draggability";
 
 // A Group stands in for the layer: it is a Konva container with no canvas of
@@ -48,7 +49,7 @@ describe("copyNodes", () => {
 });
 
 describe("pasteNodes", () => {
-  const entry = (over: Partial<ClipboardEntry> = {}): ClipboardEntry => ({
+  const entry = (over: Partial<NodeEntry> = {}): NodeEntry => ({
     className: "Rect",
     attrs: { x: 10, y: 20, width: 30, height: 40, id: "original", name: "selectable" },
     ...over,

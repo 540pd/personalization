@@ -27,15 +27,9 @@ import { boardStage } from "@/lib/canvas/boardStage";
 import FrameLabels from "./FrameLabels";
 import AutoLayoutDropLine from "./AutoLayoutDropLine";
 import { announceGesture } from "@/lib/canvas/gesture";
-import { CORNERS } from "../board/selectionChrome";
+import { createSelectionTransformer } from "../board/transformer";
 import { colorEvent } from "../board/palette";
-import {
-  COLORS,
-  FRAME_CORNER_RADIUS,
-  FRAME_MIN_EDGE,
-  SELECTION,
-  Z_INDEX,
-} from "@/constants/canvas.constants";
+import { COLORS, FRAME_CORNER_RADIUS, FRAME_MIN_EDGE, Z_INDEX } from "@/constants/canvas.constants";
 import { listen } from "@/lib/dom/listen";
 
 export default function FrameLayer() {
@@ -85,32 +79,19 @@ export default function FrameLayer() {
     const layer = new Konva.Layer();
     stage.add(layer);
 
-    // Styled exactly as a node's (Board.tsx), so selecting a frame and
-    // selecting a node look like the same act, corner handles included
+    // Styled exactly as a node's (board/transformer), so selecting a frame
+    // and selecting a node look like the same act, corner handles included
     // (#160). One deliberate difference: a frame's corners stretch freely,
     // because it is a region whose width and height change independently,
     // where an image is a picture whose corners keep its ratio. Shift locks
     // the ratio, as on a shape.
-    const transformer = new Konva.Transformer({
-      rotateEnabled: false,
-      // A flip is rotation:-180 to Konva; the frame's stored box has no
-      // notion of it and would describe a rect the shape no longer covers.
-      flipEnabled: false,
-      enabledAnchors: CORNERS,
+    const transformer = createSelectionTransformer({
       keepRatio: false,
-      borderStroke: COLORS.ink,
-      borderStrokeWidth: SELECTION.borderWidth,
-      anchorStroke: COLORS.ink,
-      anchorFill: COLORS.paper,
-      anchorSize: SELECTION.anchorSize,
-      anchorCornerRadius: SELECTION.anchorCornerRadius,
-      padding: SELECTION.padding,
       ignoreStroke: true,
       // Without a floor an over-drag shrinks a frame to nothing it can be
       // grabbed by. FRAME_MIN_EDGE is screen px and the box arrives in screen
       // px, so the floor holds at every zoom without converting.
-      boundBoxFunc: (oldBox, newBox) =>
-        newBox.width < FRAME_MIN_EDGE || newBox.height < FRAME_MIN_EDGE ? oldBox : newBox,
+      minEdge: () => FRAME_MIN_EDGE,
     });
     layer.add(transformer);
     hoverRef.current = createHoverOutline(layer, transformer);

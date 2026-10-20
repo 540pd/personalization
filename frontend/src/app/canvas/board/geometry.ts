@@ -4,6 +4,17 @@ import type { ShapeKind } from "@/store/tool.store";
 import { isBoardShape, isLineKind, lineBend, lineEnds } from "./shapes";
 import { isBoardText, readTextStyle } from "./text";
 import { readStyle } from "./shapeStyle";
+import type { TopAnchoredBox } from "@/lib/canvas/bounds";
+
+/** Where `n` sits on the canvas, its scale folded into the size. */
+export function nodeBox(n: Konva.Node): TopAnchoredBox {
+  return {
+    canvasX: n.x(),
+    canvasY: n.y(),
+    canvasW: n.width() * n.scaleX(),
+    canvasH: n.height() * n.scaleY(),
+  };
+}
 
 /**
  * Publishes a node's geometry to konvaNodes -- the single source the port
@@ -23,10 +34,7 @@ export function syncNodeGeometry(n: Konva.Shape): void {
   const shape = n.getAttr("shapeKind") as ShapeKind | undefined;
   useKonvaNodes.getState().upsert({
     id,
-    canvasX: n.x(),
-    canvasY: n.y(),
-    canvasW: n.width() * n.scaleX(),
-    canvasH: n.height() * n.scaleY(),
+    ...nodeBox(n),
     z: n.zIndex(),
     ...(shape ? { shape } : {}),
     ...(isBoardText(n) ? { text: true, textStyle: readTextStyle(n) } : {}),

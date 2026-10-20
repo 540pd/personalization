@@ -12,6 +12,7 @@
 // they are the same code from here on.
 
 import type { Point, Rect } from "@/lib/canvas/coords";
+import { disposeAll, listen } from "@/lib/dom/listen";
 
 /** What the file picker accepts, kept in step with FloatingDock's `accept`. */
 const ACCEPTED_PREFIXES = ["image/", "video/", "audio/"];
@@ -121,4 +122,24 @@ export function createDragDropHandlers(deps: DragDropDeps) {
   };
 
   return { dragEnter, dragOver, dragLeave, drop, reset };
+}
+
+/**
+ * Files dragged in from the desktop. Window-level, because the browser
+ * navigates away on a drop anywhere -- not just over the canvas. Returns
+ * what stops listening.
+ */
+export function listenForDrops(deps: DragDropDeps): () => void {
+  const dnd = createDragDropHandlers(deps);
+  const off = [
+    listen(window, "dragenter", dnd.dragEnter),
+    listen(window, "dragover", dnd.dragOver),
+    listen(window, "dragleave", dnd.dragLeave),
+    listen(window, "drop", dnd.drop),
+    // A drag that ends outside the window never fires dragleave, so the
+    // affordance would stick on until the next drag.
+    listen(window, "dragend", dnd.reset),
+    listen(window, "blur", dnd.reset),
+  ];
+  return () => disposeAll(off);
 }

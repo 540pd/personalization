@@ -16,6 +16,7 @@ import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { canvasArea } from "../canvasArea";
 import { joinLayout } from "./autoLayoutDrop";
 import { canvasEvent } from "@/lib/canvas/events";
+import type { BoardLayerDeps } from "./boardContext";
 
 /**
  * Detail of uploadEvent.
@@ -53,15 +54,7 @@ export function fitToBox(
   return { w: naturalWidth * ratio, h: naturalHeight * ratio };
 }
 
-export interface UploadDeps {
-  layer: Konva.Layer;
-  /** Re-applies the "draggable only in pointer mode" rule to new nodes. */
-  applyDraggability: () => void;
-  /** Publishes geometry to konvaNodes so ports and wires can track the node. */
-  syncAllNodeGeometry: () => void;
-  /** Commits to the undo timeline. */
-  saveSnapshot: () => void;
-}
+export type UploadDeps = Pick<BoardLayerDeps, "layer" | "applyDraggability" | "syncAllNodeGeometry" | "saveSnapshot">;
 
 /** Shared by both branches: register, attach, redraw, and make it undoable. */
 function placeNode(

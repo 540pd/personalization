@@ -7,6 +7,9 @@ import Konva from "konva";
 import { isBoardShape, isLineKind } from "./shapes";
 import { isBoardText } from "./text";
 import { hasAttrs, lineStyleAttrs, patchStyle, readStyle, styleAttrs, type ShapeStyle } from "./shapeStyle";
+import { colorEvent } from "./palette";
+import { syncNodeGeometry } from "./geometry";
+import type { BoardLayerDeps } from "./boardContext";
 
 /**
  * The attrs that give a board item this colour, or null for an item a colour
@@ -34,6 +37,24 @@ export function applyColor(nodes: Konva.Node[], hex: string): boolean {
     changed = true;
   });
   return changed;
+}
+
+/**
+ * A swatch picked in the dock recolours the selected shapes and text
+ * (#159). Committed with the event as its key, so the Frames it also
+ * recolours (FrameLayer) land in the same undo step. Returns what stops
+ * listening.
+ */
+export function listenForColorPicks(
+  deps: Pick<BoardLayerDeps, "layer" | "transformer" | "saveSnapshot">,
+): () => void {
+  return colorEvent.on(({ hex }, e) => {
+    if (!applyColor(deps.transformer.nodes(), hex)) return;
+    // Republished, so the style bar's dot (#161) shows the new colour.
+    (deps.transformer.nodes() as Konva.Shape[]).forEach(syncNodeGeometry);
+    deps.layer.batchDraw();
+    deps.saveSnapshot(e);
+  });
 }
 
 /**
