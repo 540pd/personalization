@@ -46,6 +46,10 @@ export type BoardFileNode = NodeEntry<Record<string, Json>>;
  */
 export type BoardFilePanel = Omit<PanelInstance, "isActive" | "isPanelOpen" | "job">;
 
+export function toFilePanel({ isActive: _a, isPanelOpen: _o, job: _j, ...rest }: PanelInstance): BoardFilePanel {
+  return rest;
+}
+
 export interface BoardFile {
   format: typeof BOARD_FILE_FORMAT;
   version: typeof BOARD_FILE_VERSION;
@@ -97,9 +101,7 @@ export function serializeBoard(container: Konva.Container, now = new Date()): Bo
   const nodes = (container.find(".selectable") as Konva.Shape[]).map(
     (n): BoardFileNode => nodeEntry(n, plainAttrs(n.getAttrs())),
   );
-  const panels = useNodePanel
-    .getState()
-    .panels.map(({ isActive: _a, isPanelOpen: _o, job: _j, ...rest }) => rest);
+  const panels = useNodePanel.getState().panels.map(toFilePanel);
   return {
     format: BOARD_FILE_FORMAT,
     version: BOARD_FILE_VERSION,
@@ -156,10 +158,30 @@ export function zoomToFitBoard(): void {
   if (box) useViewport.setState(fitTo(box, canvasArea()));
 }
 
+/** `invalid`: not JSON, or not a PlaySpace board. `newer`: a version this build cannot read. */
+export type BoardFileError = "invalid" | "newer";
+
 export type ParseResult =
   | { ok: true; file: BoardFile }
-  /** `invalid`: not JSON, or not a PlaySpace board. `newer`: a version this build cannot read. */
-  | { ok: false; error: "invalid" | "newer" };
+  | { ok: false; error: BoardFileError };
+
+const PROBLEMS: Record<"file" | "saved", Record<BoardFileError, string>> = {
+  // A file the user chose in Open file (#199): said in a toast.
+  file: {
+    newer: "This board was saved by a newer version of PlaySpace.",
+    invalid: "This file isn't a PlaySpace board.",
+  },
+  // The board saved across a reload (#203): said in the console.
+  saved: {
+    newer: "The saved board is from a newer version of PlaySpace and was not restored.",
+    invalid: "The saved board is unreadable and was not restored.",
+  },
+};
+
+/** What to tell the user when a board from `source` could not be read. */
+export function boardFileProblem(error: BoardFileError, source: "file" | "saved"): string {
+  return PROBLEMS[source][error];
+}
 
 const NODE_KINDS: readonly NodeKind[] = ["image", "video", "instruction", "compose"];
 const OUTPUT_TYPES: readonly PanelOutput["type"][] = ["image", "video", "text"];
