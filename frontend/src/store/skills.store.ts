@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { Skill } from "@/app/canvas/skills/skillFile";
+import { withHandles } from "@/app/canvas/library/fields";
+import { nameFromFileName, type Skill } from "@/app/canvas/skills/skillFile";
 import { localList, stringArray } from "@/lib/localList";
 
 /**
@@ -48,8 +49,12 @@ const storage = localList<Skill>({
   readItem: readSkill,
 });
 
-/** The saved skills; [] when there are none or they cannot be read. Never throws. */
-export const loadSkills = storage.load;
+/**
+ * The saved skills; [] when there are none or they cannot be read. Never throws.
+ * Names saved before #237 come back as handles, and are saved so with the next change.
+ */
+export const loadSkills = (from?: Storage): Skill[] =>
+  withHandles(storage.load(from), (x) => nameFromFileName(x.fileName) || "skill");
 /** False when storage refused the write. Never throws. */
 export const saveSkills = storage.save;
 

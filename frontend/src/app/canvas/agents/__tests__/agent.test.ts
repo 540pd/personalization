@@ -30,14 +30,14 @@ function memoryStorage(failWrites = false): Storage & { data: Map<string, string
 }
 
 const agent: Agent = {
-  id: "agent-1", name: "Copywriter", description: "Taglines", instructions: "Write three.",
+  id: "agent-1", name: "copywriter", description: "Taglines", instructions: "Write three.",
   model: "gemini-3.8-flash", skillIds: ["s2", "gone", "s1"], tags: ["copy"],
   fileName: "copywriter.md", size: 40, content: "---\nname: Copywriter\n---\nWrite three.", createdAt: 1,
 };
 
 const skills = [
-  { id: "s1", name: "Brand voice", description: "", tags: [] },
-  { id: "s2", name: "Campaign brief", description: "", tags: [] },
+  { id: "s1", name: "brand-voice", description: "", tags: [] },
+  { id: "s2", name: "campaign-brief", description: "", tags: [] },
 ];
 
 afterEach(() => vi.restoreAllMocks());
@@ -65,7 +65,7 @@ describe("readAgentFile", () => {
     const text =
       "---\nname: Copywriter\ndescription: Taglines\nmodel: Gemini 3.8 Flash\nskills: [campaign brief, Brand voice]\ntags: [Copy, social media]\n---\n\nWrite three.\n";
     expect(readAgentFile(text, "c.md", skills)).toEqual({
-      name: "Copywriter",
+      name: "copywriter",
       description: "Taglines",
       tags: ["copy", "social-media"],
       instructions: "Write three.",
@@ -74,6 +74,12 @@ describe("readAgentFile", () => {
       unknownModel: undefined,
       missingSkills: [],
     });
+  });
+
+  it("matches skills as handles, and words a missing one as the file wrote it (#237)", () => {
+    const file = readAgentFile("---\nskills: [brand-voice, Campaign_Brief, Tone Guide]\n---\nBody", "c.md", skills);
+    expect(file.skillIds).toEqual(["s1", "s2"]);
+    expect(file.missingSkills).toEqual(["Tone Guide"]);
   });
 
   it("takes skills as a - list too, and skips ones not in the library", () => {
@@ -85,12 +91,12 @@ describe("readAgentFile", () => {
 
   it("falls back to the default model, the heading and the file name", () => {
     expect(readAgentFile("# Summary editor\nSummarise.", "x.md", skills)).toMatchObject({
-      name: "Summary editor",
+      name: "summary-editor",
       model: DEFAULT_AGENT_MODEL,
       unknownModel: undefined,
       instructions: "# Summary editor\nSummarise.",
     });
-    expect(readAgentFile("Body only", "social-planner.md", skills).name).toBe("Social planner");
+    expect(readAgentFile("Body only", "social-planner.md", skills).name).toBe("social-planner");
   });
 
   it("keeps an unknown model only as a note", () => {
@@ -101,7 +107,7 @@ describe("readAgentFile", () => {
 
   it("reads the example file without notes", () => {
     const file = readAgentFile(EXAMPLE_AGENT_FILE, "agent-example.md", skills);
-    expect(file.name).toBe("Copywriter");
+    expect(file.name).toBe("copywriter");
     expect(file.skillIds).toEqual(["s1"]);
     expect(agentFileNotes(file)).toEqual([]);
     expect(file.instructions).toMatch(/^You are a senior copywriter/);
@@ -124,11 +130,17 @@ describe("what the form shows", () => {
   });
 
   it("shows the skills that still exist, in the agent's order", () => {
-    expect(agentSkills(agent, skills).map((s) => s.name)).toEqual(["Campaign brief", "Brand voice"]);
+    expect(agentSkills(agent, skills).map((s) => s.name)).toEqual(["campaign-brief", "brand-voice"]);
   });
 });
 
 describe("agents storage", () => {
+  it("loads names saved before #237 as handles (#237)", () => {
+    const storage = memoryStorage();
+    expect(saveAgents([{ ...agent, name: "Copy Writer" }, { ...agent, id: "agent-2", name: "copy-writer" }], storage)).toBe(true);
+    expect(loadAgents(storage).map((a) => a.name)).toEqual(["copy-writer", "copy-writer-2"]);
+  });
+
   it("round-trips under its own key, with the file", () => {
     const storage = memoryStorage();
     expect(saveAgents([agent], storage)).toBe(true);
