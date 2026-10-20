@@ -12,6 +12,8 @@ import { startVideo, getJob } from "@/api/canvas.api";
 import { DEFAULT_NODE_MAX_EDGE } from "@/constants/canvas.constants";
 import type { PanelOutput } from "@/store/nodePanel.store";
 import type { NodeKindSpec, SettingsProps, VideoSettings } from "../nodeKinds";
+import { baseRequest, KindPlaceholder, SettingSelect } from "./controls";
+import { sleep } from "./sleep";
 
 // From docs/llm_parameter/Veo 3.1 Lite.txt.
 //
@@ -57,13 +59,7 @@ async function awaitJob(jobId: string, signal?: AbortSignal): Promise<PanelOutpu
     }
 
     // Abort-aware sleep: exits immediately when the node is deleted mid-job.
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(resolve, POLL_INTERVAL_MS);
-      signal?.addEventListener("abort", () => {
-        clearTimeout(timer);
-        reject(new DOMException("cancelled", "AbortError"));
-      }, { once: true });
-    });
+    await sleep(POLL_INTERVAL_MS, signal);
   }
 }
 
@@ -72,33 +68,22 @@ function Advanced({ value, onChange }: SettingsProps) {
   return (
     <div className="node-panel-advanced-content">
       <div className="node-panel-advanced-row">
-        <div className="node-panel-setting">
-          <p className="node-panel-setting-label">Duration</p>
-          <select
-            aria-label="Duration"
-            value={String(s.durationSeconds)}
-            onChange={(e) => onChange({ ...s, durationSeconds: Number(e.target.value) })}
-            className="node-panel-select"
-          >
-            {DURATIONS.map((d) => (
-              <option key={d} value={d}>{`${d}s`}</option>
-            ))}
-          </select>
-        </div>
+        <SettingSelect
+          variant="setting"
+          label="Duration"
+          options={DURATIONS}
+          value={String(s.durationSeconds)}
+          format={(d) => `${d}s`}
+          onChange={(d) => onChange({ ...s, durationSeconds: Number(d) })}
+        />
 
-        <div className="node-panel-setting">
-          <p className="node-panel-setting-label">Resolution</p>
-          <select
-            aria-label="Resolution"
-            value={s.resolution}
-            onChange={(e) => onChange({ ...s, resolution: e.target.value })}
-            className="node-panel-select"
-          >
-            {RESOLUTIONS.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </select>
-        </div>
+        <SettingSelect
+          variant="setting"
+          label="Resolution"
+          options={RESOLUTIONS}
+          value={s.resolution}
+          onChange={(resolution) => onChange({ ...s, resolution })}
+        />
       </div>
     </div>
   );
@@ -106,28 +91,13 @@ function Advanced({ value, onChange }: SettingsProps) {
 
 function EmptyState() {
   return (
-    <div className="node-panel-placeholder-content">
-      <svg
-        width="28"
-        height="28"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="node-panel-image-icon"
-      >
+    <KindPlaceholder
+      noun="Video"
+      icon={<>
         <rect x="2" y="5" width="14" height="14" rx="2" />
         <path d="M22 8l-6 4 6 4z" />
-      </svg>
-
-      <span className="node-panel-placeholder-text">
-        Video will
-        <br />
-        appear here
-      </span>
-    </div>
+      </>}
+    />
   );
 }
 
@@ -158,9 +128,8 @@ export const videoKind: NodeKindSpec = {
       instruction,
       durationSeconds: s.durationSeconds,
       resolution: s.resolution,
-      references: references.length ? references : undefined,
-      ...(context?.skills ? { skills: context.skills } : {}),
-    });
+      ...baseRequest(references, context),
+    }, signal);
     // Persist before waiting, not after: the wait is where a reload happens.
     onJobStarted?.(jobId);
     return awaitJob(jobId, signal);

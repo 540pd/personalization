@@ -142,3 +142,17 @@ describe("@ mentions in the Instruction (#239)", () => {
     expect(box()).not.toHaveAttribute("role");
   });
 });
+
+describe("the @ menu's id", () => {
+  it("differs between two forms, so neither points at the other's menu", () => {
+    render(<><Harness /><Harness /></>);
+    const ids = screen.getAllByPlaceholderText("What should this node work out?").map((ta) => {
+      (ta as HTMLTextAreaElement).focus();
+      fireEvent.change(ta, { target: { value: "@", selectionStart: 1, selectionEnd: 1 } });
+      return ta.getAttribute("aria-controls");
+    });
+    expect(ids[0]).toBeTruthy();
+    expect(ids[1]).toBeTruthy();
+    expect(ids[0]).not.toBe(ids[1]);
+  });
+});

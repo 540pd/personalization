@@ -8,14 +8,8 @@
 // and nothing feeds it.
 
 import { PencilLine } from "lucide-react";
-import { DEFAULT_NODE_MAX_EDGE } from "@/constants/canvas.constants";
 import type { NodeKindSpec } from "../nodeKinds";
-
-// Sized like a Prompt node: both are reading surfaces, not pictures.
-const COMPOSE_NODE_SIZE = {
-  w: DEFAULT_NODE_MAX_EDGE,
-  h: Math.round(DEFAULT_NODE_MAX_EDGE * 0.75),
-};
+import { TEXT_NODE_SIZE, TextOutput } from "./controls";
 
 function EmptyState() {
   return (
@@ -26,20 +20,16 @@ function EmptyState() {
   );
 }
 
-// Scrolls inside the node, as a Prompt node's output does.
-function Output({ value }: { value: string }) {
-  return <div className="node-panel-text-output">{value}</div>;
-}
-
 export const composeKind: NodeKindSpec = {
   kind: "compose",
   title: "Compose",
   prompt: "",
   models: [],
   defaultSettings: {},
-  sizeFor: () => COMPOSE_NODE_SIZE,
+  // Sized like a Prompt node: both are reading surfaces, not pictures.
+  sizeFor: () => TEXT_NODE_SIZE,
   EmptyState,
-  Output,
+  Output: TextOutput,
   acceptsInput: false,
   authored: true,
   async generate() {
