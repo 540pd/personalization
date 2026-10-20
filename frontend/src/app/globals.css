@@ -1,1 +1,43 @@
 @import "tailwindcss";
+
+/*
+ * Looks that several components share, defined once and @apply-ed by name
+ * from their stylesheets (each starts with `@reference` to this file), so a
+ * change to one is a change to all.
+ */
+
+/* Keyboard focus on a control: a dark ring just outside it. */
+@utility focus-ring {
+  @apply outline-2 outline-offset-2 outline-neutral-900;
+}
+
+/* The same ring drawn inside, for rows and items that fill their container. */
+@utility focus-ring-inset {
+  @apply outline-2 -outline-offset-2 outline-neutral-900;
+}
+
+/* The dimmed full-window layer a modal dialog sits on, centred. */
+@utility dialog-backdrop {
+  @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20;
+}
+
+/* A white menu or popover resting on the page. */
+@utility menu-surface {
+  @apply rounded-xl bg-white shadow-md border border-black/[0.08];
+}
+
+/* The dock's and the style bar's frosted white, over the board. */
+@utility glass {
+  @apply bg-white/95 border border-black/10 backdrop-blur-sm;
+}
+
+/* Centred above its positioned parent, with a small gap. */
+@utility float-above {
+  @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2;
+}
+
+/* The white pill tooltip of the dock and the style bar. */
+@utility pill-tooltip {
+  @apply float-above;
+  @apply rounded-full bg-white border border-black/10 shadow-md px-3 py-1 whitespace-nowrap pointer-events-none;
+}
