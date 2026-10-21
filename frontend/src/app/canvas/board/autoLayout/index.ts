@@ -18,89 +18,28 @@
 // runs after the change, never inside it, so it is not an undo step of its
 // own: undo puts back the state before the change, and the layout follows
 // from that again. When nothing is left in it, auto layout turns off.
+//
+// The maths is in ./arrange; this file reads the board and writes it back.
 
 import type Konva from "konva";
-import { useFrames, type FrameLayout, type FrameRecord } from "@/store/frame.store";
+import { useFrames, type FrameRecord } from "@/store/frame.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { boardStage } from "@/lib/canvas/boardStage";
-import { boundsOf, overlaps, type Bounds } from "@/lib/canvas/bounds";
+import { boundsOf, type Bounds } from "@/lib/canvas/bounds";
 import { canvasHistory } from "@/lib/canvas/history";
-import {
-  FRAME_LAYOUT_GAP, FRAME_LAYOUT_NAME_BAND, FRAME_LAYOUT_NAME_TOP, FRAME_LAYOUT_PADDING,
-} from "@/constants/canvas.constants";
-import { syncNodeGeometry } from "./geometry";
-import { membersOf } from "./frameMembers";
 import { listen } from "@/lib/dom/listen";
+import { syncNodeGeometry } from "../geometry";
+import { membersOf } from "../frameMembers";
+import {
+  arrangeFor, childrenOf, layoutColumns, near, orderChildren, planReflow, readingOrder,
+  type ChildBox, type GridLayout,
+} from "./arrange";
 
-/** A child's box in canvas units, y the top edge. */
-export interface ChildBox extends Bounds {
-  id: string;
-  /** Shows a name above it, so needs FRAME_LAYOUT_NAME_BAND of room there (#235). */
-  named?: boolean;
-}
-
-/**
- * Where each column's first item starts, below the Frame's top: under a name
- * band when any of them has a name, so the items' tops still line up across
- * the row, with FRAME_LAYOUT_NAME_TOP above the names (#235); else the padding.
- */
-const firstTop = (firsts: (ChildBox | undefined)[], padding: number, band: number) =>
-  firsts.some((b) => b?.named) ? FRAME_LAYOUT_NAME_TOP + band : padding;
-
-export interface GridLayout {
-  /** Where each child's top-left goes. */
-  positions: Record<string, { x: number; y: number }>;
-  /** The Frame's size, hugging everything. */
-  w: number;
-  h: number;
-}
-
-/** Every child id in a layout, column by column. */
-export const childrenOf = (layout: FrameLayout): string[] => layout.columns.flat();
-
-/**
- * The order children take when auto layout is turned on: left to right,
- * ties by top edge.
- */
-export function orderChildren(boxes: ChildBox[]): ChildBox[] {
-  return [...boxes].sort((a, b) => a.x - b.x || a.y - b.y);
-}
-
-/**
- * Columns side by side, aligned to the top; each one's children stacked,
- * aligned to the left. From `origin`, the Frame's top-left. A column with no
- * boxes in it takes no space.
- */
-export function layoutColumns(
-  origin: { x: number; y: number },
-  columns: ChildBox[][],
-  padding = FRAME_LAYOUT_PADDING,
-  gap = FRAME_LAYOUT_GAP,
-  band = FRAME_LAYOUT_NAME_BAND,
-): GridLayout {
-  const positions: GridLayout["positions"] = {};
-  const top = firstTop(columns.map((col) => col[0]), padding, band);
-  let x = padding;
-  let bottom = 0;
-  let placed = 0;
-  for (const col of columns) {
-    if (!col.length) continue;
-    if (placed++) x += gap;
-    let y = top;
-    let widest = 0;
-    col.forEach((b, i) => {
-      // Below the first, a named item's band comes after the gap.
-      if (i) y += gap + (b.named ? band : 0);
-      positions[b.id] = { x: origin.x + x, y: origin.y + y };
-      y += b.h;
-      widest = Math.max(widest, b.w);
-    });
-    x += widest;
-    bottom = Math.max(bottom, y);
-  }
-  return { positions, w: x + padding, h: bottom + padding };
-}
+export {
+  childrenOf, layoutColumns, orderChildren, packColumns, packToShape, readingOrder, withoutIds,
+  type ChildBox, type GridLayout,
+} from "./arrange";
 
 /** The boxes of these ids now, in this order. Ones that are gone are left out. */
 export function childBoxes(ids: string[]): ChildBox[] {
@@ -113,9 +52,6 @@ export function childBoxes(ids: string[]): ChildBox[] {
     return panel ? [{ id, ...boundsOf(panel), named: !!panel.label }] : [];
   });
 }
-
-/** Within half a canvas unit: close enough not to move anything. */
-const near = (a: number, b: number) => Math.abs(a - b) < 0.5;
 
 /** Move each child whose box isn't already at its position. */
 function place(boxes: ChildBox[], positions: GridLayout["positions"]): void {
@@ -181,65 +117,6 @@ export function removeAutoLayout(id: string): boolean {
 }
 
 /**
- * `boxes`, in this order, packed into `count` columns: each goes into the
- * shortest column so far (ties: the leftmost). Rows needn't line up. With
- * the Frame's size around them.
- */
-export function packColumns(
-  boxes: ChildBox[],
-  count: number,
-  padding = FRAME_LAYOUT_PADDING,
-  gap = FRAME_LAYOUT_GAP,
-  band = FRAME_LAYOUT_NAME_BAND,
-): { columns: string[][]; w: number; h: number } {
-  const columns: string[][] = Array.from({ length: count }, () => []);
-  const heights: number[] = Array(count).fill(0);
-  const widths: number[] = Array(count).fill(0);
-  for (const b of boxes) {
-    const i = heights.indexOf(Math.min(...heights));
-    // Heights as layoutColumns draws them: a named item's band counts.
-    heights[i] += (columns[i].length ? gap + (b.named ? band : 0) : 0) + b.h;
-    widths[i] = Math.max(widths[i], b.w);
-    columns[i].push(b.id);
-  }
-  const used = columns.filter((c) => c.length);
-  return {
-    columns: used,
-    w: 2 * padding + widths.reduce((sum, x) => sum + x, 0) + gap * (used.length - 1),
-    // The first `count` boxes start the columns (each goes into an empty one).
-    h: firstTop(boxes.slice(0, count), padding, band) + Math.max(...heights) + padding,
-  };
-}
-
-/**
- * The packing of these boxes, in this order, whose shape is closest to
- * `target`'s (#232). Every column count is tried; the one whose width to
- * height is nearest the target's, compared as ratios, wins; ties go to fewer
- * columns. So a short, wide target gives a row, a tall, narrow one a column,
- * and one in between a compact rectangle.
- */
-export function packToShape(boxes: ChildBox[], target: { w: number; h: number }): string[][] {
-  if (!boxes.length) return [];
-  const want = Math.log(Math.max(target.w, 1) / Math.max(target.h, 1));
-  let best: { columns: string[][]; off: number } | null = null;
-  for (let k = 1; k <= boxes.length; k++) {
-    const p = packColumns(boxes, k);
-    const off = Math.abs(Math.log(p.w / p.h) - want);
-    if (!best || off < best.off - 1e-9) best = { columns: p.columns, off };
-  }
-  return best!.columns;
-}
-
-/**
- * Items in reading order: top to bottom, then left to right along a row
- * (within half a unit). A resize packs them in this order (#232), so a row
- * reads left to right, a column top to bottom, and a grid row by row.
- */
-export function readingOrder(boxes: ChildBox[]): ChildBox[] {
-  return [...boxes].sort((a, b) => (Math.abs(a.y - b.y) < 0.5 ? a.x - b.x : a.y - b.y));
-}
-
-/**
  * A resize of a Frame with auto layout is starting (#232): its items in the
  * reading order they have now, kept for the whole gesture so they don't
  * reshuffle as they move.
@@ -254,9 +131,7 @@ export function startRearrange(frameId: string): ChildBox[] {
  * from its top-left. Nothing is stored. Returns the columns.
  */
 export function rearrangeLive(order: ChildBox[], box: Bounds): string[][] {
-  const columns = packToShape(order, box);
-  const byId = new Map(order.map((b) => [b.id, b]));
-  const grid = layoutColumns({ x: box.x, y: box.y }, columns.map((col) => col.map((id) => byId.get(id)!)));
+  const { columns, grid } = arrangeFor(order, box);
   place(childBoxes(order.map((b) => b.id)), grid.positions);
   return columns;
 }
@@ -278,13 +153,6 @@ export function finishRearrange(frameId: string, order: ChildBox[], box: Bounds)
   reflowAutoLayouts();
 }
 
-/** `columns` without these ids, and without any column that leaves empty. */
-export function withoutIds(columns: string[][], ids: Set<string>): string[][] {
-  return columns
-    .map((col) => col.filter((c) => !ids.has(c)))
-    .filter((col) => col.length > 0);
-}
-
 /**
  * Lay every auto-layout Frame out again to match its children now. Not an
  * undo step: see the top of this file. Says whether anything changed.
@@ -293,14 +161,9 @@ export function reflowAutoLayouts(): boolean {
   let changed = false;
   for (const frame of Object.values(useFrames.getState().frames)) {
     if (!frame.layout) continue;
-    const area = boundsOf(frame);
-    const present = frame.layout.columns.map((col) => childBoxes(col));
-    // Dropped clear of the Frame: it has left the layout.
-    const left = new Set(present.flat().filter((b) => !overlaps(area, b)).map((b) => b.id));
-    const columns = left.size ? withoutIds(frame.layout.columns, left) : frame.layout.columns;
-    const boxes = present.map((col) => col.filter((b) => !left.has(b.id)));
+    const plan = planReflow(boundsOf(frame), frame.layout.columns, frame.layout.columns.map((col) => childBoxes(col)));
 
-    if (!boxes.some((col) => col.length)) {
+    if (plan.empty) {
       // Nothing left in it: auto layout turns off, and the Frame keeps its
       // size. Only with the board up -- while a board loads, its nodes are
       // not all known yet, and an empty-looking Frame is not empty.
@@ -311,15 +174,12 @@ export function reflowAutoLayouts(): boolean {
       continue;
     }
 
-    const grid = layoutColumns({ x: frame.canvasX, y: frame.canvasY }, boxes);
-    const flat = boxes.flat();
-    const moves = flat.some((b) => !near(b.x, grid.positions[b.id].x) || !near(b.y, grid.positions[b.id].y));
-    if (moves) place(flat, grid.positions);
-    const resized = !near(grid.w, frame.canvasW) || !near(grid.h, frame.canvasH);
-    if (left.size || resized) {
-      useFrames.getState().upsert({ ...frame, canvasW: grid.w, canvasH: grid.h, layout: { columns } });
+    const { grid, left, moves, resized } = plan;
+    if (moves) place(plan.boxes.flat(), grid.positions);
+    if (left || resized) {
+      useFrames.getState().upsert({ ...frame, canvasW: grid.w, canvasH: grid.h, layout: { columns: plan.columns } });
     }
-    changed ||= moves || left.size > 0 || resized;
+    changed ||= moves || left || resized;
   }
   return changed;
 }
