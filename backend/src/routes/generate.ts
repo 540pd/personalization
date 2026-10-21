@@ -10,6 +10,7 @@ import { isOneOf } from "../common/validation.js";
 import { createId } from "../utils/id.js";
 import { readGenerateRequest } from "./generateRequest.js";
 import { readReferences } from "./references.js";
+import { resolveAssetReferences } from "../services/generatedAssets.js";
 
 export const generateRouter = Router();
 
@@ -87,6 +88,14 @@ generateRouter.post("/generate/image", requireIdentity(), async (req, res, next)
         : readReferences(referenceImages),
     };
 
+    // Stored references (#323) read back into bytes before anything is billed.
+    const references = await resolveAssetReferences(generationParams.references, req.identity.email);
+    if (!references.ok) {
+      sendValidationError(res, references.message);
+      return;
+    }
+    generationParams.references = references.references;
+
     // One variant keeps the original response shape, so a client that has not
     // been redeployed sees no change at all.
     if (variantCount === 1) {
@@ -137,12 +146,18 @@ generateRouter.post("/generate/text", requireIdentity(), async (req, res, next) 
       return;
     }
 
+    const references = await resolveAssetReferences(request.references, req.identity.email);
+    if (!references.ok) {
+      sendValidationError(res, references.message);
+      return;
+    }
+
     const result = await generateText({
       modelId: request.modelId,
       instruction: request.instruction,
       userId: req.identity.email,
       temperature: typeof temperature === "number" ? temperature : undefined,
-      references: request.references,
+      references: references.references,
       agent: request.context.agent,
       skills: request.context.skills,
     });
@@ -167,7 +182,7 @@ generateRouter.post("/generate/text", requireIdentity(), async (req, res, next) 
 // store for Cloud Tasks -- the HTTP surface is the part the client is built
 // against and should not have to change.
 
-generateRouter.post("/generate/video", requireIdentity(), (req, res) => {
+generateRouter.post("/generate/video", requireIdentity(), async (req, res, next) => {
   const { durationSeconds, resolution } = req.body as {
     durationSeconds?: unknown;
     resolution?: unknown;
@@ -177,6 +192,18 @@ generateRouter.post("/generate/video", requireIdentity(), (req, res) => {
   const request = readGenerateRequest(req.body, { models: VALID_VIDEO_MODELS, agent: false });
   if (!request.ok) {
     sendValidationError(res, request.message);
+    return;
+  }
+
+  let references;
+  try {
+    references = await resolveAssetReferences(request.references, req.identity.email);
+  } catch (err) {
+    next(err);
+    return;
+  }
+  if (!references.ok) {
+    sendValidationError(res, references.message);
     return;
   }
 
@@ -190,7 +217,7 @@ generateRouter.post("/generate/video", requireIdentity(), (req, res) => {
     userId: req.identity.email,
     durationSeconds: typeof durationSeconds === "number" ? durationSeconds : undefined,
     resolution: typeof resolution === "string" ? resolution : undefined,
-    references: request.references,
+    references: references.references,
   })
     .then((result) => completeJob(job.id, result))
     .catch((err: unknown) => {
