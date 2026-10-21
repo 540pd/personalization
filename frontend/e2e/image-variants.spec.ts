@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
-import { openBoard, addPanel, collapsePanels, makePng, panelBoxes, setZoom } from "./helpers";
+import { openBoard, addPanel, collapsePanels, makePng, panelBoxes, setZoom, reloadBoard } from "./helpers";
 
 // Issue #114. A Create Image node asked for N > 1 images becomes the first of
 // N Create Image nodes in a Frame of their own, every one carrying its inputs.
@@ -179,8 +179,7 @@ test.describe("image variants", () => {
     await create(page, "a red kite", 2);
     await collapsePanels(page);
 
-    await page.reload({ waitUntil: "networkidle" });
-    await page.waitForTimeout(800);
+    await reloadBoard(page, { panels: 2 });
 
     const [, copy] = await panelBoxes(page);
     await openPanel(page, copy);
