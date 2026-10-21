@@ -15,6 +15,21 @@ import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.consta
 // generating it (#181).
 export type NodeKind = "image" | "video" | "instruction" | "compose";
 
+// Every kind this build can show. A Record rather than a list so adding a
+// NodeKind without adding it here is a type error. A saved node of any other
+// kind -- from a newer branch, or a rolled-back release -- is set aside on
+// load instead of crashing the board (#186).
+const KNOWN_KINDS: Record<NodeKind, true> = {
+  image: true,
+  video: true,
+  instruction: true,
+  compose: true,
+};
+
+export function isKnownKind(kind: unknown): kind is NodeKind {
+  return typeof kind === "string" && Object.prototype.hasOwnProperty.call(KNOWN_KINDS, kind);
+}
+
 // A node's generated result. Typed rather than a bare URL string because a
 // video needs a <video> and an instruction node produces text, not a URL --
 // and because what a node contributes to a downstream generation depends on
@@ -77,6 +92,12 @@ export interface VariantPlacement {
 
 interface NodePanelState {
   panels:      PanelInstance[];
+  /**
+   * Saved nodes of a kind this build does not know (#186). Never rendered and
+   * never touched; only written back on save, so a build that knows the kind
+   * shows them again. Their `kind` is not really a NodeKind.
+   */
+  parked:      PanelInstance[];
   selectedId:  string | null;
   /** `open` false lands the node selected but with no panel: a written kind has none. */
   addPanel:        (cx: number, cy: number, kind?: NodeKind, open?: boolean) => void;
@@ -252,6 +273,7 @@ export const useNodePanel = create<NodePanelState>()(
   persist(
     (set, get) => ({
   panels:         [],
+  parked:         [],
   selectedId:     null,
 
   // First creation: lands in panel-open state. All others go inactive.
@@ -483,7 +505,25 @@ export const useNodePanel = create<NodePanelState>()(
       name: "gcos-node-panels",
       storage: deferredStorage(panelStorage),
       // Only persist canvas data; UI-open flags and selectedId reset on load.
-      partialize: (s) => ({ panels: s.panels }),
+      // Set-aside nodes go back into the same list, so the saved shape is the
+      // same for every build.
+      partialize: (s) => ({ panels: [...s.panels, ...s.parked] }),
+      // Split saved nodes into those this build can show and those it cannot.
+      merge: (persisted, current) => {
+        const saved = (persisted as Partial<Persisted> | undefined)?.panels;
+        if (!Array.isArray(saved)) return current;
+        const panels: PanelInstance[] = [];
+        const parked: PanelInstance[] = [];
+        for (const p of saved) (isKnownKind(p?.kind) ? panels : parked).push(p);
+        if (parked.length) {
+          const kinds = [...new Set(parked.map((p) => JSON.stringify(p?.kind)))].join(", ");
+          console.warn(
+            `[nodePanel] Set aside ${parked.length} saved node(s) of unknown kind ${kinds}: ` +
+            "this build cannot show them. They are kept and reappear in a build that knows the kind."
+          );
+        }
+        return { ...current, panels, parked };
+      },
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         // Reset interaction flags that shouldn't survive a reload.
@@ -492,9 +532,10 @@ export const useNodePanel = create<NodePanelState>()(
           isActive: false,
           isPanelOpen: false,
         }));
-        // Keep _nextId ahead of all restored IDs to avoid collisions.
-        const maxNum = state.panels.reduce((max, p) => {
-          const n = Number(p.id.replace("panel-", ""));
+        // Keep _nextId ahead of all restored IDs to avoid collisions -- set-aside
+        // ones too, or a new node could take the id of one that comes back later.
+        const maxNum = [...state.panels, ...state.parked].reduce((max, p) => {
+          const n = Number(String(p?.id).replace("panel-", ""));
           return isNaN(n) ? max : Math.max(max, n);
         }, 0);
         if (maxNum >= _nextId) _nextId = maxNum + 1;
