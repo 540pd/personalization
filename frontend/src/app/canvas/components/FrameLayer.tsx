@@ -12,45 +12,20 @@
 // This container sits at Z_INDEX.frames and never flips.
 
 import { useEffect, useRef } from "react";
-import Konva from "konva";
 import { useFrames } from "@/store/frame.store";
-import { selectOnly } from "@/lib/canvas/selection";
 import { useViewport } from "@/store/viewport.store";
-import { frameStage } from "@/lib/canvas/frameStage";
-import { canvasHistory } from "@/lib/canvas/history";
-import { beginFrameMove, type FrameMove } from "../board/frameDrag";
-import { nodeBox } from "../board/geometry";
-import { boundsOf } from "@/lib/canvas/bounds";
-import {
-  finishRearrange, rearrangeLive, startAutoLayoutSync, startRearrange, type ChildBox,
-} from "../board/autoLayout";
-import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
-import { boardStage } from "@/lib/canvas/boardStage";
+import { disposeAll } from "@/lib/dom/listen";
+import { createFrameStage, type FrameStage } from "../board/createFrameStage";
+import { selectFrameRects } from "../board/frameRects";
+import { bindFrameHover } from "../board/frameHover";
+import { bindFrames } from "../board/frameBindings";
 import FrameLabels from "./FrameLabels";
 import AutoLayoutDropLine from "./AutoLayoutDropLine";
-import { announceGesture } from "@/lib/canvas/gesture";
-import { createSelectionTransformer } from "../board/transformer";
-import { colorEvent } from "../board/palette";
-import { COLORS, FRAME_CORNER_RADIUS, FRAME_MIN_EDGE, Z_INDEX } from "@/constants/canvas.constants";
-import { listen } from "@/lib/dom/listen";
+import { Z_INDEX } from "@/constants/canvas.constants";
 
 export default function FrameLayer() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<Konva.Stage | null>(null);
-  const layerRef = useRef<Konva.Layer | null>(null);
-  const transformerRef = useRef<Konva.Transformer | null>(null);
-  const hoverRef = useRef<HoverOutline | null>(null);
-  const previewRef = useRef<Konva.Rect | null>(null);
-  // Membership is fixed when the drag starts, so a node is not picked up or
-  // dropped halfway through just because the frame swept over it.
-  const moveRef = useRef<FrameMove | null>(null);
-  const dragFromRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  // One object per resize gesture, shared by every frame it resizes, so the
-  // gesture commits a single undo step however many frames it touched.
-  const resizeKeyRef = useRef<object | null>(null);
-  // Per Frame with auto layout being resized: its items in the order they
-  // had when the resize began, repacked live to the dragged shape (#232).
-  const rearrangeRef = useRef<Map<string, ChildBox[]>>(new Map());
+  const partsRef = useRef<FrameStage | null>(null);
 
   const frames = useFrames((s) => s.frames);
   const draft = useFrames((s) => s.draft);
@@ -62,149 +37,23 @@ export default function FrameLayer() {
   // Not on mount: Konva.stages is append-ordered and a second stage existing
   // from page load would shift every index. Board's stage stays stages[0] for
   // anything that reaches for it, and a board with no frames pays nothing.
-  const observerRef = useRef<ResizeObserver | null>(null);
-
   const ensureStage = () => {
-    if (stageRef.current) return stageRef.current;
-    const container = containerRef.current;
-    if (!container) return null;
-
-    const stage = new Konva.Stage({
-      container,
-      width: container.offsetWidth,
-      height: container.offsetHeight,
-      x: useViewport.getState().x,
-      y: useViewport.getState().y,
-      scaleX: useViewport.getState().scale,
-      scaleY: useViewport.getState().scale,
-    });
-    const layer = new Konva.Layer();
-    stage.add(layer);
-
-    // Styled exactly as a node's (board/transformer), so selecting a frame
-    // and selecting a node look like the same act, corner handles included
-    // (#160). One deliberate difference: a frame's corners stretch freely,
-    // because it is a region whose width and height change independently,
-    // where an image is a picture whose corners keep its ratio. Shift locks
-    // the ratio, as on a shape.
-    const transformer = createSelectionTransformer({
-      keepRatio: false,
-      ignoreStroke: true,
-      // Without a floor an over-drag shrinks a frame to nothing it can be
-      // grabbed by. FRAME_MIN_EDGE is screen px and the box arrives in screen
-      // px, so the floor holds at every zoom without converting.
-      minEdge: () => FRAME_MIN_EDGE,
-    });
-    layer.add(transformer);
-    hoverRef.current = createHoverOutline(layer, transformer);
-
-    // A click that misses every frame clears the frame selection. Clicks that
-    // land on a node never reach this stage at all -- Board keeps its own
-    // container interactive except over bare frame.
-    stage.on("click tap", (e) => {
-      if (e.target === stage) selectOnly(null);
-    });
-
-    const observer = new ResizeObserver(() => {
-      stage.width(container.offsetWidth);
-      stage.height(container.offsetHeight);
-    });
-    observer.observe(container);
-
-    stageRef.current = stage;
-    layerRef.current = layer;
-    transformerRef.current = transformer;
-    observerRef.current = observer;
-    frameStage.current = stage;
-    return stage;
+    if (!partsRef.current && containerRef.current) partsRef.current = createFrameStage(containerRef.current);
+    return partsRef.current;
   };
 
-  useEffect(() => () => {
-    observerRef.current?.disconnect();
-    frameStage.current = null;
-    stageRef.current?.destroy();
-    stageRef.current = null;
-    layerRef.current = null;
-    transformerRef.current = null;
-    hoverRef.current = null;
-    previewRef.current = null;
-  }, []);
-
-  // --- Join the shared undo timeline ---
-  //
-  // An adapter rather than a private stack: history.ts exists because two
-  // competing stacks made Ctrl+Z non-chronological across node kinds.
-  useEffect(() =>
-    canvasHistory.register("frames", {
-      capture: () => ({ ...useFrames.getState().frames }),
-      restore: (snap) =>
-        useFrames.getState().replaceAll({ ...(snap as Record<string, never>) }),
-    }),
-  []);
-
-  // --- Auto layout (#225): lay rows out again after every change ---
-  useEffect(() => startAutoLayoutSync(), []);
-
-  // --- A swatch picked in the dock recolours the selected frames' outlines ---
-  //
-  // Outline only (#159): the fill stays the quiet backdrop #115 made it.
-  // Committed with the event as its key, so shapes and text recoloured by
-  // the same pick (Board) share the one undo step.
   useEffect(() => {
-    return colorEvent.on(({ hex }, e) => {
-      const { frames, selectedIds, upsert } = useFrames.getState();
-      const changed = selectedIds.filter((id) => frames[id] && frames[id].stroke !== hex);
-      if (!changed.length) return;
-      changed.forEach((id) => upsert({ ...frames[id], stroke: hex }));
-      canvasHistory.commit(e);
-    });
-  }, []);
-
-  // --- Hover outline: the same "you can grab this" cue a node shows ---
-  //
-  // Driven from window pointermove rather than the rect's mouseenter and
-  // mouseleave, because this stage only receives events while Board lets
-  // them through -- over bare frame. Move from a frame onto a node and Board
-  // takes the pointer back, so mouseleave never arrives and the outline would
-  // stick. Instead, walk down the elements under the cursor:
-  //   this stage first         -> the frame there, if any, is hovered
-  //   Board's canvas, on a node -> the node wins; no frame outline
-  //   Board's canvas, empty     -> transparent there, keep looking beneath
-  //   anything else             -> a panel, label or the dock is on top
-  useEffect(() => {
-    const frameAt = (x: number, y: number): Konva.Rect | null => {
-      const stage = stageRef.current;
-      if (!stage) return null;
-      const board = boardStage.current;
-      for (const el of document.elementsFromPoint(x, y)) {
-        if (stage.container().contains(el)) {
-          const r = stage.container().getBoundingClientRect();
-          const shape = stage.getIntersection({ x: x - r.left, y: y - r.top });
-          return shape?.hasName("frame") ? (shape as Konva.Rect) : null;
-        }
-        if (board?.container().contains(el)) {
-          const r = board.container().getBoundingClientRect();
-          if (board.getIntersection({ x: x - r.left, y: y - r.top })) return null;
-          continue;
-        }
-        return null;
-      }
-      return null;
+    const off = [bindFrames(), bindFrameHover(() => partsRef.current)];
+    return () => {
+      disposeAll(off);
+      partsRef.current?.dispose();
+      partsRef.current = null;
     };
-
-    const onMove = (e: PointerEvent) => {
-      const hover = hoverRef.current;
-      if (!hover) return;
-      const rect = frameAt(e.clientX, e.clientY);
-      if (rect) hover.show(rect);
-      else hover.hide();
-    };
-    return listen(window, "pointermove", onMove);
   }, []);
 
   // --- Follow the shared viewport, so frames pan and zoom with the board ---
   useEffect(() => {
-    const stage = stageRef.current;
+    const stage = partsRef.current?.stage;
     if (!stage) return;
     stage.position({ x: stageX, y: stageY });
     stage.scale({ x: scale, y: scale });
@@ -212,161 +61,23 @@ export default function FrameLayer() {
   }, [stageX, stageY, scale]);
 
   // --- Rebuild the frame rects whenever the store changes ---
-  //
-  // Rebuild rather than reconcile: a board holds a handful of frames, and
-  // writes only happen on dragend/transformend, so this never runs mid-gesture.
   useEffect(() => {
-    if (!Object.keys(frames).length && !stageRef.current) return;
-    ensureStage();
-    const layer = layerRef.current;
-    if (!layer) return;
-
-    layer.find(".frame").forEach((n) => n.destroy());
-
-    Object.values(frames).forEach((f) => {
-      const rect = new Konva.Rect({
-        id: f.id,
-        name: "frame",
-        x: f.canvasX, y: f.canvasY, width: f.canvasW, height: f.canvasH,
-        fill: COLORS.frameFill,
-        stroke: f.stroke ?? COLORS.frameStroke,
-        strokeWidth: 1,
-        strokeScaleEnabled: false,
-        cornerRadius: FRAME_CORNER_RADIUS,
-        draggable: true,
-      });
-
-      rect.on("mousedown touchstart", () => {
-        // Takes the selection off nodes, panels and wires, so Delete can only
-        // mean one thing.
-        selectOnly("frame");
-        useFrames.getState().select(f.id);
-      });
-
-      rect.on("dragstart", () => {
-        moveRef.current = beginFrameMove(f);
-        dragFromRef.current = { x: rect.x(), y: rect.y() };
-      });
-
-      // The name keeps up too, instead of arriving when the drag ends.
-      const moveTo = () =>
-        moveRef.current?.move(rect.x() - dragFromRef.current.x, rect.y() - dragFromRef.current.y);
-      rect.on("dragmove", moveTo);
-
-      rect.on("dragend", () => {
-        moveTo();
-        moveRef.current?.end();
-        moveRef.current = null;
-      });
-
-      // Konva scales rather than resizes, so bake the scale back into width
-      // and height -- otherwise the 1px border would be scaled too and the
-      // stored size would not match what is drawn.
-      rect.on("transformstart", () => {
-        resizeKeyRef.current ??= {};
-        if (f.layout) rearrangeRef.current.set(f.id, startRearrange(f.id));
-        // The style bar steps aside while a frame is resized (#163).
-        announceGesture(true);
-      });
-      // The name renders from the store, so it reads the live box to keep up
-      // (#156). Not an upsert: that would rebuild the rect mid-gesture.
-      rect.on("transform", () => {
-        const box = nodeBox(rect);
-        useFrames.getState().setResize(f.id, box);
-        // With auto layout, its items follow the shape being dragged (#232).
-        const order = rearrangeRef.current.get(f.id);
-        if (order) rearrangeLive(order, boundsOf(box));
-      });
-      rect.on("transformend", () => {
-        announceGesture(false);
-        const w = Math.max(1, rect.width() * rect.scaleX());
-        const h = Math.max(1, rect.height() * rect.scaleY());
-        rect.scale({ x: 1, y: 1 });
-        rect.size({ width: w, height: h });
-        const order = rearrangeRef.current.get(f.id);
-        rearrangeRef.current.delete(f.id);
-        if (order) {
-          // Packed to the final shape, then snapped to fit: one step (#232).
-          finishRearrange(f.id, order, { x: rect.x(), y: rect.y(), w, h });
-        } else {
-          useFrames.getState().upsert({
-            ...f, canvasX: rect.x(), canvasY: rect.y(), canvasW: w, canvasH: h,
-          });
-        }
-        useFrames.getState().clearResize(f.id);
-        // A resize is its own undo step (#128). Without this the next commit
-        // -- a move, say -- folded the new size into a step whose undo went
-        // back past it, and an undo straight after a resize removed the
-        // frame. Frames resized together by one transformer each end here,
-        // in the same tick, so they share a key and make one step.
-        const key = resizeKeyRef.current ?? {};
-        canvasHistory.commit(key);
-        queueMicrotask(() => {
-          if (resizeKeyRef.current === key) resizeKeyRef.current = null;
-        });
-      });
-
-      layer.add(rect);
-      rect.moveToBottom();
-    });
-
-    layer.batchDraw();
+    if (!Object.keys(frames).length && !partsRef.current) return;
+    ensureStage()?.rects.render(frames);
   }, [frames]);
 
   // --- Attach the transformer to whatever is selected ---
   //
-  // Deliberately NOT part of the rebuild above. Selecting a frame happens on
-  // mousedown, which is the first half of a drag -- so folding this into the
-  // rebuild destroys the very rect the gesture is holding, and the frame
-  // stops moving. It survived single-id selection only because setting the
-  // same id twice returned the identical string and React bailed out; a
-  // selectedIds array is a fresh reference every time and does not.
-  //
   // Keeps `frames` in its deps so it re-attaches to the new rects after a
   // rebuild, rather than pointing at destroyed ones.
   useEffect(() => {
-    const layer = layerRef.current;
-    const transformer = transformerRef.current;
-    if (!layer || !transformer) return;
-
-    const selected = selectedIds
-      .map((id) => layer.findOne<Konva.Rect>(`#${id}`))
-      .filter((r): r is Konva.Rect => !!r);
-    transformer.nodes(selected);
-    // Every Frame has its corners. On one with auto layout, dragging one
-    // rearranges its items to the shape being dragged (#232).
-    transformer.moveToTop();
-    layer.batchDraw();
+    const parts = partsRef.current;
+    if (parts) selectFrameRects(parts.layer, parts.transformer, selectedIds);
   }, [frames, selectedIds]);
 
   // --- The rectangle being dragged out right now ---
   useEffect(() => {
-    if (draft) ensureStage();
-    const layer = layerRef.current;
-    if (!layer) return;
-
-    if (!draft) {
-      previewRef.current?.destroy();
-      previewRef.current = null;
-      layer.batchDraw();
-      return;
-    }
-
-    if (!previewRef.current) {
-      previewRef.current = new Konva.Rect({
-        fill: COLORS.frameFill,
-        stroke: COLORS.selected,
-        strokeWidth: 1,
-        strokeScaleEnabled: false,
-        dash: [4, 4],
-        cornerRadius: FRAME_CORNER_RADIUS,
-        listening: false,
-      });
-      layer.add(previewRef.current);
-    }
-    previewRef.current.setAttrs(draft);
-    previewRef.current.moveToBottom();
-    layer.batchDraw();
+    (draft ? ensureStage() : partsRef.current)?.showDraft(draft);
   }, [draft]);
 
   return (
