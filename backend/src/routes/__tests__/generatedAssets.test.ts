@@ -17,6 +17,14 @@ vi.mock("../../capabilities/index.js", () => ({
   getVideoCapability: () => ({ generateVideo, getVideo: vi.fn() }),
 }));
 
+// The memory store, standing in for a durable one: whether assets outlive
+// the process is the only thing the cloud store adds here.
+const durable = vi.hoisted(() => ({ value: true }));
+vi.mock("../../lib/assets/index.js", async (original) => ({
+  ...(await original<typeof import("../../lib/assets/index.js")>()),
+  assetsAreDurable: () => durable.value,
+}));
+
 const SECRET = "test-secret";
 const PIXEL = Buffer.from("fake png bytes");
 const dataUrl = (mime: string, bytes: Buffer) => `data:${mime};base64,${bytes.toString("base64")}`;
@@ -49,6 +57,7 @@ const image = (extra: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  durable.value = true;
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -104,6 +113,30 @@ describe("generated outputs", () => {
     expect(job.status).toBe("done");
     expect(job.videoUrl).toMatch(/^\/api\/proxy\/assets\//);
     expect((await content(a, job.videoUrl!)).type).toBe("video/mp4");
+  });
+});
+
+describe("assets in memory only", () => {
+  beforeEach(() => {
+    durable.value = false;
+  });
+
+  it("generation keeps answering data: URLs, which survive a backend restart", async () => {
+    const a = await app();
+    const inline = dataUrl("image/png", PIXEL);
+    generateV2.mockResolvedValue({ imageUrl: inline, modelUsed: "m" });
+    const count = async () => (await request(a).get("/api/assets").set("Cookie", ANA)).body.length;
+    const before = await count();
+    const res = await request(a).post("/api/generate/image").set("Cookie", ANA).send(image());
+    expect(res.body.imageUrl).toBe(inline);
+    expect(await count()).toBe(before);
+  });
+
+  it("an upload says it is not durable", async () => {
+    const a = await app();
+    const res = await request(a).post("/api/assets").set("Cookie", ANA).set("Content-Type", "image/png").send(PIXEL);
+    expect(res.status).toBe(201);
+    expect(res.body.durable).toBe(false);
   });
 });
 

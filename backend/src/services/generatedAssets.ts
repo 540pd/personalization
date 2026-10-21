@@ -3,21 +3,22 @@
 // into bytes for the model.
 
 import type { Reference } from "../capabilities/types.js";
-import { assetIdFromUrl, assetStore, isAssetMimeType } from "../lib/assets/index.js";
+import { assetIdFromUrl, assetStore, assetsAreDurable, isAssetMimeType } from "../lib/assets/index.js";
 import { saveAsset } from "./assetService.js";
 
 const DATA_URL = /^data:([^;,]+);base64,(.+)$/s;
 
 /**
  * `url` as a stored asset's URL, when it is a data: URL of a type assets
- * hold; any other URL (the mock's placeholder) comes back as it is. If the
+ * hold and assets are durable (cloud or emulators; see assetsAreDurable);
+ * any other URL (the mock's placeholder) comes back as it is. If the
  * store fails, the data: URL comes back too: the model call is already made
  * and billed, and losing its output to a storage hiccup would be worse than
  * a heavy board.
  */
 export async function storeGenerated(userId: string, url: string): Promise<string> {
   const match = DATA_URL.exec(url);
-  if (!match || !isAssetMimeType(match[1])) return url;
+  if (!match || !isAssetMimeType(match[1]) || !assetsAreDurable()) return url;
   try {
     return (await saveAsset(userId, Buffer.from(match[2], "base64"), match[1], "generated")).url;
   } catch (err) {

@@ -1,6 +1,6 @@
 import express, { Router, type ErrorRequestHandler } from "express";
 import { requireIdentity } from "../middleware/requireIdentity.js";
-import { deleteAsset, listAssets, openAsset, saveAsset } from "../services/assetService.js";
+import { deleteAsset, listAssets, openAsset, saveUpload } from "../services/assetService.js";
 import { sendValidationError } from "../common/errors.js";
 import { ASSET_MIME_TYPES, MAX_ASSET_BYTES, isAssetMimeType } from "../lib/assets/index.js";
 
@@ -10,7 +10,8 @@ export const assetsRouter = Router();
 // proxy forwards it byte for byte and nothing parses a form.
 const rawBody = express.raw({ type: () => true, limit: MAX_ASSET_BYTES });
 
-// POST /api/assets — stores an upload; 201 with its id and URL.
+// POST /api/assets — stores an upload; 201 with its id and URL, and whether
+// it is durable (in memory it is not: the board should keep its own copy).
 assetsRouter.post("/assets", requireIdentity(), rawBody, async (req, res, next) => {
   try {
     const mimeType = (req.header("Content-Type") ?? "").split(";")[0].trim().toLowerCase();
@@ -25,7 +26,7 @@ assetsRouter.post("/assets", requireIdentity(), rawBody, async (req, res, next) 
       sendValidationError(res, "The file is empty.");
       return;
     }
-    res.status(201).json(await saveAsset(req.identity.email, req.body, mimeType, "upload"));
+    res.status(201).json(await saveUpload(req.identity.email, req.body, mimeType));
   } catch (err) {
     next(err);
   }

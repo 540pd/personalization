@@ -14,13 +14,24 @@ let _store: AssetStore | null = null;
 
 export function assetStore(): AssetStore {
   if (!_store) {
-    const cloud = isGcsMode() && isFirestoreMode();
+    const cloud = assetsAreDurable();
     if (!cloud && (isGcsMode() || isFirestoreMode())) {
       console.warn("[assets] Cloud Storage and Firestore are both needed for stored assets; keeping them in memory.");
     }
     _store = cloud ? cloudAssetStore() : memoryAssetStore();
   }
   return _store;
+}
+
+/**
+ * Whether stored assets outlive this process. In memory they do not, and a
+ * dev backend restarts on every save (tsx watch): a board pointing at asset
+ * URLs would lose its images each time, where data: URLs survive. So in
+ * memory mode generation keeps answering data: URLs, and an upload says it
+ * is not durable, so the board keeps its own copy.
+ */
+export function assetsAreDurable(): boolean {
+  return isGcsMode() && isFirestoreMode();
 }
 
 /** The URL the browser loads an asset from: through the frontend's proxy,
