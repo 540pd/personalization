@@ -37,7 +37,7 @@ describe("nodePanel select all / delete", () => {
   });
 });
 
-describe("connection selectAllConnections", () => {
+describe("connection selectAll", () => {
   it("selects every wire", () => {
     useConnectionStore.setState({
       connections: [
@@ -45,7 +45,7 @@ describe("connection selectAllConnections", () => {
         { id: "b", fromNodeId: "p1", fromNodeType: "panel", toNodeId: "p2", toNodeType: "panel" },
       ],
     });
-    useConnectionStore.getState().selectAllConnections();
+    useConnectionStore.getState().selectAll();
     expect(useConnectionStore.getState().selectedIds).toEqual(["a", "b"]);
   });
 });

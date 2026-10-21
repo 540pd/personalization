@@ -62,7 +62,7 @@ export function canFrame(
 export function selectedBoxes(): SelectedBox[] {
   const nodes = useKonvaNodes.getState().nodes;
   const stage = boardStage.current;
-  const konva = useKonvaSelection.getState().nodeIds.flatMap((id): SelectedBox[] => {
+  const konva = useKonvaSelection.getState().selectedIds.flatMap((id): SelectedBox[] => {
     const record = nodes[id];
     if (!record) return [];
     const node = stage?.findOne(`#${id}`) as Konva.Node | undefined;
@@ -125,7 +125,7 @@ export function frameContents(frame: FrameRecord): { nodes: string[]; panels: st
 export function removableFrame(): FrameRecord | null {
   const { frames, selectedIds } = useFrames.getState();
   if (selectedIds.length !== 1) return null;
-  if (useKonvaSelection.getState().nodeIds.length) return null;
+  if (useKonvaSelection.getState().selectedIds.length) return null;
   if (useNodePanel.getState().panels.some((p) => p.isActive)) return null;
   return frames[selectedIds[0]] ?? null;
 }

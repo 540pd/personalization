@@ -91,7 +91,7 @@ export default function Minimap() {
   const bottom = useDockClearance(left, isMapOpen, containerRef);
   // Subscribed, not read imperatively: the menu's disabled states have to
   // update as the selection changes while it is open.
-  const selectedNodeIds = useKonvaSelection((s) => s.nodeIds);
+  const selectedNodeIds = useKonvaSelection((s) => s.selectedIds);
   const panels = useNodePanel((s) => s.panels);
 
   const zoom = (direction: 1 | -1) =>

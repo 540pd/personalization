@@ -110,7 +110,7 @@ function handleStyle(pt: Point, size: number): React.CSSProperties {
 }
 
 export default function LineHandles() {
-  const ids = useKonvaSelection((s) => s.nodeIds);
+  const ids = useKonvaSelection((s) => s.selectedIds);
   const nodes = useKonvaNodes((s) => s.nodes);
   const pointer = useToolStore((s) => s.activeTool === "pointer");
   const { x, y, scale } = useViewport();

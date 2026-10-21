@@ -62,7 +62,7 @@ describe("removeSelectedFrame (#244)", () => {
         out: { id: "out", canvasX: 600, canvasY: 20, canvasW: 50, canvasH: 40 },
       },
     });
-    useKonvaSelection.setState({ nodeIds: [] });
+    useKonvaSelection.setState({ selectedIds: [] });
     // A panel's canvasY is its centre: 100 high around 100 is inside.
     useNodePanel.setState({ panels: [panel("p", 200, 100), panel("far", 900, 500)] });
   });
@@ -71,7 +71,7 @@ describe("removeSelectedFrame (#244)", () => {
     expect(removeSelectedFrame()).toBe(true);
     expect(useFrames.getState().frames.f).toBeUndefined();
     expect(useFrames.getState().selectedIds).toEqual([]);
-    expect(useKonvaSelection.getState().nodeIds).toEqual(["a"]);
+    expect(useKonvaSelection.getState().selectedIds).toEqual(["a"]);
     expect(useNodePanel.getState().panels.filter((p) => p.isActive).map((p) => p.id)).toEqual(["p"]);
     expect(useKonvaNodes.getState().nodes.a.canvasX).toBe(20);
     expect(useNodePanel.getState().panels[0].canvasX).toBe(200);
@@ -81,7 +81,7 @@ describe("removeSelectedFrame (#244)", () => {
     useFrames.setState({ selectedIds: ["empty"] });
     expect(removeSelectedFrame()).toBe(true);
     expect(useFrames.getState().frames.empty).toBeUndefined();
-    expect(useKonvaSelection.getState().nodeIds).toEqual([]);
+    expect(useKonvaSelection.getState().selectedIds).toEqual([]);
     expect(useNodePanel.getState().panels.some((p) => p.isActive)).toBe(false);
   });
 
@@ -91,14 +91,14 @@ describe("removeSelectedFrame (#244)", () => {
       selectedIds: ["f"],
     });
     removeSelectedFrame();
-    expect(useKonvaSelection.getState().nodeIds).toEqual(["out"]);
+    expect(useKonvaSelection.getState().selectedIds).toEqual(["out"]);
   });
 
   it("only with exactly one Frame selected and nothing else", () => {
     useFrames.setState({ selectedIds: ["f", "empty"] });
     expect(removableFrame()).toBeNull();
     useFrames.setState({ selectedIds: ["f"] });
-    useKonvaSelection.setState({ nodeIds: ["out"] });
+    useKonvaSelection.setState({ selectedIds: ["out"] });
     expect(removableFrame()).toBeNull();
     expect(removeSelectedFrame()).toBe(false);
     expect(useFrames.getState().frames.f).toBeDefined();

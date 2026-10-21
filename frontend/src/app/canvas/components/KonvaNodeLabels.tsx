@@ -34,7 +34,7 @@ function toBlockers(nodes: KonvaNodeRecord[], panels: PanelInstance[]): Blocker[
 export default function KonvaNodeLabels() {
   const nodes = useKonvaNodes((s) => s.nodes);
   const panels = useNodePanel((s) => s.panels);
-  const selectedIds = useKonvaSelection((s) => s.nodeIds);
+  const selectedIds = useKonvaSelection((s) => s.selectedIds);
   const topLayer = useLayerOrder((s) => s.topLayer);
   const { x: stageX, y: stageY, scale } = useViewport();
   // Names off (#215): shown only on the hovered or a selected node.

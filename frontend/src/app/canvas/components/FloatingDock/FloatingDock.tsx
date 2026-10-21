@@ -88,8 +88,8 @@ export default function FloatingDock() {
     // alongside the new node, and because each selection
     // system has its own Delete handler, one keypress
     // destroyed both.
-    useKonvaSelection.getState().deselect();
-    useConnectionStore.getState().deselectConnection();
+    useKonvaSelection.getState().clearSelection();
+    useConnectionStore.getState().clearSelection();
 
     // Dock item -> node kind.
     const kind = DOCK_ITEM_KIND[id];

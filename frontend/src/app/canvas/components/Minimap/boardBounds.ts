@@ -36,7 +36,7 @@ export function currentBounds(): Bounds[] {
  * silently ignore half the board.
  */
 export function currentSelectionBounds(): Bounds[] {
-  const ids = new Set(useKonvaSelection.getState().nodeIds);
+  const ids = new Set(useKonvaSelection.getState().selectedIds);
   const nodes = Object.values(useKonvaNodes.getState().nodes).filter((n) => ids.has(n.id));
   const panels = useNodePanel.getState().panels.filter((p) => p.isActive);
   return boundsFrom(Object.fromEntries(nodes.map((n) => [n.id, n])), panels);

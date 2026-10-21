@@ -28,7 +28,7 @@ function emptyLayer(board: BoardScene): void {
   board.endGestures();
   board.transformer.nodes([]);
   deleteNodes(board.layer.find(".selectable") as Konva.Shape[]);
-  useKonvaSelection.getState().deselect();
+  useKonvaSelection.getState().clearSelection();
 }
 
 /** Redraws everything that reads the layer once its nodes have changed. */

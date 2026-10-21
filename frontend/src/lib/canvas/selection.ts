@@ -52,10 +52,10 @@ export function selectNodeIds(ids: string[]): void {
  */
 export function selectOnly(keep: SelectionKind | null): void {
   if (keep !== "node") {
-    useKonvaSelection.getState().deselect();
+    useKonvaSelection.getState().clearSelection();
     clearNodeChrome?.();
   }
   if (keep !== "panel") useNodePanel.getState().closeAllPanels();
-  if (keep !== "wire") useConnectionStore.getState().deselectConnection();
+  if (keep !== "wire") useConnectionStore.getState().clearSelection();
   if (keep !== "frame") useFrames.getState().clearSelection();
 }
