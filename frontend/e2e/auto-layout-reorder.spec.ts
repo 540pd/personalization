@@ -8,9 +8,9 @@ import { addPanel, collapsePanels, makePng, openBoard, panelBoxes } from "./help
 
 type Box = { x: number; y: number; w: number; h: number };
 
-const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
-const shapesBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(4);
-const textBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(5);
+const frameBtn = (page: Page) => page.getByRole("button", { name: "Frame", exact: true });
+const shapesBtn = (page: Page) => page.getByRole("button", { name: "Shapes", exact: true });
+const textBtn = (page: Page) => page.getByRole("button", { name: "Text", exact: true });
 const menuItem = (page: Page, label: string) =>
   page.locator(".floating-dock-submenu button").filter({
     has: page.locator("span", { hasText: new RegExp(`^${label}$`) }),

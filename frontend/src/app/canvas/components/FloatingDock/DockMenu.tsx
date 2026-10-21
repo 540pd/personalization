@@ -4,20 +4,16 @@
 // a submenu, and a submenu's item.
 
 import { useRef, type ReactNode } from "react";
+import Tooltip from "@/components/Tooltip";
 import { useDismiss } from "@/lib/dom/useDismiss";
 
-// Hover tooltip: pill with label + optional shortcut badge, floats above the button.
-function Tooltip({ label, shortcut }: { label: string; shortcut?: string }) {
-  return (
-    <div className="floating-dock-tooltip">
-      <span className="floating-dock-tooltip-label">{label}</span>
-
-      {shortcut && (
-        <span className="floating-dock-tooltip-shortcut">{shortcut}</span>
-      )}
-    </div>
-  );
-}
+// A pill above the button: its label and, if it has one, its shortcut.
+const tip = (label: string, shortcut?: string) => (
+  <>
+    <span className="floating-dock-tooltip-label">{label}</span>
+    {shortcut && <span className="floating-dock-tooltip-shortcut">{shortcut}</span>}
+  </>
+);
 
 export const btnClass = (active: boolean) =>
   [
@@ -33,11 +29,15 @@ const submenuItemClass = (active: boolean) =>
       : "floating-dock-submenu-item-inactive",
   ].join(" ");
 
-/** A dock button that acts at once, or arms a tool, with its tooltip. */
+/**
+ * A dock button that acts at once, or arms a tool, with its tooltip. The
+ * button is named by `ariaLabel`, or else by its label: it is only an icon.
+ */
 export function DockButton({
-  label, shortcut, className, pressed, tabIndex, onClick, children,
+  label, ariaLabel, shortcut, className, pressed, tabIndex, onClick, children,
 }: {
   label: string;
+  ariaLabel?: string;
   shortcut?: string;
   className: string;
   pressed?: boolean;
@@ -46,9 +46,10 @@ export function DockButton({
   children: ReactNode;
 }) {
   return (
-    <div className="floating-dock-tool-wrapper">
+    <Tooltip variant="pill" className="floating-dock-tool-wrapper" bubbleClassName="floating-dock-tooltip" content={tip(label, shortcut)}>
       <button
         title=""
+        aria-label={ariaLabel ?? label}
         tabIndex={tabIndex}
         onClick={onClick}
         aria-pressed={pressed}
@@ -56,9 +57,7 @@ export function DockButton({
       >
         {children}
       </button>
-
-      <Tooltip label={label} shortcut={shortcut} />
-    </div>
+    </Tooltip>
   );
 }
 
@@ -98,11 +97,15 @@ export function DockMenu({
   useDismiss(open, [btnRef, menuRef], onClose);
 
   return (
-    <div className="floating-dock-tool-wrapper">
+    <Tooltip
+      variant="pill" className="floating-dock-tool-wrapper" bubbleClassName="floating-dock-tooltip"
+      // The menu takes the tooltip's place while it is open.
+      content={open ? "" : tip(label, shortcut)}
+    >
       <button
         ref={btnRef}
         title=""
-        aria-label={ariaLabel}
+        aria-label={ariaLabel ?? label}
         aria-expanded={state === "expanded" ? open : undefined}
         onClick={onToggle}
         aria-pressed={state === "pressed" ? active || open : undefined}
@@ -110,8 +113,6 @@ export function DockMenu({
       >
         {icon}
       </button>
-
-      {!open && <Tooltip label={label} shortcut={shortcut} />}
 
       {open && (
         <div
@@ -124,7 +125,7 @@ export function DockMenu({
           {children}
         </div>
       )}
-    </div>
+    </Tooltip>
   );
 }
 

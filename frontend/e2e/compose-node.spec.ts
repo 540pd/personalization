@@ -18,7 +18,7 @@ async function clickAway(page: Page) {
 
 /** Create a node from the dock's Create submenu by its visible label. */
 async function addNode(page: Page, name: RegExp) {
-  await page.locator(".floating-dock button").nth(1).click();
+  await page.getByRole("button", { name: "Create", exact: true }).click();
   await page.waitForTimeout(250);
   await page.locator(".floating-dock-submenu button").filter({ hasText: name }).first().click();
   await page.waitForTimeout(400);
@@ -35,7 +35,7 @@ async function write(page: Page, text: string) {
 test.describe("node > compose", () => {
   test("Create lists Compose after Prompt", async ({ page }) => {
     await openBoard(page);
-    await page.locator(".floating-dock button").nth(1).click();
+    await page.getByRole("button", { name: "Create", exact: true }).click();
     await expect(page.locator(".floating-dock-submenu button")).toHaveText(["Video", "Image", "Prompt", "Compose"]);
     // One divider, between the model-backed items and Compose.
     const order = await page.locator(".floating-dock-submenu > *").evaluateAll((els) =>

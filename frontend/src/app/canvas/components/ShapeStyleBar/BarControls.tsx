@@ -4,6 +4,9 @@
 // card of options, and the options themselves.
 
 import type { ReactNode } from "react";
+import Tooltip from "@/components/Tooltip";
+
+const PILL = { variant: "pill", className: "shape-style-wrapper", bubbleClassName: "shape-style-tooltip" } as const;
 
 /** A button that acts at once, with its tooltip and an optional key. */
 export function BarButton({
@@ -20,7 +23,7 @@ export function BarButton({
   children: ReactNode;
 }) {
   return (
-    <div className="shape-style-wrapper">
+    <Tooltip {...PILL} content={<>{tooltip ?? label}{kbd && <> <kbd className="shape-style-kbd">{kbd}</kbd></>}</>}>
       <button
         type="button" aria-label={label} aria-pressed={pressed} disabled={disabled}
         onClick={onClick}
@@ -29,10 +32,7 @@ export function BarButton({
       >
         {children}
       </button>
-      <span className="shape-style-tooltip">
-        {tooltip ?? label}{kbd && <> <kbd className="shape-style-kbd">{kbd}</kbd></>}
-      </span>
-    </div>
+    </Tooltip>
   );
 }
 
@@ -57,20 +57,20 @@ export function BarMenu({
 }) {
   const btn = ["shape-style-button", open ? "shape-style-button-open" : ""].join(" ");
   return (
-    <div className="shape-style-wrapper">
+    // The card takes the tooltip's place while it is open.
+    <Tooltip {...PILL} content={open ? "" : tooltip}>
       <button
         type="button" aria-label={label} aria-expanded={open}
         onClick={onToggle} className={className ? `${btn} ${className}` : btn}
       >
         {icon}
       </button>
-      {!open && <span className="shape-style-tooltip">{tooltip}</span>}
       {open && (
         <div className={`shape-style-card ${cardClassName}`} role="group" aria-label={cardLabel}>
           {children}
         </div>
       )}
-    </div>
+    </Tooltip>
   );
 }
 

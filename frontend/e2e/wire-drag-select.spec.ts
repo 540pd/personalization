@@ -22,7 +22,7 @@ async function stubText(page: Page) {
 }
 
 async function addNode(page: Page, name: RegExp) {
-  await page.locator(".floating-dock button").nth(1).click();
+  await page.getByRole("button", { name: "Create", exact: true }).click();
   await page.waitForTimeout(250);
   await page.locator(".floating-dock-submenu button").filter({ hasText: name }).first().click();
   await page.waitForTimeout(400);

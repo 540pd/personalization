@@ -244,6 +244,9 @@ export default function FloatingDock() {
               <DockButton
                 key={tool.id}
                 label={tool.label}
+                // Not a bare "Upload": the Skills and Agents dialogs have an
+                // Upload button of their own, and the dock's stays on screen.
+                ariaLabel={isUpload ? "Upload files" : undefined}
                 shortcut={tool.shortcut}
                 tabIndex={isLive ? 0 : -1}
                 onClick={

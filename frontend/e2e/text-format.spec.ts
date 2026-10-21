@@ -5,8 +5,8 @@ import { openBoard } from "./helpers";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const shapesBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(4);
-const textBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(5);
+const shapesBtn = (page: Page) => page.getByRole("button", { name: "Shapes", exact: true });
+const textBtn = (page: Page) => page.getByRole("button", { name: "Text", exact: true });
 const bar = (page: Page) => page.getByTestId("shape-style-bar");
 const sizeBtn = (page: Page) => page.getByRole("button", { name: "Text size" });
 const boldBtn = (page: Page) => page.getByRole("button", { name: "Bold", exact: true });

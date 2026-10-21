@@ -48,15 +48,10 @@
    Tooltip: above the bar, or below it when the bar is
 ---------------------------------- */
 
+// Shown by the shared Tooltip (pill variant) on hover and keyboard focus.
 .shape-style-tooltip {
   @apply pill-tooltip;
   @apply text-sm text-neutral-700;
-
-  display: none;
-}
-
-.shape-style-wrapper:hover .shape-style-tooltip {
-  display: block;
 }
 
 /* ---------------------------------

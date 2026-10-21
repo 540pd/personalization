@@ -53,7 +53,7 @@ async function selectFrame(page: Page) {
 async function setUp(page: Page) {
   await openBoard(page);
   for (const n of NAMES) await uploadImage(page, 200, 140, `${n}.png`);
-  await page.locator(".floating-dock button[aria-pressed]").nth(3).click();
+  await page.getByRole("button", { name: "Frame", exact: true }).click();
   await drag(page, 260, 60, 1200, 660);
   await selectFrame(page);
   await page.getByRole("button", { name: "Auto layout", exact: true }).click();

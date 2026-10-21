@@ -54,15 +54,12 @@
    Tooltip
 ---------------------------------- */
 
+// Shown by the shared Tooltip (pill variant) on hover and keyboard focus.
 .floating-dock-tooltip {
   @apply pill-tooltip;
   @apply items-center gap-1.5 z-10;
 
-  display: none;
-}
-
-.floating-dock-tool-wrapper:hover .floating-dock-tooltip {
-  display: flex;
+  --tooltip-display: flex;
 }
 
 .floating-dock-tooltip-label {

@@ -25,3 +25,19 @@
   @apply opacity-0;
   transition-delay: 0ms;
 }
+
+// The pill: shown at once rather than faded in, as the toolbars it labels are
+// used in quick succession. Where it sits and how it looks are its toolbar's
+// (bubbleClassName); `--tooltip-display` is how its content lays out.
+.tooltip-pill {
+  display: none;
+}
+
+.tooltip-anchor:hover > .tooltip-pill,
+.tooltip-anchor:has(:focus-visible) > .tooltip-pill {
+  display: var(--tooltip-display, block);
+}
+
+.tooltip-anchor[data-dismissed] > .tooltip-pill {
+  display: none;
+}

@@ -8,8 +8,8 @@ import { addPanel, openBoard, setZoom } from "./helpers";
 
 type Box = { x: number; y: number; w: number; h: number };
 
-const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
-const shapesBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(4);
+const frameBtn = (page: Page) => page.getByRole("button", { name: "Frame", exact: true });
+const shapesBtn = (page: Page) => page.getByRole("button", { name: "Shapes", exact: true });
 const menuItem = (page: Page, label: string) =>
   page.locator(".floating-dock-submenu button").filter({
     has: page.locator("span", { hasText: new RegExp(`^${label}$`) }),

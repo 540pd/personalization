@@ -6,7 +6,7 @@ import { openBoard, uploadImage, imageBox, collapsePanels, setZoom, addPanel, ac
 // to Board's stage, read the label as the pointer leaving, and cancel --
 // creating nothing.
 
-const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
+const frameBtn = (page: Page) => page.getByRole("button", { name: "Frame", exact: true });
 
 const frameCount = (page: Page) =>
   page.evaluate(() => {
