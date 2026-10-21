@@ -109,6 +109,27 @@ describe("proxy route", () => {
     expect(body.message).toMatch(/300 seconds/);
   });
 
+  it("stops waiting when the browser aborts, quietly", async () => {
+    const browser = new AbortController();
+    fetchMock.mockImplementation((_url, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+      }),
+    );
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const pending = POST(
+      new NextRequest("http://localhost:3000/api/proxy/generate/image", {
+        method: "POST", body: "{}", signal: browser.signal,
+      }),
+      params("generate", "image"),
+    );
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    browser.abort();
+    const res = await pending;
+    expect(res.status).toBe(499);
+    expect(error).not.toHaveBeenCalled();
+  });
+
   it("times out on its own signal, after five minutes", async () => {
     // AbortSignal.timeout runs on Node's own timers, which fake timers do not
     // reach, so stand in a signal that has already timed out.
