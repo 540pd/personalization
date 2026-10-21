@@ -6,6 +6,7 @@ import {
   mentionContext,
   mentionNotes,
   menuItems,
+  menuKey,
   resolveMentions,
   type MentionAgent,
   type MentionSkill,
@@ -52,17 +53,49 @@ describe("activeMention", () => {
 });
 
 describe("menuItems", () => {
-  it("narrows on handle or description, A–Z, and offers agents only where asked", () => {
-    expect(menuItems("", skills, agents, "skills-and-agents")).toEqual({
-      skills: [skills[0], skills[1], skills[2]],
-      agents: [agents[0], agents[1]],
-    });
-    expect(menuItems("BR", skills, agents, "skills-and-agents").skills.map((s) => s.name)).toEqual([
-      "brand-voice",
-      "campaign-brief",
+  const lib = { skills, agents };
+  const names = (q: string, scope: "skills" | "skills-and-agents" = "skills-and-agents") =>
+    menuItems(q, lib, scope).map((i) => `${i.kind}:${i.name}`);
+
+  it("narrows on handle or description, A–Z, skills before agents", () => {
+    expect(names("")).toEqual([
+      "skill:brand-voice", "skill:campaign-brief", "skill:tone", "agent:copywriter", "agent:planner",
     ]);
-    expect(menuItems("key", skills, agents, "skills-and-agents").skills.map((s) => s.name)).toEqual(["campaign-brief"]);
-    expect(menuItems("", skills, agents, "skills").agents).toEqual([]);
+    expect(names("BR")).toEqual(["skill:brand-voice", "skill:campaign-brief"]);
+    expect(names("key")).toEqual(["skill:campaign-brief"]);
+  });
+
+  it("offers agents only where asked, and carries the agent for the pick", () => {
+    expect(names("", "skills")).toEqual(["skill:brand-voice", "skill:campaign-brief", "skill:tone"]);
+    const rows = menuItems("copy", lib, "skills-and-agents");
+    expect(rows).toEqual([
+      { kind: "skill", id: "s1", name: "brand-voice", description: "Warm, direct copy" },
+      { kind: "agent", id: "a1", name: "copywriter", description: "", agent: agents[0] },
+    ]);
+  });
+});
+
+describe("menuKey", () => {
+  it("moves the highlight with the arrows, wrapping both ways", () => {
+    expect(menuKey("ArrowDown", false, 0, 3)).toBe(1);
+    expect(menuKey("ArrowDown", false, 2, 3)).toBe(0);
+    expect(menuKey("ArrowUp", false, 0, 3)).toBe(2);
+  });
+
+  it("picks on Enter or Tab, but not with Shift or with nothing to pick", () => {
+    expect(menuKey("Enter", false, 1, 3)).toBe("pick");
+    expect(menuKey("Tab", false, 1, 3)).toBe("pick");
+    expect(menuKey("Enter", true, 1, 3)).toBeNull();
+    expect(menuKey("Enter", false, 0, 0)).toBeNull();
+  });
+
+  it("leaves the arrows to the textarea when the menu is empty", () => {
+    expect(menuKey("ArrowDown", false, 0, 0)).toBeNull();
+  });
+
+  it("dismisses on Escape, even when empty, and ignores other keys", () => {
+    expect(menuKey("Escape", false, 0, 0)).toBe("dismiss");
+    expect(menuKey("a", false, 0, 3)).toBeNull();
   });
 });
 

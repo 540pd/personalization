@@ -5,23 +5,20 @@
 //
 // - a mirror behind it, laid out exactly like its text, that tints the
 //   handles naming a skill or agent and marks where the menu opens;
-// - the @ menu, in a portal: the form is translated, which would make a
-//   fixed menu inside it position against the form instead of the window.
+// - the @ menu (MentionMenu), in a portal.
 //
 // Free of store imports, like GenerateForm: the lists arrive as props.
 
-import { Fragment, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
-import { Z_INDEX } from "@/constants/canvas.constants";
+import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
-  activeMention,
   insertMention,
-  menuItems,
   type Mention,
   type MentionAgent,
+  type MentionItem,
   type Mentionables,
   type MentionScope,
 } from "../../mentions/mentions";
+import MentionMenu, { useMentionMenu } from "./MentionMenu";
 
 export interface MentionInputProps {
   value: string;
@@ -39,41 +36,18 @@ export interface MentionInputProps {
   onOpenLibrary?: (section: "skills" | "agents") => void;
 }
 
-type Item = { kind: "skill" | "agent"; id: string; name: string; description: string; agent?: MentionAgent };
-
-/** .mention-menu's w-64, before it has rendered once. */
-const MENU_WIDTH = 256;
-
 export default function MentionInput({
   value, onChange, onBlur, placeholder, className, scope, mentionables, known, onOpenLibrary,
 }: MentionInputProps) {
-  // Per field, so two open forms cannot share the menu's id or each other's
-  // aria-controls target.
-  const menuId = `mention-menu${useId()}`;
   const taRef = useRef<HTMLTextAreaElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [caret, setCaret] = useState<number | null>(null);
-  const [highlight, setHighlight] = useState(0);
-  // The @ an Esc closed the menu for: it stays closed until another @.
-  const [dismissed, setDismissed] = useState<number | null>(null);
-  const [menuPos, setMenuPos] = useState<{ left: number; top: number } | null>(null);
   const pendingCaret = useRef<number | null>(null);
   // The agent a pick chose, for the change event the insert fires.
   const pendingAgent = useRef<MentionAgent | undefined>(undefined);
-
-  const active = scope && caret !== null ? activeMention(value, caret) : null;
-  const open = !!active && active.start !== dismissed;
-  const lists = open
-    ? menuItems(active.query, mentionables.skills, mentionables.agents, scope!)
-    : { skills: [], agents: [] };
-  const items: Item[] = [
-    ...lists.skills.map((s) => ({ kind: "skill" as const, id: s.id, name: s.name, description: s.description })),
-    ...lists.agents.map((a) => ({ kind: "agent" as const, id: a.id, name: a.name, description: a.description, agent: a })),
-  ];
-  const hi = Math.min(highlight, Math.max(0, items.length - 1));
-  const libraryEmpty =
-    !mentionables.skills.length && (scope !== "skills-and-agents" || !mentionables.agents.length);
+  const menu = useMentionMenu(value, caret, scope, mentionables);
+  const { active, items, hi, menuId } = menu;
 
   const syncCaret = () => {
     const ta = taRef.current;
@@ -90,29 +64,11 @@ export default function MentionInput({
     }
   }, [value]);
 
-  // The menu sits under the @, wherever the text has wrapped or scrolled to.
-  useLayoutEffect(() => {
-    if (!open || !anchorRef.current) {
-      setMenuPos(null);
-      return;
-    }
-    const r = anchorRef.current.getBoundingClientRect();
-    // Kept in the window: flipped above the @ when there's no room below.
-    const menu = document.getElementById(menuId)?.getBoundingClientRect();
-    const w = menu?.width ?? MENU_WIDTH;
-    const h = menu?.height ?? 0;
-    const below = r.bottom + 4;
-    setMenuPos({
-      left: Math.max(8, Math.min(r.left, window.innerWidth - w - 8)),
-      top: below + h > window.innerHeight - 8 && r.top - 4 - h > 8 ? r.top - 4 - h : below,
-    });
-  }, [open, value, caret, menuId]);
-
-  const pick = (item: Item) => {
+  const pick = (item: MentionItem) => {
     const ta = taRef.current;
     if (!active || !ta) return;
     const next = insertMention(value, active.start, item.name);
-    setHighlight(0);
+    menu.setHighlight(0);
     // As typing, so Cmd+Z takes the insert back in one step. Where the
     // browser has no insertText (jsdom), set the value instead.
     pendingAgent.current = item.agent;
@@ -126,28 +82,10 @@ export default function MentionInput({
     }
   };
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!open) return;
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      if (!items.length) return;
-      e.preventDefault();
-      const step = e.key === "ArrowDown" ? 1 : -1;
-      setHighlight((hi + step + items.length) % items.length);
-    } else if ((e.key === "Enter" || e.key === "Tab") && items.length && !e.shiftKey) {
-      // Never a submit or a newline while the menu offers something.
-      e.preventDefault();
-      pick(items[hi]);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      setDismissed(active.start);
-    }
-  };
-
   // Mirror text: plain runs, tinted handles, and the menu's anchor: the
   // `@word` being typed, wrapped whole -- an empty marker before it would stay
   // at the end of the line above when the word wraps.
-  const anchorAt = open ? active.start : -1;
+  const anchorAt = active ? active.start : -1;
   let anchorEnd = anchorAt;
   while (anchorAt >= 0 && anchorEnd < value.length && !/\s/.test(value[anchorEnd])) anchorEnd++;
   const pieces: ReactNode[] = [];
@@ -179,8 +117,6 @@ export default function MentionInput({
   }
   pushText(at, value.length);
 
-  let group: Item["kind"] | null = null;
-
   return (
     <div className="mention-field">
       <div ref={mirrorRef} className={`${className} mention-mirror`} aria-hidden>
@@ -200,13 +136,13 @@ export default function MentionInput({
           onChange(e.target.value, agent);
         }}
         onSelect={syncCaret}
-        onKeyDown={onKeyDown}
+        onKeyDown={(e) => menu.onKeyDown(e, pick)}
         onKeyUp={syncCaret}
         onClick={syncCaret}
         onFocus={syncCaret}
         onBlur={() => {
           setCaret(null);
-          setDismissed(null);
+          menu.reset();
           onBlur();
         }}
         onScroll={(e) => {
@@ -217,75 +153,20 @@ export default function MentionInput({
         className={`${className} mention-textarea`}
         role={scope ? "combobox" : undefined}
         aria-autocomplete={scope ? "list" : undefined}
-        aria-expanded={scope ? open : undefined}
-        aria-controls={open ? menuId : undefined}
-        aria-activedescendant={open && items.length ? `${menuId}-${hi}` : undefined}
+        aria-expanded={scope ? !!active : undefined}
+        aria-controls={active ? menuId : undefined}
+        aria-activedescendant={active && items.length ? `${menuId}-${hi}` : undefined}
       />
-      {open &&
-        menuPos &&
-        createPortal(
-          <div
-            id={menuId}
-            role="listbox"
-            aria-label={scope === "skills-and-agents" ? "Skills and agents" : "Skills"}
-            className="mention-menu"
-            style={{ left: menuPos.left, top: menuPos.top, zIndex: Z_INDEX.mentionMenu }}
-            // Keeps focus in the textarea, so the caret and the menu survive a click.
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            {items.map((item, i) => {
-              const heading = item.kind !== group;
-              group = item.kind;
-              return (
-                <Fragment key={`${item.kind}-${item.id}`}>
-                  {heading && (
-                    <div className="mention-menu-group" role="presentation">
-                      {item.kind === "skill" ? "Skills" : "Agents"}
-                    </div>
-                  )}
-                  <div
-                    id={`${menuId}-${i}`}
-                    role="option"
-                    aria-selected={i === hi}
-                    className={`mention-menu-item ${i === hi ? "mention-menu-item-active" : ""}`}
-                    onMouseEnter={() => setHighlight(i)}
-                    onClick={() => pick(item)}
-                  >
-                    <span className="mention-menu-name">{item.name}</span>
-                    {item.description && <span className="mention-menu-description">{item.description}</span>}
-                  </div>
-                </Fragment>
-              );
-            })}
-            {!items.length &&
-              (libraryEmpty ? (
-                <div className="mention-menu-empty">
-                  No {scope === "skills-and-agents" ? "skills or agents" : "skills"} yet.{" "}
-                  {onOpenLibrary && (
-                    <>
-                      <button type="button" className="mention-menu-link" onClick={() => onOpenLibrary("skills")}>
-                        Skills
-                      </button>
-                      {scope === "skills-and-agents" && (
-                        <>
-                          {" · "}
-                          <button type="button" className="mention-menu-link" onClick={() => onOpenLibrary("agents")}>
-                            Agents
-                          </button>
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="mention-menu-empty">
-                  No {scope === "skills-and-agents" ? "skills or agents" : "skills"} match “{active.query}”
-                </div>
-              ))}
-            {items.length > 0 && <div className="mention-menu-foot">↑↓ to move · Enter or Tab to insert · Esc</div>}
-          </div>,
-          document.body,
-        )}
+      {active && (
+        <MentionMenu
+          menu={menu}
+          anchorRef={anchorRef}
+          value={value}
+          caret={caret}
+          onPick={pick}
+          onOpenLibrary={onOpenLibrary}
+        />
+      )}
     </div>
   );
 }

@@ -55,24 +55,39 @@ export function activeMention(text: string, caret: number): { start: number; que
   return { start: at, query };
 }
 
-export interface MenuItems<S, A> {
-  skills: S[];
-  agents: A[];
+/** One row of the @ menu. `agent` is set on an agent's row, for the pick. */
+export interface MentionItem {
+  kind: "skill" | "agent";
+  id: string;
+  name: string;
+  description: string;
+  agent?: MentionAgent;
 }
 
-/** Both lists narrowed on handle or description, ignoring case, each A–Z. */
-export function menuItems<S extends Listed, A extends Listed>(
-  query: string,
-  skills: readonly S[],
-  agents: readonly A[],
-  scope: MentionScope,
-): MenuItems<S, A> {
+/** The menu's rows: skills, then agents, each narrowed on handle or description, ignoring case, A–Z. */
+export function menuItems(query: string, { skills, agents }: Mentionables, scope: MentionScope): MentionItem[] {
   const q = query.toLowerCase();
   const match = (x: Listed) => !q || x.name.includes(q) || x.description.toLowerCase().includes(q);
-  return {
-    skills: sortByName(skills.filter(match)),
-    agents: scope === "skills-and-agents" ? sortByName(agents.filter(match)) : [],
-  };
+  return [
+    ...sortByName(skills.filter(match)).map((s) => ({ kind: "skill" as const, id: s.id, name: s.name, description: s.description })),
+    ...(scope === "skills-and-agents" ? sortByName(agents.filter(match)) : []).map((a) => ({
+      kind: "agent" as const, id: a.id, name: a.name, description: a.description, agent: a,
+    })),
+  ];
+}
+
+/**
+ * What a key does while the menu is open: the row to highlight next, a pick
+ * of the highlighted row, a dismissal, or nothing (the textarea has the key).
+ */
+export function menuKey(key: string, shift: boolean, highlight: number, count: number): number | "pick" | "dismiss" | null {
+  if (key === "ArrowDown" || key === "ArrowUp") {
+    return count ? (highlight + (key === "ArrowDown" ? 1 : -1) + count) % count : null;
+  }
+  // Never a submit or a newline while the menu offers something.
+  if ((key === "Enter" || key === "Tab") && count && !shift) return "pick";
+  if (key === "Escape") return "dismiss";
+  return null;
 }
 
 /**
