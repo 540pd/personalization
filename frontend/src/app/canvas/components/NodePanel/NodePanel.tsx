@@ -4,7 +4,7 @@
 // Each Node → Image click creates an independent placeholder + panel instance.
 // Instances are stored in the nodePanelStore array and rendered here.
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Loader2 } from "lucide-react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
@@ -127,6 +127,8 @@ function SinglePanel({
   hideInputPort, hideOutputPort, hideLabel,
 }: SinglePanelProps) {
   const { canvasX, canvasY, isActive, isPanelOpen } = instance;
+  const onActivateRef = useRef(onActivate);
+  onActivateRef.current = onActivate;
 
   // The kind's spec is the only thing that differs between node types.
   const spec = kindSpec(instance.kind);
@@ -605,6 +607,14 @@ function SinglePanel({
 
   // What the box shows: a written kind shows its text; others their output.
   const shown = spec.authored ? panelOutput(instance) : instance.output;
+  const handleComposeLinkClick = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isActive) return;
+    event.preventDefault();
+    selectOnly("panel");
+    useNodePanel.getState().raisePanel(instance.id);
+    useLayerOrder.getState().raiseDom();
+    onActivateRef.current();
+  }, [instance.id, isActive]);
 
   return (
     <>
@@ -771,7 +781,7 @@ function SinglePanel({
   }}
 >
   {shown ? (
-    <spec.Output value={shown.value} />
+    spec.authored ? null : <spec.Output value={shown.value} />
   ) : busy || upstreamProgress?.status === "generating" ? (
     // Shown on the node itself, not only in the panel: a video generation
     // runs for minutes and the panel is usually closed by then. The rest of
@@ -790,6 +800,49 @@ function SinglePanel({
 
   {dragging && <div className="node-panel-drag-overlay" />}
 </button>
+
+      {shown && spec.authored && (
+        <div
+          className="node-panel-compose-output-layer"
+          onMouseDown={(e) => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
+          onDragStart={(e) => e.preventDefault()}
+          onPointerDown={(e) => {
+            if ((e.target as HTMLElement).closest("[data-compose-link]")) {
+              pointerDownHere.current = false;
+              isDragging.current = false;
+              return;
+            }
+            onPointerDown(e);
+          }}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => {
+            pointerDownHere.current = false;
+            isDragging.current = false;
+            setDragging(false);
+          }}
+          onDoubleClick={(e) => {
+            if ((e.target as HTMLElement).closest("[data-compose-link]")) return;
+            textAtOpen.current = draft.instruction;
+            setEditing(true);
+          }}
+          onPointerEnter={() => setHovered(true)}
+          onPointerLeave={() => setHovered(false)}
+          style={{
+            position: "fixed",
+            left: placeholderLeft,
+            top: placeholderTop,
+            width: pw,
+            height: ph,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            zIndex: Z_INDEX.nodes,
+            borderRadius: NODE_CORNER_RADIUS,
+          }}
+        >
+          <spec.Output value={shown.value} onLinkClick={handleComposeLinkClick} />
+        </div>
+      )}
 
       {/* ── In-place editor — an authored kind's double-click (#181). Laid
            over the box in canvas units and scaled the same way, so the text
