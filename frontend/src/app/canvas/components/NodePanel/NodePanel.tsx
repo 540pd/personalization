@@ -785,22 +785,19 @@ function SinglePanel({
     pointerEvents: "auto",
   }}
 >
- {shown ? (
-  spec.authored ? null : <spec.Output value={shown.value} />
-) : busy ? (
-  <div className="node-panel-placeholder-content">
-    <Loader2
-      size={22}
-      aria-hidden
-      className="node-panel-loader"
-    />
-    <span className="node-panel-placeholder-text">
-      Generating…
-    </span>
-  </div>
-) : (
-  <spec.EmptyState />
-)}
+  {shown ? (
+    <spec.Output value={shown.value} />
+  ) : busy ? (
+    // Shown on the node itself, not only in the panel: a video generation
+    // runs for minutes and the panel is usually closed by then. The rest of
+    // the canvas stays interactive throughout.
+    <div className="node-panel-placeholder-content">
+      <Loader2 size={22} aria-hidden className="node-panel-loader" />
+      <span className="node-panel-placeholder-text">Generating…</span>
+    </div>
+  ) : (
+    <spec.EmptyState />
+  )}
 
   {dragging && <div className="node-panel-drag-overlay" />}
 </button>
