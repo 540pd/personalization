@@ -37,7 +37,13 @@ const IAP_PROTECTED = /^(true|1)$/i.test(process.env.IAP_PROTECTED?.trim() ?? ""
 
 export const ANONYMOUS_IDENTITY = "anonymous";
 
-export type AuthMode = "anonymous" | "required";
+/**
+ * "dev" is the placeholder for Google sign-in (#334): anyone signs in with
+ * any allowed email they type (POST /api/session/dev-sign-in), and from
+ * there it is the production path -- the session cookie, renewal, sign-out.
+ * Local only: a deployed backend refuses to start with it.
+ */
+export type AuthMode = "anonymous" | "dev" | "required";
 
 export function isAllowedEmailDomain(email: string): boolean {
   const domain = email.split("@")[1]?.toLowerCase();
@@ -45,6 +51,15 @@ export function isAllowedEmailDomain(email: string): boolean {
 }
 
 function computeAuthMode(): AuthMode {
+  if (EXPLICIT_AUTH_MODE === "dev") {
+    if (IS_DEPLOYED) {
+      throw new Error(
+        "Refusing to start: AUTH_MODE=dev (the dev sign-in placeholder) on a deployed environment. " +
+          "Unset AUTH_MODE and set GOOGLE_OAUTH_CLIENT_ID (docs/switching-to-gcp.md)."
+      );
+    }
+    return "dev";
+  }
   if (OAUTH_CONFIGURED) return "required";
   if (IS_DEPLOYED) {
     if (EXPLICIT_AUTH_MODE === "anonymous" && IAP_PROTECTED) return "anonymous";
@@ -167,6 +182,13 @@ export function requireIdentity(): RequestHandler {
     }
     if (sessionResult.expired) {
       sendError(res, "token_expired", "Session has expired.");
+      return;
+    }
+
+    // Dev sign-in issues only our own session tokens: there is no Google
+    // client to verify anything else against.
+    if (AUTH_MODE === "dev") {
+      sendError(res, "token_invalid", "Dev sign-in accepts only its own session.");
       return;
     }
 

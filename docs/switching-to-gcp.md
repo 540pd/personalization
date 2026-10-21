@@ -7,7 +7,7 @@ variables and restarting, **never a code change**. Services switch one at a time
 
 | Service | Placeholder (default) | Real service | Set |
 |---|---|---|---|
-| Sign-in | anonymous (#334 adds dev sign-in) | Google, `ALLOWED_EMAIL_DOMAINS` only | `GOOGLE_OAUTH_CLIENT_ID`, `SESSION_SECRET`; frontend `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` |
+| Sign-in | anonymous, or **dev sign-in** with `AUTH_MODE=dev` | Google, `ALLOWED_EMAIL_DOMAINS` only | `GOOGLE_OAUTH_CLIENT_ID`, `SESSION_SECRET`; frontend `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` |
 | Data and files | local disk at `backend/.data` | Firestore + Cloud Storage | `FIRESTORE_PROJECT_ID`, `GCS_BUCKET_NAME` |
 | AI generation | offline placeholders | Vertex AI | `VERTEX_PROJECT_ID` (and `VERTEX_LOCATION`) |
 
@@ -59,6 +59,14 @@ Notes:
 - Without GCP but with Java 21, the emulators are a closer stand-in: see
   **Local emulators** in [deployment.md](deployment.md).
 
+## Sign-in: the dev placeholder
+
+`AUTH_MODE=dev` (local only) replaces Google's button with an email field: the
+email typed is who you are, and from there it is the production path (session
+cookie, reload, sign out, the session-ended banner). The domain allowlist still
+applies. Without `SESSION_SECRET` a secret is made per start, so sessions end when
+the backend restarts. A deployed backend refuses to start with it.
+
 ## Sign-in: Google
 
 1. In the project's **APIs & Services → Credentials**, create an **OAuth client ID**
@@ -75,7 +83,7 @@ Notes:
    # frontend (inlined at build time)
    NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID=<the same client id>
    ```
-   Unset `AUTH_MODE` if it was set for the placeholder.
+   Unset `AUTH_MODE` (the dev placeholder) if it was set.
 4. Verify: `modes.auth` is `"required"`; the app opens on the sign-in screen with
    Google's button; after signing in, a reload stays signed in (the session cookie).
 

@@ -71,3 +71,40 @@
 .auth-banner-text {
   @apply min-w-0;
 }
+
+// Dev sign-in, the placeholder for Google (#334).
+.auth-dev {
+  @apply flex w-full flex-col gap-3 text-left;
+}
+
+.auth-dev-compact {
+  @apply w-auto flex-row items-center gap-2;
+}
+
+.auth-dev-field {
+  @apply flex flex-col gap-1;
+}
+
+.auth-dev-label {
+  @apply text-xs font-medium text-neutral-600;
+}
+
+.auth-dev-input {
+  @apply h-9 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-900;
+
+  &:focus-visible {
+    @apply focus-ring;
+  }
+}
+
+.auth-dev-compact .auth-dev-input {
+  @apply h-8 w-56;
+}
+
+.auth-dev-compact .auth-button {
+  @apply h-8 px-4;
+}
+
+.auth-dev-note {
+  @apply m-0 text-center text-xs text-neutral-500;
+}

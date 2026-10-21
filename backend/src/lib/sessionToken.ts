@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import jwt from "jsonwebtoken";
 
 /**
@@ -13,7 +14,14 @@ import jwt from "jsonwebtoken";
  * SESSION_SECRET follows the optional-key convention: unset means the feature
  * is inert (no token issued, no cookie set) rather than a module-level throw.
  */
-const SESSION_SECRET = process.env.SESSION_SECRET;
+// The dev sign-in placeholder (#334) needs sessions without anyone having
+// set up a secret: one is made per start, so its sessions end on restart.
+const SESSION_SECRET =
+  process.env.SESSION_SECRET ||
+  (process.env.AUTH_MODE === "dev" ? randomBytes(32).toString("hex") : undefined);
+
+/** True when the secret was made at start (dev sign-in without SESSION_SECRET). */
+export const isEphemeralSessionSecret = () => !process.env.SESSION_SECRET && !!SESSION_SECRET;
 
 // 30 days: long enough that "log in once" holds for a normal work cadence,
 // short enough that a stolen cookie doesn't grant indefinite access.

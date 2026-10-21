@@ -5,6 +5,7 @@
 // docs/switching-to-gcp.md is the checklist behind every "to switch" line.
 
 import { getAuthMode } from "../middleware/requireIdentity.js";
+import { isEphemeralSessionSecret } from "./sessionToken.js";
 import { describeStorageModes, isCloud, isDeployed, storageModes, type StorageModes } from "./storageMode.js";
 
 export interface ServiceModes {
@@ -21,11 +22,19 @@ export function serviceModes(): ServiceModes {
   };
 }
 
+function signIn(mode: ServiceModes["auth"]): string {
+  if (mode === "required") return "Google";
+  const toGoogle = "to switch: GOOGLE_OAUTH_CLIENT_ID, SESSION_SECRET";
+  if (mode === "anonymous") return `anonymous (placeholder; AUTH_MODE=dev for dev sign-in) -- ${toGoogle}`;
+  const ephemeral = isEphemeralSessionSecret() ? "; sessions end on restart, no SESSION_SECRET" : "";
+  return `dev sign-in (placeholder${ephemeral}) -- ${toGoogle}, unset AUTH_MODE`;
+}
+
 /** The startup summary: each service, and how to move it to GCP. */
 export function describeServiceModes(modes: ServiceModes = serviceModes()): string {
   const cloud = isCloud(modes.storage.firestore) && isCloud(modes.storage.storage);
   const lines = [
-    `sign-in: ${modes.auth === "required" ? "Google" : "anonymous (placeholder) -- to switch: GOOGLE_OAUTH_CLIENT_ID, SESSION_SECRET"}`,
+    `sign-in: ${signIn(modes.auth)}`,
     `storage: ${describeStorageModes(modes.storage)}${cloud ? "" : " -- to switch: FIRESTORE_PROJECT_ID, GCS_BUCKET_NAME"}`,
     `AI:      ${modes.ai === "vertex" ? "Vertex AI" : "offline placeholders -- to switch: VERTEX_PROJECT_ID"}`,
   ];

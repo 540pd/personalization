@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkSession, completeSignIn, signOut } from "../session";
+import { checkSession, completeDevSignIn, completeSignIn, signOut } from "../session";
 import { getIdToken, notifySessionExpired, setIdToken } from "../authState";
 import { useIdentityStore, nameFromEmail } from "../useIdentity";
 import { emailOfIdToken } from "../googleIdentity";
@@ -16,7 +16,7 @@ beforeEach(() => {
   calls.length = 0;
   replies = {};
   setIdToken(null);
-  useIdentityStore.setState({ status: "checking", identity: null, expired: false, error: null });
+  useIdentityStore.setState({ status: "checking", mode: null, identity: null, expired: false, error: null });
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const key = `${init?.method ?? "GET"} ${url}`;
     calls.push(key);
@@ -110,6 +110,36 @@ describe("completeSignIn", () => {
     replies[SESSION] = { status: 200, body: { email: "ana.silva@accenture.com" } };
     await completeSignIn(token("ana.silva@accenture.com"));
     expect(state()).toMatchObject({ status: "signedIn", expired: false });
+  });
+});
+
+describe("dev sign-in (#334)", () => {
+  const DEV = "POST /api/proxy/session/dev-sign-in";
+
+  it("checkSession remembers the mode, and asks for the session as in production", async () => {
+    replies[AUTH] = { status: 200, body: { mode: "dev" } };
+    replies[SESSION] = { status: 401, body: { error: "token_missing" } };
+    await checkSession();
+    expect(state()).toMatchObject({ status: "signedOut", mode: "dev" });
+  });
+
+  it("signs in as the email typed", async () => {
+    useIdentityStore.setState({ status: "signedOut", mode: "dev" });
+    replies[DEV] = { status: 200, body: { ok: true } };
+    replies[SESSION] = { status: 200, body: { email: "dev.user@accenture.com" } };
+    await completeDevSignIn("dev.user@accenture.com");
+    expect(state()).toMatchObject({ status: "signedIn", identity: { name: "Dev User", email: "dev.user@accenture.com" } });
+  });
+
+  it("names a refused account, and says when it is not an email", async () => {
+    useIdentityStore.setState({ status: "signedOut", mode: "dev" });
+    replies[DEV] = { status: 401, body: { error: "domain_not_allowed" } };
+    await completeDevSignIn(" Ana@Gmail.com ");
+    expect(state().error).toBe("ana@gmail.com isn't allowed here. Sign in with your work Google account.");
+
+    replies[DEV] = { status: 400, body: { error: "validation_error" } };
+    await completeDevSignIn("ana");
+    expect(state()).toMatchObject({ status: "signedOut", error: "Enter an email address." });
   });
 });
 
