@@ -3,8 +3,14 @@ name: CI
 on:
   push:
     branches: [main]
+  # Every PR, whatever its base: the stack's PRs target the branch below
+  # them, not main, and were never checked here.
   pull_request:
-    branches: [main]
+
+# A new push to the same PR supersedes the run already going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   frontend:
@@ -39,3 +45,59 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test
+
+  # The canvas cannot be tested in jsdom (a Konva.Stage needs a real 2D
+  # context), so the e2e suite is the only cover for the board itself. It
+  # runs one worker per shard (playwright.config: Konva drags are timing-
+  # sensitive), split across shards to keep a PR's wait short.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      # No keys, so it boots in anonymous mock mode (CLAUDE.md): generation
+      # returns placeholders and nothing is billed.
+      - name: Start the backend in mock mode
+        working-directory: backend
+        run: |
+          npm run dev > "$RUNNER_TEMP/backend.log" 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:4000/api/health > /dev/null && exit 0
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/backend.log"
+          exit 1
+
+      # playwright.config starts the frontend's dev server itself.
+      - name: e2e (shard ${{ matrix.shard }} of 4)
+        working-directory: frontend
+        env:
+          BACKEND_URL: http://localhost:4000
+        run: npx playwright test --shard=${{ matrix.shard }}/4
+
+      - name: Keep the traces of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-traces-shard-${{ matrix.shard }}
+          path: frontend/test-results/
+          retention-days: 7
