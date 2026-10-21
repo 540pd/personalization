@@ -6,6 +6,10 @@ import { createApp } from "../../server.js";
 // ImagenCapability down the mock path, which is what a developer without GCP
 // credentials actually hits. Rule 3 in CLAUDE.md -- missing keys return a
 // placeholder, never crash -- has to hold for a batch too.
+// The drawn placeholder (#335): inline in memory mode, or stored as an asset
+// where assets are durable (the emulators in CI's backend-emulators job).
+const PLACEHOLDER = /^(data:image\/png;base64,|\/api\/proxy\/assets\/[0-9a-f-]{36}\/content$)/;
+
 describe("POST /api/generate/image — variants in mock mode", () => {
   const saved = process.env.VERTEX_PROJECT_ID;
 
@@ -32,7 +36,7 @@ describe("POST /api/generate/image — variants in mock mode", () => {
     const res = await request(createApp()).post("/api/generate/image").send(body());
 
     expect(res.status).toBe(200);
-    expect(res.body.imageUrl).toMatch(/^data:image\/png;base64,/);
+    expect(res.body.imageUrl).toMatch(PLACEHOLDER);
     expect(res.body.modelUsed).toBe("mock");
   });
 
@@ -41,7 +45,7 @@ describe("POST /api/generate/image — variants in mock mode", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.imageUrls).toHaveLength(4);
-    res.body.imageUrls.forEach((url: string) => expect(url).toMatch(/^data:image\/png;base64,/));
+    res.body.imageUrls.forEach((url: string) => expect(url).toMatch(PLACEHOLDER));
     // Variants are told apart: each a different tint.
     expect(new Set(res.body.imageUrls).size).toBe(4);
     expect(res.body).not.toHaveProperty("errors");
