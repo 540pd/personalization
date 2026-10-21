@@ -32,7 +32,7 @@ describe("POST /api/generate/image — variants in mock mode", () => {
     const res = await request(createApp()).post("/api/generate/image").send(body());
 
     expect(res.status).toBe(200);
-    expect(res.body.imageUrl).toContain("placeholder");
+    expect(res.body.imageUrl).toMatch(/^data:image\/png;base64,/);
     expect(res.body.modelUsed).toBe("mock");
   });
 
@@ -41,7 +41,9 @@ describe("POST /api/generate/image — variants in mock mode", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.imageUrls).toHaveLength(4);
-    res.body.imageUrls.forEach((url: string) => expect(url).toContain("placeholder"));
+    res.body.imageUrls.forEach((url: string) => expect(url).toMatch(/^data:image\/png;base64,/));
+    // Variants are told apart: each a different tint.
+    expect(new Set(res.body.imageUrls).size).toBe(4);
     expect(res.body).not.toHaveProperty("errors");
   });
 

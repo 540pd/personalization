@@ -90,6 +90,12 @@ the backend restarts. A deployed backend refuses to start with it.
 **Verify on first use:** Google's token check is covered by tests only with Google
 stubbed; the first real sign-in is its first real run.
 
+## AI generation: the placeholders
+
+Without `VERTEX_PROJECT_ID`, images are gradients the backend draws at the
+requested aspect ratio (a new tint per variant), stored and sent on as references
+like real outputs; text and video answer canned placeholders. No network is used.
+
 ## AI generation: Vertex AI
 
 1. Enable the Vertex AI API in the project, and give the backend's identity
