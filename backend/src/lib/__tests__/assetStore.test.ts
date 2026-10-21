@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import { Firestore } from "@google-cloud/firestore";
 import { Storage } from "@google-cloud/storage";
 import { memoryAssetStore } from "../assets/memory.js";
+import { localAssetStore } from "../assets/local.js";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { cloudAssetStore, objectName } from "../assets/cloud.js";
 import { assetIdFromUrl, assetUrl, type AssetStore } from "../assets/index.js";
 
-// One contract for every asset store (#323). Memory on every `npm test`;
+// One contract for every (memory, local disk #333, and) asset store (#323). Memory on every `npm test`;
 // Cloud Storage + Firestore whenever both emulators are up (CI).
 
 const EMULATED = !!process.env.FIRESTORE_EMULATOR_HOST && !!process.env.STORAGE_EMULATOR_HOST;
@@ -13,6 +17,7 @@ const bucket = () => new Storage().bucket(process.env.GCS_BUCKET_NAME ?? "demo-g
 
 const stores: Array<[string, () => AssetStore, boolean]> = [
   ["memory", memoryAssetStore, true],
+  ["local disk", () => localAssetStore(mkdtempSync(path.join(tmpdir(), "gcos-assets-"))), true],
   ["cloud (emulators)", () => cloudAssetStore(new Firestore({ projectId: process.env.FIRESTORE_PROJECT_ID ?? "demo-gcos" }), bucket()), EMULATED],
 ];
 

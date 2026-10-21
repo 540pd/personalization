@@ -1,18 +1,21 @@
-// Where the backend keeps its data (#322): in memory, in the local
-// emulators, or in GCP -- per service, from env, so neither local dev nor CI
-// needs a project or a key (CLAUDE.md non-negotiable 3).
+// Where the backend keeps its data (#322, #333): in GCP, in the local
+// emulators, on local disk, or in memory -- per service, from env alone, so
+// moving to GCP is setting variables, never changing code.
 //
-//   Firestore  FIRESTORE_PROJECT_ID unset            → memory
-//              … set, FIRESTORE_EMULATOR_HOST set    → emulator
-//              … set                                 → gcp
-//   Storage    GCS_BUCKET_NAME unset                 → memory
-//              … set, STORAGE_EMULATOR_HOST set      → emulator
-//              … set                                 → gcp
+//   Firestore  FIRESTORE_PROJECT_ID set, FIRESTORE_EMULATOR_HOST set  → emulator
+//              FIRESTORE_PROJECT_ID set                               → gcp
+//   Storage    GCS_BUCKET_NAME set, STORAGE_EMULATOR_HOST set         → emulator
+//              GCS_BUCKET_NAME set                                    → gcp
+//   either,    otherwise: local disk in local dev (LOCAL_DATA_DIR,    → local
+//   unset      default backend/.data), memory in tests or with        → memory
+//              LOCAL_DATA_DIR=memory
 //
 // The emulator variables are the client libraries' own: @google-cloud/
 // firestore and @google-cloud/storage read them and skip credentials.
 
-export type StorageMode = "memory" | "emulator" | "gcp";
+import path from "node:path";
+
+export type StorageMode = "memory" | "local" | "emulator" | "gcp";
 
 export interface StorageModes {
   firestore: StorageMode;
@@ -21,13 +24,31 @@ export interface StorageModes {
 
 const env = (name: string) => process.env[name]?.trim() || undefined;
 
+/** Cloud Run sets K_SERVICE; a production build sets NODE_ENV. */
+export const isDeployed = () => process.env.NODE_ENV === "production" || !!env("K_SERVICE");
+
+/**
+ * Where local-disk mode keeps its files, or null for memory. Tests get
+ * memory unless they ask (vitest sets VITEST), so a run never reads or
+ * leaves files; a deployed backend gets memory, which it then refuses.
+ */
+export function localDataDir(): string | null {
+  const dir = env("LOCAL_DATA_DIR");
+  if (dir === "memory") return null;
+  if (dir) return path.resolve(dir);
+  if (process.env.VITEST || isDeployed()) return null;
+  return path.resolve(".data");
+}
+
+const fallback = (): StorageMode => (localDataDir() ? "local" : "memory");
+
 export function firestoreMode(): StorageMode {
-  if (!env("FIRESTORE_PROJECT_ID")) return "memory";
+  if (!env("FIRESTORE_PROJECT_ID")) return fallback();
   return env("FIRESTORE_EMULATOR_HOST") ? "emulator" : "gcp";
 }
 
 export function gcsMode(): StorageMode {
-  if (!env("GCS_BUCKET_NAME")) return "memory";
+  if (!env("GCS_BUCKET_NAME")) return fallback();
   return env("STORAGE_EMULATOR_HOST") ? "emulator" : "gcp";
 }
 
@@ -35,12 +56,20 @@ export function storageModes(): StorageModes {
   return { firestore: firestoreMode(), storage: gcsMode() };
 }
 
-/** One line at startup, so nobody wonders where their data went. */
+/** The cloud stores: real or emulated Firestore and Cloud Storage. */
+export const isCloud = (mode: StorageMode) => mode === "gcp" || mode === "emulator";
+
+/** One line for the startup summary, so nobody wonders where their data went. */
 export function describeStorageModes({ firestore, storage }: StorageModes = storageModes()): string {
-  const where = (mode: StorageMode, target: string | undefined, host: string | undefined) =>
-    mode === "memory" ? "memory (lost on restart)" : mode === "emulator" ? `emulator at ${host} (${target})` : `GCP (${target})`;
+  const where = (mode: StorageMode, target: string | undefined, host: string | undefined) => {
+    if (mode === "memory") return "memory (lost on restart)";
+    if (mode === "local") return `local disk at ${localDataDir()} (placeholder)`;
+    return mode === "emulator" ? `emulator at ${host} (${target})` : `GCP (${target})`;
+  };
+  // Both on the placeholder (the usual local case): say it once.
+  if (firestore === "local" && storage === "local") return `local disk at ${localDataDir()} (placeholder)`;
   return (
-    `[storage] Firestore: ${where(firestore, env("FIRESTORE_PROJECT_ID"), env("FIRESTORE_EMULATOR_HOST"))}; ` +
+    `Firestore: ${where(firestore, env("FIRESTORE_PROJECT_ID"), env("FIRESTORE_EMULATOR_HOST"))}; ` +
     `Storage: ${where(storage, env("GCS_BUCKET_NAME"), env("STORAGE_EMULATOR_HOST"))}`
   );
 }

@@ -1,11 +1,11 @@
 import { Firestore } from "@google-cloud/firestore";
-import { firestoreMode } from "./storageMode.js";
+import { firestoreMode, isCloud } from "./storageMode.js";
 
 let _client: Firestore | null = null;
 
 /** True when data goes to Firestore, real or emulated (storageMode.ts). */
 export function isFirestoreMode(): boolean {
-  return firestoreMode() !== "memory";
+  return isCloud(firestoreMode());
 }
 
 // The client finds the emulator by itself, from FIRESTORE_EMULATOR_HOST.

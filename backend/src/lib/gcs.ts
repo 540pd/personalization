@@ -1,11 +1,11 @@
 import { Storage } from "@google-cloud/storage";
-import { gcsMode } from "./storageMode.js";
+import { gcsMode, isCloud } from "./storageMode.js";
 
 let _storage: Storage | null = null;
 
 /** True when files go to Cloud Storage, real or emulated (storageMode.ts). */
 export function isGcsMode(): boolean {
-  return gcsMode() !== "memory";
+  return isCloud(gcsMode());
 }
 
 // The client finds the emulator by itself, from STORAGE_EMULATOR_HOST, and

@@ -1,11 +1,14 @@
-// Stored files (#323): in memory, or in Cloud Storage with their metadata in
-// Firestore, by storageMode.ts. Both are needed for the cloud store: bytes
-// without metadata could not be listed or owned.
+// Stored files (#323): in Cloud Storage with their metadata in Firestore, on
+// local disk (#333), or in memory, by storageMode.ts. Both GCP services are
+// needed for the cloud store: bytes without metadata could not be listed or
+// owned.
 
 import { isFirestoreMode } from "../firestore.js";
 import { isGcsMode } from "../gcs.js";
 import { cloudAssetStore } from "./cloud.js";
+import { localAssetStore } from "./local.js";
 import { memoryAssetStore } from "./memory.js";
+import { localDataDir } from "../storageMode.js";
 import type { AssetStore } from "./types.js";
 
 export * from "./types.js";
@@ -14,24 +17,26 @@ let _store: AssetStore | null = null;
 
 export function assetStore(): AssetStore {
   if (!_store) {
-    const cloud = assetsAreDurable();
+    const cloud = isGcsMode() && isFirestoreMode();
     if (!cloud && (isGcsMode() || isFirestoreMode())) {
-      console.warn("[assets] Cloud Storage and Firestore are both needed for stored assets; keeping them in memory.");
+      console.warn("[assets] Cloud Storage and Firestore are both needed for stored assets; using the local fallback.");
     }
-    _store = cloud ? cloudAssetStore() : memoryAssetStore();
+    const dir = localDataDir();
+    _store = cloud ? cloudAssetStore() : dir ? localAssetStore(dir) : memoryAssetStore();
   }
   return _store;
 }
 
 /**
- * Whether stored assets outlive this process. In memory they do not, and a
- * dev backend restarts on every save (tsx watch): a board pointing at asset
- * URLs would lose its images each time, where data: URLs survive. So in
- * memory mode generation keeps answering data: URLs, and an upload says it
- * is not durable, so the board keeps its own copy.
+ * Whether stored assets outlive this process: in the cloud store or on
+ * local disk, yes; in memory, no. A dev backend restarts on every save (tsx
+ * watch), and a board pointing at asset URLs would lose its images each
+ * time, where data: URLs survive. So in memory mode generation keeps
+ * answering data: URLs, and an upload says it is not durable, so the board
+ * keeps its own copy.
  */
 export function assetsAreDurable(): boolean {
-  return isGcsMode() && isFirestoreMode();
+  return (isGcsMode() && isFirestoreMode()) || localDataDir() !== null;
 }
 
 /** The URL the browser loads an asset from: through the frontend's proxy,
