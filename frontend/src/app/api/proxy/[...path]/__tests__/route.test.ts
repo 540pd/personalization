@@ -231,3 +231,29 @@ describe("proxy route: credentials", () => {
     ]);
   });
 });
+
+describe("proxy route: stored files (#323)", () => {
+  it("passes a file's type, size and caching through, and nothing else", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: {
+          "content-type": "image/png",
+          "content-length": "3",
+          "cache-control": "private, max-age=31536000, immutable",
+          etag: '"abc"',
+          "x-content-type-options": "nosniff",
+          "x-powered-by": "Express",
+        },
+      }),
+    );
+    const res = await GET(new NextRequest("http://localhost:3000/api/proxy/assets/abc/content"), params("assets", "abc", "content"));
+    expect(res.headers.get("content-type")).toBe("image/png");
+    expect(res.headers.get("content-length")).toBe("3");
+    expect(res.headers.get("cache-control")).toBe("private, max-age=31536000, immutable");
+    expect(res.headers.get("etag")).toBe('"abc"');
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("x-powered-by")).toBeNull();
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+  });
+});

@@ -25,6 +25,9 @@ const BACKEND_TIMEOUT_MS = 5 * 60 * 1000;
 // origin's cookies are none of its business.
 const SESSION_COOKIE = "gcos_session";
 
+/** Backend response headers the browser gets as they are; the rest stay put. */
+const PASSED_THROUGH = ["content-type", "content-length", "cache-control", "etag", "x-content-type-options"];
+
 type ErrorBody = { error: string; message: string };
 
 /** `name=value` for the session cookie in a Cookie header, or null. */
@@ -160,8 +163,12 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
     responseHeaders.append("set-cookie", setCookie);
   }
 
-  const responseContentType = backendResponse.headers.get("content-type");
-  if (responseContentType) responseHeaders.set("content-type", responseContentType);
+  // The headers a stored file is served with (#323): its type and size,
+  // and that the browser may keep it for good.
+  for (const name of PASSED_THROUGH) {
+    const value = backendResponse.headers.get(name);
+    if (value) responseHeaders.set(name, value);
+  }
 
   return new NextResponse(backendResponse.body, {
     status: backendResponse.status,
