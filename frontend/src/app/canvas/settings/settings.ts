@@ -10,7 +10,7 @@
  * storage key and never in the board's saved state or a board file.
  */
 
-export type LinkStyle = "link-curve" | "link-straight" | "link-elbow";
+import type { LinkStyle } from "@/lib/canvas/wires";
 
 export interface Settings {
   linkStyle: LinkStyle;
