@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dialogIsOpen, isEditableTarget, isInDialog, isPageKey } from "../keys";
+import { dialogIsOpen, isEditableTarget, isInDialog, isMacPlatform, isPageKey, modKeyLabel } from "../keys";
 import { disposeAll, listen } from "../listen";
 
 const el = (html: string) => {
@@ -75,5 +75,20 @@ describe("listen / disposeAll", () => {
     disposeAll(list);
     expect(order).toEqual([2, 1]);
     expect(list).toHaveLength(0);
+  });
+});
+
+describe("modKeyLabel", () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it.each([
+    ["MacIntel", true, "⌘"],
+    ["iPhone", true, "⌘"],
+    ["Win32", false, "Ctrl"],
+    ["Linux x86_64", false, "Ctrl"],
+  ])("on %s", (platform, mac, label) => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+    expect(isMacPlatform()).toBe(mac);
+    expect(modKeyLabel()).toBe(label);
   });
 });

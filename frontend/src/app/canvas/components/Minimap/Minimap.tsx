@@ -5,15 +5,17 @@
 // ‹ collapses the panel sideways; › re-expands it.
 // Clicking the zoom % opens a shortcut menu above the panel.
 
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useDismiss } from "@/lib/dom/useDismiss";
 import { useViewport } from "@/store/viewport.store";
 import { useCanvasArea, canvasArea } from "../../canvasArea";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { boardKeyAllowed } from "@/lib/canvas/boardKeys";
+import { modKeyLabel } from "@/lib/dom/keys";
+import { listen } from "@/lib/dom/listen";
 import { unionBounds } from "./world";
-import { zoomStep, fitTo } from "./zoom";
+import { zoomStep, fitTo, zoomShortcutFor, shortcutLabel, ZOOM_SHORTCUTS, type ZoomAction } from "./zoom";
 import { currentBounds, currentSelectionBounds } from "./boardBounds";
 import MinimapView, { MAP_W } from "./MinimapView";
 import ZoomBar from "./ZoomBar";
@@ -92,66 +94,37 @@ export default function Minimap() {
   const selectedNodeIds = useKonvaSelection((s) => s.nodeIds);
   const panels = useNodePanel((s) => s.panels);
 
-
-  const zoom = useCallback(
-    (direction: 1 | -1) => {
-      useViewport.setState(zoomStep(useViewport.getState(), direction, canvasArea()));
-    },
-    []
-  );
+  const zoom = (direction: 1 | -1) =>
+    useViewport.setState(zoomStep(useViewport.getState(), direction, canvasArea()));
 
   /** Fit a set of boxes, or do nothing if there are none. */
-  const fit = useCallback(
-    (boxes: ReturnType<typeof currentBounds>) => {
-      const box = unionBounds(boxes);
-      if (!box) return;
-      useViewport.setState(fitTo(box, canvasArea()));
-    },
-    []
-  );
+  const fit = (boxes: ReturnType<typeof currentBounds>) => {
+    const box = unionBounds(boxes);
+    if (box) useViewport.setState(fitTo(box, canvasArea()));
+  };
 
-  const zoomToFit = useCallback(() => fit(currentBounds()), [fit]);
-  const zoomToSelection = useCallback(() => fit(currentSelectionBounds()), [fit]);
+  const actions: Record<ZoomAction, () => void> = {
+    in: () => zoom(1),
+    out: () => zoom(-1),
+    reset,
+    fit: () => fit(currentBounds()),
+    selection: () => fit(currentSelectionBounds()),
+  };
+  // Always-fresh, so the listener below is added once.
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    return listen(window, "keydown", (e) => {
       // Same guard Board uses. Without it, Ctrl+– while writing a prompt
       // zoomed the canvas instead of reaching the field.
       if (!boardKeyAllowed(e)) return;
-
-      const mod = e.ctrlKey || e.metaKey;
-      if (mod && (e.code === "Equal" || e.code === "NumpadAdd")) {
-        e.preventDefault();
-        zoom(1);
-        return;
-      }
-      if (mod && (e.code === "Minus" || e.code === "NumpadSubtract")) {
-        e.preventDefault();
-        zoom(-1);
-        return;
-      }
-      if (mod) return;
-
-      // e.code, not e.key: with Shift held, e.key is the SHIFTED character,
-      // so Shift+0 arrives as ")" and `e.key === "0"` was never true. The
-      // advertised "Zoom to 100%" shortcut could not fire at all.
-      if (!e.shiftKey) return;
-      if (e.code === "Digit0") {
-        e.preventDefault();
-        reset();
-      }
-      if (e.code === "Digit1") {
-        e.preventDefault();
-        zoomToFit();
-      }
-      if (e.code === "Digit2") {
-        e.preventDefault();
-        zoomToSelection();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [zoom, reset, zoomToFit, zoomToSelection]);
+      const shortcut = zoomShortcutFor(e);
+      if (!shortcut) return;
+      e.preventDefault();
+      actionsRef.current[shortcut.action]();
+    });
+  }, []);
 
   useDismiss(isZoomMenuOpen, [containerRef], () => setIsZoomMenuOpen(false));
 
@@ -163,20 +136,19 @@ export default function Minimap() {
     setIsZoomMenuOpen(false);
   };
 
-  const zoomMenuItems: ZoomMenuItem[] = [
-    { label: "Zoom in", shortcut: "Ctrl + =", disabled: false, action: close(() => zoom(1)) },
-    { label: "Zoom out", shortcut: "Ctrl + –", disabled: false, action: close(() => zoom(-1)) },
-    { label: "Zoom to 100%", shortcut: "⇧ + 0", disabled: at100, action: close(reset) },
-    { label: "Zoom to fit", shortcut: "⇧ + 1", disabled: false, action: close(zoomToFit) },
-    {
-      label: "Zoom to selection",
-      shortcut: "⇧ + 2",
-      // Was always enabled and always did nothing. Disabled with no selection
-      // is the honest state; with one, it now works.
-      disabled: !hasSelection,
-      action: close(zoomToSelection),
-    },
-  ];
+  const disabled: Partial<Record<ZoomAction, boolean>> = {
+    reset: at100,
+    // Was always enabled and always did nothing. Disabled with no selection
+    // is the honest state; with one, it now works.
+    selection: !hasSelection,
+  };
+  const mod = modKeyLabel();
+  const zoomMenuItems: ZoomMenuItem[] = ZOOM_SHORTCUTS.map((s) => ({
+    label: s.label,
+    shortcut: shortcutLabel(s, mod),
+    disabled: !!disabled[s.action],
+    action: close(actions[s.action]),
+  }));
 
   return (
     <div

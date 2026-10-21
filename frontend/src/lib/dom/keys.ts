@@ -23,3 +23,13 @@ export function dialogIsOpen(): boolean {
 export function isPageKey(e: KeyboardEvent): boolean {
   return !isEditableTarget(e.target) && !isInDialog(e.target);
 }
+
+/** A Mac, where the shortcut modifier is ⌘ rather than Ctrl. */
+export function isMacPlatform(): boolean {
+  return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+}
+
+/** How the shortcut modifier reads on this machine. */
+export function modKeyLabel(): "⌘" | "Ctrl" {
+  return isMacPlatform() ? "⌘" : "Ctrl";
+}

@@ -66,3 +66,41 @@ export function fitTo(bounds: Bounds, size: Rect): ViewportState {
   const centre = { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
   return { scale, ...stagePositionFor(centre, scale, size) };
 }
+
+export type ZoomAction = "in" | "out" | "reset" | "fit" | "selection";
+
+export interface ZoomShortcut {
+  action: ZoomAction;
+  /** The % menu's entry. */
+  label: string;
+  /** Ctrl or ⌘ with the key; otherwise Shift with it. */
+  mod: boolean;
+  codes: readonly string[];
+  /** The key as the menu shows it. */
+  key: string;
+}
+
+/** The zoom keys, written once for both the handler and the % menu. */
+export const ZOOM_SHORTCUTS: readonly ZoomShortcut[] = [
+  { action: "in", label: "Zoom in", mod: true, codes: ["Equal", "NumpadAdd"], key: "=" },
+  { action: "out", label: "Zoom out", mod: true, codes: ["Minus", "NumpadSubtract"], key: "–" },
+  // e.code, not e.key: with Shift held, e.key is the SHIFTED character,
+  // so Shift+0 arrives as ")" and `e.key === "0"` was never true. The
+  // advertised "Zoom to 100%" shortcut could not fire at all.
+  { action: "reset", label: "Zoom to 100%", mod: false, codes: ["Digit0"], key: "0" },
+  { action: "fit", label: "Zoom to fit", mod: false, codes: ["Digit1"], key: "1" },
+  { action: "selection", label: "Zoom to selection", mod: false, codes: ["Digit2"], key: "2" },
+];
+
+type KeyLike = Pick<KeyboardEvent, "code" | "ctrlKey" | "metaKey" | "shiftKey">;
+
+/** The zoom a key asks for, if any. Ctrl/⌘ with a Shift key is none. */
+export function zoomShortcutFor(e: KeyLike): ZoomShortcut | null {
+  const mod = e.ctrlKey || e.metaKey;
+  return ZOOM_SHORTCUTS.find((s) => (s.mod ? mod : !mod && e.shiftKey) && s.codes.includes(e.code)) ?? null;
+}
+
+/** "⌘ + =" (or "Ctrl + =", per `modLabel`), "⇧ + 0". */
+export function shortcutLabel(s: ZoomShortcut, modLabel: string): string {
+  return `${s.mod ? modLabel : "⇧"} + ${s.key}`;
+}

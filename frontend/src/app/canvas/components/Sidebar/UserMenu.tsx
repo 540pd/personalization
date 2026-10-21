@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { useDismiss } from "@/lib/dom/useDismiss";
+import { isMacPlatform } from "@/lib/dom/keys";
 import { LogOut, Palette, Settings } from "lucide-react";
 import type { Identity } from "@/auth/useIdentity";
 
@@ -9,7 +10,7 @@ const SETTINGS_KEYS = "Meta+, Control+,";
 
 /** How the Settings key reads on this machine: ⌘, on a Mac, Ctrl+, elsewhere. */
 function settingsShortcut(): string {
-  return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘," : "Ctrl+,";
+  return isMacPlatform() ? "⌘," : "Ctrl+,";
 }
 
 /**
