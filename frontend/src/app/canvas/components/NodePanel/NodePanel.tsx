@@ -782,7 +782,7 @@ function SinglePanel({
 >
   {shown ? (
     spec.authored ? null : <spec.Output value={shown.value} />
-  ) : : busy || upstreamProgress?.status === "generating" ? (
+  ) : busy || upstreamProgress?.status === "generating" ? (
     // Shown on the node itself, not only in the panel: a video generation
     // runs for minutes and the panel is usually closed by then. The rest of
     // the canvas stays interactive throughout.
