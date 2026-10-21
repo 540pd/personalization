@@ -14,7 +14,9 @@ let server: Server | null = null;
 /** A backend in `env`, listening; its base URL. */
 async function backend(env: Record<string, string>): Promise<string> {
   vi.resetModules();
-  for (const k of ["GOOGLE_OAUTH_CLIENT_ID", "SESSION_SECRET", "AUTH_MODE", "K_SERVICE", "VERTEX_PROJECT_ID"]) vi.stubEnv(k, "");
+  // Local disk always: under the emulators (CI) their variables would win.
+  for (const k of ["GOOGLE_OAUTH_CLIENT_ID", "SESSION_SECRET", "AUTH_MODE", "K_SERVICE", "VERTEX_PROJECT_ID",
+    "FIRESTORE_PROJECT_ID", "FIRESTORE_EMULATOR_HOST", "GCS_BUCKET_NAME", "STORAGE_EMULATOR_HOST"]) vi.stubEnv(k, "");
   vi.stubEnv("LOCAL_DATA_DIR", mkdtempSync(path.join(tmpdir(), "gcos-smoke-")));
   for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v);
   const { createApp } = await import("../../server.js");
