@@ -2,8 +2,7 @@
 
 import { Fragment, type ReactNode } from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import { ActionsHeader, LibraryRow } from "./LibraryPage";
-import type { RowMenuItem } from "./RowMenu";
+import RowMenu, { type RowMenuItem } from "./RowMenu";
 import type { Listed } from "../../library/fields";
 
 export interface LibraryColumn<T> {
@@ -75,5 +74,73 @@ export default function LibraryTable<T extends Listed>({
         </tbody>
       </table>
     </div>
+  );
+}
+
+// ── The table's parts ────────────────────────────────────────────────
+
+/**
+ * A table row you can open (#210): a click anywhere but its ⋯ menu, or Enter
+ * while the row itself has focus, calls `onOpen` with the row -- where focus
+ * goes back to once whatever it opened closes.
+ */
+export function LibraryRow({
+  id,
+  label,
+  onOpen,
+  menu,
+  children,
+}: {
+  /** The item's id; focus finds the next row by it after a removal (#211). */
+  id: string;
+  /** The item's name, for the row's and the menu's accessible names. */
+  label: string;
+  onOpen: (from: HTMLElement) => void;
+  menu: RowMenuItem[];
+  children: ReactNode;
+}) {
+  return (
+    <tr
+      className="library-row"
+      data-item-id={id}
+      tabIndex={0}
+      aria-label={`${label}, open to edit`}
+      onClick={(e) => onOpen(e.currentTarget)}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" || e.target !== e.currentTarget) return;
+        e.preventDefault();
+        onOpen(e.currentTarget);
+      }}
+    >
+      {children}
+      <td className="library-cell-actions">
+        <RowMenu label={label} items={menu} />
+      </td>
+    </tr>
+  );
+}
+
+/** The header cell over the rows' ⋯ menus. */
+export function ActionsHeader() {
+  return (
+    <th scope="col">
+      <span className="sr-only">Actions</span>
+    </th>
+  );
+}
+
+export function TagsCell({ tags }: { tags: string[] }) {
+  return tags.length ? (
+    <span className="library-cell-tags">
+      {tags.map((t) => (
+        <span key={t} className="library-tag">
+          {t}
+        </span>
+      ))}
+    </span>
+  ) : (
+    <span className="library-cell-none" aria-label="No tags">
+      —
+    </span>
   );
 }

@@ -2,7 +2,9 @@
 
 import { type ComponentType, type ReactNode } from "react";
 import { Upload } from "lucide-react";
-import LibraryPage, { LibraryAction, LibraryEmpty, LibraryNoMatch, LibraryToolbar } from "./LibraryPage";
+import LibraryPage from "./LibraryPage";
+import { LibraryAction, LibraryEmpty, LibraryNoMatch } from "./LibraryStates";
+import { LibraryToolbar } from "./LibraryToolbar";
 import LibraryTable, { type LibraryColumn } from "./LibraryTable";
 import type { RowMenuItem } from "./RowMenu";
 import type { LibraryCollectionState } from "./useLibraryCollection";
