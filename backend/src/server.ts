@@ -81,7 +81,10 @@ export function createApp(): express.Express {
       // whenever Firestore was set.
       const probes: Array<[string, () => Promise<unknown>]> = [];
       if (isFirestoreMode()) probes.push(["Firestore", () => getFirestoreClient().collection("health").limit(1).get()]);
-      if (isGcsMode()) probes.push(["GCS", () => getBucket().getMetadata()]);
+      // Listing one object, not reading the bucket's metadata: that needs
+      // storage.buckets.get, which the backend's storage.objectAdmin role on
+      // its bucket does not grant (nor does the Storage emulator serve it).
+      if (isGcsMode()) probes.push(["GCS", () => getBucket().getFiles({ maxResults: 1, autoPaginate: false })]);
 
       const failures = (
         await Promise.all(
