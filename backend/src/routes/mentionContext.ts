@@ -4,18 +4,17 @@
 // of control characters. Validated inline: no Zod (CLAUDE.md).
 
 import type { AgentContext, SkillContext } from "../capabilities/types.js";
+import { cleanPromptName } from "../common/promptText.js";
 
 export const MAX_CONTEXT_SKILLS = 20;
 /** Agent instructions and skill bodies together. */
 export const MAX_CONTEXT_CHARS = 400 * 1024;
-const MAX_NAME = 60;
 
 // Newlines and tabs are meaningful in instructions; every other control isn't.
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
 const clean = (text: string) => text.replace(CONTROL, " ");
-const cleanName = (name: string) => clean(name).replace(/\s+/g, " ").trim().slice(0, MAX_NAME);
 
 export type ReadContext =
   | { ok: true; agent?: AgentContext; skills?: SkillContext[] }
@@ -29,7 +28,7 @@ export function readMentionContext(agent: unknown, skills: unknown): ReadContext
     if (typeof agent !== "object" || typeof a.name !== "string" || typeof a.instructions !== "string") {
       return { ok: false, message: "agent must be { name, instructions }, both strings." };
     }
-    outAgent = { name: cleanName(a.name), instructions: clean(a.instructions) };
+    outAgent = { name: cleanPromptName(a.name), instructions: clean(a.instructions) };
   }
 
   let outSkills: SkillContext[] | undefined;
@@ -44,7 +43,7 @@ export function readMentionContext(agent: unknown, skills: unknown): ReadContext
       if (typeof raw !== "object" || raw === null || typeof s.name !== "string" || typeof s.content !== "string") {
         return { ok: false, message: "each skill must be { name, content }, both strings." };
       }
-      outSkills.push({ name: cleanName(s.name), content: clean(s.content) });
+      outSkills.push({ name: cleanPromptName(s.name), content: clean(s.content) });
     }
   }
 

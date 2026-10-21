@@ -28,9 +28,11 @@ describe("readReferences", () => {
     ]);
   });
 
-  it("strips control characters from names and bounds them", () => {
+  it("strips control characters from names, collapses whitespace and bounds them", () => {
     const [ref] = readReferences([{ url: "data:a", name: "  Hel\u0000met\u001F\n" + "x".repeat(100) }])!;
-    expect(ref.name).toBe("Hel met  " + "x".repeat(51));
+    // One space where a control and a newline were: names collapse whitespace
+    // the way @skill and @agent names always did (#303).
+    expect(ref.name).toBe("Hel met " + "x".repeat(52));
     expect(ref.name).toHaveLength(60);
   });
 
