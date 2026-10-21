@@ -165,7 +165,9 @@ test.describe("text tool", () => {
     // Each of these is a board command outside the editor.
     await page.keyboard.type("vfrstao");
     await page.keyboard.press("Backspace");
-    await page.keyboard.press("Control+a");
+    // Select all inside the editor: Cmd+A on macOS, where Ctrl+A only moves
+    // the caret to the start of the line.
+    await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("x");
     await expect(pointerBtn(page)).toHaveAttribute("aria-pressed", "true");
     await expect(editor(page)).toHaveValue("x");
