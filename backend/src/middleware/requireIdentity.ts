@@ -1,7 +1,8 @@
 import { timingSafeEqual } from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
-import { verifySessionToken } from "../lib/sessionToken.js";
+import { signSessionToken, verifySessionToken } from "../lib/sessionToken.js";
+import { readSessionCookie, SESSION_RENEW_AFTER_SECONDS, setSessionCookie } from "../lib/sessionCookie.js";
 
 declare global {
   namespace Express {
@@ -94,6 +95,34 @@ function classifyVerifyError(err: unknown): IdentityErrorCode {
 
 const oauthClient = new OAuth2Client();
 
+/** Identifies the request from its session cookie, renewing an old one. */
+function identifyFromCookie(req: Request, res: Response, next: NextFunction): void {
+  const cookie = readSessionCookie(req);
+  if (!cookie) {
+    sendError(res, "token_missing", "No bearer token or session cookie present.");
+    return;
+  }
+  const session = verifySessionToken(cookie);
+  if (!session.ok) {
+    // Only ours is ever set under this name: a cookie that fails our
+    // signature is not a Google token to try next, just not a session.
+    if (session.expired) sendError(res, "token_expired", "Session has expired.");
+    else sendError(res, "token_missing", "The session cookie is not valid.");
+    return;
+  }
+  if (!isAllowedEmailDomain(session.email)) {
+    sendError(res, "domain_not_allowed", "This account's email domain is not permitted.");
+    return;
+  }
+  // Sliding renewal (ADR 001): a session in use never runs out.
+  if (Date.now() / 1000 - session.issuedAt > SESSION_RENEW_AFTER_SECONDS) {
+    const renewed = signSessionToken(session.email);
+    if (renewed) setSessionCookie(res, renewed);
+  }
+  req.identity = { email: session.email };
+  next();
+}
+
 export function requireIdentity(): RequestHandler {
   return async function requireIdentityMiddleware(
     req: Request,
@@ -106,21 +135,22 @@ export function requireIdentity(): RequestHandler {
       return;
     }
 
-    // Prefer X-User-Identity: on a deployed frontend its /api/proxy route
-    // mints a Cloud-Run-to-Cloud-Run OIDC infra token into Authorization and
-    // forwards the user's real credential here to avoid collision.
-    const userIdentityHeader =
-      req.header("X-User-Identity") ?? req.header("Authorization");
+    // The user's bearer token. Deployed, the frontend's /api/proxy mints a
+    // Cloud-Run-to-Cloud-Run OIDC infra token into Authorization and moves
+    // the user's credential to X-User-Identity, so Authorization is never
+    // the user's there; locally it is forwarded as is.
+    const userIdentityHeader = IS_DEPLOYED
+      ? req.header("X-User-Identity")
+      : req.header("X-User-Identity") ?? req.header("Authorization");
     const idToken = userIdentityHeader?.startsWith("Bearer ")
       ? userIdentityHeader.slice("Bearer ".length).trim()
       : undefined;
 
+    // No bearer token: the session cookie, which a reload still carries
+    // after the in-memory Google token is gone. A bearer token wins, so a
+    // fresh sign-in is not blocked by an expired cookie.
     if (!idToken) {
-      sendError(
-        res,
-        "token_missing",
-        "No X-User-Identity/Authorization: Bearer <token> header present."
-      );
+      identifyFromCookie(req, res, next);
       return;
     }
 

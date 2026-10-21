@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { requireIdentity } from "../middleware/requireIdentity.js";
 import { refreshSessionToken } from "../services/authService.js";
-import { SESSION_TOKEN_TTL_SECONDS } from "../lib/sessionToken.js";
+import { clearSessionCookie, setSessionCookie } from "../lib/sessionCookie.js";
 
 export const sessionRouter = Router();
 
-// POST /api/session/refresh — sliding session renewal.
-// Called by the frontend proxy after every successful identity check.
-// Mints a fresh 30-day JWT and sets it as an HttpOnly cookie.
+// POST /api/session/refresh — exchanges a verified identity for the session.
+// Called after a Google sign-in, with the ID token as a bearer: mints a
+// fresh 30-day JWT and sets it as an HttpOnly cookie, so later requests (and
+// reloads) are identified by the cookie alone.
 sessionRouter.post("/session/refresh", requireIdentity(), (req, res) => {
   const session = refreshSessionToken(req.identity.email);
   if (!session.configured) {
@@ -20,13 +21,14 @@ sessionRouter.post("/session/refresh", requireIdentity(), (req, res) => {
     return;
   }
 
-  res.cookie("gcos_session", session.token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: SESSION_TOKEN_TTL_SECONDS * 1000,
-    path: "/",
-  });
-
+  setSessionCookie(res, session.token);
   res.json({ ok: true });
+});
+
+// POST /api/session/sign-out — clears the session cookie. Not gated: an
+// expired or missing session must still be able to sign out. The JWT itself
+// stays valid until it expires (no server-side session store).
+sessionRouter.post("/session/sign-out", (_req, res) => {
+  clearSessionCookie(res);
+  res.status(204).end();
 });

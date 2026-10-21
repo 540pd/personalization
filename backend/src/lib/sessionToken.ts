@@ -38,7 +38,8 @@ export function signSessionToken(email: string): string | null {
 }
 
 export type SessionTokenVerifyResult =
-  | { ok: true; email: string }
+  // issuedAt (seconds since the epoch) lets the caller renew an old one.
+  | { ok: true; email: string; issuedAt: number }
   // Not configured, or token isn't ours (wrong signature/malformed).
   // Falls through to Google verification — never surfaced as an error.
   | { ok: false; expired: false }
@@ -49,9 +50,9 @@ export type SessionTokenVerifyResult =
 export function verifySessionToken(token: string): SessionTokenVerifyResult {
   if (!SESSION_SECRET) return { ok: false, expired: false };
   try {
-    const payload = jwt.verify(token, SESSION_SECRET) as SessionTokenPayload;
-    if (!payload?.email) return { ok: false, expired: false };
-    return { ok: true, email: payload.email };
+    const payload = jwt.verify(token, SESSION_SECRET) as SessionTokenPayload & { iat?: number };
+    if (!payload?.email || typeof payload.iat !== "number") return { ok: false, expired: false };
+    return { ok: true, email: payload.email, issuedAt: payload.iat };
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) return { ok: false, expired: true };
     return { ok: false, expired: false };
