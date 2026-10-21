@@ -20,12 +20,12 @@ import {
 
 const panel = (over: Partial<PanelInstance>): PanelInstance => ({
   id: "p1", kind: "image", canvasX: 100, canvasY: 100, w: 200, h: 150,
-  isActive: false, isPanelOpen: false, ...over,
+  ...over,
 });
 
 beforeEach(() => {
   useKonvaNodes.setState({ nodes: {} });
-  useNodePanel.setState({ panels: [], selectedId: null });
+  useNodePanel.setState({ panels: [], selectedIds: [], openId: null });
   useConnectionStore.setState({ connections: [], selectedIds: [] });
   useFrames.setState({ frames: {}, selectedIds: [] });
   useLayerOrder.setState({ topLayer: "dom" });
@@ -80,9 +80,11 @@ describe("serializeBoard", () => {
   it("keeps panels in order without selection, open state or a running job", () => {
     useNodePanel.setState({
       panels: [
-        panel({ id: "p1", isActive: true, isPanelOpen: true, job: "job-1", label: "Hero", output: { type: "image", value: "data:image/png;base64,BBBB" } }),
+        panel({ id: "p1", job: "job-1", label: "Hero", output: { type: "image", value: "data:image/png;base64,BBBB" } }),
         panel({ id: "p2", kind: "compose" }),
       ],
+      selectedIds: ["p1"],
+      openId: "p1",
     });
     const { panels } = serializeBoard(new Konva.Group());
     expect(panels.map((p) => p.id)).toEqual(["p1", "p2"]);
@@ -215,7 +217,9 @@ describe("parseBoardFile", () => {
 describe("loadPanels", () => {
   it("lands panels deselected and closed, and keeps new ids clear of them", () => {
     useNodePanel.getState().loadPanels([{ id: "panel-41", kind: "image", canvasX: 0, canvasY: 0, w: 200, h: 150 }]);
-    expect(useNodePanel.getState().panels[0]).toMatchObject({ id: "panel-41", isActive: false, isPanelOpen: false });
+    expect(useNodePanel.getState().panels[0].id).toBe("panel-41");
+    expect(useNodePanel.getState().selectedIds).toEqual([]);
+    expect(useNodePanel.getState().openId).toBeNull();
     useNodePanel.getState().addPanel(0, 0);
     const ids = useNodePanel.getState().panels.map((p) => p.id);
     expect(new Set(ids).size).toBe(2);
@@ -225,7 +229,7 @@ describe("loadPanels", () => {
 
 describe("toFilePanel", () => {
   it("drops what describes the session, and keeps the rest", () => {
-    const p = panel({ isActive: true, isPanelOpen: true, job: "j1", label: "kite" });
+    const p = panel({ job: "j1", label: "kite" });
     const out = toFilePanel(p);
     expect(out).toEqual({ id: "p1", kind: "image", canvasX: 100, canvasY: 100, w: 200, h: 150, label: "kite" });
     expect(p.job).toBe("j1");

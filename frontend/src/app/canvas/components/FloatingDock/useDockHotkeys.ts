@@ -17,7 +17,7 @@ import { SHAPE_ITEMS } from "./items";
  */
 export function useDockHotkeys(closeMenus: () => void, openFilePicker: () => void): void {
   const setTool = useToolStore((s) => s.setTool);
-  const closeAllPanels = useNodePanel((s) => s.closeAllPanels);
+  const clearSelection = useNodePanel((s) => s.clearSelection);
 
   useEffect(() => {
     // Every binding below is a board tool, so none may fire while another
@@ -33,7 +33,7 @@ export function useDockHotkeys(closeMenus: () => void, openFilePicker: () => voi
     hotkeys("escape", () => {
       setTool("pointer");
       closeMenus();
-      closeAllPanels();
+      clearSelection();
     });
 
     hotkeys("f", () => {
@@ -72,5 +72,5 @@ export function useDockHotkeys(closeMenus: () => void, openFilePicker: () => voi
       hotkeys.unbind("s");
       hotkeys.unbind("command+u,ctrl+u");
     };
-  }, [setTool, closeAllPanels, closeMenus, openFilePicker]);
+  }, [setTool, clearSelection, closeMenus, openFilePicker]);
 }

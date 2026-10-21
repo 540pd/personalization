@@ -18,7 +18,7 @@ import {
 
 const panel = (over: Partial<PanelInstance>): PanelInstance => ({
   id: "panel-1", kind: "image", canvasX: 100, canvasY: 100, w: 200, h: 150,
-  isActive: false, isPanelOpen: false, ...over,
+  ...over,
 });
 
 /** A Storage whose setItem can be made to fail for values over `limit` characters. */
@@ -48,7 +48,7 @@ function boardWithImage() {
 
 beforeEach(() => {
   useKonvaNodes.setState({ nodes: {} });
-  useNodePanel.setState({ panels: [], selectedId: null });
+  useNodePanel.setState({ panels: [], selectedIds: [], openId: null });
   useConnectionStore.setState({ connections: [], selectedIds: [] });
   useFrames.setState({ frames: {}, selectedIds: [] });
   useLayerOrder.setState({ topLayer: "dom" });

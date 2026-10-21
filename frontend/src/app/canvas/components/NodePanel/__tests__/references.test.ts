@@ -8,7 +8,7 @@ const wire = (from: string, fromNodeType: "panel" | "konva", to = "target"): Con
   ({ id: `${from}-${to}`, fromNodeId: from, fromNodeType, toNodeId: to, toNodeType: "panel" });
 
 const panel = (over: Partial<PanelInstance>): PanelInstance =>
-  ({ id: "p", kind: "image", canvasX: 0, canvasY: 0, w: 10, h: 10, isActive: false, isPanelOpen: false, ...over }) as PanelInstance;
+  ({ id: "p", kind: "image", canvasX: 0, canvasY: 0, w: 10, h: 10, ...over }) as PanelInstance;
 
 const image = (over: Partial<KonvaNodeRecord>): KonvaNodeRecord =>
   ({ id: "k", canvasX: 0, canvasY: 0, canvasW: 10, canvasH: 10, ...over });

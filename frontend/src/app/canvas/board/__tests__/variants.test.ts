@@ -98,10 +98,9 @@ describe("variant copies", () => {
   it("adds copies unselected, leaving the source as it was", () => {
     useNodePanel.getState().addVariants(sourceId(), [place(2)]);
 
-    const [src, copy] = useNodePanel.getState().panels;
-    expect(copy.isActive).toBe(false);
-    expect(copy.isPanelOpen).toBe(false);
-    expect(src.isPanelOpen).toBe(true);
+    const { panels: [src, copy], selectedIds, openId } = useNodePanel.getState();
+    expect(selectedIds).not.toContain(copy.id);
+    expect(openId).toBe(src.id);
   });
 
   it("does nothing for an unknown source or an empty batch", () => {

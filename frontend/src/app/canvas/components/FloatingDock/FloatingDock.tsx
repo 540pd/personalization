@@ -30,7 +30,7 @@ export default function FloatingDock() {
   // and re-rendering the dock for each one was the largest single cost of a
   // Frame drag (#155). The viewport is read when a node is placed, for the
   // same reason -- it changes on every pan and zoom frame.
-  const closeAllPanels = useNodePanel((s) => s.closeAllPanels);
+  const clearSelection = useNodePanel((s) => s.clearSelection);
   const color = useToolStore((s) => s.color);
 
   // One menu open at most: opening one closes whichever was.
@@ -94,7 +94,7 @@ export default function FloatingDock() {
     // Dock item -> node kind.
     const kind = DOCK_ITEM_KIND[id];
     if (kind && createNodeAtViewportCentre(kind)) setTool("pointer");
-    else closeAllPanels();
+    else clearSelection();
   };
 
   return (
@@ -162,7 +162,7 @@ export default function FloatingDock() {
                 onClick={() => {
                   setTool(item.id);
                   setOpenMenu(null);
-                  closeAllPanels();
+                  clearSelection();
                 }}
               />
             ))}

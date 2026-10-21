@@ -10,7 +10,7 @@ import { useGeneration } from "../hooks/useGeneration";
 import type { GenerateArgs, NodeKindSpec, NodeSettings } from "../nodeKinds";
 
 const panel = (over: Partial<PanelInstance> = {}): PanelInstance =>
-  ({ id: "a", kind: "image", canvasX: 0, canvasY: 50, w: 100, h: 100, isActive: true, isPanelOpen: true, ...over }) as PanelInstance;
+  ({ id: "a", kind: "image", canvasX: 0, canvasY: 50, w: 100, h: 100, ...over }) as PanelInstance;
 
 const spec = (over: Partial<NodeKindSpec> = {}) =>
   ({ generate: vi.fn(async (): Promise<PanelOutput> => ({ type: "image", value: "data:out" })), ...over }) as unknown as NodeKindSpec;

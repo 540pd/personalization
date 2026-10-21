@@ -5,7 +5,7 @@ import { chromeCovered } from "../chromeCovered";
 
 // canvasY is the vertical centre: this node spans (0,0)–(200,200).
 const node = (over: Partial<PanelInstance> = {}): PanelInstance =>
-  ({ id: "self", kind: "image", canvasX: 0, canvasY: 100, w: 200, h: 200, isActive: false, isPanelOpen: false, ...over }) as PanelInstance;
+  ({ id: "self", kind: "image", canvasX: 0, canvasY: 100, w: 200, h: 200, ...over }) as PanelInstance;
 
 describe("chromeCovered", () => {
   it("is all clear with nothing above", () => {

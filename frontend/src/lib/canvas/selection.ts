@@ -51,11 +51,16 @@ export function selectNodeIds(ids: string[]): void {
  * needs Konva nodes, and panels are DOM.
  */
 export function selectOnly(keep: SelectionKind | null): void {
-  if (keep !== "node") {
-    useKonvaSelection.getState().clearSelection();
-    clearNodeChrome?.();
+  for (const kind of Object.keys(SELECTIONS) as SelectionKind[]) {
+    if (kind !== keep) SELECTIONS[kind].getState().clearSelection();
   }
-  if (keep !== "panel") useNodePanel.getState().closeAllPanels();
-  if (keep !== "wire") useConnectionStore.getState().clearSelection();
-  if (keep !== "frame") useFrames.getState().clearSelection();
+  if (keep !== "node") clearNodeChrome?.();
 }
+
+/** Each kind's store; every one is built on store/selectionSlice. */
+const SELECTIONS = {
+  node: useKonvaSelection,
+  panel: useNodePanel,
+  wire: useConnectionStore,
+  frame: useFrames,
+} as const;

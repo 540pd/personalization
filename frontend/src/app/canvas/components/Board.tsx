@@ -184,8 +184,8 @@ export default function Board() {
       // would be drawn. Arming a drawing tool means the edit is over: fold the
       // form back to a selected node, the same as clicking its placeholder.
       if (drawingTool(activeTool)) {
-        const { panels, closePanel } = useNodePanel.getState();
-        panels.filter((p) => p.isPanelOpen).forEach((p) => closePanel(p.id));
+        const { openId, closePanel } = useNodePanel.getState();
+        if (openId) closePanel(openId);
       }
       transformer.nodes([]);
       updateSelectionChrome();

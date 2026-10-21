@@ -58,14 +58,14 @@ describe("useDockHotkeys", () => {
   });
 
   it("closes the menus and panels and returns to the pointer on Escape", () => {
-    const closeAllPanels = vi.fn();
-    useNodePanel.setState({ closeAllPanels });
+    const clearSelection = vi.fn();
+    useNodePanel.setState({ clearSelection });
     const { closeMenus } = setup();
     useToolStore.setState({ activeTool: "frame" });
     press("Escape");
     expect(useToolStore.getState().activeTool).toBe("pointer");
     expect(closeMenus).toHaveBeenCalledTimes(1);
-    expect(closeAllPanels).toHaveBeenCalledTimes(1);
+    expect(clearSelection).toHaveBeenCalledTimes(1);
   });
 
   it("opens the file picker on Ctrl+U", () => {

@@ -28,7 +28,7 @@ import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useViewport } from "@/store/viewport.store";
 import { useToolStore } from "@/store/tool.store";
 import { useFrames } from "@/store/frame.store";
-import { useNodePanel } from "@/store/nodePanel.store";
+import { selectedPanels, useNodePanel } from "@/store/nodePanel.store";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { barPlacement, nameTextWidth } from "@/lib/canvas/styleBarPlacement";
 import { canvasHistory } from "@/lib/canvas/history";
@@ -142,7 +142,8 @@ export default function ShapeStyleBar() {
   // A Frame dragged by its body or its name: the live offset is in the store.
   const frameDragging = useFrames((s) => Object.keys(s.drag).length > 0);
   const panels = useNodePanel((s) => s.panels);
-  const panelsSelected = panels.some((p) => p.isActive);
+  const selectedPanelIds = useNodePanel((s) => s.selectedIds);
+  const panelsSelected = selectedPanelIds.length > 0;
   const { x, y, scale } = useViewport();
   const [card, setCard] = useState<Card | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
@@ -182,7 +183,7 @@ export default function ShapeStyleBar() {
   const layoutLabel = layoutFrame?.layout ? "Remove auto layout" : "Auto layout";
 
   // The selection's box on screen, Frames included.
-  const activePanels = panels.filter((p) => p.isActive).map((p) => {
+  const activePanels = selectedPanels({ panels, selectedIds: selectedPanelIds }).map((p) => {
     const b = boundsOf(p);
     return { canvasX: b.x, canvasY: b.y, canvasW: b.w, canvasH: b.h, label: p.label };
   });

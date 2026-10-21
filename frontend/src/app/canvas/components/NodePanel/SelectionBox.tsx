@@ -30,6 +30,9 @@ interface SelectionBoxProps {
 export default function SelectionBox({ left, top, width, height, anchors }: SelectionBoxProps) {
   return (
     <div
+      // What the e2e specs count as "a selected node": any other bordered
+      // box on screen (the style bar, a hover outline) is not one.
+      data-panel-selection=""
       style={{
         position: "fixed",
         left: left - SELECTION.padding,

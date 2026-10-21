@@ -22,7 +22,6 @@ function quotaStorage(quota: number) {
 
 const node = (id: string, image: string): PanelInstance => ({
   id, kind: "image", canvasX: 0, canvasY: 0, w: 200, h: 150,
-  isActive: false, isPanelOpen: false,
   output: { type: "image", value: image },
   label: id, draft: { instruction: "a red kite", model: "gemini-3.1-flash-image" },
 });

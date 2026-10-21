@@ -22,7 +22,7 @@ describe("grownToFit", () => {
 
 describe("resizeNodeForSettings", () => {
   const panel = (over: Partial<PanelInstance> = {}): PanelInstance =>
-    ({ id: "a", kind: "image", canvasX: 40, canvasY: 113, w: 260, h: 146, isActive: false, isPanelOpen: false, ...over }) as PanelInstance;
+    ({ id: "a", kind: "image", canvasX: 40, canvasY: 113, w: 260, h: 146, ...over }) as PanelInstance;
 
   beforeEach(() => {
     useNodePanel.setState({ panels: [panel()] });

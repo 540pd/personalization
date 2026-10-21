@@ -2,7 +2,7 @@ import { boundsOf, type Bounds } from "@/lib/canvas/bounds";
 import type { KonvaNodeRecord } from "@/store/konvaNodes.store";
 import type { PanelInstance } from "@/store/nodePanel.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
-import { useNodePanel } from "@/store/nodePanel.store";
+import { selectedPanels, useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 
 /**
@@ -30,14 +30,14 @@ export function currentBounds(): Bounds[] {
 /**
  * Just the selected nodes.
  *
- * Selection lives in two places because the two node kinds are selected by
- * different machinery: Konva images through konvaSelection, panels through
- * their own isActive flag. Zoom-to-selection has to honour both or it would
- * silently ignore half the board.
+ * Selection lives in two stores because the two node kinds are selected by
+ * different machinery: Konva images through konvaSelection (and Board's
+ * transformer), panels through the panel store. Zoom-to-selection has to
+ * honour both or it would silently ignore half the board.
  */
 export function currentSelectionBounds(): Bounds[] {
   const ids = new Set(useKonvaSelection.getState().selectedIds);
   const nodes = Object.values(useKonvaNodes.getState().nodes).filter((n) => ids.has(n.id));
-  const panels = useNodePanel.getState().panels.filter((p) => p.isActive);
+  const panels = selectedPanels(useNodePanel.getState());
   return boundsFrom(Object.fromEntries(nodes.map((n) => [n.id, n])), panels);
 }

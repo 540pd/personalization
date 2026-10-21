@@ -1,7 +1,6 @@
 import type { PersistOptions, PersistStorage, StorageValue } from "zustand/middleware";
 import { createDeferredFlush, warnOnce, writeWithLeanFallback } from "@/lib/storage";
 import { bumpNextId } from "./ids";
-import { deactivated } from "./selection";
 import type { NodePanelState, PanelInstance } from "./types";
 
 type Persisted = { panels: PanelInstance[] };
@@ -101,15 +100,24 @@ export function deferredStorage<S>(inner: PersistStorage<S>, delay = SAVE_DELAY_
   };
 }
 
+type LegacyPanel = PanelInstance & { isActive?: unknown; isPanelOpen?: unknown };
+
+/** A saved panel without the selection flags older saves stored on it. */
+export function withoutLegacyFlags(panels: LegacyPanel[]): PanelInstance[] {
+  return panels.map(({ isActive: _a, isPanelOpen: _o, ...p }) => p);
+}
+
 export const persistOptions: PersistOptions<NodePanelState, Persisted> = {
   name: "gcos-node-panels",
   storage: deferredStorage(panelStorage),
-  // Only persist canvas data; UI-open flags and selectedId reset on load.
+  // Only persist canvas data: the selection and the open panel are not
+  // saved, so a reload starts with nothing selected.
   partialize: (s) => ({ panels: s.panels }),
   onRehydrateStorage: () => (state) => {
     if (!state) return;
-    // Reset interaction flags that shouldn't survive a reload.
-    state.panels = deactivated(state.panels);
+    // Saves from before the shared selection carry each node's own
+    // isActive / isPanelOpen flags. They mean nothing now; drop them.
+    state.panels = withoutLegacyFlags(state.panels);
     // Keep _nextId ahead of all restored IDs to avoid collisions.
     bumpNextId(state.panels);
   },

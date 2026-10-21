@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import {
   openBoard, uploadImage, imageBox, addPanel, addPanelAt, collapsePanels,
-  panelBoxes, setZoom, zoom,
+  panelBoxes, setZoom, zoom, activePanelCount,
 } from "./helpers";
 
 // Copy/paste of generated nodes (#97). The unit tests cover the stores; these
@@ -197,9 +197,8 @@ test.describe("copy and paste", () => {
     await page.keyboard.up("Shift");
     await page.waitForTimeout(300);
 
-    const active = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("gcos-node-panels")!).state.panels.filter((p: any) => p.isActive).length
-    );
-    expect(active).toBe(2);
+    // Both carry a selection border. Selection is not saved, so it is read
+    // from the board, not from localStorage.
+    expect(await activePanelCount(page)).toBe(2);
   });
 });
