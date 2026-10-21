@@ -33,3 +33,8 @@ export function isMacPlatform(): boolean {
 export function modKeyLabel(): "⌘" | "Ctrl" {
   return isMacPlatform() ? "⌘" : "Ctrl";
 }
+
+/** A modifier shortcut as each platform writes it: "⌘U" on a Mac, "Ctrl+U" elsewhere. */
+export function modShortcut(key: string): string {
+  return isMacPlatform() ? `⌘${key}` : `Ctrl+${key}`;
+}
