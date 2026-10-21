@@ -17,6 +17,7 @@ import { canvasArea } from "../canvasArea";
 import { joinLayout } from "./autoLayoutDrop";
 import { canvasEvent } from "@/lib/canvas/events";
 import type { BoardLayerDeps } from "./boardContext";
+import { uploadNodeFile } from "./uploadAsset";
 
 /**
  * Detail of uploadEvent.
@@ -126,7 +127,8 @@ function addImage(
 
     // A data URL so downstream nodes can send it to the backend as a
     // reference; the Konva node holds an HTMLImageElement, which cannot
-    // travel over HTTP.
+    // travel over HTTP. Until the upload below is stored, or for good when
+    // assets are kept in memory only (local dev).
     const canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
@@ -142,6 +144,9 @@ function addImage(
     }, droppedAt);
     URL.revokeObjectURL(url);
     onSettled();
+    // On the board already, with its local copy; now into the user's
+    // stored assets, the original rather than the downscaled copy (#323).
+    void uploadNodeFile(id, file);
   };
 
   // Without this a file the browser cannot decode never settles, and anything
