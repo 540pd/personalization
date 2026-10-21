@@ -10,6 +10,7 @@ import { generateRouter } from "./routes/generate.js";
 import { assetsRouter } from "./routes/assets.js";
 import { isFirestoreMode, getFirestoreClient } from "./lib/firestore.js";
 import { isGcsMode, getBucket } from "./lib/gcs.js";
+import { describeStorageModes } from "./lib/storageMode.js";
 import { globalErrorHandler } from "./common/errors.js";
 
 const PORT = process.env.PORT ?? 4000;
@@ -76,30 +77,24 @@ export function createApp(): express.Express {
     }
 
     async function runProbes() {
-      let storageOk = true;
-      let storageError: string | undefined;
+      // Both, when both are configured: Storage used to go unchecked
+      // whenever Firestore was set.
+      const probes: Array<[string, () => Promise<unknown>]> = [];
+      if (isFirestoreMode()) probes.push(["Firestore", () => getFirestoreClient().collection("health").limit(1).get()]);
+      if (isGcsMode()) probes.push(["GCS", () => getBucket().getMetadata()]);
 
-      if (isFirestoreMode()) {
-        try {
-          await Promise.race([
-            getFirestoreClient().collection("health").limit(1).get(),
-            rejectAfter(PROBE_TIMEOUT_MS, "Firestore"),
-          ]);
-        } catch (err) {
-          storageOk = false;
-          storageError = (err as Error).message;
-        }
-      } else if (isGcsMode()) {
-        try {
-          await Promise.race([
-            getBucket().getMetadata(),
-            rejectAfter(PROBE_TIMEOUT_MS, "GCS"),
-          ]);
-        } catch (err) {
-          storageOk = false;
-          storageError = (err as Error).message;
-        }
-      }
+      const failures = (
+        await Promise.all(
+          probes.map(([label, probe]) =>
+            Promise.race([probe(), rejectAfter(PROBE_TIMEOUT_MS, label)]).then(
+              () => null,
+              (err: unknown) => `${label}: ${(err as Error).message}`
+            )
+          )
+        )
+      ).filter((f): f is string => f !== null);
+      const storageOk = failures.length === 0;
+      const storageError = storageOk ? undefined : failures.join("; ");
 
       return { storageOk, storageError };
     }
@@ -143,10 +138,9 @@ if (isEntryPoint) {
   });
 
   const server = createApp().listen(PORT, () => {
-    const storageMode = isFirestoreMode() ? "Firestore" : isGcsMode() ? "GCS" : "in-memory";
     console.log(
       `GCOS backend listening on http://localhost:${PORT}\n` +
-        `  storage: ${storageMode}\n` +
+        `  ${describeStorageModes()}\n` +
         `  auth:    ${process.env.GOOGLE_OAUTH_CLIENT_ID ? "Google OAuth" : "anonymous (no OAuth client)"}`
     );
   });

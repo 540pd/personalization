@@ -4,7 +4,7 @@ import { createBoard, deleteBoard, getBoard, listBoards } from "../services/boar
 import { sendValidationError } from "../common/errors.js";
 import { isNonEmptyString } from "../common/validation.js";
 
-export type { Board } from "../lib/boardStore.js";
+export type { Board } from "../lib/boards/index.js";
 
 export const boardsRouter = Router();
 

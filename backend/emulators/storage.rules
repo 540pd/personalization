@@ -1,0 +1,11 @@
+rules_version = '2';
+// EMULATOR ONLY -- never deployed. The backend reaches the Storage emulator
+// with no credentials (a custom endpoint is unauthenticated), so the emulator
+// must let it in. Real buckets use IAM, not these rules (#322, #326).
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
