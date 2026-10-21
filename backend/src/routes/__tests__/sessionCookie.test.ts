@@ -142,6 +142,20 @@ describe("requireIdentity with the session cookie", () => {
   });
 });
 
+describe("GET /api/session", () => {
+  it("answers who the cookie is", async () => {
+    const res = await request(await app()).get("/api/session").set("Cookie", `gcos_session=${session("ana@accenture.com")}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ email: "ana@accenture.com" });
+  });
+
+  it("answers 401 with no session", async () => {
+    const res = await request(await app()).get("/api/session");
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("token_missing");
+  });
+});
+
 describe("POST /api/session/sign-out", () => {
   it("clears the cookie and answers 204, with or without a session", async () => {
     const a = await app();

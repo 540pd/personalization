@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import AuthGate from "@/auth/components/AuthGate";
 
 // Konva and hotkeys-js both require browser APIs — skip SSR for all canvas components.
 const Board = dynamic(() => import("@/app/canvas/components/Board"), { ssr: false });
@@ -21,7 +22,7 @@ const BrandPage = dynamic(() => import("@/app/canvas/components/Brand/BrandPage"
 
 export default function CanvasPage() {
   return (
-    <>
+    <AuthGate>
       <Sidebar />
       {/* Before Board only for readability -- the stacking is by z-index, and
           frames sit below every other canvas surface. */}
@@ -40,6 +41,6 @@ export default function CanvasPage() {
       <AgentsPage />
       <SettingsPage />
       <BrandPage />
-    </>
+    </AuthGate>
   );
 }
