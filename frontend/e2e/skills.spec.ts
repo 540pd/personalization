@@ -42,10 +42,10 @@ test.describe("Skills page", () => {
     await expect(page.locator(".sidebar-item-active")).toContainText("Skills");
     await expect(page.getByText("No skills yet")).toBeVisible();
     // The dock is under the page, not reachable.
-    await expect(page.locator(".skills-page")).toBeVisible();
+    await expect(page.locator(".library-page")).toBeVisible();
 
     await page.locator(".sidebar-item", { hasText: "Playspace" }).click();
-    await expect(page.locator(".skills-page")).toHaveCount(0);
+    await expect(page.locator(".library-page")).toHaveCount(0);
     await expect(page.locator("button.node-panel-placeholder")).toHaveCount(1);
     expect(await page.evaluate(() => (window as any).Konva.stages[0].scaleX())).toBeCloseTo(zoomBefore, 5);
   });
@@ -75,14 +75,14 @@ test.describe("Skills page", () => {
     await tags.fill("Brand");
     await tags.press("Enter");
     await tags.fill("copy,");
-    await expect(page.locator(".skill-tag-chip")).toHaveText(["brand", "copy"]);
+    await expect(page.locator(".library-tag-chip")).toHaveText(["brand", "copy"]);
     await tags.press("Backspace");
-    await expect(page.locator(".skill-tag-chip")).toHaveText(["brand"]);
+    await expect(page.locator(".library-tag-chip")).toHaveText(["brand"]);
 
     await page.getByRole("button", { name: "Upload", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByRole("status")).toContainText("Brand voice added");
-    const row = page.locator(".skills-table tbody tr");
+    const row = page.locator(".library-table tbody tr");
     await expect(row).toHaveCount(1);
     await expect(row).toContainText("Brand voice");
     await expect(row).toContainText("brand-voice.md");
@@ -91,7 +91,7 @@ test.describe("Skills page", () => {
 
     await openBoard(page);
     await openSkills(page);
-    await expect(page.locator(".skills-table tbody tr")).toHaveCount(1);
+    await expect(page.locator(".library-table tbody tr")).toHaveCount(1);
   });
 
   test("rejects a file that is not markdown, and names it", async ({ page }) => {
@@ -99,7 +99,7 @@ test.describe("Skills page", () => {
     await openSkills(page);
     await page.getByRole("button", { name: "Upload skill" }).click();
     await chooseSkillFile(page, "notes.pdf", "x");
-    await expect(page.locator(".skill-field-error[role=alert]")).toHaveText("notes.pdf isn't a markdown file");
+    await expect(page.locator(".library-field-error[role=alert]")).toHaveText("notes.pdf isn't a markdown file");
     await expect(page.getByRole("button", { name: "Upload", exact: true })).toBeDisabled();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -113,7 +113,7 @@ test.describe("Skills page", () => {
     await uploadSkill(page, "brand-voice.md", BRAND_VOICE);
     await expect(page.getByRole("alertdialog")).toContainText("Replace “Brand voice”?");
     await page.getByRole("button", { name: "Keep both" }).click();
-    await expect(page.locator(".skills-cell-name")).toHaveText(["Brand voice", "Brand voice (2)"]);
+    await expect(page.locator(".library-cell-name")).toHaveText(["Brand voice", "Brand voice (2)"]);
   });
 
   test("searches and filters by tag", async ({ page }) => {
@@ -121,15 +121,15 @@ test.describe("Skills page", () => {
     await openSkills(page);
     await uploadSkill(page, "brand-voice.md", BRAND_VOICE, ["brand"]);
     await uploadSkill(page, "photo.md", "# Product photography\nStudio light.", ["image"]);
-    await expect(page.locator(".skills-cell-name")).toHaveText(["Brand voice", "Product photography"]);
+    await expect(page.locator(".library-cell-name")).toHaveText(["Brand voice", "Product photography"]);
 
     await page.getByRole("button", { name: "image", exact: true }).click();
-    await expect(page.locator(".skills-cell-name")).toHaveText(["Product photography"]);
-    await expect(page.locator(".skills-count")).toHaveText("1 skill");
+    await expect(page.locator(".library-cell-name")).toHaveText(["Product photography"]);
+    await expect(page.locator(".library-count")).toHaveText("1 skill");
 
     await page.getByLabel("Search skills").fill("warm");
     await expect(page.getByText("No skills match")).toBeVisible();
     await page.getByRole("button", { name: "Clear filters" }).click();
-    await expect(page.locator(".skills-count")).toHaveText("2 skills");
+    await expect(page.locator(".library-count")).toHaveText("2 skills");
   });
 });

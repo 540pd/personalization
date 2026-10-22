@@ -1,35 +1,26 @@
 import { create } from "zustand";
 import type { Skill } from "@/app/canvas/skills/skillFile";
+import { localList, stringArray } from "@/lib/localList";
 
 /**
  * The user's skills (#206), kept in localStorage under their own key.
  *
- * Written by hand rather than through zustand's persist, for the same reason
- * as sidebar.store: neither direction may throw. And a write has to be able
- * to fail visibly -- the Upload dialog stays open with "Couldn't save the
- * skill." rather than showing a skill that a reload would take away -- so
- * the store only changes once the write has gone through.
+ * The store only changes once the write has gone through, so the Upload
+ * dialog can stay open with "Couldn't save the skill." rather than show a
+ * skill that a reload would take away.
  */
 
 export const SKILLS_STORAGE_KEY = "gcos-skills";
-const VERSION = 1;
-
-let warned = false;
-function warnOnce(message: string, err?: unknown): void {
-  if (warned) return;
-  warned = true;
-  console.warn(`[skills] ${message}`, err ?? "");
-}
 
 function readSkill(raw: unknown): Skill | null {
   if (!raw || typeof raw !== "object") return null;
   const s = raw as Record<string, unknown>;
+  const tags = stringArray(s.tags);
   if (
     typeof s.id !== "string" ||
     typeof s.name !== "string" ||
     typeof s.description !== "string" ||
-    !Array.isArray(s.tags) ||
-    !s.tags.every((t) => typeof t === "string") ||
+    !tags ||
     typeof s.fileName !== "string" ||
     typeof s.size !== "number" ||
     typeof s.content !== "string" ||
@@ -41,7 +32,7 @@ function readSkill(raw: unknown): Skill | null {
     id: s.id,
     name: s.name,
     description: s.description,
-    tags: s.tags as string[],
+    tags,
     fileName: s.fileName,
     size: s.size,
     content: s.content,
@@ -49,40 +40,18 @@ function readSkill(raw: unknown): Skill | null {
   };
 }
 
-/** The saved skills; [] when there are none or they cannot be read. Never throws. */
-export function loadSkills(storage: Storage | undefined = globalThis.localStorage): Skill[] {
-  let text: string | null;
-  try {
-    text = storage?.getItem(SKILLS_STORAGE_KEY) ?? null;
-  } catch (err) {
-    console.warn("[skills] Could not read the saved skills.", err);
-    return [];
-  }
-  if (text === null) return [];
-  try {
-    const data = JSON.parse(text) as { version?: unknown; skills?: unknown };
-    if (data?.version !== VERSION || !Array.isArray(data.skills)) throw new Error("unknown format");
-    const skills = data.skills.map(readSkill);
-    if (skills.some((s) => s === null)) console.warn("[skills] Skipped saved skills that could not be read.");
-    return skills.filter((s): s is Skill => s !== null);
-  } catch (err) {
-    // Left in place: the next save replaces it.
-    console.warn("[skills] The saved skills are unreadable and were ignored.", err);
-    return [];
-  }
-}
+const storage = localList<Skill>({
+  key: SKILLS_STORAGE_KEY,
+  field: "skills",
+  version: 1,
+  tag: "[skills]",
+  readItem: readSkill,
+});
 
+/** The saved skills; [] when there are none or they cannot be read. Never throws. */
+export const loadSkills = storage.load;
 /** False when storage refused the write. Never throws. */
-export function saveSkills(skills: Skill[], storage: Storage | undefined = globalThis.localStorage): boolean {
-  try {
-    if (!storage) throw new Error("no localStorage");
-    storage.setItem(SKILLS_STORAGE_KEY, JSON.stringify({ version: VERSION, skills }));
-    return true;
-  } catch (err) {
-    warnOnce("The skills could not be saved to localStorage.", err);
-    return false;
-  }
-}
+export const saveSkills = storage.save;
 
 interface SkillsState {
   skills: Skill[];
