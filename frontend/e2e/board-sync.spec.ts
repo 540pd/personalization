@@ -139,4 +139,37 @@ test.describe("The board in the account (#324)", () => {
     expect(JSON.stringify(account.content ?? "")).not.toContain("ben's board");
     expect(await page.evaluate(() => localStorage.getItem("gcos-node-panels") ?? "")).not.toContain("ben's board");
   });
+
+  test("the browser's board becomes the account's first, its pictures moved into assets", async ({ page }) => {
+    const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const ASSET = "/api/proxy/assets/0b9f3c1e-2d4a-4b8e-9f6a-1c2d3e4f5a6b/content";
+    // A board from before accounts: a generated image, kept as a data: URL.
+    await page.addInitScript((png) => {
+      if (sessionStorage.getItem("seeded")) return;
+      sessionStorage.setItem("seeded", "1");
+      localStorage.setItem("gcos-node-panels", JSON.stringify({
+        state: { panels: [{ id: "panel-1", kind: "image", canvasX: 300, canvasY: 300, w: 300, h: 169, label: "sunset", output: { type: "image", value: png } }] },
+        version: 0,
+      }));
+    }, PNG);
+    const uploads: string[] = [];
+    await page.route("**/api/proxy/assets", (r) => {
+      uploads.push(r.request().headers()["content-type"]);
+      return r.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "a", url: ASSET, durable: true }) });
+    });
+    await page.route(`**${ASSET}`, (r) => r.fulfill({ status: 200, contentType: "image/png", body: Buffer.from(PNG.split(",")[1], "base64") }));
+    const account = fresh();
+    await signedIn(page, account);
+    await openBoard(page);
+
+    await expect.poll(() => account.revision).toBeGreaterThan(0);
+    const saved = JSON.stringify(account.content);
+    expect(saved).toContain(ASSET);
+    expect(saved).not.toContain("data:image/png");
+    expect(uploads).toEqual(["image/png"]);
+    // The board as it was, kept in this browser.
+    const backup = await page.evaluate(() => localStorage.getItem("gcos-board-backup") ?? "");
+    expect(backup).toContain("data:image/png");
+    await expect(page.getByText("sunset")).toBeVisible();
+  });
 });

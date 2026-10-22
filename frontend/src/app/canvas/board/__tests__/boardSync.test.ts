@@ -117,6 +117,32 @@ describe("on load", () => {
     expect(h.saves).toEqual([]);
   });
 
+  it("prepares the account's first board before sending it, and only then", async () => {
+    const order: string[] = [];
+    const h = harness({ server: { revision: 0, content: null } });
+    const prepared = createBoardSync({
+      owner: "ana@accenture.com",
+      fetchCurrent: async () => ({ revision: h.server.revision, updatedAt: null, content: h.server.content }),
+      save: async (revision) => {
+        order.push(`save ${revision}`);
+        h.server.revision += 1;
+        return { ok: true, revision: h.server.revision };
+      },
+      serialize: () => file("local"),
+      parse: () => null,
+      adopt: () => {},
+      beforeFirstSave: async () => {
+        order.push("import");
+        prepared.markDirty(); // what moving pictures does to the stores
+      },
+      readMeta: () => null,
+      writeMeta: () => {},
+    });
+    await prepared.start();
+    await vi.runAllTimersAsync();
+    expect(order).toEqual(["import", "save 0"]);
+  });
+
   it("saves a first board when the account has none", async () => {
     const h = harness({ server: { revision: 0, content: null } });
     await h.sync.start();

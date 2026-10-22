@@ -31,6 +31,9 @@ export interface BoardSyncDeps {
   parse: (content: unknown) => BoardFile | null;
   /** Replaces the board with `file`. */
   adopt: (file: BoardFile) => void;
+  /** Before the account's first save: the import (#324). Its failure does
+   * not stop the save. */
+  beforeFirstSave?: () => Promise<void>;
   readMeta?: () => SyncMeta | null;
   writeMeta?: (meta: SyncMeta) => void;
   /** Quiet time before a save, ms. */
@@ -152,6 +155,17 @@ export function createBoardSync(deps: BoardSyncDeps): BoardSync {
     }
     if (disposed) return;
     attempt = 0;
+
+    // The account's first board is this one: prepared before anything is
+    // sent, while changes it makes are only kept (not started yet).
+    if (current.revision === 0 && deps.beforeFirstSave) {
+      try {
+        await deps.beforeFirstSave();
+      } catch {
+        // Sent as it is: an import that half worked is still a board.
+      }
+      if (disposed) return;
+    }
     started = true;
 
     if (pending) {
@@ -172,7 +186,7 @@ export function createBoardSync(deps: BoardSyncDeps): BoardSync {
     }
     if (current.revision === 0) {
       // Nothing saved for this account yet. Its first board is this one,
-      // whatever is on it (#324's import moves its pictures first).
+      // whatever is on it (prepared by beforeFirstSave).
       pending = true;
       remember();
       return push();
