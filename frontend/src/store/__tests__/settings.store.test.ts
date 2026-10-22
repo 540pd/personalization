@@ -21,10 +21,18 @@ function memoryStorage(failWrites = false): Storage & { data: Map<string, string
 afterEach(() => vi.restoreAllMocks());
 
 describe("settings list", () => {
-  it("starts with Connection style in Canvas, defaulting to Curve", () => {
-    expect(settingGroups().map((g) => g.group)).toEqual(["Canvas"]);
+  it("has Connection style and node names in Canvas, defaulting to today's behaviour", () => {
+    expect(settingGroups().map((g) => [g.group, g.specs.map((s) => s.id)])).toEqual([
+      ["Canvas", ["linkStyle", "showNodeNames"]],
+    ]);
     expect(SETTINGS[0]).toMatchObject({ id: "linkStyle", type: "choice" });
-    expect(DEFAULT_SETTINGS.linkStyle).toBe("link-curve");
+    expect(SETTINGS[1]).toMatchObject({ id: "showNodeNames", type: "toggle" });
+    expect(DEFAULT_SETTINGS).toEqual({ linkStyle: "link-curve", showNodeNames: true });
+  });
+
+  it("accepts only a boolean for a toggle", () => {
+    expect(validValue(SETTINGS[1], false)).toBe(true);
+    expect(validValue(SETTINGS[1], "false")).toBe(false);
   });
 
   it("groups in order of first appearance", () => {
@@ -44,7 +52,11 @@ describe("settings list", () => {
   });
 
   it("keeps valid values, defaults the rest and drops unknown keys", () => {
-    expect(readSettings({ linkStyle: "link-straight", other: 1 })).toEqual({ linkStyle: "link-straight" });
+    expect(readSettings({ linkStyle: "link-straight", showNodeNames: false, other: 1 })).toEqual({
+      linkStyle: "link-straight",
+      showNodeNames: false,
+    });
+    expect(readSettings({ showNodeNames: "no" })).toEqual(DEFAULT_SETTINGS);
     expect(readSettings({ linkStyle: "nope" })).toEqual(DEFAULT_SETTINGS);
     expect(readSettings(null)).toEqual(DEFAULT_SETTINGS);
     expect(readSettings([1, 2])).toEqual(DEFAULT_SETTINGS);
@@ -52,19 +64,18 @@ describe("settings list", () => {
 
   it("knows when everything is at its default", () => {
     expect(isDefault(DEFAULT_SETTINGS)).toBe(true);
-    expect(isDefault({ linkStyle: "link-elbow" })).toBe(false);
+    expect(isDefault({ ...DEFAULT_SETTINGS, linkStyle: "link-elbow" })).toBe(false);
+    expect(isDefault({ ...DEFAULT_SETTINGS, showNodeNames: false })).toBe(false);
   });
 });
 
 describe("settings storage", () => {
   it("round-trips under its own key", () => {
     const storage = memoryStorage();
-    expect(saveSettings({ linkStyle: "link-elbow" }, storage)).toBe(true);
-    expect(JSON.parse(storage.data.get(SETTINGS_STORAGE_KEY)!)).toEqual({
-      version: 1,
-      settings: { linkStyle: "link-elbow" },
-    });
-    expect(loadSettings(storage)).toEqual({ linkStyle: "link-elbow" });
+    const elbow = { ...DEFAULT_SETTINGS, linkStyle: "link-elbow" as const };
+    expect(saveSettings(elbow, storage)).toBe(true);
+    expect(JSON.parse(storage.data.get(SETTINGS_STORAGE_KEY)!)).toEqual({ version: 1, settings: elbow });
+    expect(loadSettings(storage)).toEqual(elbow);
   });
 
   it("gives the defaults when nothing is saved", () => {

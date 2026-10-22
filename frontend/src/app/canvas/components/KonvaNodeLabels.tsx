@@ -16,6 +16,8 @@ import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { useViewport } from "@/store/viewport.store";
+import { useSettings } from "@/store/settings.store";
+import { useHoveredNode } from "@/store/hover.store";
 import { isCovered, labelProbe, type Blocker } from "@/lib/canvas/occlusion";
 import NodeLabel from "./NodeLabel";
 import { LABEL_GAP, LABEL_MIN_NODE_W } from "@/constants/canvas.constants";
@@ -35,6 +37,9 @@ export default function KonvaNodeLabels() {
   const selectedIds = useKonvaSelection((s) => s.nodeIds);
   const topLayer = useLayerOrder((s) => s.topLayer);
   const { x: stageX, y: stageY, scale } = useViewport();
+  // Names off (#215): shown only on the hovered or a selected node.
+  const alwaysNames = useSettings((s) => s.settings.showNodeNames);
+  const hoveredId = useHoveredNode(!alwaysNames);
 
   const all = Object.values(nodes);
   const blockers = toBlockers(all, panels);
@@ -58,6 +63,7 @@ export default function KonvaNodeLabels() {
             bottom={stageY + n.canvasY * scale - LABEL_GAP}
             maxWidth={screenW}
             onCommit={(next) => useKonvaNodes.getState().upsert({ ...n, label: next })}
+            hidden={!alwaysNames && !selected && hoveredId !== n.id}
           />
         );
       })}

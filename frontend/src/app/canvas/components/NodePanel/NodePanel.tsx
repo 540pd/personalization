@@ -37,6 +37,8 @@ import { layoutVariants } from "../../board/variants";
 import { dragFrameFrom, selectedFrameAround } from "../../board/frameDrag";
 import { useFrames } from "@/store/frame.store";
 import { boardIsShown } from "@/store/section.store";
+import { useSettings } from "@/store/settings.store";
+import { useHoveredNode } from "@/store/hover.store";
 // Prompts usually open with boilerplate ("a highly detailed photorealistic
 // image of a …"), so first-N-words collides often — hence uniqueLabel on
 // every auto-generated name here.
@@ -189,6 +191,11 @@ function SinglePanel({
   const [genError, setGenError] = useState<string | null>(null);
   const [dragging,    setDragging]    = useState(false);
   const [hovered,     setHovered]     = useState(false);
+  // Names off (#215): this node's name shows only while hovered or selected.
+  // The board-wide hover, not `hovered`: that one ends at the placeholder,
+  // and the pointer has to be able to travel up onto the name.
+  const alwaysNames = useSettings((s) => s.settings.showNodeNames);
+  const hoveredNodeId = useHoveredNode(!alwaysNames);
   // An authored kind's in-place editor (#181). Local: only one node is
   // edited at a time, and closing it is what saves the name.
   const [editing,     setEditing]     = useState(false);
@@ -692,6 +699,7 @@ function SinglePanel({
           onCommit={(next) => {
             if (next !== instance.label) useNodePanel.getState().setLabel(instance.id, next);
           }}
+          hidden={!alwaysNames && !isActive && hoveredNodeId !== instance.id}
         />
       )}
 

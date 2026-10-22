@@ -14,6 +14,8 @@ export type LinkStyle = "link-curve" | "link-straight" | "link-elbow";
 
 export interface Settings {
   linkStyle: LinkStyle;
+  /** Off: a name shows only on a hovered or selected node (#215). */
+  showNodeNames: boolean;
 }
 
 export type SettingId = keyof Settings;
@@ -21,6 +23,7 @@ export type SettingId = keyof Settings;
 export const DEFAULT_SETTINGS: Settings = {
   // Curve was the only fallback before there was a setting.
   linkStyle: "link-curve",
+  showNodeNames: true,
 };
 
 export interface ChoiceOption<V extends string = string> {
@@ -57,6 +60,13 @@ export const SETTINGS: SettingSpec[] = [
       { value: "link-straight", label: "Straight" },
       { value: "link-elbow", label: "Elbow" },
     ],
+  },
+  {
+    id: "showNodeNames",
+    group: "Canvas",
+    label: "Always show node names",
+    help: "Off: a node's name shows only while you hover over or select it. Applies to frame names too.",
+    type: "toggle",
   },
 ];
 

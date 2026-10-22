@@ -38,12 +38,27 @@ interface NodeLabelProps {
   onDragFrom?: (press: { x: number; y: number }) => void;
   /** A press released without dragging. Double-click still renames. */
   onSelect?: () => void;
+  /**
+   * Not shown, and no pointer target (#215: names off, node neither hovered
+   * nor selected). Kept mounted rather than removed so a rename in progress
+   * survives the pointer leaving: an open field is always shown.
+   */
+  hidden?: boolean;
 }
 
 /** Past this many screen px a press on a name is a drag, not a click. */
 const DRAG_THRESHOLD = 4;
 
-export default function NodeLabel({ value, left, bottom, maxWidth, onCommit, onDragFrom, onSelect }: NodeLabelProps) {
+export default function NodeLabel({
+  value,
+  left,
+  bottom,
+  maxWidth,
+  onCommit,
+  onDragFrom,
+  onSelect,
+  hidden = false,
+}: NodeLabelProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -127,7 +142,8 @@ export default function NodeLabel({ value, left, bottom, maxWidth, onCommit, onD
   if (!editing) {
     return (
       <div
-        title={value}
+        title={hidden ? undefined : value}
+        aria-hidden={hidden || undefined}
         onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
         onPointerDown={isHandle ? onPointerDown : undefined}
         style={{
@@ -138,6 +154,7 @@ export default function NodeLabel({ value, left, bottom, maxWidth, onCommit, onD
           // A handle is grabbed, not typed into; renaming is a double-click.
           cursor: isHandle ? "default" : "text",
           userSelect: "none",
+          ...(hidden ? { visibility: "hidden", pointerEvents: "none" } : null),
         }}
       >
         {value}
