@@ -5,9 +5,8 @@
 // ‹ collapses the panel sideways; › re-expands it.
 // Clicking the zoom % opens a shortcut menu above the panel.
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { useViewport } from "@/store/viewport.store";
-import { useSidebar } from "@/store/sidebar.store";
 import { useCanvasArea, canvasArea } from "../../canvasArea";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useNodePanel } from "@/store/nodePanel.store";
@@ -20,6 +19,60 @@ import ZoomBar from "./ZoomBar";
 import ZoomMenu, { type ZoomMenuItem } from "./ZoomMenu";
 import "./Minimap.scss";
 
+/** Distance from the canvas area's left edge and from the window's bottom. */
+const EDGE = 24;
+/** Least space kept between the bar and the floating dock. */
+const DOCK_GAP = 12;
+
+/**
+ * How far above the window's bottom the bar sits: EDGE, or just above the
+ * dock when the two would touch side by side (#204).
+ *
+ * The dock is centred on the window, not on the canvas area, so with the
+ * rail expanded and the map open they meet below ~1300px. Lifting the bar
+ * keeps it in its corner at every width, where shifting either sideways
+ * would move it out of the corner or the dock off centre. Measured rather
+ * than assumed, so it holds whatever the dock's width.
+ */
+function useDockClearance(left: number, isMapOpen: boolean, barRef: React.RefObject<HTMLDivElement | null>) {
+  const [bottom, setBottom] = useState(EDGE);
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    let dock: Element | null = null;
+    let retry = 0;
+    const measure = () => {
+      cancelAnimationFrame(retry);
+      if (!dock) {
+        dock = document.querySelector(".floating-dock");
+        if (dock) observer.observe(dock);
+      }
+      if (!dock) {
+        // Not mounted yet: look again next frame, which nothing else would.
+        retry = requestAnimationFrame(measure);
+        return setBottom(EDGE);
+      }
+      const d = dock.getBoundingClientRect();
+      // From the bar's resting left, not its rect: mid-transition the rect is
+      // still on its way there.
+      const right = left + bar.offsetWidth;
+      setBottom(right + DOCK_GAP > d.left ? Math.round(window.innerHeight - d.top + DOCK_GAP) : EDGE);
+    };
+    // Either one changing size changes the answer: the bar with its zoom
+    // label and map, the dock as it lays out -- and the window moves the dock.
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(retry);
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [left, isMapOpen, barRef]);
+  return bottom;
+}
+
 export default function Minimap() {
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [isZoomMenuOpen, setIsZoomMenuOpen] = useState(false);
@@ -30,7 +83,9 @@ export default function Minimap() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { scale, reset } = useViewport();
-  const railExpanded = !useSidebar((s) => s.collapsed);
+  // The canvas area starts at the rail's edge in both rail states (#204).
+  const left = (area.left ?? 0) + EDGE;
+  const bottom = useDockClearance(left, isMapOpen, containerRef);
   // Subscribed, not read imperatively: the menu's disabled states have to
   // update as the selection changes while it is open.
   const selectedNodeIds = useKonvaSelection((s) => s.nodeIds);
@@ -107,17 +162,6 @@ export default function Minimap() {
     return () => document.removeEventListener("mousedown", handler);
   }, [isZoomMenuOpen]);
 
-  // Hidden while the rail is expanded: both want the bottom-left corner, and
-  // the alternative was shifting this sideways every time the rail toggled.
-  // Minimized, the rail is only 64px, so this sits beside it -- `left` below
-  // comes from the canvas area, which already starts at the rail's edge.
-  //
-  // AFTER every hook, deliberately. Returning early above them would tear
-  // down the keydown listener with the component, and the shortcuts are the
-  // whole reason hiding the panel is acceptable -- Ctrl+=, Ctrl+-, Shift+0/1/2
-  // and wheel-zoom all keep working while nothing is on screen.
-  if (railExpanded) return null;
-
   const at100 = Math.round(scale * 100) === 100;
   const hasSelection = selectedNodeIds.length > 0 || panels.some((p) => p.isActive);
 
@@ -145,7 +189,7 @@ export default function Minimap() {
     <div
       ref={containerRef}
       className="minimap-container"
-      style={{ width: isMapOpen ? MAP_W : "auto", left: (area.left ?? 0) + 24 }}
+      style={{ width: isMapOpen ? MAP_W : "auto", left, bottom }}
     >
       {isZoomMenuOpen && <ZoomMenu items={zoomMenuItems} />}
 
