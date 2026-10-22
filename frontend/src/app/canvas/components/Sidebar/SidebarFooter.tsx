@@ -47,9 +47,6 @@ export default function SidebarFooter({
             onClose={() => setMenuOpen(false)}
             onBrand={() => {
               setMenuOpen(false);
-              // The menu item is about to unmount; parking focus on the
-              // trigger is what lets the Brand popup hand it back here.
-              triggerRef.current?.focus();
               onBrand();
             }}
             onSettings={() => {
