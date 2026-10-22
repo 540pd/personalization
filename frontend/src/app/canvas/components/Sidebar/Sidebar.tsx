@@ -13,6 +13,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSidebar, sidebarInset } from "@/store/sidebar.store";
+import { useSection } from "@/store/section.store";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import { useIdentity, useIdentityStore } from "@/auth/useIdentity";
 import SidebarHeader from "./SidebarHeader";
@@ -22,7 +23,6 @@ import BrandDialog from "../Brand/BrandDialog";
 import BrandSavedToast from "../Brand/BrandSavedToast";
 import BoardConfirmDialog from "./BoardConfirmDialog";
 import BoardToast from "./BoardToast";
-import { DEFAULT_SECTION, type SectionId } from "./items";
 import { requestClearBoard, useBoardItemCount } from "../../board/clearBoard";
 import {
   parseBoardFile,
@@ -58,7 +58,8 @@ export default function Sidebar() {
   const toggle = useSidebar((s) => s.toggle);
   const user = useIdentity();
   const signOut = useIdentityStore((s) => s.signOut);
-  const [active, setActive] = useState<SectionId>(DEFAULT_SECTION);
+  const active = useSection((s) => s.section);
+  const setActive = useSection((s) => s.setSection);
   const [brandOpen, setBrandOpen] = useState(false);
   // A timestamp rather than a flag, so saving again restarts the timer.
   const [brandSavedAt, setBrandSavedAt] = useState<number | null>(null);
@@ -158,7 +159,7 @@ export default function Sidebar() {
       // subtract it, the tier because it has to out-rank the canvas chrome.
       style={{ width: sidebarInset(collapsed), zIndex: Z_INDEX.rail }}
     >
-      <SidebarHeader minimized={collapsed} onToggle={toggle} />
+      <SidebarHeader minimized={collapsed} section={active} onToggle={toggle} />
       <SidebarNav
         active={active}
         onSelect={setActive}

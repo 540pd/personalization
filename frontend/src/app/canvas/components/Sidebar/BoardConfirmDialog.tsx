@@ -20,6 +20,7 @@ export default function BoardConfirmDialog({
   onCancel,
   onConfirm,
   onSaveFirst,
+  secondary,
 }: {
   title: string;
   /** The one-line description under the title. */
@@ -31,6 +32,12 @@ export default function BoardConfirmDialog({
   onConfirm: () => void;
   /** When given, a "Save to file first" link that saves and leaves the dialog open. */
   onSaveFirst?: () => void;
+  /**
+   * When given, takes the Cancel button's place (and its focus) -- for a
+   * confirm whose other answer is an action too, like Keep both (#206).
+   * Escape and the backdrop still cancel.
+   */
+  secondary?: { label: string; onClick: () => void };
 }) {
   const id = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -90,8 +97,13 @@ export default function BoardConfirmDialog({
               Save to file first
             </button>
           )}
-          <button ref={cancelRef} type="button" className="board-confirm-cancel" onClick={onCancel}>
-            Cancel
+          <button
+            ref={cancelRef}
+            type="button"
+            className="board-confirm-cancel"
+            onClick={secondary?.onClick ?? onCancel}
+          >
+            {secondary?.label ?? "Cancel"}
           </button>
           <button
             type="button"

@@ -2,8 +2,13 @@
 
 import { PanelLeft } from "lucide-react";
 import RailTip from "./RailTip";
+import { SIDEBAR_ITEMS, type SectionId } from "./items";
 
-const PRODUCT = "Studio / PlaySpace";
+/** The page after "Studio /": the board keeps its product spelling. */
+function pageName(section: SectionId): string {
+  if (section === "playspace") return "PlaySpace";
+  return SIDEBAR_ITEMS.find((i) => i.id === section)?.label ?? "PlaySpace";
+}
 
 /**
  * Product lockup plus the collapse toggle.
@@ -14,22 +19,25 @@ const PRODUCT = "Studio / PlaySpace";
  */
 export default function SidebarHeader({
   minimized,
+  section,
   onToggle,
 }: {
   minimized: boolean;
+  section: SectionId;
   onToggle: () => void;
 }) {
+  const page = pageName(section);
   const toggleLabel = minimized ? "Expand sidebar" : "Collapse sidebar";
   return (
     <div className="sidebar-header">
-      <RailTip content={PRODUCT}>
+      <RailTip content={`Studio / ${page}`}>
         <span className="sidebar-brandmark" aria-hidden>
           &gt;
         </span>
       </RailTip>
       <span className="sidebar-product">
         Studio <span className="sidebar-product-sep">/</span>{" "}
-        <span className="sidebar-product-app">PlaySpace</span>
+        <span className="sidebar-product-app">{page}</span>
       </span>
       <RailTip content={toggleLabel}>
         <button

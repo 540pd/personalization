@@ -96,14 +96,15 @@ test.describe("sidebar", () => {
     await expect(page.locator(".sidebar-item-active")).toContainText("Playspace");
   });
 
-  test("only Playspace is clickable; the rest are placeholders", async ({ page }) => {
+  test("only Playspace and Skills are clickable; the rest are placeholders", async ({ page }) => {
     await openBoard(page);
     await expect(page.locator(".sidebar-item", { hasText: "Playspace" })).toBeEnabled();
+    await expect(page.locator(".sidebar-item", { hasText: "Skills" })).toBeEnabled();
 
-    for (const label of ["Assets", "Skills", "Agents", "Usage"]) {
+    for (const label of ["Assets", "Agents", "Usage"]) {
       await expect(page.locator(".sidebar-item", { hasText: label })).toBeDisabled();
     }
-    await expect(page.locator(".sidebar-item-unavailable")).toHaveCount(4);
+    await expect(page.locator(".sidebar-item-unavailable")).toHaveCount(3);
   });
 
   test("a placeholder cannot steal the active state", async ({ page }) => {
@@ -123,7 +124,8 @@ test.describe("sidebar", () => {
           (b) => !b.disabled
         ).length
     );
-    expect(focusable).toBe(1);
+    // Playspace and Skills (#206).
+    expect(focusable).toBe(2);
   });
 
   test("minimizes to an icon rail instead of disappearing, and expands again", async ({ page }) => {
@@ -161,7 +163,7 @@ test.describe("sidebar", () => {
       await minimize(page);
       await expect(page.locator(".sidebar-item-active")).toHaveCount(1);
       await expect(page.locator(".sidebar-item-active")).toHaveAccessibleName("Playspace");
-      for (const label of ["Assets", "Skills", "Agents", "Usage"]) {
+      for (const label of ["Assets", "Agents", "Usage"]) {
         await expect(page.getByRole("button", { name: label })).toBeDisabled();
       }
       await page.getByRole("button", { name: "Assets" }).click({ force: true });

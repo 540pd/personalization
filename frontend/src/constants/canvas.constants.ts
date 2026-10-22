@@ -65,6 +65,10 @@ export const Z_INDEX = {
   // the whole canvas whenever an image had been dragged last. Below the rail,
   // which still covers everything, as the layering spec requires.
   panelForm:   65,
+  // A rail destination other than the board -- the Skills page (#206). It
+  // covers the board and everything on it, the open Create form included,
+  // so none of it can be clicked through; the rail still sits over its edge.
+  page:        68,
   rail:        70,
   // Above the rail, unlike everything else here. It is not canvas content but
   // a transient answer to "will this drop land?", and it is inset to the
