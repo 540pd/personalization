@@ -31,6 +31,7 @@ GROUPS = [
     ("r3", "Refactor round 3 (#311)", [315, 316, 317]),
     ("ci", "CI on every PR (#318)", [319]),
     ("plan", "Backend plan (#327)", [328, 329, 330, 331, 332, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346]),
+    ("docs", "Handover", [347]),
 ]
 
 PREFIX = re.compile(r"^\[[a-z0-9]+ \d+/\d+\] ")

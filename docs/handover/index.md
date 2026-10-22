@@ -126,6 +126,12 @@ Generated from GitHub for the handover. Every PR below is **open and unmerged**;
 | 73 | #345 feat(jobs): video jobs that outlive their request and the process (#325) | `feat/job-store` | #325 |
 | 74 | #346 feat(jobs): Cloud Tasks runs video jobs when it is set up (#325) | `feat/cloud-tasks` | #325 |
 
+## Handover (`docs`)
+
+| # | PR | Branch | Issue |
+|---|---|---|---|
+| 75 | #347 docs: a handover of the work, its stack and how to merge it | `docs/handover` | – |
+
 ## Open issues
 
 74 open. Most are implemented by a PR above (its **Issue** column); see the handover README on closing them as the stack merges.

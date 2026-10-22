@@ -11,7 +11,7 @@ The release **`handover-2026-10-22`** is this exact state, as a zip.
 
 | | |
 |---|---|
-| **Pull requests** | **74 open, none merged.** They form one stack: each PR's base is the PR before it. `main` has none of this work yet. |
+| **Pull requests** | **75 open, none merged**: 74 of work plus this handover (#347) on top. They form one stack: each PR's base is the PR before it. `main` has none of this work yet. |
 | **CI** | Green on #319 (which brought CI to every PR) and on every PR above it: frontend (typecheck, lint, unit), backend (typecheck, unit), backend on the Firestore/Storage emulators, the e2e suite in 4 shards, and the smoke test. The PRs below #319 never had a CI run, since the old workflow ran only for PRs into `main` (#200 did, and passed). They were verified locally (the last full e2e run there: 546 / 546 at #310), and their code is in every CI run above them. |
 | **Tests** | Frontend unit 930 · backend 209, plus 19 that run only on the emulators · e2e 524 tests in 57 specs (Playwright). |
 | **GCP** | Nobody has had GCP access or a Google OAuth client. Every GCP service has a **placeholder**, so the whole app runs locally with no keys. Switching is env-only (below). |
@@ -42,7 +42,7 @@ Without `AUTH_MODE`, the backend runs anonymously: no sign-in, and the board sta
 `npm run smoke -- http://localhost:4000` (backend) checks every service in one go.
 
 > The checked-out `main` doesn't have this work. Check out the top of the stack,
-> `feat/cloud-tasks` (or `docs/handover` for this document), or unzip the release.
+> `docs/handover` (this PR, #347), or unzip the release.
 
 ## What was built
 
@@ -146,7 +146,7 @@ The Firestore and Storage code paths do run in CI, against the emulators.
 - **CI first.** `main`'s workflow still runs only for PRs into `main`, and the one that runs on every PR (`.github/workflows/ci.yml`) arrives with #319, 59th in the stack. Put that file on `main` first (a one-file PR from #319's branch) so every PR gets checks as it's retargeted to `main`.
 - **Bottom up.** Merge #200 into `main` first, then each next PR in [index.md](index.md) order.
 - **Turn on "Automatically delete head branches"** in the repo settings. Then, when a PR merges and its branch goes, GitHub retargets the next PR to `main`. Otherwise, retarget each by hand (`gh pr edit <n> --base main`).
-- **Closing issues:** GitHub acts on `Closes #N` only in PRs into the default branch, so a PR's issue closes when it merges **after** being retargeted to `main`. 69 of the 74 PR bodies carry it. The other five are the earlier parts of split issues (#331, #332 for #323; #342, #343 for #324; #345 for #325), and the last part of each closes it. index.md's **Issue** column says which issue each PR implements.
+- **Closing issues:** GitHub acts on `Closes #N` only in PRs into the default branch, so a PR's issue closes when it merges **after** being retargeted to `main`. 69 of the 74 work PRs carry it. The other five are the earlier parts of split issues (#331, #332 for #323; #342, #343 for #324; #345 for #325), and the last part of each closes it. index.md's **Issue** column says which issue each PR implements.
 - **Squash or merge commits:** either works. Each PR is one or a few commits with full messages.
 - **Rebasing:** while nothing is merged, a change low in the stack means rebasing the PRs above it. `git rebase --update-refs` moves a whole chain at once.
 - **Titles:** they carry `[group k/n]` and a generated Stack section in each body. `python3 docs/handover/tools/stack_titles.py --apply` keeps them in step after adding a PR. `docs/handover/tools/handover_index.py` regenerates index.md.
