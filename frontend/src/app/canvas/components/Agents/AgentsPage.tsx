@@ -1,11 +1,11 @@
 "use client";
 
-// The Agents page (#208): every agent in a table, Upload agent, and each row
-// opening Edit agent (#210). Same page as Skills (#206), with a Skills column:
+// The Agents page (#208): every agent in a table, Upload agent, each row
+// opening Edit agent (#210), and Duplicate / Remove… (#211). Same page as Skills (#206), with a Skills column:
 // an agent is a file too.
 
 import { useMemo, useRef, useState } from "react";
-import { Bot, Download, Pencil, Upload } from "lucide-react";
+import { Bot, Copy, Download, Pencil, Trash2, Upload } from "lucide-react";
 import { useSection } from "@/store/section.store";
 import { useAgents, type Agent } from "@/store/agents.store";
 import { useSkills } from "@/store/skills.store";
@@ -22,7 +22,8 @@ import LibraryPage, {
   useReturnFocus,
 } from "../Library/LibraryPage";
 import UploadAgentDialog, { type AgentSaved } from "./UploadAgentDialog";
-import { allTags, filterItems, sortByName } from "../../library/fields";
+import { useRemoval } from "../Library/useRemoval";
+import { allTags, copyName, filterItems, newId, sortByName } from "../../library/fields";
 import { agentSkills, downloadExampleAgentFile, modelLabel } from "../../agents/agent";
 
 const agentsPhrase = (n: number) => (n === 1 ? "1 agent" : `${n} agents`);
@@ -54,6 +55,23 @@ function Page() {
   const [toast, showToast] = useLibraryToast();
   const actionRef = useRef<HTMLButtonElement>(null);
   const focus = useReturnFocus(actionRef);
+  const removal = useRemoval({
+    items: agents,
+    rows,
+    noun: "agents",
+    remove: useAgents.getState().remove,
+    restore: useAgents.getState().restore,
+    showToast,
+    emptyFocus: actionRef,
+  });
+
+  // A copy with every field the same, at once -- no dialog.
+  const duplicate = (agent: Agent, trigger: HTMLElement) => {
+    const name = copyName(agents, agent.name);
+    const ok = useAgents.getState().add({ ...agent, id: newId("agent"), name, createdAt: Date.now() });
+    showToast(ok ? `${name} created` : `Couldn't duplicate ${agent.name}.`, !ok);
+    trigger.focus();
+  };
 
   const open = (next: Dialog, from: HTMLElement | null) => {
     focus.from(from);
@@ -137,6 +155,7 @@ function Page() {
                     return (
                       <LibraryRow
                         key={agent.id}
+                        id={agent.id}
                         label={agent.name}
                         onOpen={(from) => open({ kind: "edit", agent }, from)}
                         menu={[
@@ -144,6 +163,13 @@ function Page() {
                             label: "Edit…",
                             icon: Pencil,
                             onSelect: (trigger) => open({ kind: "edit", agent }, trigger),
+                          },
+                          { label: "Duplicate", icon: Copy, onSelect: (trigger) => duplicate(agent, trigger) },
+                          {
+                            label: "Remove…",
+                            icon: Trash2,
+                            separated: true,
+                            onSelect: (trigger) => removal.request(agent, trigger),
                           },
                         ]}
                       >
@@ -198,6 +224,7 @@ function Page() {
           onSaveFailed={() => showToast("Couldn't save the agent.", true)}
         />
       )}
+      {removal.dialog}
       {toast}
     </LibraryPage>
   );

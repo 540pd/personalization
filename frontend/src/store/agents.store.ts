@@ -82,6 +82,10 @@ interface AgentsState {
   add: (agent: Agent) => boolean;
   /** Swaps the agent with `agent.id` for `agent`; false if it could not be saved. */
   replace: (agent: Agent) => boolean;
+  /** Removes it (#211); false (and nothing changes) if that could not be saved. */
+  remove: (id: string) => boolean;
+  /** Puts a removed agent back where it was in the list -- Undo (#211). */
+  restore: (agent: Agent, index: number) => boolean;
 }
 
 export const useAgents = create<AgentsState>((set, get) => {
@@ -94,5 +98,11 @@ export const useAgents = create<AgentsState>((set, get) => {
     agents: typeof window === "undefined" ? [] : loadAgents(),
     add: (agent) => commit([...get().agents, agent]),
     replace: (agent) => commit(get().agents.map((a) => (a.id === agent.id ? agent : a))),
+    remove: (id) => commit(get().agents.filter((x) => x.id !== id)),
+    restore: (agent, index) => {
+      const next = get().agents.filter((x) => x.id !== agent.id);
+      next.splice(Math.max(0, Math.min(index, next.length)), 0, agent);
+      return commit(next);
+    },
   };
 });

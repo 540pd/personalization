@@ -69,6 +69,18 @@ export function filterItems<T extends Listed>(items: readonly T[], query: string
   );
 }
 
+/**
+ * A duplicate's name (#211): "Copywriter (copy)", then "(copy 2)", "(copy 3)"…
+ * The base is cut so the result stays within MAX_NAME.
+ */
+export function copyName(items: readonly Listed[], name: string): string {
+  for (let i = 1; ; i++) {
+    const suffix = i === 1 ? " (copy)" : ` (copy ${i})`;
+    const candidate = name.trim().slice(0, MAX_NAME - suffix.length).trimEnd() + suffix;
+    if (!findByName(items, candidate)) return candidate;
+  }
+}
+
 /** Same strings in the same order -- tags and skill lists, for "has this changed?". */
 export function sameList(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((x, i) => x === b[i]);

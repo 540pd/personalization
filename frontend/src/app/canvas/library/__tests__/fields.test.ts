@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   allTags,
+  copyName,
   descriptionError,
   filterItems,
   findByName,
@@ -82,5 +83,20 @@ describe("sameList", () => {
     expect(sameList(["a", "b"], ["b", "a"])).toBe(false);
     expect(sameList(["a"], ["a", "b"])).toBe(false);
     expect(sameList([], [])).toBe(true);
+  });
+});
+
+describe("copyName", () => {
+  it("adds (copy), then numbers further copies", () => {
+    const items = [item({ name: "Copywriter" })];
+    expect(copyName(items, "Copywriter")).toBe("Copywriter (copy)");
+    const more = [...items, item({ name: "Copywriter (copy)" }), item({ name: "copywriter (COPY 2)" })];
+    expect(copyName(more, "Copywriter")).toBe("Copywriter (copy 3)");
+  });
+
+  it("stays within the name limit", () => {
+    const long = "n".repeat(60);
+    expect(copyName([item({ name: long })], long)).toHaveLength(60);
+    expect(copyName([item({ name: long })], long)).toMatch(/ \(copy\)$/);
   });
 });
