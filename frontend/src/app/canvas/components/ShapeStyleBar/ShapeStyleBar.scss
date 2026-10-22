@@ -16,6 +16,11 @@
   @apply w-8 h-8 flex items-center justify-center rounded-full text-neutral-700 transition-colors duration-150 cursor-pointer hover:bg-black/5 hover:text-neutral-900;
 }
 
+/* Auto layout on an empty Frame (#225): nothing to lay out. */
+.shape-style-button:disabled {
+  @apply opacity-40 cursor-default hover:bg-transparent hover:text-neutral-700;
+}
+
 .shape-style-button-open {
   @apply bg-neutral-900 text-white hover:bg-neutral-900 hover:text-white;
 }

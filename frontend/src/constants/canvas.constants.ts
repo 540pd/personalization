@@ -25,6 +25,11 @@ export const COLORS = {
 // small frame would be impossible to draw zoomed out.
 export const FRAME_MIN_EDGE = 20;
 
+// Auto layout (#225): space around and between a Frame's children, in CANVAS
+// units, so it scales with them. Fixed, as in Luma: no settings.
+export const FRAME_LAYOUT_PADDING = 16;
+export const FRAME_LAYOUT_GAP = 16;
+
 // Paint order. Spaced so the Konva canvas can sit either side of the node
 // placeholders without disturbing anything else.
 //

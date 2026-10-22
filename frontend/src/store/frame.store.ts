@@ -37,7 +37,18 @@ function saveFrames(frames: Record<string, FrameRecord>): void {
 // Create/Instruction/Video placeholders that sit between those two. Frames get
 // Z_INDEX.frames and a stage of their own, which never flips.
 //
-// A frame is a backdrop, not a container: moving one moves only the frame.
+// A frame is a backdrop, not a container: what moves with it is decided by
+// containment when a drag starts. The exception is a frame with auto layout
+// (#225), which keeps its children by id, in order.
+
+/** Auto layout: the children, laid out in this order in one row. */
+export interface FrameLayout {
+  /**
+   * Konva node and panel ids. One whose node is gone is skipped, and kept, so
+   * an undo that brings the node back finds it in its slot.
+   */
+  children: string[];
+}
 
 export interface FrameRecord {
   id: string;
@@ -49,6 +60,8 @@ export interface FrameRecord {
   label: string;
   /** Outline colour from the dock's Color (#159). Absent: the default. */
   stroke?: string;
+  /** Set while auto layout is on (#225). */
+  layout?: FrameLayout;
 }
 
 /** The rectangle being dragged out right now, in canvas units. */

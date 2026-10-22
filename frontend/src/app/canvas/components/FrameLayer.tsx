@@ -19,6 +19,7 @@ import { useViewport } from "@/store/viewport.store";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { canvasHistory } from "@/lib/canvas/history";
 import { membersOf, moveMembers, type FrameMembers } from "../board/frameMembers";
+import { startAutoLayoutSync } from "../board/autoLayout";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { bindWheelZoom } from "@/lib/canvas/wheelZoom";
@@ -164,6 +165,9 @@ export default function FrameLayer() {
         useFrames.getState().replaceAll({ ...(snap as Record<string, never>) }),
     }),
   []);
+
+  // --- Auto layout (#225): lay rows out again after every change ---
+  useEffect(() => startAutoLayoutSync(), []);
 
   // --- A swatch picked in the dock recolours the selected frames' outlines ---
   //
@@ -372,6 +376,10 @@ export default function FrameLayer() {
       .map((id) => layer.findOne<Konva.Rect>(`#${id}`))
       .filter((r): r is Konva.Rect => !!r);
     transformer.nodes(selected);
+    // A Frame with auto layout hugs its children, so it has no size of its
+    // own to drag (#225): no corner handles while one is in the selection.
+    const hugging = selectedIds.some((id) => frames[id]?.layout);
+    transformer.enabledAnchors(hugging ? [] : CORNERS);
     transformer.moveToTop();
     layer.batchDraw();
   }, [frames, selectedIds]);
