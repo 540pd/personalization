@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { requireIdentity } from "../middleware/requireIdentity.js";
 import type { AspectRatioV2 } from "../capabilities/types.js";
-import { generateImageV2, generateText, generateVideo, generateImageVariants } from "../services/generationService.js";
+import { generateImageV2, generateText, generateImageVariants } from "../services/generationService.js";
 import { VALID_ASPECT_RATIOS_V2, VALID_MODELS, VALID_TEXT_MODELS, VALID_VIDEO_MODELS } from "../capabilities/models.js";
 import { withSkills } from "../capabilities/prompt.js";
-import { createJob, completeJob, failJob, getJob } from "../lib/jobStore.js";
+import { readJob, startVideoJob } from "../services/videoJobs.js";
 import { sendValidationError } from "../common/errors.js";
 import { isOneOf } from "../common/validation.js";
 import { createId } from "../utils/id.js";
@@ -17,6 +17,9 @@ export const generateRouter = Router();
 // POST /api/generate/image
 // Nano Banana image generation. Accepts { modelId, instruction, aspectRatio,
 // quality?, thinking?, temperature?, grounding? }.
+
+// One job is one Firestore document (1 MiB).
+const MAX_JOB_BYTES = 900 * 1024;
 
 // Each variant is a separate upstream call, so this cap is a spend control as
 // much as a UI one. See generateImageVariants.
@@ -175,82 +178,84 @@ generateRouter.post("/generate/text", requireIdentity(), async (req, res, next) 
 
 // POST /api/generate/video
 // Asynchronous, unlike the image and text routes: video generation runs for
-// minutes and a Cloud Run request would time out. Returns a jobId
-// immediately; the client polls GET /api/generate/job/:jobId.
-//
-// This is the contract #203 should preserve when it swaps the in-memory job
-// store for Cloud Tasks -- the HTTP surface is the part the client is built
-// against and should not have to change.
+// minutes and a Cloud Run request would time out. Queues a job (#325) and
+// returns its id at once; the client polls GET /api/generate/job/:jobId.
+// That contract is unchanged since the first in-memory jobs.
 
 generateRouter.post("/generate/video", requireIdentity(), async (req, res, next) => {
-  const { durationSeconds, resolution } = req.body as {
-    durationSeconds?: unknown;
-    resolution?: unknown;
-  };
-
-  // The prompt's @skills (#240), checked before a job exists.
-  const request = readGenerateRequest(req.body, { models: VALID_VIDEO_MODELS, agent: false });
-  if (!request.ok) {
-    sendValidationError(res, request.message);
-    return;
-  }
-
-  let references;
   try {
-    references = await resolveAssetReferences(request.references, req.identity.email);
+    const { durationSeconds, resolution } = req.body as {
+      durationSeconds?: unknown;
+      resolution?: unknown;
+    };
+
+    // The prompt's @skills (#240), checked before a job exists.
+    const request = readGenerateRequest(req.body, { models: VALID_VIDEO_MODELS, agent: false });
+    if (!request.ok) {
+      sendValidationError(res, request.message);
+      return;
+    }
+
+    // Stored references checked now, so a missing one fails the request,
+    // not the job minutes later; they are read into bytes when it runs.
+    const references = await resolveAssetReferences(request.references, req.identity.email);
+    if (!references.ok) {
+      sendValidationError(res, references.message);
+      return;
+    }
+
+    const params = {
+      modelId: request.modelId,
+      instruction: withSkills(request.instruction, request.context.skills),
+      durationSeconds: typeof durationSeconds === "number" ? durationSeconds : undefined,
+      resolution: typeof resolution === "string" ? resolution : undefined,
+      references: request.references,
+    };
+    // A job is one Firestore document: inline (data:) references past this
+    // belong in stored assets.
+    if (Buffer.byteLength(JSON.stringify(params)) > MAX_JOB_BYTES) {
+      res.status(413).json({ error: "too_large", message: "The references are too large to queue. Use stored images." });
+      return;
+    }
+
+    // Answers at once; the dispatcher runs the job and the client polls.
+    const job = await startVideoJob(req.identity.email, params);
+    res.status(202).json({ jobId: job.id, status: "pending" });
   } catch (err) {
     next(err);
-    return;
   }
-  if (!references.ok) {
-    sendValidationError(res, references.message);
-    return;
-  }
-
-  const job = createJob(req.identity.email);
-
-  // Deliberately not awaited: the response goes out now and the work settles
-  // the job later. Errors land on the job, never as an unhandled rejection.
-  void generateVideo({
-    modelId: request.modelId,
-    instruction: withSkills(request.instruction, request.context.skills),
-    userId: req.identity.email,
-    durationSeconds: typeof durationSeconds === "number" ? durationSeconds : undefined,
-    resolution: typeof resolution === "string" ? resolution : undefined,
-    references: references.references,
-  })
-    .then((result) => completeJob(job.id, result))
-    .catch((err: unknown) => {
-      failJob(job.id, err instanceof Error ? err.message : "Video generation failed.");
-    });
-
-  res.status(202).json({ jobId: job.id, status: "pending" });
 });
 
 // GET /api/generate/job/:jobId
 // Poll target for any asynchronous generation.
-generateRouter.get("/generate/job/:jobId", requireIdentity(), (req, res) => {
-  const { jobId } = req.params;
-  if (typeof jobId !== "string") {
-    sendValidationError(res, "jobId must be a single value.");
-    return;
-  }
-  const job = getJob(jobId, req.identity.email);
+generateRouter.get("/generate/job/:jobId", requireIdentity(), async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    if (typeof jobId !== "string") {
+      sendValidationError(res, "jobId must be a single value.");
+      return;
+    }
+    const job = await readJob(jobId, req.identity.email);
 
-  if (!job) {
-    // Also the answer after a backend restart, which drops in-memory jobs.
-    // Explicit failure rather than a client left polling forever.
-    res.status(404).json({
-      status: "failed",
-      message: "Job not found. It may have expired or the server restarted.",
+    if (!job) {
+      // Another user's, or one that never was (or, in memory, a restart).
+      // Explicit failure rather than a client left polling forever.
+      res.status(404).json({
+        status: "failed",
+        message: "Job not found. It may have expired or the server restarted.",
+      });
+      return;
+    }
+
+    // queued and running are both "pending" to the client (#325).
+    const status = job.status === "done" || job.status === "failed" ? job.status : "pending";
+    res.json({
+      jobId: job.id,
+      status,
+      ...(job.result ? { videoUrl: job.result.videoUrl, modelUsed: job.result.modelUsed } : {}),
+      ...(job.error ? { message: job.error } : {}),
     });
-    return;
+  } catch (err) {
+    next(err);
   }
-
-  res.json({
-    jobId: job.id,
-    status: job.status,
-    ...(job.result ? { videoUrl: job.result.videoUrl, modelUsed: job.result.modelUsed } : {}),
-    ...(job.error ? { message: job.error } : {}),
-  });
 });
