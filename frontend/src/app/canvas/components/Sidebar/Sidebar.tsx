@@ -20,11 +20,17 @@ import SidebarNav from "./SidebarNav";
 import SidebarFooter from "./SidebarFooter";
 import BrandDialog from "../Brand/BrandDialog";
 import BrandSavedToast from "../Brand/BrandSavedToast";
-import ClearBoardDialog from "./ClearBoardDialog";
+import BoardConfirmDialog from "./BoardConfirmDialog";
 import BoardToast from "./BoardToast";
 import { DEFAULT_SECTION, type SectionId } from "./items";
 import { requestClearBoard, useBoardItemCount } from "../../board/clearBoard";
-import { saveBoardToFile } from "../../board/boardFile";
+import {
+  parseBoardFile,
+  requestLoadBoard,
+  saveBoardToFile,
+  zoomToFitBoard,
+  type BoardFile,
+} from "../../board/boardFile";
 import { canvasHistory } from "@/lib/canvas/history";
 import "./Sidebar.scss";
 
@@ -42,6 +48,11 @@ interface BoardToastState {
   at: number;
 }
 
+/** The confirm in front of a board action, if one is up. */
+type BoardConfirm = { kind: "clear" } | { kind: "replace"; file: BoardFile; name: string };
+
+const itemsPhrase = (n: number) => (n === 1 ? "1 item" : `${n} items`);
+
 export default function Sidebar() {
   const collapsed = useSidebar((s) => s.collapsed);
   const toggle = useSidebar((s) => s.toggle);
@@ -53,10 +64,14 @@ export default function Sidebar() {
   const [brandSavedAt, setBrandSavedAt] = useState<number | null>(null);
 
   const itemCount = useBoardItemCount();
-  const [clearOpen, setClearOpen] = useState(false);
+  const [confirm, setConfirm] = useState<BoardConfirm | null>(null);
   const [boardToast, setBoardToast] = useState<BoardToastState | null>(null);
-  // The options trigger, so focus can go back to it once the confirm closes.
-  const clearTriggerRef = useRef<HTMLElement | null>(null);
+  // The options trigger, so focus can go back to it once a confirm closes.
+  const triggerRef = useRef<HTMLElement | null>(null);
+  // Read when a file arrives, which can be long after the click that asked
+  // for it: the board may have changed while the picker was open.
+  const itemCountRef = useRef(itemCount);
+  itemCountRef.current = itemCount;
 
   useEffect(() => {
     if (brandSavedAt === null) return;
@@ -79,9 +94,58 @@ export default function Sidebar() {
     );
   };
 
-  const closeClear = () => {
-    setClearOpen(false);
-    clearTriggerRef.current?.focus();
+  const closeConfirm = () => {
+    setConfirm(null);
+    triggerRef.current?.focus();
+  };
+
+  const loadBoard = (file: BoardFile) => {
+    // Synchronous: Board has placed everything by the time this returns,
+    // so the fit measures the loaded board.
+    requestLoadBoard(file);
+    zoomToFitBoard();
+    setBoardToast({ message: "Board opened", undo: true, at: Date.now() });
+  };
+
+  const openChosen = async (chosen: File) => {
+    let text: string;
+    try {
+      text = await chosen.text();
+    } catch (err) {
+      console.error("[board] Could not read the board file:", err);
+      text = "";
+    }
+    const parsed = parseBoardFile(text);
+    if (!parsed.ok) {
+      setBoardToast({
+        message:
+          parsed.error === "newer"
+            ? "This board was saved by a newer version of PlaySpace."
+            : "This file isn't a PlaySpace board.",
+        error: true,
+        at: Date.now(),
+      });
+      return;
+    }
+    // Nothing to lose, nothing to ask.
+    if (itemCountRef.current === 0) loadBoard(parsed.file);
+    else setConfirm({ kind: "replace", file: parsed.file, name: chosen.name });
+  };
+
+  // A fresh input per pick, never one kept in the page: a second
+  // input[type=file] beside the dock's upload makes any lookup of "the file
+  // input" ambiguous -- the e2e upload helper's among them -- and a new one
+  // also fires change for the same file picked twice. Called within the
+  // menu click, which the picker needs.
+  const pickBoardFile = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.addEventListener("change", () => {
+      const chosen = input.files?.[0];
+      if (chosen) void openChosen(chosen);
+    });
+    input.click();
   };
 
   return (
@@ -99,9 +163,13 @@ export default function Sidebar() {
         active={active}
         onSelect={setActive}
         onSaveBoard={saveBoard}
+        onOpenBoard={(trigger) => {
+          triggerRef.current = trigger;
+          pickBoardFile();
+        }}
         onClearBoard={(trigger) => {
-          clearTriggerRef.current = trigger;
-          setClearOpen(true);
+          triggerRef.current = trigger;
+          setConfirm({ kind: "clear" });
         }}
       />
       <SidebarFooter
@@ -124,18 +192,37 @@ export default function Sidebar() {
         />
       )}
       {brandSavedAt !== null && <BrandSavedToast />}
-      {clearOpen && (
-        <ClearBoardDialog
-          count={itemCount}
-          onCancel={closeClear}
+      {confirm?.kind === "clear" && (
+        <BoardConfirmDialog
+          title="Clear board?"
+          confirmLabel="Clear"
+          tone="danger"
+          onCancel={closeConfirm}
           // Stays open: saving first is a step on the way to clearing.
           onSaveFirst={saveBoard}
           onConfirm={() => {
-            closeClear();
+            closeConfirm();
             requestClearBoard();
             setBoardToast({ message: "Board cleared", undo: true, at: Date.now() });
           }}
-        />
+        >
+          This removes all {itemsPhrase(itemCount)} from PlaySpace.
+        </BoardConfirmDialog>
+      )}
+      {confirm?.kind === "replace" && (
+        <BoardConfirmDialog
+          title="Replace current board?"
+          confirmLabel="Replace"
+          tone="primary"
+          onCancel={closeConfirm}
+          onConfirm={() => {
+            const { file } = confirm;
+            closeConfirm();
+            loadBoard(file);
+          }}
+        >
+          Opening {confirm.name} will replace the {itemsPhrase(itemCount)} on the board.
+        </BoardConfirmDialog>
       )}
       {boardToast !== null && (
         <BoardToast

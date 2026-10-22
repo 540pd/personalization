@@ -137,6 +137,12 @@ interface NodePanelState {
    */
   replaceAll:      (panels: PanelInstance[], restoresDraft?: (p: PanelInstance) => boolean) => void;
   clearAll:        () => void;
+  /**
+   * Replace the board's panels with ones read from a file (#199): deselected,
+   * closed, and with the id counter moved past them so the next new node
+   * cannot take one of their ids.
+   */
+  loadPanels:      (panels: Omit<PanelInstance, "isActive" | "isPanelOpen">[]) => void;
   setSize:         (id: string, w: number, h: number) => void;
   setOutput:       (id: string, output: PanelOutput) => void;
   /** Record or clear an in-flight job. */
@@ -153,6 +159,16 @@ interface NodePanelState {
 }
 
 let _nextId = 1;
+
+/** Keep _nextId ahead of every `panel-N` id in `panels`, so new ids never collide. */
+function bumpNextId(panels: { id: string }[]): void {
+  const maxNum = panels.reduce((max, p) => {
+    // String(p?.id): set-aside entries are unchecked saved data (#186).
+    const n = Number(String(p?.id).replace("panel-", ""));
+    return isNaN(n) ? max : Math.max(max, n);
+  }, 0);
+  if (maxNum >= _nextId) _nextId = maxNum + 1;
+}
 
 type Persisted = { panels: PanelInstance[] };
 
@@ -446,6 +462,14 @@ export const useNodePanel = create<NodePanelState>()(
 
   clearAll: () => set({ panels: [], selectedId: null }),
 
+  loadPanels: (panels) => {
+    bumpNextId(panels);
+    set({
+      selectedId: null,
+      panels: panels.map((p) => ({ ...p, isActive: false, isPanelOpen: false })),
+    });
+  },
+
   setSize: (id, w, h) =>
     set((s) => {
       const panel = s.panels.find((p) => p.id === id);
@@ -534,11 +558,7 @@ export const useNodePanel = create<NodePanelState>()(
         }));
         // Keep _nextId ahead of all restored IDs to avoid collisions -- set-aside
         // ones too, or a new node could take the id of one that comes back later.
-        const maxNum = [...state.panels, ...state.parked].reduce((max, p) => {
-          const n = Number(String(p?.id).replace("panel-", ""));
-          return isNaN(n) ? max : Math.max(max, n);
-        }, 0);
-        if (maxNum >= _nextId) _nextId = maxNum + 1;
+        bumpNextId([...state.panels, ...state.parked]);
       },
     }
   )

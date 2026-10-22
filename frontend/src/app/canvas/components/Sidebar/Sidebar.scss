@@ -159,44 +159,51 @@
 
 // Brand's discard prompt (brand-confirm), on a backdrop of its own: that
 // one is positioned inside the Brand popup.
-.clear-board-backdrop {
+.board-confirm-backdrop {
   @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20;
 }
 
-.clear-board-dialog {
+.board-confirm {
   @apply w-[360px] max-w-full rounded-2xl bg-white p-6 shadow-2xl text-neutral-900;
 }
 
-.clear-board-title {
+.board-confirm-title {
   @apply text-base font-semibold;
 }
 
-.clear-board-text {
+.board-confirm-text {
   @apply mt-1 text-sm text-neutral-500;
 }
 
-.clear-board-actions {
+.board-confirm-actions {
   @apply mt-5 flex items-center justify-end gap-2;
 }
 
 // Pushes Cancel and Clear to the right; the way out of losing the board
 // sits apart from the two buttons that decide.
-.clear-board-save {
+.board-confirm-save {
   @apply mr-auto text-sm text-neutral-700 underline underline-offset-[3px];
   @apply transition-colors hover:text-neutral-900;
 }
 
-.clear-board-cancel {
+.board-confirm-cancel {
   @apply h-9 px-4 rounded-full border border-black/10 bg-transparent text-sm;
   @apply transition-colors hover:bg-black/5;
 }
 
-.clear-board-confirm {
+.board-confirm-danger {
   @apply h-9 px-4 rounded-full bg-red-600 text-sm font-semibold text-white;
   @apply transition-colors hover:bg-red-700;
 }
 
-.clear-board-dialog button:focus-visible {
+// Brand's primary button (brand-primary) at the confirm's height. Black, not
+// red: what it replaces comes back with Undo.
+.board-confirm-primary {
+  @apply h-9 px-4 rounded-full bg-black text-sm font-semibold text-white;
+  @apply transition-colors hover:bg-neutral-800;
+}
+
+.board-confirm button:focus-visible {
   @apply outline-2 outline-offset-2 outline-neutral-900;
 }
 
