@@ -76,7 +76,9 @@ export async function runSmoke(opts: SmokeOptions, report: (r: CheckResult) => v
     const r = await call("GET", "/api/health");
     const body = json(r);
     const m = body?.modes;
-    const modes = m ? `sign-in=${m.auth} storage=${m.storage.firestore}/${m.storage.storage} ai=${m.ai}` : "no modes reported";
+    const modes = m
+      ? `sign-in=${m.auth} storage=${m.storage.firestore}/${m.storage.storage} ai=${m.ai}${m.jobs ? ` jobs=${m.jobs}` : ""}`
+      : "no modes reported";
     if (r.status !== 200 || !body?.ok) fail(`${r.status}: ${body?.storage ?? body?.error ?? "not ok"} (${modes})`);
     return modes;
   });

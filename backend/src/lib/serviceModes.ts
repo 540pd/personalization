@@ -6,12 +6,15 @@
 
 import { getAuthMode } from "../middleware/requireIdentity.js";
 import { isEphemeralSessionSecret } from "./sessionToken.js";
+import { cloudTasksConfig } from "./jobs/cloudTasks.js";
 import { describeStorageModes, isCloud, isDeployed, storageModes, type StorageModes } from "./storageMode.js";
 
 export interface ServiceModes {
   auth: ReturnType<typeof getAuthMode>;
   storage: StorageModes;
   ai: "vertex" | "placeholder";
+  /** Who runs video jobs (#325): Cloud Tasks, or this process. */
+  jobs: "cloud-tasks" | "in-process";
 }
 
 export function serviceModes(): ServiceModes {
@@ -19,6 +22,7 @@ export function serviceModes(): ServiceModes {
     auth: getAuthMode(),
     storage: storageModes(),
     ai: process.env.VERTEX_PROJECT_ID?.trim() ? "vertex" : "placeholder",
+    jobs: cloudTasksConfig() ? "cloud-tasks" : "in-process",
   };
 }
 
@@ -37,6 +41,7 @@ export function describeServiceModes(modes: ServiceModes = serviceModes()): stri
     `sign-in: ${signIn(modes.auth)}`,
     `storage: ${describeStorageModes(modes.storage)}${cloud ? "" : " -- to switch: FIRESTORE_PROJECT_ID, GCS_BUCKET_NAME"}`,
     `AI:      ${modes.ai === "vertex" ? "Vertex AI" : "offline placeholders -- to switch: VERTEX_PROJECT_ID"}`,
+    `jobs:    ${modes.jobs === "cloud-tasks" ? "Cloud Tasks" : "in process (placeholder) -- to switch: CLOUD_TASKS_QUEUE, CLOUD_TASKS_SERVICE_ACCOUNT, JOBS_WORKER_URL"}`,
   ];
   return lines.map((l) => `  ${l}`).join("\n") + "\n  (docs/switching-to-gcp.md)";
 }
@@ -54,6 +59,14 @@ export function assertDeployable(modes: ServiceModes = serviceModes()): void {
     throw new Error(
       `Refusing to start: deployed, but storage is not GCP (Firestore: ${firestore}, Storage: ${storage}). ` +
         "Set FIRESTORE_PROJECT_ID and GCS_BUCKET_NAME (docs/switching-to-gcp.md)."
+    );
+  }
+  // Cloud Run throttles a request's CPU once it has answered, so a job run
+  // in process after its 202 stalls until it times out.
+  if (modes.jobs === "in-process") {
+    throw new Error(
+      "Refusing to start: deployed, but video jobs would run in process. " +
+        "Set CLOUD_TASKS_QUEUE, CLOUD_TASKS_SERVICE_ACCOUNT and JOBS_WORKER_URL (docs/switching-to-gcp.md)."
     );
   }
   if (modes.ai === "placeholder") {
