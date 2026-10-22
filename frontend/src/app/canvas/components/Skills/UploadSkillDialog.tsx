@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { FileText } from "lucide-react";
 import { useSkills } from "@/store/skills.store";
 import BoardConfirmDialog from "../Sidebar/BoardConfirmDialog";
-import LibraryDialog, { pickMarkdownFile } from "../Library/LibraryDialog";
+import LibraryDialog, { DiscardChanges, NameNote, pickMarkdownFile } from "../Library/LibraryDialog";
 import FileField, { readPickedFile, type ChosenFile } from "../Library/FileField";
 import TagInput from "../Library/TagInput";
 import {
@@ -15,28 +15,38 @@ import {
   findByName,
   nameError,
   newId,
+  sameList,
   uniqueName,
 } from "../../library/fields";
 import { metaFromFile, type Skill } from "../../skills/skillFile";
 
+/** How the skill was saved, for the toast. */
+export type SkillSaved = "added" | "replaced" | "saved";
+
+type Confirm = { kind: "duplicate"; existing: Skill } | { kind: "discard" };
+
 /**
- * Upload skill (#206): the file, then a name, a description and optional tags.
+ * Upload skill (#206), and Edit skill (#210) when given `editing`.
  *
- * The file comes first because it can fill in the rest. Upload stays
- * disabled until the file, name and description are all good, so errors
- * show as the user leaves a field rather than on a failed submit.
+ * Upload: the file comes first because it can fill in the rest. Edit: the
+ * skill's own file is shown, Replace file… swaps it on save, and nothing is
+ * re-filled from the new file -- the name, description and tags are the
+ * user's by now.
  */
 export default function UploadSkillDialog({
+  editing,
   initialFile,
   onClose,
-  onUploaded,
+  onSaved,
   onSaveFailed,
 }: {
+  /** The skill being edited; without it the dialog uploads a new one. */
+  editing?: Skill;
   /** A file dropped on the page, already chosen when the dialog opens. */
   initialFile?: File;
   onClose: () => void;
   /** After the skill is saved; the dialog is then closed by the parent. */
-  onUploaded: (name: string, replaced: boolean) => void;
+  onSaved: (name: string, how: SkillSaved) => void;
   /** The save was refused by storage; the dialog stays open. */
   onSaveFailed: () => void;
 }) {
@@ -44,13 +54,16 @@ export default function UploadSkillDialog({
   const add = useSkills((s) => s.add);
   const replace = useSkills((s) => s.replace);
 
-  const [file, setFile] = useState<ChosenFile | null>(null);
+  const [file, setFile] = useState<ChosenFile | null>(
+    editing ? { name: editing.fileName, size: editing.size, content: editing.content } : null,
+  );
+  const [fileChanged, setFileChanged] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  const [name, setName] = useState(editing?.name ?? "");
+  const [description, setDescription] = useState(editing?.description ?? "");
+  const [tags, setTags] = useState<string[]>(editing?.tags ?? []);
   const [touched, setTouched] = useState({ name: false, description: false });
-  const [duplicate, setDuplicate] = useState<Skill | null>(null);
+  const [confirm, setConfirmState] = useState<Confirm | null>(null);
 
   const dropRef = useRef<HTMLButtonElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -58,16 +71,29 @@ export default function UploadSkillDialog({
   // Read when a file arrives, which is after the click that asked for it.
   const fieldsRef = useRef({ name, description, tags });
   fieldsRef.current = { name, description, tags };
+  // Where focus was when a confirm opened, so cancelling it puts focus back.
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const setConfirm = (next: Confirm) => {
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setConfirmState(next);
+  };
+  const cancelConfirm = () => {
+    setConfirmState(null);
+    requestAnimationFrame(() => (returnFocus.current?.isConnected ? returnFocus.current : submitRef.current)?.focus());
+  };
 
   const chooseFile = async (picked: File) => {
     const read = await readPickedFile(picked, { tag: "[skills]" });
     if (!read.ok) {
-      setFile(null);
+      // Editing, the skill keeps its own file: only the new one is refused.
+      if (!editing) setFile(null);
       setFileError(read.error);
       return;
     }
     setFile(read.file);
+    setFileChanged(true);
     setFileError(null);
+    if (editing) return;
     // Fill in only what the user has not entered yet.
     const meta = metaFromFile(read.file.content, read.file.name);
     if (!fieldsRef.current.name.trim()) setName(meta.name);
@@ -78,14 +104,30 @@ export default function UploadSkillDialog({
 
   useEffect(() => {
     if (initialFile) void chooseFile(initialFile);
+    else if (editing) nameRef.current?.focus();
     else dropRef.current?.focus();
     // Once, for the file the dialog was opened with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const errors = { name: nameError(name), description: descriptionError(description) };
-  const canUpload = !!file && !errors.name && !errors.description;
-  const existing = findByName(skills, name);
+  // Editing, a name another skill has is an error; uploading, it asks Replace or Keep both.
+  const existing = findByName(editing ? skills.filter((s) => s.id !== editing.id) : skills, name);
+  const errors = {
+    name: nameError(name) ?? (editing && existing ? `You already have a skill called “${existing.name}”` : null),
+    description: descriptionError(description),
+  };
+  const dirty = editing
+    ? fileChanged ||
+      name.trim() !== editing.name ||
+      description.trim() !== editing.description ||
+      !sameList(tags, editing.tags)
+    : false;
+  const canSave = !!file && !errors.name && !errors.description && (!editing || dirty);
+
+  const requestClose = () => {
+    if (dirty) setConfirm({ kind: "discard" });
+    else onClose();
+  };
 
   const save = (mode: "new" | "replace" | "keep") => {
     if (!file) return;
@@ -98,47 +140,52 @@ export default function UploadSkillDialog({
     };
     let saved: boolean;
     let finalName = name.trim();
-    if (mode === "replace" && duplicate) {
-      finalName = duplicate.name;
-      saved = replace({ ...duplicate, ...fields });
+    let how: SkillSaved = "added";
+    if (editing) {
+      saved = replace({ ...editing, ...fields, name: finalName });
+      how = "saved";
+    } else if (mode === "replace" && confirm?.kind === "duplicate") {
+      finalName = confirm.existing.name;
+      saved = replace({ ...confirm.existing, ...fields });
+      how = "replaced";
     } else {
       if (mode === "keep") finalName = uniqueName(skills, finalName);
       saved = add({ id: newId("skill"), name: finalName, createdAt: Date.now(), ...fields });
     }
-    setDuplicate(null);
-    if (saved) onUploaded(finalName, mode === "replace");
+    setConfirmState(null);
+    if (saved) onSaved(finalName, how);
     else onSaveFailed();
   };
 
   const submit = () => {
-    if (!canUpload) return;
-    if (existing) setDuplicate(existing);
+    if (!canSave) return;
+    if (!editing && existing) setConfirm({ kind: "duplicate", existing });
     else save("new");
   };
 
+  const confirmDialog =
+    confirm?.kind === "duplicate" ? (
+      <BoardConfirmDialog
+        title={`Replace “${confirm.existing.name}”?`}
+        confirmLabel="Replace"
+        tone="primary"
+        onCancel={cancelConfirm}
+        onConfirm={() => save("replace")}
+        secondary={{ label: "Keep both", onClick: () => save("keep") }}
+      >
+        A skill with this name already exists. Replacing it swaps in this file, description and tags.
+      </BoardConfirmDialog>
+    ) : confirm?.kind === "discard" && editing ? (
+      <DiscardChanges name={editing.name} onKeepEditing={cancelConfirm} onDiscard={onClose} />
+    ) : null;
+
   return (
     <LibraryDialog
-      title="Upload skill"
-      subtitle="Choose a markdown file, then describe it."
-      onRequestClose={onClose}
+      title={editing ? "Edit skill" : "Upload skill"}
+      subtitle={editing ? "Agents using it pick up the change." : "Choose a markdown file, then describe it."}
+      onRequestClose={requestClose}
       onFileDrop={(dropped) => void chooseFile(dropped)}
-      after={
-        duplicate && (
-          <BoardConfirmDialog
-            title={`Replace “${duplicate.name}”?`}
-            confirmLabel="Replace"
-            tone="primary"
-            onCancel={() => {
-              setDuplicate(null);
-              submitRef.current?.focus();
-            }}
-            onConfirm={() => save("replace")}
-            secondary={{ label: "Keep both", onClick: () => save("keep") }}
-          >
-            A skill with this name already exists. Replacing it swaps in this file, description and tags.
-          </BoardConfirmDialog>
-        )
-      }
+      after={confirmDialog}
     >
       {(id) => (
         <form
@@ -153,7 +200,8 @@ export default function UploadSkillDialog({
             id={id}
             file={file}
             icon={<FileText size={17} />}
-            changeLabel="Change"
+            meta={editing && fileChanged ? `replaces ${editing.fileName} when you save` : undefined}
+            changeLabel={editing ? "Replace file…" : "Change"}
             error={fileError}
             onPick={() => pickMarkdownFile((f) => void chooseFile(f))}
             dropRef={dropRef}
@@ -173,19 +221,15 @@ export default function UploadSkillDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, name: true }))}
-              aria-invalid={touched.name && !!errors.name}
+              aria-invalid={(touched.name || !!editing) && !!errors.name}
               aria-describedby={`${id}-name-note`}
             />
-            <p
+            <NameNote
               id={`${id}-name-note`}
-              className={touched.name && errors.name ? "library-field-error" : "library-field-hint"}
-            >
-              {touched.name && errors.name
-                ? errors.name
-                : existing
-                  ? `You already have “${existing.name}”. You'll be asked to replace it or keep both.`
-                  : ""}
-            </p>
+              // A taken name shows at once while editing: it is why Save is off.
+              error={touched.name || editing ? errors.name : null}
+              hint={!editing && existing ? `You already have “${existing.name}”. You'll be asked to replace it or keep both.` : ""}
+            />
           </div>
 
           <div>
@@ -217,11 +261,11 @@ export default function UploadSkillDialog({
           <TagInput id={id} tags={tags} onChange={setTags} known={allTags(skills)} />
 
           <div className="library-dialog-actions">
-            <button type="button" className="board-confirm-cancel" onClick={onClose}>
+            <button type="button" className="board-confirm-cancel" onClick={requestClose}>
               Cancel
             </button>
-            <button ref={submitRef} type="submit" className="library-dialog-submit" disabled={!canUpload}>
-              Upload
+            <button ref={submitRef} type="submit" className="library-dialog-submit" disabled={!canSave}>
+              {editing ? "Save changes" : "Upload"}
             </button>
           </div>
         </form>

@@ -1,27 +1,40 @@
 "use client";
 
-// The Agents page (#208): every agent in a table, and Upload agent. Same
-// page as Skills (#206), with a Skills column: an agent is a file too.
+// The Agents page (#208): every agent in a table, Upload agent, and each row
+// opening Edit agent (#210). Same page as Skills (#206), with a Skills column:
+// an agent is a file too.
 
 import { useMemo, useRef, useState } from "react";
-import { Bot, Download, Upload } from "lucide-react";
+import { Bot, Download, Pencil, Upload } from "lucide-react";
 import { useSection } from "@/store/section.store";
-import { useAgents } from "@/store/agents.store";
+import { useAgents, type Agent } from "@/store/agents.store";
 import { useSkills } from "@/store/skills.store";
 import LibraryPage, {
+  ActionsHeader,
   LibraryAction,
   LibraryEmpty,
   LibraryNoMatch,
+  LibraryRow,
   LibraryToolbar,
   TagsCell,
   useLibraryFilters,
   useLibraryToast,
+  useReturnFocus,
 } from "../Library/LibraryPage";
-import UploadAgentDialog from "./UploadAgentDialog";
+import UploadAgentDialog, { type AgentSaved } from "./UploadAgentDialog";
 import { allTags, filterItems, sortByName } from "../../library/fields";
 import { agentSkills, downloadExampleAgentFile, modelLabel } from "../../agents/agent";
 
 const agentsPhrase = (n: number) => (n === 1 ? "1 agent" : `${n} agents`);
+
+const SAVED_TOAST: Record<AgentSaved, (name: string) => string> = {
+  added: (name) => `${name} added`,
+  replaced: (name) => `${name} replaced`,
+  saved: (name) => `${name} saved`,
+};
+
+/** The dialog over the page: Upload (maybe with a dropped file) or Edit. */
+type Dialog = { kind: "upload"; file?: File } | { kind: "edit"; agent: Agent };
 
 export default function AgentsPage() {
   const shown = useSection((s) => s.section === "agents");
@@ -37,22 +50,25 @@ function Page() {
     () => sortByName(filterItems(agents, filters.query, filters.tag)),
     [agents, filters.query, filters.tag],
   );
-  // undefined: closed. null: open with no file yet. A File: opened by a drop.
-  const [upload, setUpload] = useState<File | null | undefined>(undefined);
+  const [dialog, setDialog] = useState<Dialog | null>(null);
   const [toast, showToast] = useLibraryToast();
   const actionRef = useRef<HTMLButtonElement>(null);
+  const focus = useReturnFocus(actionRef);
 
-  const closeDialog = () => {
-    setUpload(undefined);
-    // The empty state's button may have just turned into the header's.
-    requestAnimationFrame(() => actionRef.current?.focus());
+  const open = (next: Dialog, from: HTMLElement | null) => {
+    focus.from(from);
+    setDialog(next);
+  };
+  const close = () => {
+    setDialog(null);
+    focus.restore();
   };
 
   const action = (inEmpty: boolean) => (
     <LibraryAction
       label="Upload agent"
       icon={<Upload size={15} aria-hidden />}
-      onClick={() => setUpload(null)}
+      onClick={() => open({ kind: "upload" }, actionRef.current)}
       buttonRef={actionRef}
       inEmpty={inEmpty}
     />
@@ -63,7 +79,7 @@ function Page() {
       title="Agents"
       subtitle="Saved Prompt-panel setups: a role, a model and the skills it uses."
       action={agents.length > 0 ? action(false) : undefined}
-      onFileDrop={(file) => upload === undefined && setUpload(file)}
+      onFileDrop={(file) => !dialog && open({ kind: "upload", file }, actionRef.current)}
     >
       {agents.length === 0 ? (
         <LibraryEmpty
@@ -102,6 +118,7 @@ function Page() {
                   <col className="library-col-description" />
                   <col className="library-col-skills" />
                   <col className="library-col-tags" />
+                  <col className="library-col-actions" />
                 </colgroup>
                 <thead>
                   <tr>
@@ -111,13 +128,25 @@ function Page() {
                     <th scope="col">Description</th>
                     <th scope="col">Skills</th>
                     <th scope="col">Tags</th>
+                    <ActionsHeader />
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((agent) => {
                     const used = agentSkills(agent, skills);
                     return (
-                      <tr key={agent.id}>
+                      <LibraryRow
+                        key={agent.id}
+                        label={agent.name}
+                        onOpen={(from) => open({ kind: "edit", agent }, from)}
+                        menu={[
+                          {
+                            label: "Edit…",
+                            icon: Pencil,
+                            onSelect: (trigger) => open({ kind: "edit", agent }, trigger),
+                          },
+                        ]}
+                      >
                         <td>
                           <span className="library-cell-name">{agent.name}</span>
                           <span className="library-cell-file">
@@ -145,7 +174,7 @@ function Page() {
                         <td>
                           <TagsCell tags={agent.tags} />
                         </td>
-                      </tr>
+                      </LibraryRow>
                     );
                   })}
                 </tbody>
@@ -155,13 +184,16 @@ function Page() {
         </>
       )}
 
-      {upload !== undefined && (
+      {dialog && (
         <UploadAgentDialog
-          initialFile={upload ?? undefined}
-          onClose={closeDialog}
-          onUploaded={(name, replaced) => {
-            closeDialog();
-            showToast(replaced ? `${name} replaced` : `${name} added`);
+          // A new dialog per agent: its fields start from the one being edited.
+          key={dialog.kind === "edit" ? dialog.agent.id : "upload"}
+          editing={dialog.kind === "edit" ? dialog.agent : undefined}
+          initialFile={dialog.kind === "upload" ? dialog.file : undefined}
+          onClose={close}
+          onSaved={(name, how) => {
+            close();
+            showToast(SAVED_TOAST[how](name));
           }}
           onSaveFailed={() => showToast("Couldn't save the agent.", true)}
         />

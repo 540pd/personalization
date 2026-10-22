@@ -3,6 +3,7 @@
 import { useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import BoardConfirmDialog from "../Sidebar/BoardConfirmDialog";
 
 const isFileDrag = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
 
@@ -114,4 +115,37 @@ export function pickMarkdownFile(onPicked: (file: File) => void): void {
     if (picked) onPicked(picked);
   });
   input.click();
+}
+
+/** Under Name: an error if there is one, else a hint (possibly empty). */
+export function NameNote({ id, error, hint }: { id: string; error: string | null; hint: string }) {
+  return (
+    <p id={id} className={error ? "library-field-error" : "library-field-hint"}>
+      {error ?? hint}
+    </p>
+  );
+}
+
+/** "Discard changes?" in front of an edit form (#210). */
+export function DiscardChanges({
+  name,
+  onKeepEditing,
+  onDiscard,
+}: {
+  name: string;
+  onKeepEditing: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <BoardConfirmDialog
+      title="Discard changes?"
+      confirmLabel="Discard"
+      tone="danger"
+      onCancel={onKeepEditing}
+      onConfirm={onDiscard}
+      secondary={{ label: "Keep editing", onClick: onKeepEditing }}
+    >
+      Your changes to {name} won&apos;t be saved.
+    </BoardConfirmDialog>
+  );
 }

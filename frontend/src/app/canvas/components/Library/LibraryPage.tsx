@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { useSidebar, sidebarInset } from "@/store/sidebar.store";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import BoardToast from "../Sidebar/BoardToast";
+import RowMenu, { type RowMenuItem } from "./RowMenu";
 import "./Library.scss";
 
 const isFileDrag = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
@@ -222,6 +223,65 @@ export function LibraryNoMatch({ noun, onClear }: { noun: string; onClear: () =>
       </button>
     </div>
   );
+}
+
+/**
+ * A table row you can open (#210): a click anywhere but its ⋯ menu, or Enter
+ * while the row itself has focus, calls `onOpen` with the row -- where focus
+ * goes back to once whatever it opened closes.
+ */
+export function LibraryRow({
+  label,
+  onOpen,
+  menu,
+  children,
+}: {
+  /** The item's name, for the row's and the menu's accessible names. */
+  label: string;
+  onOpen: (from: HTMLElement) => void;
+  menu: RowMenuItem[];
+  children: ReactNode;
+}) {
+  return (
+    <tr
+      className="library-row"
+      tabIndex={0}
+      aria-label={`${label}, open to edit`}
+      onClick={(e) => onOpen(e.currentTarget)}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" || e.target !== e.currentTarget) return;
+        e.preventDefault();
+        onOpen(e.currentTarget);
+      }}
+    >
+      {children}
+      <td className="library-cell-actions">
+        <RowMenu label={label} items={menu} />
+      </td>
+    </tr>
+  );
+}
+
+/** The header cell over the rows' ⋯ menus. */
+export function ActionsHeader() {
+  return (
+    <th scope="col">
+      <span className="sr-only">Actions</span>
+    </th>
+  );
+}
+
+/** Where focus goes back to once a dialog opened from the page closes. */
+export function useReturnFocus(fallback: RefObject<HTMLElement | null>) {
+  const target = useRef<HTMLElement | null>(null);
+  return {
+    from: (el: HTMLElement | null) => {
+      target.current = el;
+    },
+    restore: () =>
+      // After the dialog has gone, and the empty state may have become a table.
+      requestAnimationFrame(() => (target.current?.isConnected ? target.current : fallback.current)?.focus()),
+  };
 }
 
 export function TagsCell({ tags }: { tags: string[] }) {
