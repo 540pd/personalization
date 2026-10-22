@@ -324,6 +324,7 @@
   // so its labels must stay.
   .sidebar-product,
   .sidebar-nav .sidebar-item-label,
+  .sidebar-nav .board-sync-status,
   .sidebar-support .sidebar-item-label,
   .sidebar-identity-name {
     @apply sr-only;

@@ -108,26 +108,44 @@ export function startCanvasPersistence(
     save.schedule();
   };
 
-  // History catches what changes only on the Konva node -- a recolour, a
-  // text edit, a z-order -- and every undo and redo. The stores catch what
-  // never becomes an undo step: a rename, a wire added or removed.
-  const unsubscribe = [
-    canvasHistory.subscribe(markDirty),
-    useKonvaNodes.subscribe(markDirty),
-    useFrames.subscribe((s, prev) => {
-      if (s.frames !== prev.frames) markDirty();
-    }),
-    useConnectionStore.subscribe((s, prev) => {
-      if (s.connections !== prev.connections) markDirty();
-    }),
-    useLayerOrder.subscribe((s, prev) => {
-      if (s.topLayer !== prev.topLayer) markDirty();
-    }),
-  ];
+  const unsubscribe = onBoardChange(markDirty);
 
   return () => {
     save.flush();
-    unsubscribe.forEach((u) => u());
+    unsubscribe();
     save.dispose();
   };
+}
+
+/**
+ * Calls `changed` whenever anything on the board changes, until the
+ * returned function is called. With `panels`, their changes too: saving to
+ * the account sends the whole board (#324), where this file's local copy
+ * leaves the panels to persist themselves.
+ */
+export function onBoardChange(changed: () => void, { panels = false }: { panels?: boolean } = {}): () => void {
+  // History catches what changes only on the Konva node -- a recolour, a
+  // text edit, a z-order -- and every undo and redo. The stores catch what
+  // never becomes an undo step: a rename, a wire added or removed.
+  const off = [
+    canvasHistory.subscribe(changed),
+    useKonvaNodes.subscribe(changed),
+    useFrames.subscribe((s, prev) => {
+      if (s.frames !== prev.frames) changed();
+    }),
+    useConnectionStore.subscribe((s, prev) => {
+      if (s.connections !== prev.connections) changed();
+    }),
+    useLayerOrder.subscribe((s, prev) => {
+      if (s.topLayer !== prev.topLayer) changed();
+    }),
+    ...(panels
+      ? [
+          useNodePanel.subscribe((s, prev) => {
+            if (s.panels !== prev.panels) changed();
+          }),
+        ]
+      : []),
+  ];
+  return () => off.forEach((u) => u());
 }

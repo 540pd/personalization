@@ -2,6 +2,7 @@
 
 import { MoreHorizontal } from "lucide-react";
 import type { SidebarItemSpec } from "./items";
+import BoardSyncStatus from "../BoardSync/BoardSyncStatus";
 
 export default function SidebarItem({
   spec,
@@ -43,6 +44,9 @@ export default function SidebarItem({
     >
       <Icon className="sidebar-item-icon" aria-hidden />
       <span className="sidebar-item-label">{spec.label}</span>
+      {/* Whether the board is saved to the account (#324): on the board's
+          own row, where the header has no room for it. */}
+      {spec.id === "playspace" && <BoardSyncStatus />}
       {/* The only hint, minimized, that this icon has options. */}
       {opensMenu && (
         <span className="sidebar-options-dot" aria-hidden>
