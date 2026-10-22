@@ -177,7 +177,9 @@ test.describe("sidebar", () => {
       await expect.poll(() => tipOpacity(page, "Playspace")).toBe(1);
 
       const tip = tipFor(page, "Playspace");
-      await expect(tip).toHaveText("Playspace");
+      // The active Playspace icon opens its options when minimized (#197), and
+      // its label says so.
+      await expect(tip).toHaveText("Playspace · options");
       const box = await tip.boundingBox();
       expect(box!.x).toBeGreaterThan(RAIL_WIDTH);
 

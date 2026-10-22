@@ -27,7 +27,8 @@ import { frameStage } from "@/lib/canvas/frameStage";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { bindWheelZoom } from "@/lib/canvas/wheelZoom";
 import { applyDraggability } from "../board/draggability";
-import { createEditKeysHandler, selectNodes } from "../board/clipboard";
+import { createEditKeysHandler, deleteNodes, selectNodes } from "../board/clipboard";
+import { CLEAR_EVENT } from "../board/clearBoard";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { updateSelectionChrome as applySelectionChrome } from "../board/selectionChrome";
 import { syncNodeGeometry, syncAllNodeGeometry as syncAllGeometry } from "../board/geometry";
@@ -663,6 +664,30 @@ export default function Board() {
     };
     window.addEventListener("keydown", handleFrameKeys);
 
+    // Clear board (#197). Everything goes, then one commit, so a single Ctrl+Z
+    // brings it all back. Konva nodes are remove()d, not destroyed, for the
+    // same reason as Delete: undo re-adds these very objects. The other kinds
+    // go through the setters their own undo adapters restore with.
+    const handleClear = () => {
+      frame.cancel();
+      shapeDraw.cancel();
+      textTool.close();
+      textTool.cancel();
+      transformer.nodes([]);
+      deleteNodes(layer.find(".selectable") as Konva.Shape[]);
+      useKonvaSelection.getState().deselect();
+      useNodePanel.getState().clearAll();
+      useConnectionStore.getState().replaceConnections([]);
+      useFrames.getState().replaceAll({});
+      useFrames.getState().clearSelection();
+      hideHover();
+      syncAllNodeGeometry();
+      updateSelectionChrome();
+      layer.batchDraw();
+      saveSnapshot();
+    };
+    window.addEventListener(CLEAR_EVENT, handleClear);
+
     const observer = new ResizeObserver(() => {
       stage.width(container.offsetWidth);
       stage.height(container.offsetHeight);
@@ -685,6 +710,7 @@ export default function Board() {
       window.removeEventListener("dragend", dnd.reset);
       window.removeEventListener("blur", dnd.reset);
       window.removeEventListener("keydown", handleFrameKeys);
+      window.removeEventListener(CLEAR_EVENT, handleClear);
       stage.off(".frame");
       stage.off(".text");
       textTool.close();

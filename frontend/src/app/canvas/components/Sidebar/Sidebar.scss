@@ -89,6 +89,124 @@
   @apply truncate;
 }
 
+// ── Playspace options (#197) ──────────────────────────────────────────────
+// Relative so the minimized rail's options dot can sit on the icon's corner.
+.sidebar-nav-entry,
+.sidebar-item {
+  @apply relative;
+}
+
+// Room for the ⋯ button, so a long label truncates before it rather than
+// running underneath.
+.sidebar-nav-entry-options .sidebar-item {
+  @apply pr-10;
+}
+
+.sidebar-options-button {
+  @apply absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center;
+  @apply rounded-full text-neutral-500 transition-colors;
+  @apply hover:bg-black/[0.06] hover:text-neutral-900;
+}
+
+.sidebar-options-button-open {
+  @apply bg-black/[0.08] text-neutral-900;
+}
+
+.sidebar-options-button:focus-visible,
+.playspace-menu-item:focus-visible {
+  @apply outline-2 -outline-offset-2 outline-neutral-900;
+}
+
+// Shown on hover and keyboard focus only: a permanent badge on the active
+// icon would read as a notification.
+.sidebar-options-dot {
+  @apply absolute -top-0.5 -right-1 w-4 h-4 flex items-center justify-center;
+  @apply rounded-full border-2 border-white bg-neutral-900 text-white;
+  @apply pointer-events-none opacity-0;
+  transition: opacity 100ms ease-out;
+}
+
+.sidebar-item:hover .sidebar-options-dot,
+.sidebar-item:focus-visible .sidebar-options-dot {
+  @apply opacity-100;
+}
+
+.sidebar-item-menu-open,
+.sidebar-item-menu-open:hover {
+  @apply bg-neutral-200;
+}
+
+// The user menu's surface (sidebar-user-menu), and its rows are rail rows:
+// .sidebar-item supplies size, tone and hover, so the rail's two popovers
+// cannot drift apart. The width fits the labels; 176 is the floor because
+// "Save to file" (#198) is the widest to come, so the menu does not change
+// width when it lands. Fixed: it is portaled out of the rail.
+.playspace-menu {
+  @apply fixed w-max min-w-[176px] p-1 rounded-xl shadow-md;
+  @apply bg-white border border-black/[0.08] outline-none;
+}
+
+// Only what a menu row needs beyond a rail row. Disabled matches the rail's
+// "Coming soon" items.
+.playspace-menu-item {
+  @apply text-left whitespace-nowrap;
+  @apply disabled:text-neutral-300 disabled:cursor-default disabled:hover:bg-transparent;
+}
+
+// Brand's discard prompt (brand-confirm), on a backdrop of its own: that
+// one is positioned inside the Brand popup.
+.clear-board-backdrop {
+  @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20;
+}
+
+.clear-board-dialog {
+  @apply w-[360px] max-w-full rounded-2xl bg-white p-6 shadow-2xl text-neutral-900;
+}
+
+.clear-board-title {
+  @apply text-base font-semibold;
+}
+
+.clear-board-text {
+  @apply mt-1 text-sm text-neutral-500;
+}
+
+.clear-board-actions {
+  @apply mt-5 flex justify-end gap-2;
+}
+
+.clear-board-cancel {
+  @apply h-9 px-4 rounded-full border border-black/10 bg-transparent text-sm;
+  @apply transition-colors hover:bg-black/5;
+}
+
+.clear-board-confirm {
+  @apply h-9 px-4 rounded-full bg-red-600 text-sm font-semibold text-white;
+  @apply transition-colors hover:bg-red-700;
+}
+
+.clear-board-dialog button:focus-visible {
+  @apply outline-2 outline-offset-2 outline-neutral-900;
+}
+
+// Brand's saved toast (brand-toast), plus an action.
+.board-toast {
+  @apply fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2;
+  @apply h-10 px-4 rounded-full bg-neutral-900 text-sm font-medium text-white shadow-lg;
+}
+
+.board-toast-sep {
+  @apply w-px h-4 mx-1 bg-white/25;
+}
+
+.board-toast-action {
+  @apply font-semibold text-white transition-opacity hover:opacity-80;
+}
+
+.board-toast-action:focus-visible {
+  @apply outline-2 outline-offset-2 outline-white rounded-sm;
+}
+
 // ── footer ──────────────────────────────────────────────────────────────
 .sidebar-footer {
   @apply relative px-2 pb-2;
