@@ -7,9 +7,10 @@
 // nodeKinds). Output-only: it feeds a downstream node as a text reference,
 // and nothing feeds it.
 
+import { lazy, Suspense } from "react";
 import { PencilLine } from "lucide-react";
 import { DEFAULT_NODE_MAX_EDGE } from "@/constants/canvas.constants";
-import type { NodeKindSpec } from "../nodeKinds";
+import type { NodeKindSpec, NodeOutputProps } from "../nodeKinds";
 
 // Sized like a Prompt node: both are reading surfaces, not pictures.
 const COMPOSE_NODE_SIZE = {
@@ -26,9 +27,20 @@ function EmptyState() {
   );
 }
 
-// Scrolls inside the node, as a Prompt node's output does.
-function Output({ value }: { value: string }) {
+function PlainOutput({ value }: NodeOutputProps) {
   return <div className="node-panel-text-output">{value}</div>;
+}
+
+// Keep the Markdown packages out of the initial canvas bundle. The separate
+// renderer is fetched only when a written Compose box has content to display.
+const MarkdownOutput = lazy(() => import("./ComposeMarkdownOutput"));
+
+function Output(props: NodeOutputProps) {
+  return (
+    <Suspense fallback={<PlainOutput value={props.value} />}>
+      <MarkdownOutput {...props} />
+    </Suspense>
+  );
 }
 
 export const composeKind: NodeKindSpec = {

@@ -1,4 +1,33 @@
 import { create } from "zustand";
+import { saveFrameImagePositions } from "@/app/canvas/board/frameImageStorage";
+
+const STORAGE_KEY = "gcos-frames";
+
+function readFrames(): Record<string, FrameRecord> {
+  if (typeof window === "undefined") return {};
+  try {
+    const frames = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}") as unknown;
+    if (!frames || typeof frames !== "object" || Array.isArray(frames)) return {};
+    return Object.fromEntries(Object.entries(frames).filter(([id, frame]) => {
+      const f = frame as FrameRecord;
+      return id === f?.id && typeof f.canvasX === "number" && typeof f.canvasY === "number" &&
+        typeof f.canvasW === "number" && typeof f.canvasH === "number" && typeof f.label === "string";
+    }));
+  } catch {
+    return {};
+  }
+}
+
+function saveFrames(frames: Record<string, FrameRecord>): void {
+  if (typeof window === "undefined") return;
+  try {
+    // Synchronous at dragend: an immediate refresh sees the final position.
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(frames));
+    saveFrameImagePositions(frames);
+  } catch (err) {
+    console.warn("[frames] Could not save frames for reload.", err);
+  }
+}
 
 // Frames: named backdrops that always paint behind every node.
 //
@@ -98,19 +127,27 @@ interface FrameState {
 }
 
 export const useFrames = create<FrameState>((set) => ({
-  frames: {},
+  frames: readFrames(),
   selectedIds: [],
   draft: null,
   drag: {},
   resize: {},
 
   upsert: (frame) =>
-    set((s) => ({ frames: { ...s.frames, [frame.id]: { ...s.frames[frame.id], ...frame } } })),
+    set((s) => {
+      const frames = { ...s.frames, [frame.id]: { ...s.frames[frame.id], ...frame } };
+      saveFrames(frames);
+      return { frames };
+    }),
   remove: (id) =>
     set((s) => {
       const next = { ...s.frames };
       delete next[id];
-      return { frames: next, selectedIds: s.selectedIds.filter((sid) => sid !== id) };
+      saveFrames(next);
+      // Deleted mid-resize: drop its live box too (#183).
+      const resize = { ...s.resize };
+      delete resize[id];
+      return { frames: next, selectedIds: s.selectedIds.filter((sid) => sid !== id), resize };
     }),
   select: (id) =>
     set((s) => {
@@ -135,9 +172,14 @@ export const useFrames = create<FrameState>((set) => ({
       return { resize: next };
     }),
   replaceAll: (frames) =>
-    set((s) => ({
-      frames,
-      // An undo can remove frames out from under the selection.
-      selectedIds: s.selectedIds.filter((sid) => !!frames[sid]),
-    })),
+    set((s) => {
+      saveFrames(frames);
+      return {
+        frames,
+        // An undo can remove frames out from under the selection.
+        selectedIds: s.selectedIds.filter((sid) => !!frames[sid]),
+        // Live resize boxes are stale after an undo / redo (#183).
+        resize: {},
+      };
+    }),
 }));
