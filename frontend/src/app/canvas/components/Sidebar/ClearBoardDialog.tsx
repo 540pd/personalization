@@ -14,10 +14,13 @@ import { createPortal } from "react-dom";
 export default function ClearBoardDialog({
   count,
   onCancel,
+  onSaveFirst,
   onConfirm,
 }: {
   count: number;
   onCancel: () => void;
+  /** Saves the board to a file and leaves the dialog open. */
+  onSaveFirst: () => void;
   onConfirm: () => void;
 }) {
   const id = useId();
@@ -73,6 +76,9 @@ export default function ClearBoardDialog({
           This removes all {count === 1 ? "1 item" : `${count} items`} from PlaySpace.
         </p>
         <div className="clear-board-actions">
+          <button type="button" className="clear-board-save" onClick={onSaveFirst}>
+            Save to file first
+          </button>
           <button ref={cancelRef} type="button" className="clear-board-cancel" onClick={onCancel}>
             Cancel
           </button>

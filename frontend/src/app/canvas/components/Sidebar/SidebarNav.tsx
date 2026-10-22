@@ -23,10 +23,12 @@ const OPTIONS_SECTION: SectionId = "playspace";
 export default function SidebarNav({
   active,
   onSelect,
+  onSaveBoard,
   onClearBoard,
 }: {
   active: SectionId;
   onSelect: (id: SectionId) => void;
+  onSaveBoard: () => void;
   /** `trigger` is where focus goes back to once the confirm closes. */
   onClearBoard: (trigger: HTMLElement | null) => void;
 }) {
@@ -95,7 +97,8 @@ export default function SidebarNav({
       {menuOpen && anchor && (
         <PlayspaceMenu
           anchor={anchor}
-          canClear={itemCount > 0}
+          isEmpty={itemCount === 0}
+          onSave={onSaveBoard}
           onClear={() => onClearBoard(anchor.querySelector<HTMLElement>('[aria-haspopup="menu"]'))}
           onClose={closeMenu}
         />

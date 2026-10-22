@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Eraser } from "lucide-react";
+import { Download, Eraser } from "lucide-react";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import { useSidebar, sidebarInset } from "@/store/sidebar.store";
 
@@ -17,17 +17,20 @@ const GAP = 8;
  * It opens at the rail's outer edge, top-aligned with the Playspace row --
  * the same side the user menu opens on when the rail is minimized.
  *
- * Save to file and Open file... join this list in #198 and #199.
+ * Open file... joins this list in #199, under Save to file.
  */
 export default function PlayspaceMenu({
   anchor,
-  canClear,
+  isEmpty,
+  onSave,
   onClear,
   onClose,
 }: {
   /** The Playspace row. Its trigger toggles the menu, so clicks on it are not "outside". */
   anchor: HTMLElement;
-  canClear: boolean;
+  /** Nothing to save or clear: both are disabled. */
+  isEmpty: boolean;
+  onSave: () => void;
   onClear: () => void;
   /** `restoreFocus` is false when focus is about to go somewhere else on purpose. */
   onClose: (restoreFocus: boolean) => void;
@@ -96,7 +99,21 @@ export default function PlayspaceMenu({
         type="button"
         role="menuitem"
         className="sidebar-item playspace-menu-item"
-        disabled={!canClear}
+        disabled={isEmpty}
+        onClick={() => {
+          onClose(true);
+          onSave();
+        }}
+      >
+        <Download className="sidebar-item-icon" aria-hidden />
+        Save to file
+      </button>
+      <div className="playspace-menu-divider" role="separator" />
+      <button
+        type="button"
+        role="menuitem"
+        className="sidebar-item playspace-menu-item"
+        disabled={isEmpty}
         onClick={() => {
           onClose(false);
           onClear();
