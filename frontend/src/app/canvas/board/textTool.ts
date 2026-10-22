@@ -22,6 +22,7 @@ import { toScreen } from "@/lib/canvas/coords";
 import { boxFromCorners } from "./frame";
 import { deleteNodes } from "./clipboard";
 import { createText, fitAutoWidth, isAutoWidth } from "./text";
+import { joinLayout } from "./autoLayoutDrop";
 import { COLORS, SHAPE_CLICK_SLOP, Z_INDEX } from "@/constants/canvas.constants";
 
 export interface TextToolDeps {
@@ -237,6 +238,13 @@ export function createTextTool(deps: TextToolDeps) {
         useLayerOrder.getState().raiseCanvas();
       }
       deps.syncAllNodeGeometry();
+      // New text placed by a click inside a Frame with auto layout joins the
+      // row (#228). The click, not the box: the first line is centred on it,
+      // so the box can reach past a short Frame's edge. The click was the
+      // left edge, halfway down the first line.
+      if (isNew) {
+        joinLayout(node.id(), { x: node.x(), y: node.y() + (node.fontSize() * node.lineHeight()) / 2 });
+      }
       selectText(node);
       deps.layer.batchDraw();
       if (isNew || value !== before) deps.saveSnapshot();

@@ -15,6 +15,7 @@ import { toCanvas, viewportCentre, type Point } from "@/lib/canvas/coords";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { canvasArea } from "../canvasArea";
 import { saveFrameBitmap } from "./frameImageStorage";
+import { joinLayout } from "./autoLayoutDrop";
 
 /**
  * Detail of the `canvas:upload` event.
@@ -63,12 +64,16 @@ export interface UploadDeps {
 function placeNode(
   deps: UploadDeps,
   node: Konva.Shape,
-  record: Parameters<ReturnType<typeof useKonvaNodes.getState>["upsert"]>[0]
+  record: Parameters<ReturnType<typeof useKonvaNodes.getState>["upsert"]>[0],
+  droppedAt?: Point,
 ) {
   useKonvaNodes.getState().upsert(record);
   deps.layer.add(node);
   deps.applyDraggability();
   deps.syncAllNodeGeometry();
+  // Dropped from the computer onto a Frame with auto layout: it joins the
+  // row (#228). A picked file has no drop point and lands as before.
+  if (droppedAt) joinLayout(record.id, droppedAt);
   deps.layer.batchDraw();
   deps.saveSnapshot();
 }
@@ -92,7 +97,8 @@ function addImage(
   cx: number,
   cy: number,
   off: number,
-  onSettled: () => void
+  onSettled: () => void,
+  droppedAt?: Point,
 ) {
   const url = URL.createObjectURL(file);
   const img = new window.Image() as HTMLImageElement;
@@ -145,7 +151,7 @@ function addImage(
       id, canvasX: x, canvasY: y, canvasW: w, canvasH: h,
       imageUrl,
       label: uniqueLabel(stripExtension(file.name), takenLabels()),
-    });
+    }, droppedAt);
     URL.revokeObjectURL(url);
     onSettled();
   };
@@ -162,7 +168,7 @@ function addImage(
 }
 
 /** Video and audio land as a placeholder rect until media nodes exist. */
-function addMediaPlaceholder(deps: UploadDeps, file: File, cx: number, cy: number, off: number) {
+function addMediaPlaceholder(deps: UploadDeps, file: File, cx: number, cy: number, off: number, droppedAt?: Point) {
   const w = 240;
   const h = file.type.startsWith("video/") ? 135 : 64;
   const id = crypto.randomUUID();
@@ -178,7 +184,7 @@ function addMediaPlaceholder(deps: UploadDeps, file: File, cx: number, cy: numbe
     name: "selectable",
   });
 
-  placeNode(deps, node, { id, canvasX: x, canvasY: y, canvasW: w, canvasH: h });
+  placeNode(deps, node, { id, canvasX: x, canvasY: y, canvasW: w, canvasH: h }, droppedAt);
 }
 
 /** Handler for the `canvas:upload` event. */
@@ -200,6 +206,8 @@ export function createUploadHandler(deps: UploadDeps) {
     // covers the left edge, so centring on the window drops the image partly
     // behind it.
     const { x: cx, y: cy } = at ? toCanvas(at, vp) : viewportCentre(vp, canvasArea());
+    // Only a drop has a point to join an auto layout row at (#228).
+    const droppedAt = at ? { x: cx, y: cy } : undefined;
 
     // Images decode asynchronously, so the pick is not done when this
     // function returns. Count them down instead: the dock stays lit until the
@@ -213,9 +221,9 @@ export function createUploadHandler(deps: UploadDeps) {
     files.forEach((file, i) => {
       const off = i * 24;   // cascade, so a multi-file drop does not stack
       if (file.type.startsWith("image/")) {
-        addImage(deps, file, cx, cy, off, settle);
+        addImage(deps, file, cx, cy, off, settle, droppedAt);
       } else {
-        addMediaPlaceholder(deps, file, cx, cy, off);
+        addMediaPlaceholder(deps, file, cx, cy, off, droppedAt);
         settle();   // synchronous: already on the canvas
       }
     });

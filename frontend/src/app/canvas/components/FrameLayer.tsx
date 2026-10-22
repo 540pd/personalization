@@ -24,6 +24,7 @@ import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { bindWheelZoom } from "@/lib/canvas/wheelZoom";
 import FrameLabels from "./FrameLabels";
+import AutoLayoutDropLine from "./AutoLayoutDropLine";
 import { announceGesture } from "@/lib/canvas/gesture";
 import { CORNERS } from "../board/selectionChrome";
 import { COLOR_EVENT, type ColorDetail } from "../board/palette";
@@ -429,6 +430,7 @@ export default function FrameLayer() {
           and so forms a stacking context, which a label inside could never
           escape to reach Z_INDEX.labels. */}
       <FrameLabels />
+      <AutoLayoutDropLine />
     </>
   );
 }
