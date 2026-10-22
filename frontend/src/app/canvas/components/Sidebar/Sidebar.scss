@@ -89,6 +89,11 @@
   @apply truncate;
 }
 
+// A menu row's key, at the far end (#214: Settings ⌘,).
+.sidebar-item-shortcut {
+  @apply ml-auto pl-3 font-sans text-xs text-neutral-400;
+}
+
 // ── Playspace options (#197) ──────────────────────────────────────────────
 // Relative so the minimized rail's options dot can sit on the icon's corner.
 .sidebar-nav-entry,
@@ -248,8 +253,9 @@
   @apply text-sm font-medium text-neutral-900 transition-colors hover:bg-black/5;
 }
 
+// A button now (#214): it opens a menu holding Settings.
 .sidebar-identity-anonymous {
-  @apply text-neutral-400 hover:bg-transparent;
+  @apply text-neutral-500;
 }
 
 .sidebar-identity-name {

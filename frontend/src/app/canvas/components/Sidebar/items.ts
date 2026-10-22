@@ -15,7 +15,8 @@ import { Layers, Image, BrainCircuit, Bot, BarChart3, type LucideIcon } from "lu
  * destinations real should start from those rather than from scratch.
  */
 
-export type SectionId = "playspace" | "assets" | "skills" | "agents" | "usage";
+// "settings" is a page but not a rail item: it opens from the user menu (#214).
+export type SectionId = "playspace" | "assets" | "skills" | "agents" | "usage" | "settings";
 
 export interface SidebarItemSpec {
   id: SectionId;

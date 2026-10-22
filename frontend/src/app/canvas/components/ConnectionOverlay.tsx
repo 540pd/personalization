@@ -10,6 +10,7 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useViewport } from "@/store/viewport.store";
 import { useToolStore } from "@/store/tool.store";
+import { useSettings } from "@/store/settings.store";
 import type { PanelInstance } from "@/store/nodePanel.store";
 import type { KonvaNodeRecord } from "@/store/konvaNodes.store";
 import { boardIsShown } from "@/store/section.store";
@@ -96,6 +97,7 @@ export default function ConnectionOverlay() {
   const konvaNodes = useKonvaNodes((s) => s.nodes);
   const { x: sx, y: sy, scale: sc } = useViewport();
   const activeTool = useToolStore((s) => s.activeTool);
+  const settingsLinkStyle = useSettings((s) => s.settings.linkStyle);
 
   // Only panels have input ports (konva nodes are output-only sources), and
   // not every kind: a Compose box takes no input (#181).
@@ -184,9 +186,12 @@ export default function ConnectionOverlay() {
       ) ?? null
     : null;
 
+  // An armed link tool draws every link in its style; otherwise the one
+  // chosen in Settings (#214). Links store no style of their own.
   const linkStyle =
     activeTool === "link-straight" ? "link-straight" :
-    activeTool === "link-elbow"    ? "link-elbow"    : "link-curve";
+    activeTool === "link-elbow"    ? "link-elbow"    :
+    activeTool === "link-curve"    ? "link-curve"    : settingsLinkStyle;
 
   // Drag preview
   let dragPreview: React.ReactNode = null;
