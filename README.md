@@ -21,32 +21,31 @@ gcos-personalization/
 
 ### Two terminals
 
-**1. Backend** (defaults to mock placeholder images if `VERTEX_PROJECT_ID` isn't set):
+**1. Backend.** It runs with no keys at all: every GCP service has a placeholder (local disk
+storage, offline AI images, in-process video jobs), and it prints which is which at startup.
 
 ```bash
 cd backend
-cp .env.example .env        # then fill in at minimum: GOOGLE_OAUTH_CLIENT_ID, SESSION_SECRET
 npm install
+echo "AUTH_MODE=dev" > .env   # dev sign-in: type any allowed email. Omit for anonymous.
 npm run dev
 ```
 
-Runs on `http://localhost:4000`. Health check: `curl http://localhost:4000/api/health`
-
-For anonymous local dev without OAuth, add `AUTH_MODE=anonymous` to `backend/.env` — every
-request is attributed to a shared `"anonymous"` identity, no sign-in required.
+Runs on `http://localhost:4000`. Health check, with each service's mode:
+`curl http://localhost:4000/api/health`. Moving a service to GCP is env only; see
+[`docs/switching-to-gcp.md`](docs/switching-to-gcp.md).
 
 **2. Frontend:**
 
 ```bash
 cd frontend
-cp .env.local.example .env.local    # set NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID to match backend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. A Google sign-in card blocks the canvas until auth succeeds — see
-`AuthGate.tsx`. If the backend is running with `AUTH_MODE=anonymous`, `AuthProvider.tsx` detects
-this via `GET /api/auth-config` and skips the sign-in wall without any frontend env var needed.
+Open `http://localhost:3000`. The app asks the backend how sign-in works (`GET /api/auth-config`):
+anonymous opens the board directly; dev sign-in shows an email field; Google shows Google's
+button (`NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` in `frontend/.env.local`). See `frontend/src/auth/`.
 
 The canvas never calls the backend directly — it goes through
 `frontend/src/app/api/proxy/[...path]/route.ts`, which defaults to `http://localhost:4000`. Set
@@ -56,7 +55,10 @@ The canvas never calls the backend directly — it goes through
 
 ```bash
 cd backend  && npm test && npx tsc --noEmit
+cd backend  && npm run test:emulators        # the stores on Firestore/Storage emulators (Java 21)
+cd backend  && npm run smoke -- http://localhost:4000
 cd frontend && npm test && npm run lint && npx tsc --noEmit
+cd frontend && npx playwright test           # e2e; one worker
 ```
 
 ## Auth
@@ -93,7 +95,7 @@ error. With it, every Generate click is a real, billed Vertex AI call.
 
 ### Available models
 
-Defined in `frontend/src/components/canvas/NodePanel.tsx` (`MODELS` constant at the top):
+Defined in `frontend/src/app/canvas/components/NodePanel/kinds/imageKind.tsx` (`MODELS`):
 
 | Display name | Vertex AI model ID |
 |---|---|
@@ -103,35 +105,21 @@ Defined in `frontend/src/components/canvas/NodePanel.tsx` (`MODELS` constant at 
 
 Adding or removing a model is a two-file change — see [`docs/adding-image-models.md`](docs/adding-image-models.md).
 
-## Board persistence: local disk vs. Firestore
+## Where data goes
 
-`backend/src/lib/boardStore.ts` saves each user's board state. Mode is a single env var:
-
-```bash
-# unset (default) — local disk; board saved under backend/board-store/
-FIRESTORE_PROJECT_ID=
-
-# set — reads/writes Firestore via Application Default Credentials
-FIRESTORE_PROJECT_ID=your-gcp-project-id
-```
-
-## Asset storage: local disk vs. GCS
-
-Generated images are persisted once at the route boundary so they survive past the response.
-
-```bash
-# unset (default) — local disk under backend/generated-images/
-GCS_BUCKET_NAME=
-
-# set — uploads to that GCS bucket via Application Default Credentials
-GCS_BUCKET_NAME=your-bucket-name
-```
-
-In both modes the returned URL shape is identical (`/api/proxy/images/<filename>`) — the bucket
-is never exposed to the browser.
+Boards, stored files (uploads and generated images and videos) and video jobs each go to
+memory, local disk (`backend/.data`, the default for `npm run dev`), the local emulators, or GCP
+(Firestore + Cloud Storage), picked from env alone. Files are always served through the proxy
+(`/api/proxy/assets/<id>/content`), so the bucket is never exposed to the browser. See
+[`docs/deployment.md`](docs/deployment.md) ("Where data goes") and
+[`docs/switching-to-gcp.md`](docs/switching-to-gcp.md).
 
 ## Docs
 
+- [`docs/handover/`](docs/handover/README.md) — **start here if you are picking this up**: the
+  state of the work, the PR stack and how to merge it, what is open
+- [`docs/switching-to-gcp.md`](docs/switching-to-gcp.md) — moving each service from its placeholder
+  to GCP, with the roles and how to verify
 - [`docs/deployment.md`](docs/deployment.md) — Cloud Run deploy commands, IAM, Firestore setup,
   Secret Manager provisioning
 - [`docs/adding-image-models.md`](docs/adding-image-models.md) — how to add/remove Vertex AI
