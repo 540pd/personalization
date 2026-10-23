@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { withHandles, type Listed } from "@/app/canvas/library/fields";
 import { nameFromFileName } from "@/app/canvas/skills/skillFile";
-import { localList, stringArray } from "@/lib/localList";
+import { listActions, localList, stringArray, type ListActions } from "@/lib/localList";
 
 /**
  * The user's agents (#208): saved Prompt-panel setups, each uploaded as a
@@ -81,33 +81,11 @@ export const loadAgents = (from?: Storage): Agent[] =>
 /** False when storage refused the write. Never throws. */
 export const saveAgents = storage.save;
 
-interface AgentsState {
+interface AgentsState extends ListActions<Agent> {
   agents: Agent[];
-  /** Adds an agent; false (and nothing changes) if it could not be saved. */
-  add: (agent: Agent) => boolean;
-  /** Swaps the agent with `agent.id` for `agent`; false if it could not be saved. */
-  replace: (agent: Agent) => boolean;
-  /** Removes it (#211); false (and nothing changes) if that could not be saved. */
-  remove: (id: string) => boolean;
-  /** Puts a removed agent back where it was in the list -- Undo (#211). */
-  restore: (agent: Agent, index: number) => boolean;
 }
 
-export const useAgents = create<AgentsState>((set, get) => {
-  const commit = (next: Agent[]) => {
-    if (!saveAgents(next)) return false;
-    set({ agents: next });
-    return true;
-  };
-  return {
-    agents: typeof window === "undefined" ? [] : loadAgents(),
-    add: (agent) => commit([...get().agents, agent]),
-    replace: (agent) => commit(get().agents.map((a) => (a.id === agent.id ? agent : a))),
-    remove: (id) => commit(get().agents.filter((x) => x.id !== id)),
-    restore: (agent, index) => {
-      const next = get().agents.filter((x) => x.id !== agent.id);
-      next.splice(Math.max(0, Math.min(index, next.length)), 0, agent);
-      return commit(next);
-    },
-  };
-});
+export const useAgents = create<AgentsState>((set, get) => ({
+  agents: typeof window === "undefined" ? [] : loadAgents(),
+  ...listActions(() => get().agents, saveAgents, (agents) => set({ agents })),
+}));
