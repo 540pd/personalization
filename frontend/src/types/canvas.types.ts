@@ -1,21 +1,3 @@
-export interface Board {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface GenerateImageParams {
-  prompt: string;
-  aspectRatio: "1:1" | "16:9" | "9:16" | "4:3";
-}
-
-export interface GenerateImageResult {
-  jobId: string;
-  status: "queued" | "generating" | "done" | "error";
-  imageUrl?: string;
-}
-
 export type AspectRatioV2 = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
 
 // An upstream node feeding a generation. Discriminated because a text node
@@ -64,12 +46,6 @@ export interface JobState {
   videoUrl?: string;
   modelUsed?: string;
   message?: string;
-}
-
-/** @deprecated Use Reference. */
-export interface ReferenceImage {
-  url: string;
-  name?: string;
 }
 
 export interface GenerateImageV2Params {
