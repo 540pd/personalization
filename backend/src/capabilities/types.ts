@@ -42,12 +42,26 @@ export interface ImageGenerationResult {
   modelUsed: string;
 }
 
+/** The agent a prompt's @ handle named (#239). */
+export interface AgentContext {
+  name: string;
+  instructions: string;
+}
+
+/** A skill a prompt's @ handle named, or its agent brings (#239): the file's body. */
+export interface SkillContext {
+  name: string;
+  content: string;
+}
+
 export interface TextGenerationParams {
   modelId: string;
   instruction: string;
   userId: string;
   temperature?: number;
   references?: Reference[];
+  agent?: AgentContext;
+  skills?: SkillContext[];
 }
 
 export interface TextGenerationResult {

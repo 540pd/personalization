@@ -2,7 +2,25 @@
 // model, so it lives here rather than inside one capability. It started in
 // imagen.ts; a second copy in a text or video capability is how the two drift.
 
-import type { Reference } from "./types.js";
+import type { AgentContext, Reference, SkillContext } from "./types.js";
+
+/**
+ * The system instruction for a prompt's @agent and @skills (#239): the
+ * agent's instructions, then each skill under its own heading, so the
+ * prompt's `@brand-voice` points at a block the model can find by name.
+ * Undefined when there are neither.
+ */
+export function buildSystemInstruction(agent?: AgentContext, skills: SkillContext[] = []): string | undefined {
+  const blocks: string[] = [];
+  const instructions = agent?.instructions.trim();
+  if (instructions) blocks.push(instructions);
+  const named = skills.filter((s) => s.content.trim());
+  if (named.length) {
+    blocks.push("The prompt names these skills with @. Follow each one.");
+    for (const s of named) blocks.push(`## Skill: ${s.name}\n\n${s.content.trim()}`);
+  }
+  return blocks.length ? blocks.join("\n\n") : undefined;
+}
 
 export interface ContentPart {
   text?: string;

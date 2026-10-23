@@ -6,10 +6,14 @@
 // Deliberately free of store imports: everything arrives as props, so it can
 // be unit-tested without a Konva stage or a live store.
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { X, ChevronDown, Check, Loader2 } from "lucide-react";
 import { COLORS, Z_INDEX } from "@/constants/canvas.constants";
 import type { NodeKindSpec, NodeSettings } from "./nodeKinds";
+import MentionInput from "./MentionInput";
+import { mentionNotes, resolveMentions, type Mentionables } from "../../mentions/mentions";
+
+const NO_MENTIONABLES: Mentionables = { skills: [], agents: [] };
 
 /** What the user has typed and chosen. Outlives a panel close, so the parent owns it. */
 export interface GenerateDraft {
@@ -40,11 +44,15 @@ export interface GenerateFormProps {
   /** Seeds the node's name while the user is still configuring it. */
   onInstructionBlur: () => void;
   onSubmit: () => void;
+  /** The skills and agents `@` can name (#239), for kinds whose spec has `mentions`. */
+  mentionables?: Mentionables;
+  /** The empty @ menu's links to the Skills and Agents pages. */
+  onOpenLibrary?: (section: "skills" | "agents") => void;
 }
 
 export default function GenerateForm({
   spec, draft, onDraftChange, settings, onSettingsChange, busy, busyLabel, error,
-  left, top, onClose, onInstructionBlur, onSubmit,
+  left, top, onClose, onInstructionBlur, onSubmit, mentionables = NO_MENTIONABLES, onOpenLibrary,
 }: GenerateFormProps) {
   // Only chrome state lives here; resetting it on reopen is harmless.
   const [isModelOpen, setIsModelOpen] = useState(false);
@@ -64,6 +72,14 @@ export default function GenerateForm({
   }, [isModelOpen]);
 
   const canSubmit = !!instruction.trim() && !busy;
+
+  const resolved = useMemo(
+    () => (spec.mentions ? resolveMentions(instruction, mentionables, spec.mentions) : null),
+    [instruction, mentionables, spec.mentions],
+  );
+  const notes = resolved ? mentionNotes(resolved) : [];
+  // Derived, not stored: while the panel runs the agent's model, say so.
+  const modelFrom = resolved?.agent && resolved.agent.model === model ? resolved.agent.name : null;
 
   const { Advanced, Options } = spec;
   // An entry without `supports` means the kind's full set.
@@ -94,7 +110,10 @@ export default function GenerateForm({
 
           <div className="node-panel-model-wrapper" ref={modelPickerRef}>
             <button onClick={() => setIsModelOpen((v) => !v)} className="node-panel-model-trigger">
-              <span>{spec.models.find((m) => m.id === model)?.label ?? model}</span>
+              <span>
+                {spec.models.find((m) => m.id === model)?.label ?? model}
+                {modelFrom && <span className="node-panel-model-from"> · from @{modelFrom}</span>}
+              </span>
               <ChevronDown
                 size={12}
                 className={`node-panel-chevron ${isModelOpen ? "node-panel-chevron-open" : ""}`}
@@ -134,14 +153,33 @@ export default function GenerateForm({
       <div className="node-panel-body">
         <div>
           <p className="node-panel-section-label">Instruction</p>
-          <textarea
+          <MentionInput
             value={instruction}
-            onChange={(e) => onDraftChange({ ...draft, instruction: e.target.value })}
+            onChange={(next, agent) =>
+              onDraftChange({
+                ...draft,
+                instruction: next,
+                // Picking an agent runs it on its own model, if this kind has it.
+                ...(agent && spec.models.some((m) => m.id === agent.model) ? { model: agent.model } : {}),
+              })
+            }
             onBlur={onInstructionBlur}
             placeholder={spec.prompt}
-            rows={3}
             className="node-panel-instruction"
+            scope={spec.mentions}
+            mentionables={mentionables}
+            known={resolved?.known ?? []}
+            onOpenLibrary={onOpenLibrary}
           />
+          {notes.length > 0 && (
+            <div className="mention-notes">
+              {notes.map((n) => (
+                <p key={n} className="mention-note">
+                  {n}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
 
         {showAdvanced && Advanced && (

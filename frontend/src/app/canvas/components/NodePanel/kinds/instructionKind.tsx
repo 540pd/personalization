@@ -90,6 +90,8 @@ export const instructionKind: NodeKindSpec = {
   kind: "instruction",
   title: "Prompt",
   prompt: "What should this node work out?",
+  // An agent is a saved Prompt setup, so only here does @ offer agents too.
+  mentions: "skills-and-agents",
   models: MODELS,
   // Same principle as the other kinds: default to the lite model.
   defaultModel: "gemini-3.5-flash-lite",
@@ -101,13 +103,14 @@ export const instructionKind: NodeKindSpec = {
   Output,
   Advanced,
   // No Options row — a text node has no aspect ratio or quality to choose.
-  async generate({ modelId, instruction, settings, references }) {
+  async generate({ modelId, instruction, settings, references, context }) {
     const s = settings as InstructionSettings;
     const result = await generateText({
       modelId,
       instruction,
       temperature: s.temperature,
       references: references.length ? references : undefined,
+      ...context,
     });
     if (!result.text) throw new Error("Generation returned no text.");
     return { type: "text", value: result.text };
