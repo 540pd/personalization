@@ -32,7 +32,11 @@ type Viewport = { x: number; y: number; scale: number };
  * narrow on screen for one, as FrameLabels has it). Left-aligned to the
  * Frame, never wider than it, its line box LABEL_GAP above the top edge.
  */
-export function frameNameBox(frame: FrameRecord, vp: Viewport, textWidth: number): ScreenBox | null {
+export function frameNameBox(
+  frame: Pick<FrameRecord, "canvasX" | "canvasY" | "canvasW">,
+  vp: Viewport,
+  textWidth: number,
+): ScreenBox | null {
   const screenW = frame.canvasW * vp.scale;
   if (screenW < LABEL_MIN_NODE_W) return null;
   const left = vp.x + frame.canvasX * vp.scale;

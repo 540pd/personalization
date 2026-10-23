@@ -118,16 +118,18 @@ test.describe("the shape style bar", () => {
   // Lines and arrows get the bar too, without Fill: e2e/line-style.spec.ts (#162).
   // Frames and text get the bar with Color only: e2e/frame-style.spec.ts
   // (#163), e2e/text-style.spec.ts (#164).
-  test("does not show with an image in the selection", async ({ page }) => {
+  test("has no style controls with an image in the selection", async ({ page }) => {
     await openBoard(page);
 
-    // A shape with an image: not all shapes, so no bar.
+    // A shape with an image: not all shapes, so no Color, Fill or Stroke --
+    // only Create frame, which any two items get (#243).
     await uploadImage(page, 200, 150);
     await collapsePanels(page);
     await drawShape(page, "Rectangle", 800, 450, 950, 550);
     await expect(bar(page)).toBeVisible();
     await page.keyboard.press("ControlOrMeta+a");
-    await expect(bar(page)).toHaveCount(0);
+    await expect(bar(page).getByRole("button")).toHaveCount(1);
+    await expect(bar(page).getByRole("button", { name: "Create frame" })).toBeVisible();
   });
 
   test("flips below a shape at the top of the screen", async ({ page }) => {
