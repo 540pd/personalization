@@ -1,6 +1,9 @@
 // Create frame from a selection (#243): a Frame around two or more selected
 // items, with nothing moved. Membership is by containment (frameMembers), so
 // the new Frame owns them the moment it exists.
+//
+// And back (#244): Remove frame takes the Frame away, leaves its items where
+// they are, and selects them.
 
 import type Konva from "konva";
 import { useFrames, type FrameRecord } from "@/store/frame.store";
@@ -9,8 +12,9 @@ import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { boundsOf, containsBox, type Bounds } from "@/lib/canvas/bounds";
+import { membersOf } from "./frameMembers";
 import { canvasHistory } from "@/lib/canvas/history";
-import { selectOnly } from "@/lib/canvas/selection";
+import { selectNodeIds, selectOnly } from "@/lib/canvas/selection";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import {
   FRAME_LAYOUT_NAME_BAND, FRAME_LAYOUT_NAME_TOP, FRAME_LAYOUT_PADDING,
@@ -100,4 +104,49 @@ export function createFrameFromSelection(): string | null {
   useFrames.getState().select(id);
   canvasHistory.commit();
   return id;
+}
+
+/**
+ * What a Frame holds: everything inside it, and with auto layout on, the
+ * children it keeps by id (#225) that still exist.
+ */
+export function frameContents(frame: FrameRecord): { nodes: string[]; panels: string[] } {
+  const m = membersOf(frame);
+  const nodes = new Set(m.images.map((i) => i.id));
+  const panels = new Set(m.panels.map((p) => p.id));
+  const known = useKonvaNodes.getState().nodes;
+  const panelIds = new Set(useNodePanel.getState().panels.map((p) => p.id));
+  frame.layout?.columns.flat().forEach((id) => {
+    if (known[id]) nodes.add(id);
+    else if (panelIds.has(id)) panels.add(id);
+  });
+  return { nodes: [...nodes], panels: [...panels] };
+}
+
+/** The one selected Frame, when exactly one is selected and nothing else. */
+export function removableFrame(): FrameRecord | null {
+  const { frames, selectedIds } = useFrames.getState();
+  if (selectedIds.length !== 1) return null;
+  if (useKonvaSelection.getState().nodeIds.length) return null;
+  if (useNodePanel.getState().panels.some((p) => p.isActive)) return null;
+  return frames[selectedIds[0]] ?? null;
+}
+
+/**
+ * Removes the one selected Frame, in one undo step. Nothing moves; what was
+ * in it is selected instead, and an empty Frame leaves nothing selected.
+ * Returns whether a Frame went.
+ */
+export function removeSelectedFrame(): boolean {
+  const frame = removableFrame();
+  if (!frame) return false;
+  // Read before the Frame goes: membership is by containment in it.
+  const { nodes, panels } = frameContents(frame);
+  useFrames.getState().remove(frame.id);
+  selectOnly(null);
+  selectNodeIds(nodes);
+  const panelState = useNodePanel.getState();
+  panels.forEach((id) => panelState.togglePanel(id));
+  canvasHistory.commit();
+  return true;
 }

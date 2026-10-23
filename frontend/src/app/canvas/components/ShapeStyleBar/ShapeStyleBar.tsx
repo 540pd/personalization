@@ -3,7 +3,8 @@
 // The bar above a selected shape: its Color, Fill and Stroke (#161).
 //
 // Frames get it too, with Color: a swatch is their outline (#163). One Frame
-// alone also gets Auto layout, or Remove auto layout while it is on (#225).
+// alone also gets Auto layout, or Remove auto layout while it is on (#225),
+// and Remove frame (#244).
 // Text gets Color, whose colour is its letters (#164), and its Size, Bold,
 // Italic and Align (#165). A selection mixing kinds gets Color only: it is
 // what they all share.
@@ -48,7 +49,7 @@ import {
 } from "../../board/text";
 import { syncNodeGeometry } from "../../board/geometry";
 import { applyAutoLayout, canAutoLayout, removeAutoLayout } from "../../board/autoLayout";
-import { canFrame, createFrameFromSelection, selectedBoxes } from "../../board/frameSelection";
+import { canFrame, createFrameFromSelection, removeSelectedFrame, selectedBoxes } from "../../board/frameSelection";
 import { boundsOf } from "@/lib/canvas/bounds";
 import "./ShapeStyleBar.scss";
 
@@ -144,6 +145,14 @@ const StrokeIcon = ({ mode, width = 2 }: { mode: StrokeMode | undefined; width?:
 const CreateFrameIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
     <path d="M2.5 6V2.5H6M12 2.5h3.5V6M15.5 12v3.5H12M6 15.5H2.5V12" />
+  </svg>
+);
+
+// Remove frame (#244): the same corners, crossed out.
+const RemoveFrameIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
+    <path d="M2.5 6V2.5H6M12 2.5h3.5V6M15.5 12v3.5H12M6 15.5H2.5V12" />
+    <path d="M6.5 6.5l5 5M11.5 6.5l-5 5" />
   </svg>
 );
 
@@ -356,7 +365,7 @@ export default function ShapeStyleBar() {
       : SHAPE_STYLE.fill
     );
 
-  // One Frame alone: Auto layout. Disabled on an empty one, with nothing to
+  // One Frame alone: Auto layout and Remove frame. Disabled on an empty one, with nothing to
   // lay out; subscribed to `nodes` and `panels`, so one moved in enables it.
   const layoutFrame = !records.length && frameRecs.length === 1 ? frameRecs[0] : null;
   const layoutable = !!layoutFrame && canAutoLayout(layoutFrame);
@@ -451,6 +460,19 @@ export default function ShapeStyleBar() {
           </button>
           <span className="shape-style-tooltip">
             {layoutable ? layoutLabel : "Add something to the frame first"}
+          </span>
+        </div>
+        <div className="shape-style-divider" />
+        <div className="shape-style-wrapper">
+          <button
+            type="button" aria-label="Remove frame"
+            onClick={() => { setCard(null); removeSelectedFrame(); }}
+            className="shape-style-button"
+          >
+            <RemoveFrameIcon />
+          </button>
+          <span className="shape-style-tooltip">
+            Remove frame <kbd className="shape-style-kbd">⇧F</kbd>
           </span>
         </div>
       </>}

@@ -23,8 +23,8 @@ import { bakeTextResize, isBoardText } from "../board/text";
 import { applyColor } from "../board/recolor";
 import { COLOR_EVENT, type ColorDetail } from "../board/palette";
 import { useFrames } from "@/store/frame.store";
-import { createFrameFromSelection } from "../board/frameSelection";
-import { selectOnly, registerNodeChromeClear } from "@/lib/canvas/selection";
+import { createFrameFromSelection, removeSelectedFrame } from "../board/frameSelection";
+import { selectOnly, registerNodeChromeClear, registerNodeChromeSelect } from "@/lib/canvas/selection";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { bindWheelZoom } from "@/lib/canvas/wheelZoom";
@@ -230,6 +230,15 @@ export default function Board() {
     // node handles without a hand up from Board.
     registerNodeChromeClear(() => {
       transformer.nodes([]);
+      updateSelectionChrome();
+      layer.batchDraw();
+    });
+    registerNodeChromeSelect((ids) => {
+      const nodes = ids
+        .map((id) => layer.findOne<Konva.Shape>(`#${id}`))
+        .filter((n): n is Konva.Shape => !!n);
+      selectNodes(transformer, nodes);
+      hideHover();
       updateSelectionChrome();
       layer.batchDraw();
     });
@@ -684,10 +693,12 @@ export default function Board() {
       }
       // F: a Frame around two or more selected items (#243). Not while text is
       // being edited in place or a dialog is up, nor with a modifier held.
-      if (e.code === "KeyF" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      // Shift+F: the one selected Frame goes, its items stay, selected (#244).
+      if (e.code === "KeyF" && !e.altKey && !e.ctrlKey && !e.metaKey) {
         if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
         if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;
-        if (createFrameFromSelection()) e.preventDefault();
+        const done = e.shiftKey ? removeSelectedFrame() : createFrameFromSelection();
+        if (done) e.preventDefault();
         return;
       }
       // Frames keep their own selection, so they need their own Delete. Keyed
@@ -827,6 +838,7 @@ export default function Board() {
       unfollow();
       observer.disconnect();
       registerNodeChromeClear(null);
+      registerNodeChromeSelect(null);
       boardStage.current = null;
       // Entries hold references into this layer, so they outlive their
       // meaning once the stage is gone.

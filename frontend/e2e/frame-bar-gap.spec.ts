@@ -86,11 +86,11 @@ test.describe("style bar gap over Frames (#223)", () => {
 
   test("zooming out can make the same Frame narrow enough to lift", async ({ page }) => {
     await openBoard(page);
-    await drawFrame(page, 450, 250, 650, 450);
+    await drawFrame(page, 350, 250, 650, 450);
     await setZoom(page, 1);
     expect(await gap(page)).toBe(GAP);
 
-    // At 50% the Frame is 100px wide: the centred bar reaches the name.
+    // At 50% the Frame is 150px wide: the centred bar reaches the name.
     // Off 100%, the outline's stroke and the wheel's inexact scale move the
     // measured edge by a pixel.
     await setZoom(page, 0.5);

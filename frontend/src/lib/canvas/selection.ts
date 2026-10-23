@@ -28,6 +28,21 @@ export function registerNodeChromeClear(fn: (() => void) | null): void {
 }
 
 /**
+ * Selecting Konva nodes by id likewise needs the transformer: Board registers
+ * it, so code outside Board (Remove frame, #244) can hand over a selection.
+ */
+let selectNodeChrome: ((ids: string[]) => void) | null = null;
+
+export function registerNodeChromeSelect(fn: ((ids: string[]) => void) | null): void {
+  selectNodeChrome = fn;
+}
+
+/** Select these Konva nodes, with their handles, alongside what is selected. */
+export function selectNodeIds(ids: string[]): void {
+  if (ids.length) selectNodeChrome?.(ids);
+}
+
+/**
  * Make `keep` the only kind holding a selection. Pass `null` to clear all of
  * them, as a click on empty board or Escape does.
  *
