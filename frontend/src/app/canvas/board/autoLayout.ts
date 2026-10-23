@@ -3,17 +3,21 @@
 // One click lines up everything in a Frame: one row, in left-to-right order,
 // FRAME_LAYOUT_PADDING around and FRAME_LAYOUT_GAP between, aligned to the
 // top, with the Frame hugging the row and its top-left corner staying put.
-// No settings, as in Luma. Removing it leaves everything where it is.
+// Removing it leaves everything where it is.
+//
+// The row is a row of columns (#230): dropping an item on another's top or
+// bottom stacks them in one column, aligned to the left (autoLayoutDrop). A
+// plain row is one item per column; a single column is one stack.
 //
 // While it is on, the Frame keeps its children by id (FrameRecord.layout), and
-// the row is laid out again whenever they change: one deleted or resized, a
-// panel growing, or one dragged out (dropped clear of the Frame, it leaves).
-// That runs after the change, never inside it, so it is not an undo step of
-// its own: undo puts back the state before the change, and the layout follows
-// from that again.
+// it is laid out again whenever they change: one deleted or resized, a panel
+// growing, or one dragged out (dropped clear of the Frame, it leaves). That
+// runs after the change, never inside it, so it is not an undo step of its
+// own: undo puts back the state before the change, and the layout follows
+// from that again. When nothing is left in it, auto layout turns off.
 
 import type Konva from "konva";
-import { useFrames, type FrameRecord } from "@/store/frame.store";
+import { useFrames, type FrameLayout, type FrameRecord } from "@/store/frame.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { boardStage } from "@/lib/canvas/boardStage";
@@ -28,39 +32,55 @@ export interface ChildBox extends Bounds {
   id: string;
 }
 
-export interface RowLayout {
+export interface GridLayout {
   /** Where each child's top-left goes. */
   positions: Record<string, { x: number; y: number }>;
-  /** The Frame's size, hugging the row. */
+  /** The Frame's size, hugging everything. */
   w: number;
   h: number;
 }
 
+/** Every child id in a layout, column by column. */
+export const childrenOf = (layout: FrameLayout): string[] => layout.columns.flat();
+
 /**
- * The order children take: left to right, ties by top edge. The one place
- * that decides it, so an option for top to bottom only has to change this.
+ * The order children take when auto layout is turned on: left to right,
+ * ties by top edge.
  */
 export function orderChildren(boxes: ChildBox[]): ChildBox[] {
   return [...boxes].sort((a, b) => a.x - b.x || a.y - b.y);
 }
 
-/** One row from `origin` (the Frame's top-left), in the order given. */
-export function layoutRow(
+/**
+ * Columns side by side, aligned to the top; each one's children stacked,
+ * aligned to the left. From `origin`, the Frame's top-left. A column with no
+ * boxes in it takes no space.
+ */
+export function layoutColumns(
   origin: { x: number; y: number },
-  ordered: ChildBox[],
+  columns: ChildBox[][],
   padding = FRAME_LAYOUT_PADDING,
   gap = FRAME_LAYOUT_GAP,
-): RowLayout {
-  const positions: RowLayout["positions"] = {};
-  let x = origin.x + padding;
+): GridLayout {
+  const positions: GridLayout["positions"] = {};
+  let x = padding;
   let tallest = 0;
-  ordered.forEach((b, i) => {
-    if (i > 0) x += gap;
-    positions[b.id] = { x, y: origin.y + padding };
-    x += b.w;
-    tallest = Math.max(tallest, b.h);
-  });
-  return { positions, w: x - origin.x + padding, h: tallest + 2 * padding };
+  let placed = 0;
+  for (const col of columns) {
+    if (!col.length) continue;
+    if (placed++) x += gap;
+    let y = padding;
+    let widest = 0;
+    col.forEach((b, i) => {
+      if (i) y += gap;
+      positions[b.id] = { x: origin.x + x, y: origin.y + y };
+      y += b.h;
+      widest = Math.max(widest, b.w);
+    });
+    x += widest;
+    tallest = Math.max(tallest, y - padding);
+  }
+  return { positions, w: x + padding, h: tallest + 2 * padding };
 }
 
 /** The boxes of these ids now, in this order. Ones that are gone are left out. */
@@ -79,7 +99,7 @@ export function childBoxes(ids: string[]): ChildBox[] {
 const near = (a: number, b: number) => Math.abs(a - b) < 0.5;
 
 /** Move each child whose box isn't already at its position. */
-function place(boxes: ChildBox[], positions: RowLayout["positions"]): void {
+function place(boxes: ChildBox[], positions: GridLayout["positions"]): void {
   const stage = boardStage.current;
   const nodes = useKonvaNodes.getState();
   const panelMoves: Record<string, { x: number; y: number }> = {};
@@ -114,7 +134,7 @@ export function canAutoLayout(frame: FrameRecord): boolean {
   return m.images.length + m.panels.length > 0;
 }
 
-/** Turn auto layout on: one undo step. Says whether it did. */
+/** Turn auto layout on: one item per column, left to right. One undo step. */
 export function applyAutoLayout(id: string): boolean {
   const frame = useFrames.getState().frames[id];
   if (!frame || frame.layout) return false;
@@ -122,10 +142,10 @@ export function applyAutoLayout(id: string): boolean {
   const boxes = orderChildren(childBoxes([...m.images, ...m.panels].map((c) => c.id)));
   if (!boxes.length) return false;
 
-  const row = layoutRow({ x: frame.canvasX, y: frame.canvasY }, boxes);
-  place(boxes, row.positions);
+  const grid = layoutColumns({ x: frame.canvasX, y: frame.canvasY }, boxes.map((b) => [b]));
+  place(boxes, grid.positions);
   useFrames.getState().upsert({
-    ...frame, canvasW: row.w, canvasH: row.h, layout: { children: boxes.map((b) => b.id) },
+    ...frame, canvasW: grid.w, canvasH: grid.h, layout: { columns: boxes.map((b) => [b.id]) },
   });
   canvasHistory.commit();
   return true;
@@ -141,6 +161,13 @@ export function removeAutoLayout(id: string): boolean {
   return true;
 }
 
+/** `columns` without these ids, and without any column that leaves empty. */
+export function withoutIds(columns: string[][], ids: Set<string>): string[][] {
+  return columns
+    .map((col) => col.filter((c) => !ids.has(c)))
+    .filter((col) => col.length > 0);
+}
+
 /**
  * Lay every auto-layout Frame out again to match its children now. Not an
  * undo step: see the top of this file. Says whether anything changed.
@@ -150,30 +177,32 @@ export function reflowAutoLayouts(): boolean {
   for (const frame of Object.values(useFrames.getState().frames)) {
     if (!frame.layout) continue;
     const area: Bounds = { x: frame.canvasX, y: frame.canvasY, w: frame.canvasW, h: frame.canvasH };
-    const present = childBoxes(frame.layout.children);
+    const present = frame.layout.columns.map((col) => childBoxes(col));
     // Dropped clear of the Frame: it has left the layout.
-    const left = new Set(present.filter((b) => !overlaps(area, b)).map((b) => b.id));
-    const boxes = present.filter((b) => !left.has(b.id));
-    const children = left.size
-      ? frame.layout.children.filter((c) => !left.has(c))
-      : frame.layout.children;
+    const left = new Set(present.flat().filter((b) => !overlaps(area, b)).map((b) => b.id));
+    const columns = left.size ? withoutIds(frame.layout.columns, left) : frame.layout.columns;
+    const boxes = present.map((col) => col.filter((b) => !left.has(b.id)));
 
-    if (!boxes.length) {
-      // Nothing left to hug: the Frame keeps its size.
-      if (left.size) {
-        useFrames.getState().upsert({ ...frame, layout: { children } });
+    if (!boxes.some((col) => col.length)) {
+      // Nothing left in it: auto layout turns off, and the Frame keeps its
+      // size. Only with the board up -- while a board loads, its nodes are
+      // not all known yet, and an empty-looking Frame is not empty.
+      if (boardStage.current) {
+        useFrames.getState().upsert({ ...frame, layout: undefined });
         changed = true;
       }
       continue;
     }
 
-    const row = layoutRow({ x: frame.canvasX, y: frame.canvasY }, boxes);
-    const moves = boxes.some((b) => !near(b.x, row.positions[b.id].x) || !near(b.y, row.positions[b.id].y));
-    if (moves) place(boxes, row.positions);
-    if (left.size || !near(row.w, frame.canvasW) || !near(row.h, frame.canvasH)) {
-      useFrames.getState().upsert({ ...frame, canvasW: row.w, canvasH: row.h, layout: { children } });
+    const grid = layoutColumns({ x: frame.canvasX, y: frame.canvasY }, boxes);
+    const flat = boxes.flat();
+    const moves = flat.some((b) => !near(b.x, grid.positions[b.id].x) || !near(b.y, grid.positions[b.id].y));
+    if (moves) place(flat, grid.positions);
+    const resized = !near(grid.w, frame.canvasW) || !near(grid.h, frame.canvasH);
+    if (left.size || resized) {
+      useFrames.getState().upsert({ ...frame, canvasW: grid.w, canvasH: grid.h, layout: { columns } });
     }
-    changed ||= moves || left.size > 0 || !near(row.w, frame.canvasW) || !near(row.h, frame.canvasH);
+    changed ||= moves || left.size > 0 || resized;
   }
   return changed;
 }

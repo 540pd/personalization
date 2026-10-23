@@ -1,50 +1,47 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { dropIntoLayout, joinLayout, layoutFrameAt, slotIndex, slotLine, trackLayoutDrag } from "../autoLayoutDrop";
-import type { ChildBox } from "../autoLayout";
+import {
+  dropIntoLayout, dropTarget, joinLayout, layoutFrameAt, placeInto, sideOf, trackLayoutDrag,
+} from "../autoLayoutDrop";
 import { useFrames, type FrameRecord } from "@/store/frame.store";
 import { useKonvaNodes, type KonvaNodeRecord } from "@/store/konvaNodes.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useLayoutDrop } from "@/store/layoutDrop.store";
 
-const box = (id: string, x: number, w = 90, h = 60): ChildBox => ({ id, x, y: 16, w, h });
-// A row as #225 lays it out: 16 padding, 16 gap.
-const row = [box("a", 16), box("b", 122), box("c", 228, 90, 80)];
-
-describe("slotIndex", () => {
-  it("is after every child whose middle is left of the pointer", () => {
-    expect(slotIndex(row, { x: 10, y: 0 })).toBe(0);
-    expect(slotIndex(row, { x: 70, y: 0 })).toBe(1);
-    expect(slotIndex(row, { x: 160, y: 0 })).toBe(1);
-    expect(slotIndex(row, { x: 170, y: 0 })).toBe(2);
-    expect(slotIndex(row, { x: 400, y: 0 })).toBe(3);
+describe("sideOf", () => {
+  const b = { x: 0, y: 0, w: 200, h: 100 };
+  it("is the side the pointer is nearest, split corner to corner", () => {
+    expect(sideOf(b, { x: 10, y: 50 })).toBe("left");
+    expect(sideOf(b, { x: 190, y: 50 })).toBe("right");
+    expect(sideOf(b, { x: 100, y: 5 })).toBe("top");
+    expect(sideOf(b, { x: 100, y: 95 })).toBe("bottom");
+  });
+  it("by share of half the size, so a wide box still has a top and bottom", () => {
+    // 40 right of centre is 40% of the half-width; 30 below is 60% of the half-height.
+    expect(sideOf(b, { x: 140, y: 80 })).toBe("bottom");
   });
 });
 
-describe("slotLine", () => {
-  const frame = { x: 0, y: 0, w: 334, h: 112 };
-  it("sits in the padding before the first and after the last", () => {
-    expect(slotLine(frame, row, 0)).toEqual({ x: 8, y: 16, h: 80 });
-    expect(slotLine(frame, row, 3)).toEqual({ x: 326, y: 16, h: 80 });
-  });
-  it("sits in the middle of a gap", () => {
-    expect(slotLine(frame, row, 1)).toEqual({ x: 114, y: 16, h: 80 });
-  });
-  it("with no other children, spans the inside of the Frame", () => {
-    expect(slotLine(frame, [], 0)).toEqual({ x: 8, y: 16, h: 80 });
+describe("placeInto", () => {
+  it("adds a new column, or into a column's stack", () => {
+    expect(placeInto([["a"], ["b"]], "n", { kind: "column", index: 1 })).toEqual([["a"], ["n"], ["b"]]);
+    expect(placeInto([["a"], ["b", "c"]], "n", { kind: "stack", column: 1, index: 1 })).toEqual([["a"], ["b", "n", "c"]]);
   });
 });
 
 const node = (id: string, x: number, y = 16, w = 90, h = 60): KonvaNodeRecord =>
   ({ id, canvasX: x, canvasY: y, canvasW: w, canvasH: h });
-const frame = (id: string, x: number, children?: string[]): FrameRecord => ({
+const frame = (id: string, x: number, columns?: string[][]): FrameRecord => ({
   id, label: id, canvasX: x, canvasY: 0, canvasW: 334, canvasH: 112,
-  ...(children ? { layout: { children } } : {}),
+  ...(columns ? { layout: { columns } } : {}),
 });
-const kids = (id: string) => useFrames.getState().frames[id].layout?.children;
+const cols = (id: string) => useFrames.getState().frames[id].layout?.columns;
 
-describe("dropping into rows", () => {
+describe("dropping into a Frame with auto layout", () => {
+  // As #225 lays it out: a at 16, b at 122, c at 228 (taller).
   beforeEach(() => {
-    useFrames.setState({ frames: { f: frame("f", 0, ["a", "b", "c"]), g: frame("g", 1000, ["d"]), plain: frame("plain", 2000) } });
+    useFrames.setState({
+      frames: { f: frame("f", 0, [["a"], ["b"], ["c"]]), g: frame("g", 1000, [["d"]]), plain: frame("plain", 2000) },
+    });
     useKonvaNodes.setState({
       nodes: { a: node("a", 16), b: node("b", 122), c: node("c", 228, 16, 90, 80), d: node("d", 1016), e: node("e", 600, 300) },
     });
@@ -57,59 +54,88 @@ describe("dropping into rows", () => {
     expect(layoutFrameAt({ x: 2050, y: 50 })).toBeNull();
   });
 
-  it("reorders: the first child dropped past the second's middle goes after it", () => {
-    expect(dropIntoLayout("a", { x: 180, y: 40 })).toBe(true);
-    expect(kids("f")).toEqual(["b", "a", "c"]);
+  it("on an item's right side: a new column after it, with an upright line beside its column", () => {
+    const t = dropTarget({ x: 0, y: 0, w: 334, h: 112 }, [["a"], ["c"]], { x: 100, y: 46 });
+    expect(t.placement).toEqual({ kind: "column", index: 1 });
+    expect(t.line).toEqual({ x: 16 + 90 + 8, y: 16, length: 60, vertical: true });
   });
 
-  it("dropped back in its own slot, nothing changes", () => {
-    expect(dropIntoLayout("b", { x: 160, y: 40 })).toBe(false);
-    expect(kids("f")).toEqual(["a", "b", "c"]);
+  it("on an item's bottom: into its column below it, with a flat line under it", () => {
+    const t = dropTarget({ x: 0, y: 0, w: 334, h: 112 }, [["a"], ["c"]], { x: 61, y: 72 });
+    expect(t.placement).toEqual({ kind: "stack", column: 0, index: 1 });
+    expect(t.line).toEqual({ x: 16, y: 16 + 60 + 8, length: 90, vertical: false });
   });
 
-  it("dropped outside its Frame, it leaves the row", () => {
+  it("over a gap: a new column between", () => {
+    const t = dropTarget({ x: 0, y: 0, w: 334, h: 112 }, [["a"], ["c"]], { x: 115, y: 100 });
+    expect(t.placement).toEqual({ kind: "column", index: 1 });
+  });
+
+  it("dropped on the next item's right side, it moves after it", () => {
+    expect(dropIntoLayout("a", { x: 200, y: 46 })).toBe(true);
+    expect(cols("f")).toEqual([["b"], ["a"], ["c"]]);
+  });
+
+  it("dropped on another item's bottom, it stacks under it", () => {
+    expect(dropIntoLayout("a", { x: 167, y: 72 })).toBe(true);
+    expect(cols("f")).toEqual([["b", "a"], ["c"]]);
+  });
+
+  it("dropped on another item's top, it stacks above it", () => {
+    expect(dropIntoLayout("c", { x: 167, y: 20 })).toBe(true);
+    expect(cols("f")).toEqual([["a"], ["c", "b"]]);
+  });
+
+  it("dropped back where it was, nothing changes", () => {
+    expect(dropIntoLayout("b", { x: 115, y: 100 })).toBe(false);
+    expect(cols("f")).toEqual([["a"], ["b"], ["c"]]);
+  });
+
+  it("dropped outside its Frame, it leaves, and its column goes", () => {
     expect(dropIntoLayout("b", { x: 600, y: 600 })).toBe(true);
-    expect(kids("f")).toEqual(["a", "c"]);
+    expect(cols("f")).toEqual([["a"], ["c"]]);
   });
 
-  it("dropped in another row, it moves there", () => {
+  it("dropped in another Frame, it moves there", () => {
     expect(dropIntoLayout("a", { x: 1300, y: 40 })).toBe(true);
-    expect(kids("f")).toEqual(["b", "c"]);
-    expect(kids("g")).toEqual(["d", "a"]);
+    expect(cols("f")).toEqual([["b"], ["c"]]);
+    expect(cols("g")).toEqual([["d"], ["a"]]);
   });
 
-  it("an outsider dropped in a row joins at the slot", () => {
-    expect(dropIntoLayout("e", { x: 10, y: 40 })).toBe(true);
-    expect(kids("f")).toEqual(["e", "a", "b", "c"]);
+  it("an outsider dropped on an item's left side joins before it", () => {
+    expect(dropIntoLayout("e", { x: 20, y: 46 })).toBe(true);
+    expect(cols("f")).toEqual([["e"], ["a"], ["b"], ["c"]]);
   });
 
-  it("keeps a deleted child's id in its place", () => {
-    useKonvaNodes.getState().remove("b");
-    dropIntoLayout("e", { x: 300, y: 40 });
-    expect(kids("f")).toEqual(["a", "b", "c", "e"]);
+  it("taken out of a stack and put beside another, the stack shrinks", () => {
+    useFrames.getState().upsert({ ...useFrames.getState().frames.f, layout: { columns: [["a", "b"], ["c"]] } });
+    useKonvaNodes.getState().upsert(node("b", 16, 92));
+    dropIntoLayout("b", { x: 310, y: 56 });
+    expect(cols("f")).toEqual([["a"], ["c"], ["b"]]);
   });
 
-  it("shows the line while over a row, and hides it off one and on the drop", () => {
-    trackLayoutDrag("a", { x: 180, y: 40 });
-    // Without a, the others are b and c: the slot between them.
-    expect(useLayoutDrop.getState().line).toEqual({ x: (122 + 90 + 228) / 2, y: 16, h: 80 });
+  it("shows the line while over the Frame, and hides it off it and on the drop", () => {
+    trackLayoutDrag("a", { x: 200, y: 46 });
+    expect(useLayoutDrop.getState().line).toMatchObject({ vertical: true });
+    trackLayoutDrag("a", { x: 167, y: 72 });
+    expect(useLayoutDrop.getState().line).toMatchObject({ vertical: false });
     trackLayoutDrag("a", { x: 600, y: 600 });
     expect(useLayoutDrop.getState().line).toBeNull();
-    trackLayoutDrag("a", { x: 180, y: 40 });
-    dropIntoLayout("a", { x: 180, y: 40 });
+    trackLayoutDrag("a", { x: 200, y: 46 });
+    dropIntoLayout("a", { x: 200, y: 46 });
     expect(useLayoutDrop.getState().line).toBeNull();
   });
 });
 
 describe("joinLayout", () => {
   beforeEach(() => {
-    useFrames.setState({ frames: { f: frame("f", 0, ["a"]) } });
+    useFrames.setState({ frames: { f: frame("f", 0, [["a"]]) } });
     useKonvaNodes.setState({ nodes: { a: node("a", 16), n: node("n", 200, 20, 50, 40), half: node("half", 300, 20, 100, 40) } });
   });
 
-  it("adds an item drawn fully inside at the end", () => {
+  it("adds an item drawn fully inside as a column at the end", () => {
     expect(joinLayout("n")).toBe(true);
-    expect(kids("f")).toEqual(["a", "n"]);
+    expect(cols("f")).toEqual([["a"], ["n"]]);
   });
 
   it("not one only partly inside", () => {
@@ -118,7 +144,7 @@ describe("joinLayout", () => {
 
   it("with a drop point, the Frame under it decides", () => {
     expect(joinLayout("half", { x: 320, y: 40 })).toBe(true);
-    expect(kids("f")).toEqual(["a", "half"]);
+    expect(cols("f")).toEqual([["a"], ["half"]]);
   });
 
   it("not twice", () => {

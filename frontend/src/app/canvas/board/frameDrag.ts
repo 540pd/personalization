@@ -18,6 +18,7 @@ import { frameStage } from "@/lib/canvas/frameStage";
 import { canvasHistory } from "@/lib/canvas/history";
 import { selectOnly } from "@/lib/canvas/selection";
 import { containsBox, type Bounds } from "@/lib/canvas/bounds";
+import { childrenOf } from "./autoLayout";
 import { membersOf, moveMembers } from "./frameMembers";
 
 const boundsOfFrame = (f: FrameRecord): Bounds => ({
@@ -38,7 +39,7 @@ export function selectedFrameAround(box: Bounds, nodeId?: string): FrameRecord |
   const around = selectedIds
     .map((id) => frames[id])
     .filter((f): f is FrameRecord => !!f && containsBox(boundsOfFrame(f), box))
-    .filter((f) => !(nodeId && f.layout?.children.includes(nodeId)));
+    .filter((f) => !(nodeId && f.layout && childrenOf(f.layout).includes(nodeId)));
   around.sort((a, b) => a.canvasW * a.canvasH - b.canvasW * b.canvasH);
   return around[0] ?? null;
 }

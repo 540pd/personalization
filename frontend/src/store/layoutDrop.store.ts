@@ -5,11 +5,17 @@ import { create } from "zustand";
 // being dragged over a row.
 
 export interface DropLine {
-  /** Centre of the line. */
+  /**
+   * Where the line starts: for a row's upright line, its centre x and the
+   * row's top; for a column's flat line (#230), the column's left and its
+   * centre y.
+   */
   x: number;
-  /** Top of the row, and its height. */
   y: number;
-  h: number;
+  /** How long: the row's height, or the column's width. */
+  length: number;
+  /** Upright in a row, flat in a column. */
+  vertical: boolean;
 }
 
 interface LayoutDropState {
@@ -22,7 +28,8 @@ export const useLayoutDrop = create<LayoutDropState>((set, get) => ({
   setLine: (line) => {
     const cur = get().line;
     // Same line, no update: this runs on every pointermove of a drag.
-    if (cur === line || (cur && line && cur.x === line.x && cur.y === line.y && cur.h === line.h)) return;
+    if (cur === line || (cur && line && cur.x === line.x && cur.y === line.y
+      && cur.length === line.length && cur.vertical === line.vertical)) return;
     set({ line });
   },
 }));

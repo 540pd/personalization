@@ -146,6 +146,20 @@ describe("parseBoardFile", () => {
     expect(parsed).toEqual({ ok: true, file });
   });
 
+  it("reads a Frame's auto layout back: columns, or #225's flat list as one per column", () => {
+    const raw = valid();
+    const frame = raw.frames[0];
+    const parsed = parseBoardFile(JSON.stringify({ ...raw, frames: [
+      { ...frame, layout: { columns: [["s1"], ["i1", "x"]] } },
+      { ...frame, id: "f2", layout: { children: ["s1", "i1"] } },
+      { ...frame, id: "f3", layout: { columns: [[], 3] } },
+    ] }));
+    if (!parsed.ok) throw new Error("expected ok");
+    expect(parsed.file.frames[0].layout).toEqual({ columns: [["s1"], ["i1", "x"]] });
+    expect(parsed.file.frames[1].layout).toEqual({ columns: [["s1"], ["i1"]] });
+    expect(parsed.file.frames[2]).not.toHaveProperty("layout");
+  });
+
   it("rejects text that is not JSON, or JSON that is not a board", () => {
     expect(parseBoardFile("not json")).toEqual({ ok: false, error: "invalid" });
     expect(parseBoardFile("[]")).toEqual({ ok: false, error: "invalid" });
