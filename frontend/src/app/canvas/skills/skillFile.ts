@@ -2,7 +2,7 @@
 // agent's Import .md (#208) -- and reading what it can pre-fill. Pure
 // functions, so the rules are tested without a DOM.
 
-import { MAX_DESCRIPTION, MAX_NAME, MAX_TAGS, normalizeTag, type Listed } from "../library/fields";
+import { firstHandle, MAX_DESCRIPTION, MAX_TAGS, normalizeTag, type Listed } from "../library/fields";
 
 export const MAX_SKILL_BYTES = 100 * 1024;
 
@@ -26,10 +26,9 @@ export function fileProblem(file: { name: string; size: number }): string | null
   return null;
 }
 
-/** "brand-voice.md" → "Brand voice". */
+/** "Brand_Voice.md" → "brand-voice" (#237); "" if nothing is left. */
 export function nameFromFileName(fileName: string): string {
-  const stem = fileName.replace(/\.(md|markdown)$/i, "").replace(/[-_\s]+/g, " ").trim();
-  return stem ? stem[0].toUpperCase() + stem.slice(1) : "";
+  return firstHandle(fileName.replace(/\.(md|markdown)$/i, ""));
 }
 
 function unquote(value: string): string {
@@ -106,16 +105,12 @@ export function frontList(front: FrontMatter, key: string): string[] {
 /**
  * What a form can pre-fill from a file: front matter `name` / `description`
  * first, then the first `# heading`, then the file name; `tags` from front
- * matter only.
+ * matter only. The name is a handle (#237): the first of those that leaves one.
  */
 export function metaFromFile(text: string, fileName: string): { name: string; description: string; tags: string[] } {
   const front = readFrontMatter(text);
-  let name = frontString(front, "name");
-  if (!name) {
-    const heading = /^#[ \t]+(.+?)[ \t#]*$/m.exec(stripFrontMatter(text));
-    if (heading) name = heading[1].trim();
-  }
-  if (!name) name = nameFromFileName(fileName);
+  const heading = /^#[ \t]+(.+?)[ \t#]*$/m.exec(stripFrontMatter(text));
+  const name = firstHandle(frontString(front, "name"), heading?.[1] ?? "", nameFromFileName(fileName));
 
   const tags: string[] = [];
   for (const raw of frontList(front, "tags")) {
@@ -124,7 +119,7 @@ export function metaFromFile(text: string, fileName: string): { name: string; de
   }
 
   return {
-    name: name.slice(0, MAX_NAME),
+    name,
     description: frontString(front, "description").slice(0, MAX_DESCRIPTION),
     tags,
   };

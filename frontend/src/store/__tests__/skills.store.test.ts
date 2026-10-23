@@ -19,7 +19,7 @@ function memoryStorage(failWrites = false): Storage & { data: Map<string, string
 }
 
 const skill: Skill = {
-  id: "skill-1", name: "Brand voice", description: "Warm copy", tags: ["brand"],
+  id: "skill-1", name: "brand-voice", description: "Warm copy", tags: ["brand"],
   fileName: "brand-voice.md", size: 12, content: "# Brand voice", createdAt: 1,
 };
 
@@ -56,6 +56,18 @@ describe("skills storage", () => {
     storage.setItem(SKILLS_STORAGE_KEY, JSON.stringify({ version: 1, skills: [skill, { id: 3 }] }));
     expect(loadSkills(storage)).toEqual([skill]);
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("loads names saved before #237 as handles, a clash numbered, an empty one from its file", () => {
+    const storage = memoryStorage();
+    const old = [
+      { ...skill, id: "a", name: "Brand voice" },
+      { ...skill, id: "b", name: "brand voice" },
+      { ...skill, id: "c", name: "日本", fileName: "tone_guide.md" },
+      { ...skill, id: "d", name: "??", fileName: "??.md" },
+    ];
+    expect(saveSkills(old, storage)).toBe(true);
+    expect(loadSkills(storage).map((s) => s.name)).toEqual(["brand-voice", "brand-voice-2", "tone-guide", "skill"]);
   });
 
   it("never throws when storage itself is unavailable", () => {

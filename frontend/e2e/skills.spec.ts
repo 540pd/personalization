@@ -68,7 +68,7 @@ test.describe("Skills page", () => {
     await expect(page.getByRole("button", { name: "Upload", exact: true })).toBeDisabled();
 
     await chooseSkillFile(page, "brand-voice.md", BRAND_VOICE);
-    await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Brand voice");
+    await expect(page.getByLabel("Name", { exact: true })).toHaveValue("brand-voice");
     await expect(page.getByLabel("Description", { exact: true })).toHaveValue("Warm, direct copy");
 
     const tags = page.getByLabel(/Tags/);
@@ -81,10 +81,10 @@ test.describe("Skills page", () => {
 
     await page.getByRole("button", { name: "Upload", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(page.getByRole("status")).toContainText("Brand voice added");
+    await expect(page.getByRole("status")).toContainText("brand-voice added");
     const row = page.locator(".library-table tbody tr");
     await expect(row).toHaveCount(1);
-    await expect(row).toContainText("Brand voice");
+    await expect(row).toContainText("brand-voice");
     await expect(row).toContainText("brand-voice.md");
     await expect(row).toContainText("Warm, direct copy");
     await expect(row).toContainText("brand");
@@ -111,9 +111,9 @@ test.describe("Skills page", () => {
     await openSkills(page);
     await uploadSkill(page, "brand-voice.md", BRAND_VOICE);
     await uploadSkill(page, "brand-voice.md", BRAND_VOICE);
-    await expect(page.getByRole("alertdialog")).toContainText("Replace “Brand voice”?");
+    await expect(page.getByRole("alertdialog")).toContainText("Replace “brand-voice”?");
     await page.getByRole("button", { name: "Keep both" }).click();
-    await expect(page.locator(".library-cell-name")).toHaveText(["Brand voice", "Brand voice (2)"]);
+    await expect(page.locator(".library-cell-name")).toHaveText(["brand-voice", "brand-voice-2"]);
   });
 
   test("searches and filters by tag", async ({ page }) => {
@@ -121,10 +121,10 @@ test.describe("Skills page", () => {
     await openSkills(page);
     await uploadSkill(page, "brand-voice.md", BRAND_VOICE, ["brand"]);
     await uploadSkill(page, "photo.md", "# Product photography\nStudio light.", ["image"]);
-    await expect(page.locator(".library-cell-name")).toHaveText(["Brand voice", "Product photography"]);
+    await expect(page.locator(".library-cell-name")).toHaveText(["brand-voice", "product-photography"]);
 
     await page.getByRole("button", { name: "image", exact: true }).click();
-    await expect(page.locator(".library-cell-name")).toHaveText(["Product photography"]);
+    await expect(page.locator(".library-cell-name")).toHaveText(["product-photography"]);
     await expect(page.locator(".library-count")).toHaveText("1 skill");
 
     await page.getByLabel("Search skills").fill("warm");

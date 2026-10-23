@@ -16,21 +16,26 @@ describe("fileProblem", () => {
 
 describe("metaFromFile", () => {
   it("reads name and description from front matter, quoted or not", () => {
-    const text = '---\nname: "Brand voice"\ndescription: Warm, direct copy\nlicense: x\n---\n# Ignored\n';
-    expect(metaFromFile(text, "x.md")).toEqual({ name: "Brand voice", description: "Warm, direct copy", tags: [] });
+    const text = '---\nname: "Brand Voice"\ndescription: Warm, direct copy\nlicense: x\n---\n# Ignored\n';
+    expect(metaFromFile(text, "x.md")).toEqual({ name: "brand-voice", description: "Warm, direct copy", tags: [] });
   });
 
   it("falls back to the first heading, then the file name", () => {
-    expect(metaFromFile("Intro\n\n# Product photography ##\nmore", "p.md").name).toBe("Product photography");
-    expect(metaFromFile("no heading here", "brand_voice-guide.md")).toEqual({ name: "Brand voice guide", description: "", tags: [] });
+    expect(metaFromFile("Intro\n\n# Product photography ##\nmore", "p.md").name).toBe("product-photography");
+    expect(metaFromFile("no heading here", "brand_voice-guide.md")).toEqual({ name: "brand-voice-guide", description: "", tags: [] });
+  });
+
+  it("skips a name or heading that leaves no handle (#237)", () => {
+    expect(metaFromFile("---\nname: 日本\n---\n# Tone\n", "x.md").name).toBe("tone");
+    expect(metaFromFile("# !!!\n", "brand voice.md").name).toBe("brand-voice");
   });
 
   it("uses the heading when front matter has no name", () => {
-    expect(metaFromFile("---\ndescription: d\n---\n# Title\n", "x.md")).toEqual({ name: "Title", description: "d", tags: [] });
+    expect(metaFromFile("---\ndescription: d\n---\n# Title\n", "x.md")).toEqual({ name: "title", description: "d", tags: [] });
   });
 
   it("ignores a --- that does not open the file", () => {
-    expect(metaFromFile("# Top\n---\nname: Nope\n---\n", "x.md").name).toBe("Top");
+    expect(metaFromFile("# Top\n---\nname: Nope\n---\n", "x.md").name).toBe("top");
   });
 
   it("caps what it fills at the field limits", () => {
@@ -66,8 +71,9 @@ describe("stripFrontMatter", () => {
 });
 
 describe("nameFromFileName", () => {
-  it("drops the extension and separators and capitalises", () => {
-    expect(nameFromFileName("brand-voice.md")).toBe("Brand voice");
+  it("makes a handle of the file name without its extension", () => {
+    expect(nameFromFileName("Brand_Voice.md")).toBe("brand-voice");
+    expect(nameFromFileName("brand-voice.markdown")).toBe("brand-voice");
     expect(nameFromFileName(".md")).toBe("");
   });
 });

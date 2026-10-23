@@ -66,7 +66,7 @@ test.describe("Agents page", () => {
     await expect(upload).toBeDisabled();
 
     await chooseAgentFile(page, "copywriter.md", COPYWRITER);
-    await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Copywriter");
+    await expect(page.getByLabel("Name", { exact: true })).toHaveValue("copywriter");
     await expect(page.getByLabel("Description", { exact: true })).toHaveValue("Writes taglines");
     await expect(page.locator(".library-tag-chip")).toHaveText(["copy"]);
     await expect(page.locator(".library-file-meta")).toHaveText(/Gemini 3\.8 Flash · 2 skills/);
@@ -74,20 +74,20 @@ test.describe("Agents page", () => {
     await expect(page.getByLabel("Instructions")).toHaveCount(0);
     await expect(page.getByRole("radio")).toHaveCount(0);
 
-    await page.getByLabel("Name", { exact: true }).fill("Headline writer");
+    await page.getByLabel("Name", { exact: true }).fill("Headline Writer");
     await upload.click();
 
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(page.getByRole("status")).toContainText("Headline writer added");
+    await expect(page.getByRole("status")).toContainText("headline-writer added");
     const row = page.locator(".library-table tbody tr");
     await expect(row).toHaveCount(1);
     await expect(row).toContainText("copywriter.md · Gemini 3.8 Flash");
-    await expect(row.locator(".library-skill-ref")).toHaveText(["Campaign brief", "Brand voice"]);
+    await expect(row.locator(".library-skill-ref")).toHaveText(["campaign-brief", "brand-voice"]);
     await expect(row.locator(".library-tag")).toHaveText(["copy"]);
 
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("gcos-agents")!).agents[0]);
     expect(saved).toMatchObject({
-      name: "Headline writer",
+      name: "headline-writer",
       instructions: "Write three options under eight words.",
       model: "gemini-3.8-flash",
       skillIds: ["s2", "s1"],
@@ -107,7 +107,7 @@ test.describe("Agents page", () => {
       "Model gemini-9 isn't available, so Gemini 3.5 Flash Lite is used.",
       "Tone guide isn't in your skills, so it's skipped.",
     ]);
-    await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Planner");
+    await expect(page.getByLabel("Name", { exact: true })).toHaveValue("planner");
     await page.getByLabel("Description", { exact: true }).fill("Plans posts");
     await page.getByRole("button", { name: "Upload", exact: true }).click();
     await expect(page.locator(".library-table tbody tr")).toContainText("planner.md · Gemini 3.5 Flash Lite");
@@ -134,9 +134,9 @@ test.describe("Agents page", () => {
     await openAgents(page);
     await uploadAgent(page, "copywriter.md", COPYWRITER);
     await uploadAgent(page, "copywriter.md", COPYWRITER.replace("Writes taglines", "Second version"));
-    await expect(page.getByRole("alertdialog")).toContainText("Replace “Copywriter”?");
+    await expect(page.getByRole("alertdialog")).toContainText("Replace “copywriter”?");
     await page.getByRole("button", { name: "Keep both" }).click();
-    await expect(page.locator(".library-cell-name")).toHaveText(["Copywriter", "Copywriter (2)"]);
+    await expect(page.locator(".library-cell-name")).toHaveText(["copywriter", "copywriter-2"]);
 
     await page.getByLabel("Search agents").fill("second");
     await expect(page.locator(".library-count")).toHaveText("1 agent");

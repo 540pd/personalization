@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { Listed } from "@/app/canvas/library/fields";
+import { withHandles, type Listed } from "@/app/canvas/library/fields";
+import { nameFromFileName } from "@/app/canvas/skills/skillFile";
 import { localList, stringArray } from "@/lib/localList";
 
 /**
@@ -71,8 +72,12 @@ const storage = localList<Agent>({
   readItem: readAgent,
 });
 
-/** The saved agents; [] when there are none or they cannot be read. Never throws. */
-export const loadAgents = storage.load;
+/**
+ * The saved agents; [] when there are none or they cannot be read. Never throws.
+ * Names saved before #237 come back as handles, and are saved so with the next change.
+ */
+export const loadAgents = (from?: Storage): Agent[] =>
+  withHandles(storage.load(from), (x) => nameFromFileName(x.fileName) || "agent");
 /** False when storage refused the write. Never throws. */
 export const saveAgents = storage.save;
 

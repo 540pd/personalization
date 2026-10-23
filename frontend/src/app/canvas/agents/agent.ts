@@ -4,7 +4,7 @@
 
 import { instructionKind } from "../components/NodePanel/kinds/instructionKind";
 import type { Agent } from "@/store/agents.store";
-import type { Listed } from "../library/fields";
+import { findByName, type Listed } from "../library/fields";
 import { frontList, frontString, metaFromFile, readFrontMatter, stripFrontMatter } from "../skills/skillFile";
 
 /**
@@ -56,7 +56,8 @@ export function readAgentFile(text: string, fileName: string, skills: readonly L
   const skillIds: string[] = [];
   const missingSkills: string[] = [];
   for (const wanted of frontList(front, "skills")) {
-    const skill = skills.find((s) => s.name.trim().toLowerCase() === wanted.trim().toLowerCase());
+    // As handles (#237): `skills: [Brand voice]` still finds brand-voice.
+    const skill = findByName(skills, wanted);
     if (!skill) missingSkills.push(wanted);
     else if (!skillIds.includes(skill.id)) skillIds.push(skill.id);
   }
@@ -103,10 +104,10 @@ export function agentSkills<S extends Listed>(agent: Pick<Agent, "skillIds">, sk
 
 /** The template behind "Example agent file": every field an agent file can set. */
 export const EXAMPLE_AGENT_FILE = `---
-name: Copywriter
+name: copywriter
 description: Writes on-brand taglines and headlines
 model: ${AGENT_MODELS.find((m) => m.id !== DEFAULT_AGENT_MODEL)?.id ?? DEFAULT_AGENT_MODEL}
-skills: [Brand voice]
+skills: [brand-voice]
 tags: [copy]
 ---
 You are a senior copywriter. For each request, write three options, each

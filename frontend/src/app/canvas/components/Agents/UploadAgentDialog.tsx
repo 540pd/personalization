@@ -9,6 +9,7 @@ import LibraryDialog, { DiscardChanges, NameNote, pickMarkdownFile } from "../Li
 import FileField, { readPickedFile, type ChosenFile } from "../Library/FileField";
 import TagInput from "../Library/TagInput";
 import {
+  HANDLE_HINT,
   MAX_DESCRIPTION,
   MAX_NAME,
   allTags,
@@ -17,6 +18,7 @@ import {
   nameError,
   newId,
   sameList,
+  toHandle,
   uniqueName,
 } from "../../library/fields";
 import { stripFrontMatter } from "../../skills/skillFile";
@@ -153,7 +155,7 @@ export default function UploadAgentDialog({
   };
   const dirty = editing
     ? fileChanged ||
-      name.trim() !== editing.name ||
+      toHandle(name) !== editing.name ||
       description.trim() !== editing.description ||
       !sameList(tags, editing.tags)
     : false;
@@ -177,7 +179,7 @@ export default function UploadAgentDialog({
       content: file.content,
     };
     let saved: boolean;
-    let finalName = name.trim();
+    let finalName = toHandle(name);
     let how: AgentSaved = "added";
     if (editing) {
       saved = replace({ ...editing, ...fields, name: finalName });
@@ -264,10 +266,10 @@ export default function UploadAgentDialog({
               id={`${id}-name`}
               type="text"
               className="library-input"
-              placeholder="e.g. Copywriter"
+              placeholder="e.g. copywriter"
               maxLength={MAX_NAME}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(toHandle(e.target.value, true))}
               onBlur={() => setTouched((t) => ({ ...t, name: true }))}
               aria-invalid={(touched.name || !!editing) && !!errors.name}
               aria-describedby={`${id}-name-note`}
@@ -280,10 +282,10 @@ export default function UploadAgentDialog({
                 editing
                   ? fileChanged
                     ? "Kept as you set it. Replacing the file doesn't rename the agent."
-                    : ""
+                    : HANDLE_HINT
                   : existing
                     ? `You already have “${existing.name}”. You'll be asked to replace it or keep both.`
-                    : ""
+                    : HANDLE_HINT
               }
             />
           </div>
