@@ -67,11 +67,12 @@ async function selectFrame(page: Page) {
   await page.waitForTimeout(150);
 }
 
-function expectRow(frame: Box, boxes: Box[]) {
+/** `top`: 16, or 8 + 24 when an item in the row has a name (#235). */
+function expectRow(frame: Box, boxes: Box[], top = 16) {
   const near = (a: number, b: number) => expect(Math.abs(a - b)).toBeLessThanOrEqual(1.5);
   near(boxes[0].x, frame.x + 16);
   boxes.forEach((b, i) => {
-    near(b.y, frame.y + 16);
+    near(b.y, frame.y + top);
     if (i) near(b.x, boxes[i - 1].x + boxes[i - 1].w + 16);
   });
   const last = boxes[boxes.length - 1];
@@ -234,7 +235,8 @@ test.describe("auto layout: reorder and join (#228)", () => {
     const ids = leftToRight(after);
     expect(ids).toHaveLength(4);
     expect(ids.slice(0, 3)).toEqual(order);
-    expectRow(await frameBox(page), ids.map((id) => after[id]));
+    // The dropped image has a name, so the row starts below its band (#235).
+    expectRow(await frameBox(page), ids.map((id) => after[id]), 8 + 24);
   });
 
   test("a Create panel in the row is dragged to the front like a shape", async ({ page }) => {

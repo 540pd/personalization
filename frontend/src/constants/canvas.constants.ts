@@ -29,6 +29,14 @@ export const FRAME_MIN_EDGE = 20;
 // units, so it scales with them. Fixed, as in Luma: no settings.
 export const FRAME_LAYOUT_PADDING = 16;
 export const FRAME_LAYOUT_GAP = 16;
+// Room above an item that shows a name, inside the layout (#235): the name's
+// LABEL_GAP and line height, so at 100% it sits clear of the Frame's edge and
+// of the item above. Canvas units, like the layout: exact at 100%.
+export const FRAME_LAYOUT_NAME_BAND = 24;
+// Above a name at the top of a Frame, in place of FRAME_LAYOUT_PADDING: as
+// close to the edge as the name is to its item, so it sits snug above it
+// rather than floating between the two (#235).
+export const FRAME_LAYOUT_NAME_TOP = 8;
 
 // Paint order. Spaced so the Konva canvas can sit either side of the node
 // placeholders without disturbing anything else.

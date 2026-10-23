@@ -26,14 +26,26 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { boundsOf, overlaps, type Bounds } from "@/lib/canvas/bounds";
 import { canvasHistory } from "@/lib/canvas/history";
-import { FRAME_LAYOUT_GAP, FRAME_LAYOUT_PADDING } from "@/constants/canvas.constants";
+import {
+  FRAME_LAYOUT_GAP, FRAME_LAYOUT_NAME_BAND, FRAME_LAYOUT_NAME_TOP, FRAME_LAYOUT_PADDING,
+} from "@/constants/canvas.constants";
 import { syncNodeGeometry } from "./geometry";
 import { membersOf } from "./frameMembers";
 
 /** A child's box in canvas units, y the top edge. */
 export interface ChildBox extends Bounds {
   id: string;
+  /** Shows a name above it, so needs FRAME_LAYOUT_NAME_BAND of room there (#235). */
+  named?: boolean;
 }
+
+/**
+ * Where each column's first item starts, below the Frame's top: under a name
+ * band when any of them has a name, so the items' tops still line up across
+ * the row, with FRAME_LAYOUT_NAME_TOP above the names (#235); else the padding.
+ */
+const firstTop = (firsts: (ChildBox | undefined)[], padding: number, band: number) =>
+  firsts.some((b) => b?.named) ? FRAME_LAYOUT_NAME_TOP + band : padding;
 
 export interface GridLayout {
   /** Where each child's top-left goes. */
@@ -64,26 +76,29 @@ export function layoutColumns(
   columns: ChildBox[][],
   padding = FRAME_LAYOUT_PADDING,
   gap = FRAME_LAYOUT_GAP,
+  band = FRAME_LAYOUT_NAME_BAND,
 ): GridLayout {
   const positions: GridLayout["positions"] = {};
+  const top = firstTop(columns.map((col) => col[0]), padding, band);
   let x = padding;
-  let tallest = 0;
+  let bottom = 0;
   let placed = 0;
   for (const col of columns) {
     if (!col.length) continue;
     if (placed++) x += gap;
-    let y = padding;
+    let y = top;
     let widest = 0;
     col.forEach((b, i) => {
-      if (i) y += gap;
+      // Below the first, a named item's band comes after the gap.
+      if (i) y += gap + (b.named ? band : 0);
       positions[b.id] = { x: origin.x + x, y: origin.y + y };
       y += b.h;
       widest = Math.max(widest, b.w);
     });
     x += widest;
-    tallest = Math.max(tallest, y - padding);
+    bottom = Math.max(bottom, y);
   }
-  return { positions, w: x + padding, h: tallest + 2 * padding };
+  return { positions, w: x + padding, h: bottom + padding };
 }
 
 /** The boxes of these ids now, in this order. Ones that are gone are left out. */
@@ -92,9 +107,9 @@ export function childBoxes(ids: string[]): ChildBox[] {
   const panels = useNodePanel.getState().panels;
   return ids.flatMap((id) => {
     const node = nodes[id];
-    if (node) return [{ id, ...boundsOf(node) }];
+    if (node) return [{ id, ...boundsOf(node), named: !!node.label }];
     const panel = panels.find((p) => p.id === id);
-    return panel ? [{ id, ...boundsOf(panel) }] : [];
+    return panel ? [{ id, ...boundsOf(panel), named: !!panel.label }] : [];
   });
 }
 
@@ -174,13 +189,15 @@ export function packColumns(
   count: number,
   padding = FRAME_LAYOUT_PADDING,
   gap = FRAME_LAYOUT_GAP,
+  band = FRAME_LAYOUT_NAME_BAND,
 ): { columns: string[][]; w: number; h: number } {
   const columns: string[][] = Array.from({ length: count }, () => []);
   const heights: number[] = Array(count).fill(0);
   const widths: number[] = Array(count).fill(0);
   for (const b of boxes) {
     const i = heights.indexOf(Math.min(...heights));
-    heights[i] += (columns[i].length ? gap : 0) + b.h;
+    // Heights as layoutColumns draws them: a named item's band counts.
+    heights[i] += (columns[i].length ? gap + (b.named ? band : 0) : 0) + b.h;
     widths[i] = Math.max(widths[i], b.w);
     columns[i].push(b.id);
   }
@@ -188,7 +205,8 @@ export function packColumns(
   return {
     columns: used,
     w: 2 * padding + widths.reduce((sum, x) => sum + x, 0) + gap * (used.length - 1),
-    h: 2 * padding + Math.max(...heights),
+    // The first `count` boxes start the columns (each goes into an empty one).
+    h: firstTop(boxes.slice(0, count), padding, band) + Math.max(...heights) + padding,
   };
 }
 
