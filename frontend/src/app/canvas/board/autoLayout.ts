@@ -9,6 +9,9 @@
 // bottom stacks them in one column, aligned to the left (autoLayoutDrop). A
 // plain row is one item per column; a single column is one stack.
 //
+// Resizing the Frame rearranges its items, live, to the shape being dragged:
+// a row, a column, or a compact rectangle; on release it snaps to fit (#232).
+//
 // While it is on, the Frame keeps its children by id (FrameRecord.layout), and
 // it is laid out again whenever they change: one deleted or resized, a panel
 // growing, or one dragged out (dropped clear of the Frame, it leaves). That
@@ -159,6 +162,101 @@ export function removeAutoLayout(id: string): boolean {
   useFrames.getState().upsert({ ...frame, layout: undefined });
   canvasHistory.commit();
   return true;
+}
+
+/**
+ * `boxes`, in this order, packed into `count` columns: each goes into the
+ * shortest column so far (ties: the leftmost). Rows needn't line up. With
+ * the Frame's size around them.
+ */
+export function packColumns(
+  boxes: ChildBox[],
+  count: number,
+  padding = FRAME_LAYOUT_PADDING,
+  gap = FRAME_LAYOUT_GAP,
+): { columns: string[][]; w: number; h: number } {
+  const columns: string[][] = Array.from({ length: count }, () => []);
+  const heights: number[] = Array(count).fill(0);
+  const widths: number[] = Array(count).fill(0);
+  for (const b of boxes) {
+    const i = heights.indexOf(Math.min(...heights));
+    heights[i] += (columns[i].length ? gap : 0) + b.h;
+    widths[i] = Math.max(widths[i], b.w);
+    columns[i].push(b.id);
+  }
+  const used = columns.filter((c) => c.length);
+  return {
+    columns: used,
+    w: 2 * padding + widths.reduce((sum, x) => sum + x, 0) + gap * (used.length - 1),
+    h: 2 * padding + Math.max(...heights),
+  };
+}
+
+/**
+ * The packing of these boxes, in this order, whose shape is closest to
+ * `target`'s (#232). Every column count is tried; the one whose width to
+ * height is nearest the target's, compared as ratios, wins; ties go to fewer
+ * columns. So a short, wide target gives a row, a tall, narrow one a column,
+ * and one in between a compact rectangle.
+ */
+export function packToShape(boxes: ChildBox[], target: { w: number; h: number }): string[][] {
+  if (!boxes.length) return [];
+  const want = Math.log(Math.max(target.w, 1) / Math.max(target.h, 1));
+  let best: { columns: string[][]; off: number } | null = null;
+  for (let k = 1; k <= boxes.length; k++) {
+    const p = packColumns(boxes, k);
+    const off = Math.abs(Math.log(p.w / p.h) - want);
+    if (!best || off < best.off - 1e-9) best = { columns: p.columns, off };
+  }
+  return best!.columns;
+}
+
+/**
+ * Items in reading order: top to bottom, then left to right along a row
+ * (within half a unit). A resize packs them in this order (#232), so a row
+ * reads left to right, a column top to bottom, and a grid row by row.
+ */
+export function readingOrder(boxes: ChildBox[]): ChildBox[] {
+  return [...boxes].sort((a, b) => (Math.abs(a.y - b.y) < 0.5 ? a.x - b.x : a.y - b.y));
+}
+
+/**
+ * A resize of a Frame with auto layout is starting (#232): its items in the
+ * reading order they have now, kept for the whole gesture so they don't
+ * reshuffle as they move.
+ */
+export function startRearrange(frameId: string): ChildBox[] {
+  const layout = useFrames.getState().frames[frameId]?.layout;
+  return layout ? readingOrder(childBoxes(childrenOf(layout))) : [];
+}
+
+/**
+ * Lay `order` out for the box being dragged, live: packed to its shape,
+ * from its top-left. Nothing is stored. Returns the columns.
+ */
+export function rearrangeLive(order: ChildBox[], box: Bounds): string[][] {
+  const columns = packToShape(order, box);
+  const byId = new Map(order.map((b) => [b.id, b]));
+  const grid = layoutColumns({ x: box.x, y: box.y }, columns.map((col) => col.map((id) => byId.get(id)!)));
+  place(childBoxes(order.map((b) => b.id)), grid.positions);
+  return columns;
+}
+
+/**
+ * The resize is over: the arrangement for the final box is stored, and the
+ * Frame snaps to fit its items. The caller commits the undo step.
+ */
+export function finishRearrange(frameId: string, order: ChildBox[], box: Bounds): void {
+  const frame = useFrames.getState().frames[frameId];
+  if (!frame?.layout) return;
+  // The items into the final shape before the Frame takes it: the
+  // re-layout below would otherwise find them outside it, and drop them.
+  const columns = rearrangeLive(order, box);
+  useFrames.getState().upsert({
+    ...frame, canvasX: box.x, canvasY: box.y, canvasW: box.w, canvasH: box.h,
+    layout: { ...frame.layout, columns: columns.length ? columns : frame.layout.columns },
+  });
+  reflowAutoLayouts();
 }
 
 /** `columns` without these ids, and without any column that leaves empty. */

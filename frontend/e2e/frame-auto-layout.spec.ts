@@ -116,8 +116,8 @@ test.describe("Frame auto layout (#225)", () => {
     expect(Math.abs(frame.x - frameBefore.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(frame.y - frameBefore.y)).toBeLessThanOrEqual(1);
     expectRow(frame, order.map((id) => after[id]));
-    // Hugging: no size of its own to drag.
-    expect(await anchorCount(page)).toBe(0);
+    // Its corners stay: dragging one rearranges the items (#232).
+    expect(await anchorCount(page)).toBe(4);
 
     await page.keyboard.press("ControlOrMeta+z");
     await page.waitForTimeout(300);

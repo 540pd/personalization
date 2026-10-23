@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
-  applyAutoLayout, canAutoLayout, layoutColumns, orderChildren, reflowAutoLayouts, removeAutoLayout,
-  withoutIds, type ChildBox,
+  applyAutoLayout, canAutoLayout, finishRearrange, layoutColumns, orderChildren, packColumns, packToShape,
+  readingOrder, rearrangeLive, reflowAutoLayouts, removeAutoLayout, startRearrange, withoutIds,
+  type ChildBox,
 } from "../autoLayout";
 import { useFrames, type FrameRecord } from "@/store/frame.store";
 import { useKonvaNodes, type KonvaNodeRecord } from "@/store/konvaNodes.store";
@@ -44,6 +45,38 @@ describe("layoutColumns", () => {
   it("an empty column takes no space", () => {
     const g = layoutColumns({ x: 0, y: 0 }, [[box("a", 0, 0, 90, 60)], [], [box("b", 0, 0, 90, 60)]]);
     expect(g.positions.b).toEqual({ x: 16 + 90 + 16, y: 16 });
+  });
+});
+
+describe("packToShape (#232)", () => {
+  const same = (n: number, w = 180, h = 120) => Array.from({ length: n }, (_, i) => box(`i${i + 1}`, 0, 0, w, h));
+  const counts = (cols: string[][]) => cols.map((c) => c.length);
+
+  it("a short, wide shape gives a row; a tall, narrow one a column", () => {
+    expect(counts(packToShape(same(6), { w: 2000, h: 160 }))).toEqual([1, 1, 1, 1, 1, 1]);
+    expect(counts(packToShape(same(6), { w: 220, h: 1200 }))).toEqual([6]);
+  });
+
+  it("one in between gives the compact rectangle nearest its shape, in reading order", () => {
+    // Three columns of 180 and two rows of 120: 604 × 288.
+    expect(packToShape(same(6), { w: 600, h: 290 })).toEqual([["i1", "i4"], ["i2", "i5"], ["i3", "i6"]]);
+    expect(counts(packToShape(same(6), { w: 400, h: 430 }))).toEqual([3, 3]);
+  });
+
+  it("each item goes into the shortest column so far", () => {
+    const boxes = [box("tall", 0, 0, 180, 260), box("a", 0, 0, 180, 120), box("b", 0, 0, 180, 120), box("t", 0, 0, 180, 80)];
+    expect(packColumns(boxes, 2).columns).toEqual([["tall"], ["a", "b", "t"]]);
+  });
+
+  it("no boxes, no columns", () => {
+    expect(packToShape([], { w: 100, h: 100 })).toEqual([]);
+  });
+});
+
+describe("readingOrder", () => {
+  it("top to bottom, then left to right along a row", () => {
+    const order = readingOrder([box("c", 0, 100, 10, 10), box("b", 50, 0, 10, 10), box("a", 0, 0, 10, 10)]);
+    expect(order.map((b) => b.id)).toEqual(["a", "b", "c"]);
   });
 });
 
@@ -170,6 +203,46 @@ describe("auto layout on a Frame", () => {
       useNodePanel.getState().setCanvasPositions({ p: { x: p("p").canvasX + 1000, y: p("p").canvasY + 500 } });
       expect(reflowAutoLayouts()).toBe(false);
       expect(f().layout?.columns).toEqual([["b"], ["a"], ["p"]]);
+    });
+
+    describe("resizing rearranges (#232)", () => {
+      it("live: the items follow the shape being dragged, and nothing is stored", () => {
+        const order = startRearrange("f");
+        expect(order.map((b) => b.id)).toEqual(["b", "a", "p"]);
+        rearrangeLive(order, { x: 0, y: 0, w: 150, h: 900 });
+        // A tall, narrow box: one column.
+        expect(n("b")).toMatchObject({ canvasX: 16, canvasY: 16 });
+        expect(n("a")).toMatchObject({ canvasX: 16, canvasY: 16 + 100 + 16 });
+        expect(f().layout).toEqual({ columns: [["b"], ["a"], ["p"]] });
+      });
+
+      it("on release: stored, and the Frame snaps to fit", () => {
+        const order = startRearrange("f");
+        finishRearrange("f", order, { x: 0, y: 0, w: 150, h: 900 });
+        expect(f().layout).toEqual({ columns: [["b", "a", "p"]] });
+        expect(f()).toMatchObject({ canvasW: 16 + 120 + 16, canvasH: 16 + 100 + 16 + 60 + 16 + 80 + 16 });
+      });
+
+      it("from the top-left: the items are packed from the new corner", () => {
+        const order = startRearrange("f");
+        finishRearrange("f", order, { x: -200, y: -100, w: 2000, h: 120 });
+        expect(n("b")).toMatchObject({ canvasX: -200 + 16, canvasY: -100 + 16 });
+        expect(f()).toMatchObject({ canvasX: -200, canvasY: -100 });
+      });
+
+      it("keeps the order it began with, though the items move", () => {
+        const order = startRearrange("f");
+        rearrangeLive(order, { x: 0, y: 0, w: 150, h: 900 });
+        rearrangeLive(order, { x: 0, y: 0, w: 2000, h: 120 });
+        expect(n("b").canvasX).toBeLessThan(n("a").canvasX);
+        expect(n("a").canvasX).toBeLessThan(p("p").canvasX);
+      });
+
+      it("leaves deleted ids out", () => {
+        useFrames.getState().upsert({ ...f(), layout: { columns: [["b", "gone"], ["a"], ["p"]] } });
+        finishRearrange("f", startRearrange("f"), { x: 0, y: 0, w: 150, h: 900 });
+        expect(f().layout).toEqual({ columns: [["b", "a", "p"]] });
+      });
     });
 
     describe("with nothing left in it (#230)", () => {
