@@ -47,25 +47,22 @@ const [model, setModel] = useState(MODELS[0].id);
 
 ## Step 2 — Wire the model ID in the backend
 
-**File:** `backend/src/routes/generate.ts` (or wherever image generation is handled)
+**File:** `backend/src/capabilities/models.ts`
 
-The backend receives `modelId` from the request body. Add a case for the new model ID:
-
-```typescript
-// backend/src/routes/generate.ts
-const MODEL_MAP: Record<string, string> = {
-  "gemini-3.1-flash-image":      "gemini-3.1-flash-image",      // Nano Banana 2
-  "gemini-3.1-flash-lite-image": "gemini-3.1-flash-lite-image", // Nano Banana 2 Lite
-  "gemini-3-pro-image":          "gemini-3-pro-image",           // Nano Banana Pro
-  // Add new model ID here ↓
-};
-```
-
-The mapped value is passed to the Vertex AI SDK:
+`POST /api/generate/image` only accepts a `modelId` from its allow-list. Add the new id there:
 
 ```typescript
-const generativeModel = vertexAI.getGenerativeModel({ model: MODEL_MAP[modelId] });
+// backend/src/capabilities/models.ts
+export const VALID_MODELS = new Set([
+  "gemini-3.1-flash-image",
+  "gemini-3.1-flash-lite-image",
+  "gemini-3-pro-image",
+  "gemini-nano-banana-2.1",
+  // Add new model ID here
+]);
 ```
+
+The id is passed verbatim to the Gen AI SDK as `model` in `capabilities/imagen.ts`.
 
 If `VERTEX_PROJECT_ID` is absent (local dev without GCP), the route returns a placeholder — no crash. This is enforced by the mock-mode rule in `CLAUDE.md`.
 

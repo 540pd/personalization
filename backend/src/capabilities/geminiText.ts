@@ -4,21 +4,13 @@
 // a console.warn rather than throwing, matching ImagenCapability. This lets
 // the backend serve the instruction node locally without GCP credentials.
 
-import { GoogleGenAI } from "@google/genai";
 import type {
   TextCapability,
   TextGenerationParams,
   TextGenerationResult,
 } from "./types.js";
 import { buildContentParts, buildSystemInstruction } from "./prompt.js";
-
-function makeGenAI(): GoogleGenAI {
-  return new GoogleGenAI({
-    vertexai: true,
-    project: process.env.VERTEX_PROJECT_ID!,
-    location: process.env.VERTEX_LOCATION ?? "global",
-  });
-}
+import { makeGenAI } from "./genai.js";
 
 // Echoes the instruction so a developer can see the request reached the
 // backend and which references travelled with it. A fixed lorem string would

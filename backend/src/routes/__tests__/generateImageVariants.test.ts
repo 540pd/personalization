@@ -6,7 +6,7 @@ import request from "supertest";
 const { generateV2 } = vi.hoisted(() => ({ generateV2: vi.fn() }));
 
 vi.mock("../../capabilities/index.js", () => ({
-  getCapability: () => ({ generate: vi.fn(), generateV2 }),
+  getCapability: () => ({ generateV2 }),
   getTextCapability: () => ({ generateText: vi.fn() }),
   getVideoCapability: () => ({ generateVideo: vi.fn(), getVideo: vi.fn() }),
 }));

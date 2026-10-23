@@ -1,9 +1,3 @@
-export interface ImageGenerationParams {
-  prompt: string;
-  aspectRatio: "1:1" | "16:9" | "9:16" | "4:3";
-  userId: string;
-}
-
 export type AspectRatioV2 = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
 
 // An upstream node feeding a generation. Discriminated because a text node
@@ -92,6 +86,5 @@ export interface VideoCapability {
 }
 
 export interface ImageCapability {
-  generate(params: ImageGenerationParams): Promise<ImageGenerationResult>;
   generateV2(params: ImageGenerationV2Params): Promise<ImageGenerationResult>;
 }
