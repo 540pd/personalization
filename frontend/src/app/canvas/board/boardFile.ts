@@ -23,6 +23,7 @@ import { useLayerOrder, type TopLayer } from "@/store/layerOrder.store";
 import { useViewport } from "@/store/viewport.store";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { boundsOf } from "@/lib/canvas/bounds";
+import { downloadText } from "@/lib/dom/download";
 import { canvasArea } from "../canvasArea";
 import { fitTo } from "../components/Minimap/zoom";
 import { unionBounds } from "../components/Minimap/world";
@@ -140,13 +141,7 @@ export function saveBoardToFile(): boolean {
     if (!stage) throw new Error("the board stage is not mounted");
     const now = new Date();
     const json = JSON.stringify(serializeBoard(stage, now));
-    const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = boardFileName(now);
-    a.click();
-    // After the click has handed the URL to the download, not before.
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    downloadText(boardFileName(now), json, "application/json");
     return true;
   } catch (err) {
     console.error("[board] Could not save the board to a file:", err);

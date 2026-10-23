@@ -15,7 +15,8 @@ import {
   type ArtDirectionId,
   type BrandSettings,
 } from "@/store/brand.store";
-import LibraryPage, { useLibraryToast } from "../Library/LibraryPage";
+import { useToast } from "@/components/Toast/useToast";
+import LibraryPage from "../Library/LibraryPage";
 import { DiscardChanges } from "../Library/LibraryDialog";
 import ArtDirectionCard from "./ArtDirectionCard";
 import "./Brand.scss";
@@ -43,7 +44,7 @@ function Page() {
   const [dirty, setDirty] = useState(false);
   // The move a Discard would make, while the confirm is up.
   const [pending, setPending] = useState<(() => void) | null>(null);
-  const [toast, showToast] = useLibraryToast();
+  const [toast, showToast] = useToast();
 
   const fieldId = useId();
   // Where focus was when the confirm opened, for Keep editing.

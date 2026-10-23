@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { useLibraryFilters, useLibraryToast, useReturnFocus } from "./LibraryPage";
+import { useToast } from "@/components/Toast/useToast";
+import { useLibraryFilters, useReturnFocus } from "./LibraryPage";
 import { useRemoval } from "./useRemoval";
 import { allTags, filterItems, sortByName, type Listed } from "../../library/fields";
 import type { ItemSaved, LibraryNoun } from "../../library/itemForm";
@@ -41,7 +42,7 @@ export function useLibraryCollection<T extends Listed>({
     [items, filters.query, filters.tag],
   );
   const [dialog, setDialog] = useState<CollectionDialog<T> | null>(null);
-  const [toast, showToast] = useLibraryToast();
+  const [toast, showToast] = useToast();
   const actionRef = useRef<HTMLButtonElement>(null);
   const focus = useReturnFocus(actionRef);
   const removal = useRemoval({

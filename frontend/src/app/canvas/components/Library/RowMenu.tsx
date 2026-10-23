@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useLayoutEffect, useRef, useState } from "react";
 import { MoreHorizontal, type LucideIcon } from "lucide-react";
 import { Z_INDEX } from "@/constants/canvas.constants";
+import PortalMenu from "@/components/Menu";
 
 /** Gap between the ⋯ button and the menu, in px. */
 const GAP = 4;
@@ -75,7 +75,6 @@ function Menu({
   items: RowMenuItem[];
   onClose: (restoreFocus: boolean) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
 
   // Measured before paint, so the menu never flashes in the wrong place.
@@ -84,53 +83,13 @@ function Menu({
     setPos({ top: r.bottom + GAP, right: window.innerWidth - r.right });
   }, [anchor]);
 
-  useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-  }, [pos]);
-
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (ref.current?.contains(target) || anchor.contains(target)) return;
-      onClose(false);
-    };
-    // A scrolled page would leave the menu floating away from its row.
-    const onScroll = () => onClose(false);
-    document.addEventListener("mousedown", onDown);
-    window.addEventListener("scroll", onScroll, true);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      window.removeEventListener("scroll", onScroll, true);
-    };
-  }, [anchor, onClose]);
-
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    e.stopPropagation();
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose(true);
-      return;
-    }
-    if (e.key === "Tab") {
-      onClose(false);
-      return;
-    }
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-    e.preventDefault();
-    const els = Array.from(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
-    const at = els.indexOf(document.activeElement as HTMLElement);
-    els[(at + (e.key === "ArrowDown" ? 1 : -1) + els.length) % els.length]?.focus();
-  };
-
   if (!pos) return null;
-  return createPortal(
-    <div
-      ref={ref}
-      className="playspace-menu"
-      role="menu"
-      aria-label={label}
-      tabIndex={-1}
-      onKeyDown={onKeyDown}
+  return (
+    <PortalMenu
+      anchor={anchor}
+      label={label}
+      onClose={onClose}
+      closeOnScroll
       // Portaled, but React still bubbles its clicks up to the row, which
       // would open Edit a second time and take the focus-return target.
       onClick={(e) => e.stopPropagation()}
@@ -156,7 +115,6 @@ function Menu({
           </div>
         );
       })}
-    </div>,
-    document.body,
+    </PortalMenu>
   );
 }

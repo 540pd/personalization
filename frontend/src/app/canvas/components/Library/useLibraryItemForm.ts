@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { pickFile } from "@/lib/dom/pickFile";
 import { readPickedFile, type ChosenFile } from "./FileField";
-import { pickMarkdownFile } from "./LibraryDialog";
 import { descriptionError, findByName, nameError, newId, type Listed } from "../../library/fields";
 import {
   canSaveForm,
@@ -202,7 +202,7 @@ export function useLibraryItemForm<T extends FileItem, P extends FileMeta>({
     nameRef,
     submitRef,
     chooseFile,
-    pick: () => pickMarkdownFile((f) => void chooseFile(f)),
+    pick: () => pickFile(".md,.markdown,text/markdown", (f) => void chooseFile(f)),
     requestClose,
     save,
     submit,

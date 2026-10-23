@@ -4,6 +4,7 @@
 
 import { instructionKind } from "../components/NodePanel/kinds/instructionKind";
 import type { Agent } from "@/store/agents.store";
+import { downloadText } from "@/lib/dom/download";
 import { findByName, type Listed } from "../library/fields";
 import { frontList, frontString, metaFromFile, readFrontMatter, stripFrontMatter } from "../skills/skillFile";
 
@@ -118,12 +119,7 @@ options, one per line.
 /** Downloads EXAMPLE_AGENT_FILE as agent-example.md; false if the browser refused. */
 export function downloadExampleAgentFile(): boolean {
   try {
-    const url = URL.createObjectURL(new Blob([EXAMPLE_AGENT_FILE], { type: "text/markdown" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "agent-example.md";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    downloadText("agent-example.md", EXAMPLE_AGENT_FILE, "text/markdown");
     return true;
   } catch (err) {
     console.warn("[agents] Could not download the example agent file.", err);
