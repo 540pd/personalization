@@ -10,6 +10,10 @@ interface PlaceholderProps {
   /** What the box shows, if anything yet. */
   shown: PanelOutput | undefined;
   busy: boolean;
+  /** Generating the nodes wired into this one first (#11). */
+  waiting: boolean;
+  /** This node failed while a downstream node was generating it. */
+  upstreamError?: string;
   dragging: boolean;
   isPanelOpen: boolean;
   /** Top-left on screen, and the size in canvas units. */
@@ -30,7 +34,7 @@ interface PlaceholderProps {
 
 /** The node's box: its output, a spinner while generating, or the kind's empty state. */
 export default function Placeholder({
-  spec, shown, busy, dragging, isPanelOpen,
+  spec, shown, busy, waiting, upstreamError, dragging, isPanelOpen,
   left, top, width, height, scale,
   handlers, onDoubleClick, onHoverChange,
 }: PlaceholderProps) {
@@ -74,14 +78,20 @@ export default function Placeholder({
       }}
     >
       {shown ? (
-        <spec.Output value={shown.value} />
+        // A written kind's text is drawn by ComposeOutputLayer, over this box,
+        // so its links can be clicked.
+        spec.authored ? null : <spec.Output value={shown.value} />
       ) : busy ? (
         // Shown on the node itself, not only in the panel: a video generation
         // runs for minutes and the panel is usually closed by then. The rest of
         // the canvas stays interactive throughout.
         <div className="node-panel-placeholder-content">
           <Loader2 size={22} aria-hidden className="node-panel-loader" />
-          <span className="node-panel-placeholder-text">Generating…</span>
+          <span className="node-panel-placeholder-text">{waiting ? "Waiting for upstream…" : "Generating…"}</span>
+        </div>
+      ) : upstreamError ? (
+        <div className="node-panel-placeholder-content" role="alert" title={upstreamError}>
+          <span className="node-panel-error">{upstreamError}</span>
         </div>
       ) : (
         <spec.EmptyState />

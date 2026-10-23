@@ -1,10 +1,11 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
-import { openBoard, panelBoxes, dragFrom, portCount } from "./helpers";
+import { openBoard, panelBoxes, dragFrom, portCount, setZoom } from "./helpers";
 
 // node > compose (#181): a box the user writes in. No panel, an output port
 // and no input, and its text feeds a downstream node as a text reference.
 
-const box = (page: Page) => page.locator("button.node-panel-placeholder").first();
+const box = (page: Page) =>
+  page.locator(".node-panel-compose-output-layer, button.node-panel-placeholder:not(:has(+ .node-panel-compose-output-layer))").first();
 const editor = (page: Page) => page.locator("textarea.node-panel-compose-editor");
 const label = (page: Page, name: string) => page.locator(`div[title="${name}"]`);
 // A committed wire's wide, invisible hit path.
@@ -71,10 +72,97 @@ test.describe("node > compose", () => {
     await write(page, "# Brand brief\n- warm light\n- **film grain**");
 
     await expect(editor(page)).toHaveCount(0);
-    // Plain text, markdown kept as typed.
-    await expect(page.locator(".node-panel-text-output")).toHaveText("# Brand brief\n- warm light\n- **film grain**");
+    // Markdown renders, while the node label still derives from the raw text.
+    await expect(page.locator(".node-panel-compose-markdown h1")).toHaveText("Brand brief");
+    await expect(page.locator(".node-panel-compose-markdown li")).toHaveText(["warm light", "film grain"]);
     // Named from the first line, without the heading marker.
     await expect(label(page, "Brand brief")).toHaveCount(1);
+  });
+
+  test("renders GFM, omits raw HTML and suppresses Markdown images", async ({ page }) => {
+    await openBoard(page);
+    await addNode(page, /^Compose$/);
+    const markdown =
+      "# Heading\n\n**bold** *italic* ~~strike~~ `code`\n\n```js\nconst answer = 42;\n```\n\n> quote\n\n- [x] task\n- item\n\n1. first\n2. second\n\n| A | B |\n|---|---|\n| one | two |\n\n---\n\n[link](https://example.com) ![hidden](https://example.com/image.png)\n\n<script>alert(1)</script><b>raw html</b>";
+    await write(page, markdown);
+
+    const output = page.locator(".node-panel-compose-markdown");
+    await expect(output.locator("h1")).toHaveText("Heading");
+    await expect(output.locator("strong")).toHaveText("bold");
+    await expect(output.locator("em")).toHaveText("italic");
+    await expect(output.locator("del")).toHaveText("strike");
+    await expect(output.locator("code").first()).toHaveText("code");
+    await expect(output.locator("pre code")).toContainText("const answer = 42;");
+    await expect(output.locator("blockquote")).toContainText("quote");
+    await expect(output.locator("ul li")).toHaveCount(2);
+    await expect(output.locator('input[type="checkbox"]')).toHaveCount(1);
+    await expect(output.locator("ol li")).toHaveCount(2);
+    await expect(output.locator("table th")).toHaveCount(2);
+    await expect(output.locator("hr")).toHaveCount(1);
+    await expect(output.locator("a")).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(output.locator("img, script, b")).toHaveCount(0);
+    await expect(output).toContainText("<script>alert(1)</script>");
+
+    await box(page).dblclick();
+    await expect(editor(page)).toHaveValue(markdown);
+    await page.keyboard.press("Escape");
+  });
+
+  test("uses plain text for content above the Markdown size cap", async ({ page }) => {
+    await openBoard(page);
+    await addNode(page, /^Compose$/);
+    const largeText = `# Large note\n${"x".repeat(8192)}`;
+    await write(page, largeText);
+
+    await expect(page.locator(".node-panel-compose-markdown")).toHaveCount(0);
+    const displayedText = await page.locator(".node-panel-text-output").textContent();
+    expect(displayedText?.startsWith("# Large note")).toBe(true);
+  });
+
+  test("keeps the rendered text within the box at common zoom levels", async ({ page }) => {
+    await openBoard(page);
+    await addNode(page, /^Compose$/);
+    const paragraphs = Array.from({ length: 45 }, (_, index) => `Paragraph ${index}: readable content stays in the box.`);
+    await write(page, `# Zoom test\n\n${paragraphs.join("\n\n")}`);
+    const [node] = await panelBoxes(page);
+    await dragFrom(page, node.x + node.w / 2, node.y + node.h / 2, -400);
+
+    const output = page.locator(".node-panel-compose-markdown");
+    for (const scale of [0.5, 1, 1.5]) {
+      await setZoom(page, scale);
+      const dimensions = await output.evaluate((element) => {
+        const content = element.getBoundingClientRect();
+        const layer = element.parentElement!.getBoundingClientRect();
+        return {
+          fitsWidth: content.right <= layer.right + 1 && content.left >= layer.left - 1,
+          fitsHeight: content.bottom <= layer.bottom + 1 && content.top >= layer.top - 1,
+          scrollHeight: element.scrollHeight,
+          clientHeight: element.clientHeight,
+          overflowY: getComputedStyle(element).overflowY,
+        };
+      });
+      expect(dimensions.fitsWidth).toBe(true);
+      expect(dimensions.fitsHeight).toBe(true);
+      expect(dimensions.scrollHeight).toBeGreaterThan(dimensions.clientHeight);
+      expect(dimensions.overflowY).toBe("auto");
+    }
+  });
+
+  test("an unselected link selects the box; a selected link opens safely in a new tab", async ({ page }) => {
+    await openBoard(page);
+    await addNode(page, /^Compose$/);
+    await write(page, "[visit](https://example.com)");
+    const link = page.locator(".node-panel-compose-markdown a");
+
+    await clickAway(page);
+    const unselectedPopup = page.waitForEvent("popup", { timeout: 500 }).catch(() => null);
+    await link.click();
+    expect(await unselectedPopup).toBeNull();
+
+    const popup = page.waitForEvent("popup");
+    await link.click();
+    const opened = await popup;
+    await expect(opened).toHaveURL("https://example.com/");
   });
 
   test("clicking away saves too, and the editor opens with the text", async ({ page }) => {
