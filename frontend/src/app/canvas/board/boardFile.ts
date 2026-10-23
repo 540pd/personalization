@@ -27,6 +27,7 @@ import { canvasArea } from "../canvasArea";
 import { fitTo } from "../components/Minimap/zoom";
 import { unionBounds } from "../components/Minimap/world";
 import { currentBounds } from "../components/Minimap/boardBounds";
+import { canvasEvent } from "@/lib/canvas/events";
 
 export const BOARD_FILE_FORMAT = "gcos-playspace";
 export const BOARD_FILE_VERSION = 1;
@@ -155,11 +156,11 @@ export function saveBoardToFile(): boolean {
 
 // ── Open file (#199) ──────────────────────────────────────────────────────
 
-/** Board listens; Open file dispatches it with a parsed file as the detail. */
-export const LOAD_EVENT = "canvas:load";
+/** Board listens; Open file emits it with a parsed file. */
+export const loadBoardEvent = canvasEvent<BoardFile>("canvas:load");
 
 export function requestLoadBoard(file: BoardFile): void {
-  window.dispatchEvent(new CustomEvent<BoardFile>(LOAD_EVENT, { detail: file }));
+  loadBoardEvent.emit(file);
 }
 
 /**

@@ -8,7 +8,7 @@ import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
-import { createUploadHandler } from "../board/upload";
+import { createUploadHandler, uploadEvent } from "../board/upload";
 import { restoreFrameImages, saveFrameImagePositions } from "../board/frameImageStorage";
 import { dragFrameFrom, selectedFrameAround } from "../board/frameDrag";
 import { clearLayoutDrag, dropIntoLayout, trackLayoutDrag } from "../board/autoLayoutDrop";
@@ -21,7 +21,7 @@ import { bakeScale, isBoardShape } from "../board/shapes";
 import { createTextTool } from "../board/textTool";
 import { bakeTextResize, isBoardText } from "../board/text";
 import { applyColor } from "../board/recolor";
-import { COLOR_EVENT, type ColorDetail } from "../board/palette";
+import { colorEvent, type ColorDetail } from "../board/palette";
 import { useFrames } from "@/store/frame.store";
 import { createFrameFromSelection, removeSelectedFrame } from "../board/frameSelection";
 import { selectOnly, registerNodeChromeClear, registerNodeChromeSelect } from "@/lib/canvas/selection";
@@ -30,8 +30,8 @@ import { boardStage } from "@/lib/canvas/boardStage";
 import { bindWheelZoom } from "@/lib/canvas/wheelZoom";
 import { applyDraggability } from "../board/draggability";
 import { createEditKeysHandler, createNode, deleteNodes, selectNodes } from "../board/clipboard";
-import { CLEAR_EVENT } from "../board/clearBoard";
-import { LOAD_EVENT, type BoardFile } from "../board/boardFile";
+import { clearBoardEvent } from "../board/clearBoard";
+import { loadBoardEvent, type BoardFile } from "../board/boardFile";
 import { readSavedCanvas, startCanvasPersistence } from "../board/canvasPersistence";
 import { imageHitFunc } from "../board/upload";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
@@ -637,20 +637,19 @@ export default function Board() {
       syncAllNodeGeometry,
       saveSnapshot,
     });
-    off.push(listen(window, "canvas:upload", handleUpload));
+    off.push(uploadEvent.on(handleUpload));
 
     // A swatch picked in the dock recolours the selected shapes and text
     // (#159). Committed with the event as its key, so the Frames it also
     // recolours (FrameLayer) land in the same undo step.
-    const handleColor = (e: Event) => {
-      const { hex } = (e as CustomEvent<ColorDetail>).detail;
+    const handleColor = ({ hex }: ColorDetail, e: Event) => {
       if (!applyColor(transformer.nodes(), hex)) return;
       // Republished, so the style bar's dot (#161) shows the new colour.
       (transformer.nodes() as Konva.Shape[]).forEach(syncNodeGeometry);
       layer.batchDraw();
       saveSnapshot(e);
     };
-    off.push(listen(window, COLOR_EVENT, handleColor));
+    off.push(colorEvent.on(handleColor));
 
     // Files dragged in from the desktop. Window-level, because the browser
     // navigates away on a drop anywhere -- not just over the canvas.
@@ -661,7 +660,7 @@ export default function Board() {
       area: () => (boardIsShown() ? canvasArea() : NO_AREA),
       setActive: setDropActive,
       onDrop: (files, at) => {
-        window.dispatchEvent(new CustomEvent("canvas:upload", { detail: { files, at } }));
+        uploadEvent.emit({ files, at });
       },
     });
     off.push(listen(window, "dragenter", dnd.dragEnter));
@@ -722,7 +721,7 @@ export default function Board() {
       layer.batchDraw();
       saveSnapshot();
     };
-    off.push(listen(window, CLEAR_EVENT, handleClear));
+    off.push(clearBoardEvent.on(handleClear));
 
     // Puts a checked board (parseBoardFile) on the stage in place of what is
     // there, keeping its ids -- wires point at them. Shared by Open file (#199)
@@ -776,11 +775,11 @@ export default function Board() {
     };
 
     // Open file (#199): the board becomes the file's, as one undo step.
-    const handleLoad = (e: Event) => {
-      placeBoard((e as CustomEvent<BoardFile>).detail, { panels: true });
+    const handleLoad = (file: BoardFile) => {
+      placeBoard(file, { panels: true });
       saveSnapshot();
     };
-    off.push(listen(window, LOAD_EVENT, handleLoad));
+    off.push(loadBoardEvent.on(handleLoad));
 
     // The board as it was before the reload (#203). The restored board is the
     // first undo entry, not a step: there is nothing before it to go back to.

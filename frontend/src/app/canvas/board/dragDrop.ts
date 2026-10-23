@@ -7,7 +7,7 @@
 // sidebar, the dock or a panel still navigates. So the suppression is
 // window-wide and the *placement* is what checks the canvas.
 //
-// Drops reuse the `canvas:upload` event rather than calling into the upload
+// Drops reuse uploadEvent rather than calling into the upload
 // module directly, so the file-picker path and this one cannot drift apart --
 // they are the same code from here on.
 

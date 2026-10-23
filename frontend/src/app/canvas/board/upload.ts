@@ -1,6 +1,6 @@
 // Places dropped/picked files on the canvas.
 //
-// Triggered by a `canvas:upload` CustomEvent from FloatingDock rather than by
+// Triggered by uploadEvent from FloatingDock rather than by
 // stage state, which is why it lifts out of Board cleanly: it needs a layer
 // and a few callbacks, and nothing else.
 
@@ -16,9 +16,10 @@ import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { canvasArea } from "../canvasArea";
 import { saveFrameBitmap } from "./frameImageStorage";
 import { joinLayout } from "./autoLayoutDrop";
+import { canvasEvent } from "@/lib/canvas/events";
 
 /**
- * Detail of the `canvas:upload` event.
+ * Detail of uploadEvent.
  *
  * `at` is the screen point of a drop. Absent for the file picker, which has
  * no meaningful cursor position and so falls back to the viewport centre.
@@ -27,6 +28,9 @@ export interface UploadDetail {
   files: File[];
   at?: Point;
 }
+
+/** Files to place on the board: the dock's picker and desktop drops emit it. */
+export const uploadEvent = canvasEvent<UploadDetail>("canvas:upload");
 
 /** "photo-2024.final.png" -> "photo-2024.final". Only the last segment is an extension. */
 export function stripExtension(fileName: string): string {
@@ -187,10 +191,9 @@ function addMediaPlaceholder(deps: UploadDeps, file: File, cx: number, cy: numbe
   placeNode(deps, node, { id, canvasX: x, canvasY: y, canvasW: w, canvasH: h }, droppedAt);
 }
 
-/** Handler for the `canvas:upload` event. */
+/** Handler for uploadEvent. */
 export function createUploadHandler(deps: UploadDeps) {
-  return (e: Event) => {
-    const { files, at } = (e as CustomEvent<UploadDetail>).detail;
+  return ({ files, at }: UploadDetail) => {
 
     // Return to pointer so the new node can be moved straight away. Without
     // this an upload under a link/shape tool lands a node that cannot be
