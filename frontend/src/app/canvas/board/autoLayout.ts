@@ -31,6 +31,7 @@ import {
 } from "@/constants/canvas.constants";
 import { syncNodeGeometry } from "./geometry";
 import { membersOf } from "./frameMembers";
+import { listen } from "@/lib/dom/listen";
 
 /** A child's box in canvas units, y the top edge. */
 export interface ChildBox extends Bounds {
@@ -343,10 +344,10 @@ export function startAutoLayoutSync(): () => void {
   const down = () => { pointerDown = true; };
   const up = () => { pointerDown = false; schedule(); };
 
-  window.addEventListener("pointerdown", down, true);
-  window.addEventListener("pointerup", up, true);
-  window.addEventListener("pointercancel", up, true);
   const unsubscribe = [
+    listen(window, "pointerdown", down, true),
+    listen(window, "pointerup", up, true),
+    listen(window, "pointercancel", up, true),
     canvasHistory.subscribe(schedule),
     useKonvaNodes.subscribe(schedule),
     useNodePanel.subscribe(schedule),
@@ -354,9 +355,6 @@ export function startAutoLayoutSync(): () => void {
   ];
   return () => {
     cancelAnimationFrame(frame);
-    window.removeEventListener("pointerdown", down, true);
-    window.removeEventListener("pointerup", up, true);
-    window.removeEventListener("pointercancel", up, true);
     unsubscribe.forEach((u) => u());
   };
 }

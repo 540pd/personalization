@@ -37,6 +37,7 @@ import {
   SELECTION,
   Z_INDEX,
 } from "@/constants/canvas.constants";
+import { listen } from "@/lib/dom/listen";
 
 export default function FrameLayer() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -232,8 +233,7 @@ export default function FrameLayer() {
       if (rect) hover.show(rect);
       else hover.hide();
     };
-    window.addEventListener("pointermove", onMove);
-    return () => window.removeEventListener("pointermove", onMove);
+    return listen(window, "pointermove", onMove);
   }, []);
 
   // --- Follow the shared viewport, so frames pan and zoom with the board ---

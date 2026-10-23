@@ -20,6 +20,7 @@ import { selectOnly } from "@/lib/canvas/selection";
 import { containsBox, type Bounds } from "@/lib/canvas/bounds";
 import { childrenOf } from "./autoLayout";
 import { membersOf, moveMembers } from "./frameMembers";
+import { trackPointer } from "@/lib/dom/pointer";
 
 const boundsOfFrame = (f: FrameRecord): Bounds => ({
   x: f.canvasX, y: f.canvasY, w: f.canvasW, h: f.canvasH,
@@ -79,18 +80,13 @@ export function dragFrameFrom(frame: FrameRecord, press: { x: number; y: number 
   };
 
   const onEnd = () => {
-    window.removeEventListener("pointermove", onMove);
-    window.removeEventListener("pointerup", onEnd);
-    window.removeEventListener("pointercancel", onEnd);
-    // Last offset seen, not the end event's: pointercancel carries no
-    // meaningful position.
+    // Last offset seen, not the end event's: a cancel carries no meaningful
+    // position.
     apply();
     useFrames.getState().clearDrag();
     useFrames.getState().upsert({ ...frame, canvasX: frame.canvasX + dx, canvasY: frame.canvasY + dy });
     canvasHistory.commit();
   };
 
-  window.addEventListener("pointermove", onMove);
-  window.addEventListener("pointerup", onEnd);
-  window.addEventListener("pointercancel", onEnd);
+  trackPointer({ onMove, onUp: onEnd, onCancel: onEnd });
 }

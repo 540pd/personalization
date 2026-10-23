@@ -20,6 +20,7 @@ import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { canvasHistory } from "@/lib/canvas/history";
 import { selectOnly } from "@/lib/canvas/selection";
 import { kindSpec } from "./NodePanel/kinds";
+import { trackPointer } from "@/lib/dom/pointer";
 
 // ── Port position helpers ─────────────────────────────────────────────────────
 // Convention (standard, matches ComfyUI/Blueprint): output = RIGHT edge, input = LEFT edge.
@@ -148,12 +149,8 @@ export default function ConnectionOverlay() {
       }
     };
 
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup",   onUp);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup",   onUp);
-    };
+    // A cancelled drag drops the wire: it used to stay on the pointer.
+    return trackPointer({ onMove, onUp, onCancel: () => useConnectionStore.getState().cancelDrag() });
   // Re-register only when a new drag starts (fromNodeId changes).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drag?.fromNodeId]);
