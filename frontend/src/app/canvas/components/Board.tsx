@@ -9,6 +9,7 @@ import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useConnectionStore } from "@/store/connection.store";
 import { createUploadHandler } from "../board/upload";
+import { restoreFrameImages, saveFrameImagePositions } from "../board/frameImageStorage";
 import { dragFrameFrom, selectedFrameAround } from "../board/frameDrag";
 import { clearLayoutDrag, dropIntoLayout, trackLayoutDrag } from "../board/autoLayoutDrop";
 import { boundsOf } from "@/lib/canvas/bounds";
@@ -25,6 +26,7 @@ import { useFrames } from "@/store/frame.store";
 import { selectOnly, registerNodeChromeClear } from "@/lib/canvas/selection";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { boardStage } from "@/lib/canvas/boardStage";
+import { bindWheelZoom } from "@/lib/canvas/wheelZoom";
 import { applyDraggability } from "../board/draggability";
 import { createEditKeysHandler, createNode, deleteNodes, selectNodes } from "../board/clipboard";
 import { CLEAR_EVENT } from "../board/clearBoard";
@@ -137,6 +139,7 @@ export default function Board() {
     layerRef.current = layer;
     transformerRef.current = transformer;
     hoverRef.current = hover;
+    window.dispatchEvent(new Event("canvas:board-ready"));
 
     const syncAllNodeGeometry = () => syncAllGeometry(layer);
     // A selected or dragged node comes to the front (#106), so its whole
@@ -217,7 +220,10 @@ export default function Board() {
       restore: (snap) => restoreSnapshot(snap as Snapshot),
     });
 
-    const saveSnapshot = (coalesceKey?: object) => canvasHistory.commit(coalesceKey);
+    const saveSnapshot = (coalesceKey?: object) => {
+      saveFrameImagePositions(useFrames.getState().frames);
+      canvasHistory.commit(coalesceKey);
+    };
 
     // The transformer lives here and nowhere else, so selectOnly() cannot drop
     // node handles without a hand up from Board.
@@ -229,7 +235,14 @@ export default function Board() {
 
     // Snapshot initial state (demo node).
     canvasHistory.clear();
-    saveSnapshot();
+    canvasHistory.commit();
+    let disposed = false;
+    void restoreFrameImages(layer).then(() => {
+      if (disposed) return;
+      applyDraggability(layer);
+      syncAllNodeGeometry();
+      canvasHistory.commit();
+    });
 
     // --- Stage events ---
 
@@ -308,13 +321,7 @@ export default function Board() {
       layer.batchDraw();
     });
 
-    // Wheel → zoom toward cursor.
-    stage.on("wheel", (e) => {
-      e.evt.preventDefault();
-      const pointer = stage.getPointerPosition();
-      if (!pointer) return;
-      useViewport.getState().zoomToPoint(e.evt.deltaY, pointer.x, pointer.y);
-    });
+    bindWheelZoom(stage);
 
     // Where the current press began, in screen px. A drag handed to a frame
     // (#119) measures from here rather than from where Konva noticed it, or
@@ -786,6 +793,7 @@ export default function Board() {
     observer.observe(container);
 
     return () => {
+      disposed = true;
       window.removeEventListener("keydown", handleSpaceDown);
       window.removeEventListener("keyup", handleSpaceUp);
       window.removeEventListener("keydown", handleUndoRedo);

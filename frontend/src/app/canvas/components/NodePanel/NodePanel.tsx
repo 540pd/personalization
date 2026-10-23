@@ -4,11 +4,11 @@
 // Each Node → Image click creates an independent placeholder + panel instance.
 // Instances are stored in the nodePanelStore array and rendered here.
 
-import { useState, useRef, useEffect, useMemo } from "react";
+
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
-import type { Reference } from "@/types/canvas.types";
 import { useConnectionStore } from "@/store/connection.store";
 import { selectOnly } from "@/lib/canvas/selection";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
@@ -52,6 +52,7 @@ import { useCanvasArea } from "../../canvasArea";
 import NodeLabel from "../NodeLabel";
 import GenerateForm, { type GenerateDraft } from "./GenerateForm";
 import { kindSpec, panelOutput } from "./kinds";
+import { generateUpstream, useGenerationProgress } from "./upstreamGeneration";
 import type { NodeSettings } from "./nodeKinds";
 import "./NodePanel.scss";
 
@@ -140,6 +141,8 @@ function SinglePanel({
   hideInputPort, hideOutputPort, hideLabel,
 }: SinglePanelProps) {
   const { canvasX, canvasY, isActive, isPanelOpen } = instance;
+  const onActivateRef = useRef(onActivate);
+  onActivateRef.current = onActivate;
 
   // The kind's spec is the only thing that differs between node types.
   const spec = kindSpec(instance.kind);
@@ -190,6 +193,8 @@ function SinglePanel({
     canvasHistory.commit(key);
   };
   const [busy, setBusy] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const upstreamProgress = useGenerationProgress((s) => s.byId[instance.id]);
   // A batch takes as long as its slowest variant, so say how many are coming
   // rather than showing the same spinner as for one.
   const variantTotal = spec.variantCount?.(settings) ?? 1;
@@ -436,35 +441,15 @@ function SinglePanel({
     const controller = new AbortController();
     generateAbort.current = controller;
     setBusy(true);
+    setWaiting(true);
     setGenError(null);
+    useGenerationProgress.getState().setProgress(instance.id, null);
     try {
-      // Collect reference images from all nodes connected to this node's input port.
-      const { connections } = useConnectionStore.getState();
-      const { nodes: konvaNodes } = useKonvaNodes.getState();
-      const { panels } = useNodePanel.getState();
-      // Carry each upstream node's name alongside its image. Without it the
-      // model receives an anonymous sequence and an instruction cannot say
-      // which reference it means.
-      const references = connections
-        .filter((c) => c.toNodeId === instance.id)
-        .map((c): Reference | null => {
-          if (c.fromNodeType === "konva") {
-            const n = konvaNodes[c.fromNodeId];
-            return n?.imageUrl ? { kind: "image", url: n.imageUrl, name: n.label } : null;
-          }
-          const p = panels.find((pp) => pp.id === c.fromNodeId);
-          // A Compose box's written text counts as its output (#181).
-          const out = p && panelOutput(p);
-          if (!p || !out) return null;
-          // A text node's content IS its reference; an image node points at a
-          // data URL. Video is terminal and renders no output port, so it
-          // cannot be wired as a source -- the fallthrough keeps that true
-          // even if a stale connection outlives a change of kind.
-          if (out.type === "text") return { kind: "text", text: out.value, name: p.label };
-          if (out.type === "image") return { kind: "image", url: out.value, name: p.label };
-          return null;
-        })
-        .filter((r): r is Reference => r !== null);
+      // Resolve missing predecessors before taking their references. Each
+      // predecessor reads its own saved prompt/settings, not B's draft.
+      const references = await generateUpstream(instance.id, controller.signal);
+      if (controller.signal.aborted) return;
+      setWaiting(false);
 
       // Looked up now, by handle: an edited skill applies to this Create.
       const context = spec.mentions
@@ -572,7 +557,10 @@ function SinglePanel({
       useNodePanel.getState().setJob(instance.id, undefined);
       setGenError(err instanceof Error ? err.message : "Generation failed. Please try again.");
     } finally {
-      if (!controller.signal.aborted) setBusy(false);
+      if (!controller.signal.aborted) {
+        setBusy(false);
+        setWaiting(false);
+      }
       if (generateAbort.current === controller) generateAbort.current = null;
     }
   };
@@ -661,6 +649,14 @@ function SinglePanel({
 
   // What the box shows: a written kind shows its text; others their output.
   const shown = spec.authored ? panelOutput(instance) : instance.output;
+  const handleComposeLinkClick = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isActive) return;
+    event.preventDefault();
+    selectOnly("panel");
+    useNodePanel.getState().raisePanel(instance.id);
+    useLayerOrder.getState().raiseDom();
+    onActivateRef.current();
+  }, [instance.id, isActive]);
 
   return (
     <>
@@ -828,14 +824,18 @@ function SinglePanel({
   }}
 >
   {shown ? (
-    <spec.Output value={shown.value} />
-  ) : busy ? (
+    spec.authored ? null : <spec.Output value={shown.value} />
+  ) : busy || upstreamProgress?.status === "generating" ? (
     // Shown on the node itself, not only in the panel: a video generation
     // runs for minutes and the panel is usually closed by then. The rest of
     // the canvas stays interactive throughout.
     <div className="node-panel-placeholder-content">
       <Loader2 size={22} aria-hidden className="node-panel-loader" />
-      <span className="node-panel-placeholder-text">Generating…</span>
+      <span className="node-panel-placeholder-text">{waiting ? "Waiting for upstream…" : "Generating…"}</span>
+    </div>
+  ) : upstreamProgress?.status === "error" ? (
+    <div className="node-panel-placeholder-content" role="alert" title={upstreamProgress.error}>
+      <span className="node-panel-error">{upstreamProgress.error}</span>
     </div>
   ) : (
     <spec.EmptyState />
@@ -843,6 +843,49 @@ function SinglePanel({
 
   {dragging && <div className="node-panel-drag-overlay" />}
 </button>
+
+      {shown && spec.authored && (
+        <div
+          className="node-panel-compose-output-layer"
+          onMouseDown={(e) => { if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); }}
+          onDragStart={(e) => e.preventDefault()}
+          onPointerDown={(e) => {
+            if ((e.target as HTMLElement).closest("[data-compose-link]")) {
+              pointerDownHere.current = false;
+              isDragging.current = false;
+              return;
+            }
+            onPointerDown(e);
+          }}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => {
+            pointerDownHere.current = false;
+            isDragging.current = false;
+            setDragging(false);
+          }}
+          onDoubleClick={(e) => {
+            if ((e.target as HTMLElement).closest("[data-compose-link]")) return;
+            textAtOpen.current = draft.instruction;
+            setEditing(true);
+          }}
+          onPointerEnter={() => setHovered(true)}
+          onPointerLeave={() => setHovered(false)}
+          style={{
+            position: "fixed",
+            left: placeholderLeft,
+            top: placeholderTop,
+            width: pw,
+            height: ph,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            zIndex: Z_INDEX.nodes,
+            borderRadius: NODE_CORNER_RADIUS,
+          }}
+        >
+          <spec.Output value={shown.value} onLinkClick={handleComposeLinkClick} />
+        </div>
+      )}
 
       {/* ── In-place editor — an authored kind's double-click (#181). Laid
            over the box in canvas units and scaled the same way, so the text
@@ -885,9 +928,9 @@ function SinglePanel({
           onDraftChange={setDraft}
           settings={settings}
           onSettingsChange={setSettings}
-          busy={busy}
-          busyLabel={variantBusyLabel}
-          error={genError}
+          busy={busy || upstreamProgress?.status === "generating"}
+          busyLabel={waiting ? "Waiting for upstream…" : variantBusyLabel}
+          error={genError ?? upstreamProgress?.error ?? null}
           left={panelLeft}
           top={screenCenterY}
           onClose={onClosePanel}
