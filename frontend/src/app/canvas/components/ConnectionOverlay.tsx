@@ -13,7 +13,7 @@ import { useToolStore } from "@/store/tool.store";
 import { useSettings } from "@/store/settings.store";
 import type { PanelInstance } from "@/store/nodePanel.store";
 import type { KonvaNodeRecord } from "@/store/konvaNodes.store";
-import { boardIsShown } from "@/store/section.store";
+import { boardKeyAllowed } from "@/lib/canvas/boardKeys";
 import { COLORS, SNAP_RADIUS, Z_INDEX } from "@/constants/canvas.constants";
 import { toScreen } from "@/lib/canvas/coords";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
@@ -161,10 +161,9 @@ export default function ConnectionOverlay() {
   // Delete key removes all selected connections.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (!boardIsShown()) return;
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      // Capture phase runs before a modal can stop the event; see NodePanel.
-      if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;
+      // Capture phase runs before a modal can stop the event, so the guard
+      // has to skip a dialog's keys itself; see NodePanel.
+      if (!boardKeyAllowed(e)) return;
       if (e.code !== "Delete" && e.code !== "Backspace") return;
       const { selectedIds } = useConnectionStore.getState();
       if (!selectedIds.length) return;

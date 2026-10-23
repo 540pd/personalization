@@ -13,6 +13,7 @@ import { useConnectionStore, type Connection } from "@/store/connection.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { BoardShape, type BoardShapeConfig } from "./shapes";
+import { isPageKey } from "@/lib/dom/keys";
 
 /**
  * One entry per copied node, so a multi-selection round-trips intact.
@@ -167,9 +168,8 @@ export function createEditKeysHandler(deps: EditKeysDeps) {
   let clipboard: Clipboard = EMPTY_CLIPBOARD;
 
   return (e: KeyboardEvent) => {
-    // Never steal keys from a field the user is typing in.
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
+    // Never steal keys from a field the user is typing in, or from a dialog.
+    if (!isPageKey(e)) return;
     const mod = e.ctrlKey || e.metaKey;
     const selected = deps.transformer.nodes() as Konva.Shape[];
 

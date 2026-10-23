@@ -38,7 +38,8 @@ import { layoutVariants } from "../../board/variants";
 import { dragFrameFrom, selectedFrameAround } from "../../board/frameDrag";
 import { dropIntoLayout, trackLayoutDrag } from "../../board/autoLayoutDrop";
 import { useFrames } from "@/store/frame.store";
-import { boardIsShown, useSection } from "@/store/section.store";
+import { useSection } from "@/store/section.store";
+import { boardKeyAllowed } from "@/lib/canvas/boardKeys";
 import { useSkills } from "@/store/skills.store";
 import { useAgents } from "@/store/agents.store";
 import { mentionContext, resolveMentions } from "../../mentions/mentions";
@@ -965,12 +966,10 @@ export default function NodePanel() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Not while another page covers the board (#206).
-      if (!boardIsShown()) return;
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      // Capture phase runs before a modal can stop the event, so it has to
+      // Not while another page covers the board (#206), nor from a field.
+      // Capture phase runs before a modal can stop the event, so this has to
       // opt out itself: Backspace on a popup's button must not delete here.
-      if (e.target instanceof Element && e.target.closest('[aria-modal="true"]')) return;
+      if (!boardKeyAllowed(e)) return;
       const store = useNodePanel.getState();
       const mod   = e.ctrlKey || e.metaKey;
 
