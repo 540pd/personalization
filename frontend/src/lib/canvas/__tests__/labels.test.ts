@@ -42,7 +42,7 @@ describe("takenLabels", () => {
     useNodePanel.setState({
       panels: [{
         id: "p1", kind: "image", canvasX: 0, canvasY: 0,
-        isActive: false, isPanelOpen: false, w: 10, h: 10, label: "dog",
+        w: 10, h: 10, label: "dog",
       }],
     });
     expect(takenLabels().sort()).toEqual(["cat", "dog"]);
@@ -91,7 +91,7 @@ describe("relabel", () => {
 describe("labelAuto", () => {
   beforeEach(() => {
     useNodePanel.setState({
-      panels: [{ id: "a", kind: "image", canvasX: 0, canvasY: 0, w: 10, h: 10, isActive: false, isPanelOpen: false }],
+      panels: [{ id: "a", kind: "image", canvasX: 0, canvasY: 0, w: 10, h: 10 }],
     } as never);
   });
 

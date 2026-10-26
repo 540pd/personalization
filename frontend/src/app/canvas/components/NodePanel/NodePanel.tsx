@@ -41,6 +41,8 @@ import "./NodePanel.scss";
 
 interface SinglePanelProps {
   instance:       PanelInstance;
+  isActive:       boolean; // selected (transformer border)
+  isPanelOpen:    boolean; // selected, with its panel open
   stageX:         number;
   stageY:         number;
   scale:          number;
@@ -55,11 +57,11 @@ interface SinglePanelProps {
 }
 
 function SinglePanel({
-  instance, stageX, stageY, scale,
+  instance, isActive, isPanelOpen, stageX, stageY, scale,
   onActivate, onOpenPanel, onClosePanel, onSetCanvasPos,
   hideInputPort, hideOutputPort, hideLabel,
 }: SinglePanelProps) {
-  const { canvasX, canvasY, isActive, isPanelOpen } = instance;
+  const { canvasX, canvasY } = instance;
   const onActivateRef = useRef(onActivate);
   onActivateRef.current = onActivate;
 
@@ -78,7 +80,7 @@ function SinglePanel({
 
   const { busy, waiting, busyLabel, error, upstreamError, generate } = useGeneration(instance, spec, draft, settings);
   const { dragging, handlers } = usePanelDrag({
-    instance, scale, authored: !!spec.authored, onActivate, onOpenPanel, onClosePanel, onSetCanvasPos,
+    instance, isActive, isPanelOpen, scale, authored: !!spec.authored, onActivate, onOpenPanel, onClosePanel, onSetCanvasPos,
   });
   const anchorHandlers = usePanelResize(instance, scale, onSetCanvasPos);
 
@@ -269,7 +271,8 @@ function SinglePanel({
 // ── Root component — renders all instances ────────────────────────────────────
 
 export default function NodePanel() {
-  const { panels, removePanel, removeActive, activatePanel, openPanel, closePanel, closeAllPanels, setCanvasPos } = useNodePanel();
+  const { panels, selectedIds, openId, removePanel, removeSelected, select, openPanel, closePanel, clearSelection, setCanvasPos } = useNodePanel();
+  const selected = new Set(selectedIds);
   const { x: stageX, y: stageY, scale } = useViewport();
   const topLayer = useLayerOrder((s) => s.topLayer);
   const konvaNodes = Object.values(useKonvaNodes((s) => s.nodes));
@@ -299,23 +302,23 @@ export default function NodePanel() {
       // stopImmediatePropagation its way to priority, which is what made
       // Ctrl+Z non-chronological across node kinds.
 
-      // Delete / Backspace — remove every selected placeholder. Active, not
-      // selectedId: after Ctrl+A many panels are selected and selectedId is null.
-      if ((e.code === "Delete" || e.code === "Backspace") && store.panels.some((p) => p.isActive)) {
+      // Delete / Backspace — remove every selected placeholder; after Ctrl+A
+      // that is many.
+      if ((e.code === "Delete" || e.code === "Backspace") && store.selectedIds.length) {
         e.preventDefault();
-        removeActive();
+        removeSelected();
         // Keyed on the event: wires and images deleted by the same keypress
         // land in this one undo step.
         canvasHistory.commit(e);
         return;
       }
       // Escape — collapse all panels, keep placeholders.
-      if (e.code === "Escape") closeAllPanels();
+      if (e.code === "Escape") clearSelection();
     };
     // Capture phase ensures this runs before Board.tsx's bubble-phase listener.
     window.addEventListener("keydown", handler, { capture: true });
     return () => window.removeEventListener("keydown", handler, { capture: true });
-  }, [removeActive, closeAllPanels]);
+  }, [removeSelected, clearSelection]);
 
   return (
     <>
@@ -325,10 +328,12 @@ export default function NodePanel() {
         <SinglePanel
           key={p.id}
           instance={p}
+          isActive={selected.has(p.id)}
+          isPanelOpen={openId === p.id}
           stageX={stageX}
           stageY={stageY}
           scale={scale}
-          onActivate={()         => activatePanel(p.id)}
+          onActivate={()         => select(p.id)}
           onOpenPanel={()        => openPanel(p.id)}
           onClosePanel={()       => closePanel(p.id)}
           onRemove={()           => removePanel(p.id)}

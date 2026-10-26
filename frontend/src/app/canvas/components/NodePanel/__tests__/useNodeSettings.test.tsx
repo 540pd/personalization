@@ -15,7 +15,7 @@ const spec = {
 const draft = { model: "m", instruction: "a cat" };
 
 const panel = (over: Partial<PanelInstance> = {}): PanelInstance =>
-  ({ id: "a", kind: "image", canvasX: 0, canvasY: 90, w: 320, h: 180, isActive: false, isPanelOpen: false, ...over }) as PanelInstance;
+  ({ id: "a", kind: "image", canvasX: 0, canvasY: 90, w: 320, h: 180, ...over }) as PanelInstance;
 
 const stored = () => useNodePanel.getState().panels[0];
 

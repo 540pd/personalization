@@ -8,7 +8,7 @@ import { overPlaceholder, useCanvasPassThrough } from "../useCanvasPassThrough";
 
 const panel = (over: Partial<PanelInstance> = {}): PanelInstance => ({
   id: "p", kind: "image", canvasX: 100, canvasY: 100, w: 100, h: 50,
-  isActive: false, isPanelOpen: false, ...over,
+  ...over,
 } as PanelInstance);
 
 describe("overPlaceholder", () => {

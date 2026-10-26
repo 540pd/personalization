@@ -49,7 +49,7 @@ describe("removeSelectedFrame (#244)", () => {
   // Board's transformer isn't here: select the ids straight into the store.
   registerNodeChromeSelect((ids) => ids.forEach((id) => useKonvaSelection.getState().addToSelection(id)));
   const panel = (id: string, x: number, y: number) =>
-    ({ id, kind: "image", canvasX: x, canvasY: y, w: 100, h: 60, isActive: false, isPanelOpen: false }) as unknown as PanelInstance;
+    ({ id, kind: "image", canvasX: x, canvasY: y, w: 100, h: 60 }) as unknown as PanelInstance;
 
   beforeEach(() => {
     useFrames.setState({
@@ -64,7 +64,7 @@ describe("removeSelectedFrame (#244)", () => {
     });
     useKonvaSelection.setState({ selectedIds: [] });
     // A panel's canvasY is its centre: 100 high around 100 is inside.
-    useNodePanel.setState({ panels: [panel("p", 200, 100), panel("far", 900, 500)] });
+    useNodePanel.setState({ panels: [panel("p", 200, 100), panel("far", 900, 500)], selectedIds: [], openId: null });
   });
 
   it("removes the Frame and selects what was inside it, nothing moved", () => {
@@ -72,7 +72,7 @@ describe("removeSelectedFrame (#244)", () => {
     expect(useFrames.getState().frames.f).toBeUndefined();
     expect(useFrames.getState().selectedIds).toEqual([]);
     expect(useKonvaSelection.getState().selectedIds).toEqual(["a"]);
-    expect(useNodePanel.getState().panels.filter((p) => p.isActive).map((p) => p.id)).toEqual(["p"]);
+    expect(useNodePanel.getState().selectedIds).toEqual(["p"]);
     expect(useKonvaNodes.getState().nodes.a.canvasX).toBe(20);
     expect(useNodePanel.getState().panels[0].canvasX).toBe(200);
   });
@@ -82,7 +82,7 @@ describe("removeSelectedFrame (#244)", () => {
     expect(removeSelectedFrame()).toBe(true);
     expect(useFrames.getState().frames.empty).toBeUndefined();
     expect(useKonvaSelection.getState().selectedIds).toEqual([]);
-    expect(useNodePanel.getState().panels.some((p) => p.isActive)).toBe(false);
+    expect(useNodePanel.getState().selectedIds).toEqual([]);
   });
 
   it("selects auto layout's children by id too", () => {

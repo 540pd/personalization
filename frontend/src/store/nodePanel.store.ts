@@ -4,13 +4,19 @@ import * as bulk from "./nodePanel/bulk";
 import * as content from "./nodePanel/content";
 import * as geometry from "./nodePanel/geometry";
 import { bumpNextId, nextPanelId } from "./nodePanel/ids";
-import { persistOptions } from "./nodePanel/persistence";
+import { persistOptions, withoutLegacyFlags } from "./nodePanel/persistence";
 import * as selection from "./nodePanel/selection";
 import type { NodePanelState, PanelInstance } from "./nodePanel/types";
 
 export type { NodeKind, PanelDraft, PanelInstance, PanelOutput, VariantPlacement } from "./nodePanel/types";
 export { isKnownKind } from "./nodePanel/types";
 export { deferredStorage, panelStorage, SAVE_DELAY_MS } from "./nodePanel/persistence";
+
+/** The selected nodes, in board (paint) order. */
+export function selectedPanels(s: Pick<NodePanelState, "panels" | "selectedIds">): PanelInstance[] {
+  const ids = new Set(s.selectedIds);
+  return s.panels.filter((p) => ids.has(p.id));
+}
 
 // The store is the wiring: each action is a pure transition from
 // ./nodePanel, applied with `set`. A transition that changes nothing returns
@@ -22,21 +28,28 @@ const withPanels = (s: NodePanelState, panels: PanelInstance[]) =>
 export const useNodePanel = create<NodePanelState>()(
   persist(
     (set, get) => ({
-      panels:     [],
-      parked:     [],
-      selectedId: null,
+      panels:      [],
+      parked:      [],
+      selectedIds: [],
+      openId:      null,
 
       addPanel: (cx, cy, kind = "image", open = true) =>
         set((s) => selection.addPanel(s, nextPanelId(), cx, cy, kind, open)),
-      removePanel:    (id) => set((s) => selection.removePanel(s, id)),
-      activatePanel:  (id) => set((s) => selection.activatePanel(s, id)),
-      raisePanel:     (id) => set((s) => withPanels(s, geometry.raisePanel(s.panels, id))),
+      removePanel: (id) => set((s) => selection.removePanel(s, id)),
+      raisePanel:  (id) => set((s) => withPanels(s, geometry.raisePanel(s.panels, id))),
+
+      // The shared selection slice, each also closing an open panel.
+      select:              (id)  => set((s) => selection.selectPanel(s, id)),
+      addToSelection:      (id)  => set((s) => selection.addPanelToSelection(s, id)),
+      removeFromSelection: (id)  => set((s) => selection.removePanelFromSelection(s, id)),
+      toggleSelected:      (id)  => set((s) => selection.togglePanelSelected(s, id)),
+      setSelection:        (ids) => set((s) => selection.setPanelSelection(s, ids)),
+      clearSelection:      ()    => set(selection.clearPanelSelection),
+      selectAll:           ()    => set(selection.selectAllPanels),
+
       openPanel:      (id) => set((s) => selection.openPanel(s, id)),
-      closePanel:     (id) => set((s) => ({ panels: selection.closePanel(s.panels, id) })),
-      closeAllPanels: ()   => set(selection.closeAllPanels),
-      activateAll:    ()   => set(selection.activateAll),
-      togglePanel:    (id) => set((s) => selection.togglePanel(s, id)),
-      removeActive:   ()   => set(selection.removeActive),
+      closePanel:     (id) => set((s) => selection.closePanel(s, id)),
+      removeSelected: ()   => set(selection.removeSelected),
 
       pastePanels: (sources, offset) => {
         const { state, idMap } = bulk.pastePanels(get(), sources, offset, nextPanelId);
@@ -49,16 +62,14 @@ export const useNodePanel = create<NodePanelState>()(
       setCanvasPositions: (positions) =>
         set((s) => ({ panels: geometry.setCanvasPositions(s.panels, positions) })),
 
-      selectPanel: (id) => set({ selectedId: id }),
-
       replaceAll: (panels, restoresDraft) =>
-        set((s) => ({ panels: bulk.replaceAll(s.panels, panels, restoresDraft) })),
+        set((s) => selection.keepExisting({ ...s, panels: bulk.replaceAll(s.panels, panels, restoresDraft) })),
 
-      clearAll: () => set({ panels: [], selectedId: null }),
+      clearAll: () => set({ panels: [], selectedIds: [], openId: null }),
 
       loadPanels: (panels) => {
         bumpNextId(panels);
-        set({ selectedId: null, panels: selection.deactivated(panels) });
+        set({ panels: withoutLegacyFlags(panels), selectedIds: [], openId: null });
       },
 
       setSize:   (id, w, h)   => set((s) => withPanels(s, geometry.setSize(s.panels, id, w, h))),

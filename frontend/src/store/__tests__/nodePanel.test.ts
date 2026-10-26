@@ -9,13 +9,14 @@ import * as selection from "../nodePanel/selection";
 import type { PanelsState } from "../nodePanel/types";
 
 const node = (id: string, over: Partial<PanelInstance> = {}): PanelInstance => ({
-  id, kind: "image", canvasX: 0, canvasY: 0, w: 200, h: 150,
-  isActive: false, isPanelOpen: false, ...over,
+  id, kind: "image", canvasX: 0, canvasY: 0, w: 200, h: 150, ...over,
 });
 
-const board = (selectedId: string | null, ...panels: PanelInstance[]): PanelsState => ({ panels, selectedId });
+const board = (selectedIds: string[], openId: string | null, ...panels: PanelInstance[]): PanelsState =>
+  ({ panels, selectedIds, openId });
 
-const flags = (s: PanelsState) => s.panels.map((p) => [p.id, p.isActive, p.isPanelOpen]);
+/** What a transition left selected and open. */
+const sel = (s: PanelsState) => ({ selectedIds: s.selectedIds, openId: s.openId });
 
 const counter = () => {
   let n = 100;
@@ -23,59 +24,73 @@ const counter = () => {
 };
 
 describe("selection", () => {
-  it("deactivated clears both flags on every panel", () => {
-    expect(selection.deactivated([node("a", { isActive: true, isPanelOpen: true })]))
-      .toEqual([node("a")]);
-  });
-
-  it("addPanel lands the new node selected and, by default, open; the rest go inactive", () => {
-    const s = selection.addPanel(board("a", node("a", { isActive: true })), "b", 5, 6, "video", true);
-    expect(s.selectedId).toBe("b");
-    expect(flags(s)).toEqual([["a", false, false], ["b", true, true]]);
+  it("addPanel lands the new node as the only selection and, by default, open", () => {
+    const s = selection.addPanel(board(["a"], "a", node("a")), "b", 5, 6, "video", true);
+    expect(sel(s)).toEqual({ selectedIds: ["b"], openId: "b" });
     expect(s.panels[1]).toMatchObject({ kind: "video", canvasX: 5, canvasY: 6 });
     expect(s.panels[1].w).toBeGreaterThan(0);
-    expect(selection.addPanel(board(null), "c", 0, 0, "compose", false).panels[0].isPanelOpen).toBe(false);
+    // The panel objects carry no selection.
+    expect(s.panels[0]).toEqual(node("a"));
+    expect(selection.addPanel(board([], null), "c", 0, 0, "compose", false).openId).toBeNull();
   });
 
-  it("removePanel clears selectedId only when it named the removed panel", () => {
-    expect(selection.removePanel(board("a", node("a"), node("b")), "a")).toEqual(board(null, node("b")));
-    expect(selection.removePanel(board("b", node("a"), node("b")), "a").selectedId).toBe("b");
+  it("removePanel drops the panel from the selection and the open slot", () => {
+    expect(selection.removePanel(board(["a"], "a", node("a"), node("b")), "a")).toEqual(board([], null, node("b")));
+    expect(sel(selection.removePanel(board(["b"], null, node("a"), node("b")), "a"))).toEqual({ selectedIds: ["b"], openId: null });
   });
 
-  it("activatePanel and openPanel select one panel, with its panel closed or open", () => {
-    const s = board(null, node("a", { isActive: true, isPanelOpen: true }), node("b"));
-    expect(flags(selection.activatePanel(s, "b"))).toEqual([["a", false, false], ["b", true, false]]);
-    expect(flags(selection.openPanel(s, "b"))).toEqual([["a", false, false], ["b", true, true]]);
-    expect(selection.openPanel(s, "b").selectedId).toBe("b");
+  it("selectPanel and openPanel select one panel, with its panel closed or open", () => {
+    const s = board(["a"], "a", node("a"), node("b"));
+    expect(sel(selection.selectPanel(s, "b"))).toEqual({ selectedIds: ["b"], openId: null });
+    expect(sel(selection.openPanel(s, "b"))).toEqual({ selectedIds: ["b"], openId: "b" });
+    expect(sel(selection.selectPanel(s, null))).toEqual({ selectedIds: [], openId: null });
   });
 
-  it("closePanel collapses one panel and keeps it active", () => {
-    const panels = [node("a", { isActive: true, isPanelOpen: true }), node("b", { isPanelOpen: true })];
-    const next = selection.closePanel(panels, "a");
-    expect(next[0]).toMatchObject({ isActive: true, isPanelOpen: false });
-    expect(next[1]).toBe(panels[1]);
+  it("closePanel collapses the open panel and keeps it selected", () => {
+    const s = board(["a"], "a", node("a"));
+    expect(sel(selection.closePanel(s, "a"))).toEqual({ selectedIds: ["a"], openId: null });
+    // Closing one that is not open changes nothing.
+    expect(selection.closePanel(s, "b")).toBe(s);
   });
 
-  it("closeAllPanels and activateAll clear selectedId", () => {
-    const s = board("a", node("a", { isActive: true, isPanelOpen: true }), node("b"));
-    expect(selection.closeAllPanels(s)).toEqual(board(null, node("a"), node("b")));
-    const all = selection.activateAll(s);
-    expect(all.selectedId).toBeNull();
-    expect(flags(all)).toEqual([["a", true, false], ["b", true, false]]);
+  it("clearPanelSelection and selectAllPanels close every panel", () => {
+    const s = board(["a"], "a", node("a"), node("b"));
+    expect(sel(selection.clearPanelSelection(s))).toEqual({ selectedIds: [], openId: null });
+    expect(sel(selection.selectAllPanels(s))).toEqual({ selectedIds: ["a", "b"], openId: null });
   });
 
-  it("togglePanel flips one panel, keeps the others selected, and closes every panel", () => {
-    const s = board("a", node("a", { isActive: true, isPanelOpen: true }), node("b"));
-    const t = selection.togglePanel(s, "b");
-    expect(t.selectedId).toBeNull();
-    expect(flags(t)).toEqual([["a", true, false], ["b", true, false]]);
-    expect(flags(selection.togglePanel(t, "a"))).toEqual([["a", false, false], ["b", true, false]]);
+  it("toggling, adding or dropping one panel keeps the others and closes the open panel", () => {
+    const s = board(["a"], "a", node("a"), node("b"));
+    const t = selection.togglePanelSelected(s, "b");
+    expect(sel(t)).toEqual({ selectedIds: ["a", "b"], openId: null });
+    expect(sel(selection.togglePanelSelected(t, "a"))).toEqual({ selectedIds: ["b"], openId: null });
+    expect(sel(selection.addPanelToSelection(s, "b"))).toEqual({ selectedIds: ["a", "b"], openId: null });
+    expect(sel(selection.removePanelFromSelection(t, "a"))).toEqual({ selectedIds: ["b"], openId: null });
+    expect(sel(selection.setPanelSelection(s, ["b"]))).toEqual({ selectedIds: ["b"], openId: null });
   });
 
-  // After Ctrl+A every panel is active while selectedId is null.
-  it("removeActive removes by isActive, not selectedId", () => {
-    const s = board(null, node("a", { isActive: true }), node("b"), node("c", { isActive: true }));
-    expect(selection.removeActive(s)).toEqual(board(null, node("b")));
+  it("removeSelected removes every selected panel, and nothing when none is", () => {
+    const s = board(["a", "c"], null, node("a"), node("b"), node("c"));
+    expect(selection.removeSelected(s)).toEqual(board([], null, node("b")));
+    const none = board([], null, node("a"));
+    expect(selection.removeSelected(none)).toBe(none);
+  });
+
+  it("a transition that changes nothing returns the same state", () => {
+    const s = board(["a"], null, node("a"));
+    expect(selection.selectPanel(s, "a")).toBe(s);
+    expect(selection.addPanelToSelection(s, "a")).toBe(s);
+    const empty = board([], null, node("a"));
+    expect(selection.clearPanelSelection(empty)).toBe(empty);
+  });
+
+  // Undo and a file load swap the panels; the selection must not outlive them,
+  // and undo restores no selection of its own (#244).
+  it("keepExisting drops selected and open ids whose panel is gone", () => {
+    const s = board(["a", "gone"], "gone", node("a"));
+    expect(sel(selection.keepExisting(s))).toEqual({ selectedIds: ["a"], openId: null });
+    const fine = board(["a"], "a", node("a"));
+    expect(selection.keepExisting(fine)).toBe(fine);
   });
 });
 
@@ -139,20 +154,19 @@ describe("content", () => {
 
 describe("bulk", () => {
   it("pastePanels copies at an offset as the new selection, without the job", () => {
-    const src = node("a", { canvasX: 10, canvasY: 20, job: "j1", label: "A", labelAuto: true, isActive: true });
-    const { state, idMap } = bulk.pastePanels(board("a", src), [src], 5, counter());
+    const src = node("a", { canvasX: 10, canvasY: 20, job: "j1", label: "A", labelAuto: true });
+    const { state, idMap } = bulk.pastePanels(board(["a"], "a", src), [src], 5, counter());
     expect(idMap).toEqual({ a: "panel-100" });
-    expect(state!.selectedId).toBe("panel-100");
-    expect(flags(state!)).toEqual([["a", false, false], ["panel-100", true, false]]);
+    expect(sel(state!)).toEqual({ selectedIds: ["panel-100"], openId: null });
     const copy = state!.panels[1];
     expect(copy).toMatchObject({ canvasX: 15, canvasY: 25, label: "A", labelAuto: true });
     expect(copy.job).toBeUndefined();
   });
 
-  it("pastePanels of several leaves selectedId null, and of none changes nothing", () => {
-    const { state } = bulk.pastePanels(board(null), [node("a"), node("b")], 0, counter());
-    expect(state!.selectedId).toBeNull();
-    expect(bulk.pastePanels(board(null), [], 0, counter())).toEqual({ state: null, idMap: {} });
+  it("pastePanels of several selects every copy, and of none changes nothing", () => {
+    const { state } = bulk.pastePanels(board([], null), [node("a"), node("b")], 0, counter());
+    expect(state!.selectedIds).toEqual(["panel-100", "panel-101"]);
+    expect(bulk.pastePanels(board([], null), [], 0, counter())).toEqual({ state: null, idMap: {} });
   });
 
   it("addVariants copies the source's kind, size and draft, with settings not shared", () => {
@@ -164,7 +178,7 @@ describe("bulk", () => {
       [{ canvasX: 1, canvasY: 2, output: { type: "image", value: "v" }, label: "A 2" }], counter());
     const copy = next[1];
     expect(copy).toMatchObject({ id: "panel-100", w: 300, h: 300, canvasX: 1, canvasY: 2,
-      label: "A 2", labelAuto: true, isActive: false, isPanelOpen: false });
+      label: "A 2", labelAuto: true });
     expect(copy.draft!.settings).toEqual(settings);
     expect(copy.draft!.settings).not.toBe(settings);
     expect(bulk.addVariants(panels, "nope", [], counter())).toBe(panels);
@@ -204,13 +218,14 @@ describe("ids", () => {
 describe("persistOptions", () => {
   it("persists only the panels", () => {
     const s = useNodePanel.getState();
-    expect(persistOptions.partialize!({ ...s, panels: [node("a")], selectedId: "a" }))
+    expect(persistOptions.partialize!({ ...s, panels: [node("a")], selectedIds: ["a"], openId: "a" }))
       .toEqual({ panels: [node("a")] });
     expect(persistOptions.name).toBe("gcos-node-panels");
   });
 
-  it("rehydrates with every panel inactive and the id counter past them", () => {
-    const state = { ...useNodePanel.getState(), panels: [node("panel-900", { isActive: true, isPanelOpen: true })] };
+  it("rehydrates without the flags older saves stored, and the id counter past them", () => {
+    const legacy = { ...node("panel-900"), isActive: true, isPanelOpen: true } as PanelInstance;
+    const state = { ...useNodePanel.getState(), panels: [legacy] };
     persistOptions.onRehydrateStorage!(state)!(state, undefined);
     expect(state.panels).toEqual([node("panel-900")]);
     expect(nextPanelId()).toBe("panel-901");
@@ -219,23 +234,25 @@ describe("persistOptions", () => {
 
 describe("useNodePanel", () => {
   it("does not notify subscribers when a raise or resize changes nothing", () => {
-    useNodePanel.setState({ panels: [node("a"), node("b")], selectedId: null });
+    useNodePanel.setState({ panels: [node("a"), node("b")], selectedIds: [], openId: null });
     let notified = 0;
     const off = useNodePanel.subscribe(() => notified++);
     useNodePanel.getState().raisePanel("b");
     useNodePanel.getState().setSize("a", 200, 150);
     useNodePanel.getState().addVariants("nope", []);
     useNodePanel.getState().pastePanels([], 10);
+    useNodePanel.getState().clearSelection();
     off();
     expect(notified).toBe(0);
   });
 
-  it("loadPanels lands the panels closed and deselected, with new ids past them", () => {
+  it("loadPanels lands the panels with nothing selected or open, and new ids past them", () => {
     useNodePanel.getState().loadPanels([{ id: "panel-2000", kind: "image", canvasX: 0, canvasY: 0, w: 1, h: 1 }]);
-    const { panels, selectedId } = useNodePanel.getState();
-    expect(selectedId).toBeNull();
-    expect(panels[0]).toMatchObject({ isActive: false, isPanelOpen: false });
+    const { panels, selectedIds, openId } = useNodePanel.getState();
+    expect(selectedIds).toEqual([]);
+    expect(openId).toBeNull();
+    expect(panels[0]).not.toHaveProperty("isActive");
     useNodePanel.getState().addPanel(0, 0);
-    expect(useNodePanel.getState().selectedId).toBe("panel-2001");
+    expect(useNodePanel.getState().selectedIds).toEqual(["panel-2001"]);
   });
 });

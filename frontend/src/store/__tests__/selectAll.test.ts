@@ -9,30 +9,30 @@ beforeEach(() => {
 });
 
 describe("nodePanel select all / delete", () => {
-  it("activateAll makes every panel active and collapses open ones", () => {
+  it("selectAll makes every panel active and collapses open ones", () => {
     const s = useNodePanel.getState();
     s.addPanel(0, 0);
     s.addPanel(100, 0);
     s.addPanel(200, 0); // the newest lands panel-open
-    useNodePanel.getState().activateAll();
+    useNodePanel.getState().selectAll();
 
-    const { panels, selectedId } = useNodePanel.getState();
+    const { panels, selectedIds, openId } = useNodePanel.getState();
     expect(panels).toHaveLength(3);
-    expect(panels.every((p) => p.isActive && !p.isPanelOpen)).toBe(true);
-    expect(selectedId).toBeNull();
+    expect(selectedIds).toEqual(panels.map((p) => p.id));
+    expect(openId).toBeNull();
   });
 
-  it("removeActive removes every active panel and keeps the rest", () => {
+  it("removeSelected removes every active panel and keeps the rest", () => {
     const s = useNodePanel.getState();
     s.addPanel(0, 0);
     s.addPanel(100, 0);
     const keep = useNodePanel.getState().panels[0].id;
     // Only the newest is active after addPanel.
-    useNodePanel.getState().removeActive();
+    useNodePanel.getState().removeSelected();
     expect(useNodePanel.getState().panels.map((p) => p.id)).toEqual([keep]);
 
-    useNodePanel.getState().activateAll();
-    useNodePanel.getState().removeActive();
+    useNodePanel.getState().selectAll();
+    useNodePanel.getState().removeSelected();
     expect(useNodePanel.getState().panels).toHaveLength(0);
   });
 });
@@ -50,22 +50,19 @@ describe("connection selectAll", () => {
   });
 });
 
-describe("nodePanel togglePanel", () => {
+describe("nodePanel toggleSelected", () => {
   it("adds and drops one panel without touching the others", () => {
     const s = useNodePanel.getState();
     s.addPanel(0, 0);
     s.addPanel(100, 0); // active and open
     const [first, second] = useNodePanel.getState().panels.map((p) => p.id);
 
-    useNodePanel.getState().togglePanel(first);
-    let panels = useNodePanel.getState().panels;
-    expect(panels.every((p) => p.isActive)).toBe(true);
-    expect(panels.some((p) => p.isPanelOpen)).toBe(false);
+    useNodePanel.getState().toggleSelected(first);
+    expect(useNodePanel.getState().selectedIds.sort()).toEqual([first, second].sort());
+    expect(useNodePanel.getState().openId).toBeNull();
 
-    useNodePanel.getState().togglePanel(first);
-    panels = useNodePanel.getState().panels;
-    expect(panels.find((p) => p.id === first)!.isActive).toBe(false);
-    expect(panels.find((p) => p.id === second)!.isActive).toBe(true);
+    useNodePanel.getState().toggleSelected(first);
+    expect(useNodePanel.getState().selectedIds).toEqual([second]);
   });
 });
 

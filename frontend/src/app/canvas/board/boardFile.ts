@@ -44,9 +44,9 @@ export type BoardFileNode = NodeEntry<Record<string, Json>>;
  * board: whether it is selected or open, and an in-flight generation job,
  * which would reconnect to nothing.
  */
-export type BoardFilePanel = Omit<PanelInstance, "isActive" | "isPanelOpen" | "job">;
+export type BoardFilePanel = Omit<PanelInstance, "job">;
 
-export function toFilePanel({ isActive: _a, isPanelOpen: _o, job: _j, ...rest }: PanelInstance): BoardFilePanel {
+export function toFilePanel({ job: _j, ...rest }: PanelInstance): BoardFilePanel {
   return rest;
 }
 

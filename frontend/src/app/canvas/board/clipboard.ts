@@ -8,7 +8,7 @@
 import Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
-import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
+import { selectedPanels, useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useConnectionStore, type Connection } from "@/store/connection.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
@@ -41,7 +41,7 @@ export function copyNodes(selected: Konva.Shape[]): NodeEntry[] {
  * its copy would have nothing to attach to.
  */
 export function copySelection(selected: Konva.Shape[]): Clipboard {
-  const panels = useNodePanel.getState().panels.filter((p) => p.isActive);
+  const panels = selectedPanels(useNodePanel.getState());
   const ids = new Set([...selected.map((n) => n.id()), ...panels.map((p) => p.id)]);
   const connections = useConnectionStore
     .getState()
@@ -192,7 +192,7 @@ export function createEditKeysHandler(deps: BoardLayerDeps) {
         });
         Object.assign(idMap, useNodePanel.getState().pastePanels(sources, PASTE_OFFSET));
       } else {
-        useNodePanel.getState().closeAllPanels();
+        useNodePanel.getState().clearSelection();
       }
       useConnectionStore.getState().pasteConnections(clipboard.connections, idMap);
       // A paste is a create, and a newly created node comes to the front.

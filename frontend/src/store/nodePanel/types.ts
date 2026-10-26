@@ -1,4 +1,5 @@
 import type { NodeSettings } from "@/app/canvas/components/NodePanel/nodeKinds";
+import type { SelectionSlice } from "../selectionSlice";
 
 // What a panel node generates. The dock already offers all three
 // (tool.store.ts declares generate-instruction and generate-video, and both
@@ -52,9 +53,6 @@ export interface PanelInstance {
   kind: NodeKind;
   canvasX: number;
   canvasY: number;
-  // 3-state: inactive → active (transformer) → panel-open (transformer + panel)
-  isActive:    boolean;
-  isPanelOpen: boolean;
   // Placeholder size in CANVAS units (synced from SinglePanel). Note canvasY
   // is the vertical CENTRE of the placeholder, not its top edge — unlike
   // KonvaNodeRecord, where canvasY is the top.
@@ -87,26 +85,31 @@ export interface VariantPlacement {
   label: string;
 }
 
-export interface NodePanelState {
+/**
+ * A node is one of three: unselected, selected (transformer border), or
+ * selected with its panel open. Which ones are selected is the shared
+ * selection slice; at most one is open, and it is always the only one
+ * selected. Neither lives on the panel itself: a selection change rewrote
+ * every panel object, and undo snapshots carried the selection back with them.
+ */
+export interface NodePanelState extends SelectionSlice {
   panels:      PanelInstance[];
+  /** The one node whose panel is open, or null. */
+  openId:      string | null;
   /**
    * Saved nodes of a kind this build does not know (#186). Never rendered and
    * never touched; only written back on save, so a build that knows the kind
    * shows them again. Their `kind` is not really a NodeKind.
    */
   parked:      PanelInstance[];
-  selectedId:  string | null;
   /** `open` false lands the node selected but with no panel: a written kind has none. */
   addPanel:        (cx: number, cy: number, kind?: NodeKind, open?: boolean) => void;
   removePanel:     (id: string) => void;
-  activatePanel:   (id: string) => void; // inactive → active (transformer, no panel)
   raisePanel:      (id: string) => void; // move to the top of the paint order
-  openPanel:       (id: string) => void; // active → panel-open
-  closePanel:      (id: string) => void; // panel-open → active
-  closeAllPanels:  () => void;           // everything → inactive
-  activateAll:     () => void;           // everything → active (Ctrl+A)
-  togglePanel:     (id: string) => void; // Shift/Ctrl+click: add to / drop from the selection
-  removeActive:    () => void;           // remove every active panel (Delete)
+  openPanel:       (id: string) => void; // selected alone, panel open
+  closePanel:      (id: string) => void; // panel closed, still selected
+  selectAll:       () => void;           // every node, panels closed (Ctrl+A)
+  removeSelected:  () => void;           // remove every selected node (Delete)
   /**
    * Paste copies of `sources`, offset by `offset` canvas units, as the new
    * selection. Returns old id → new id so wires can be re-pointed at the copies.
@@ -120,7 +123,6 @@ export interface NodePanelState {
    * and saved the board, once per panel per move (#155).
    */
   setCanvasPositions: (positions: Record<string, { x: number; y: number }>) => void;
-  selectPanel:     (id: string | null) => void;
   /**
    * Replace every panel wholesale. Used by the shared undo timeline. A panel
    * that still exists keeps its current instruction and model: typing is not
@@ -139,7 +141,7 @@ export interface NodePanelState {
    * closed, and with the id counter moved past them so the next new node
    * cannot take one of their ids.
    */
-  loadPanels:      (panels: Omit<PanelInstance, "isActive" | "isPanelOpen">[]) => void;
+  loadPanels:      (panels: PanelInstance[]) => void;
   setSize:         (id: string, w: number, h: number) => void;
   setOutput:       (id: string, output: PanelOutput) => void;
   /** Record or clear an in-flight job. */
@@ -156,7 +158,7 @@ export interface NodePanelState {
 }
 
 /** The part of the store a selection change rewrites. */
-export type PanelsState = Pick<NodePanelState, "panels" | "selectedId">;
+export type PanelsState = Pick<NodePanelState, "panels" | "selectedIds" | "openId">;
 
 /** Makes the id for each new panel: the store passes `nextPanelId`. */
 export type NewId = () => string;

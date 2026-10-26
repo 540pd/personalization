@@ -49,7 +49,7 @@ describe("createNodeAtViewportCentre", () => {
     expect(p.kind).toBe("image");
     expect(p.canvasX).toBe(500 - spec.sizeFor(spec.defaultSettings).w / 2);
     expect(p.canvasY).toBe(400);
-    expect(p.isPanelOpen).toBe(true);
+    expect(useNodePanel.getState().openId).toBe(p.id);
     expect(useLayerOrder.getState().topLayer).toBe("dom");
     expect(commit).toHaveBeenCalledTimes(1);
     commit.mockRestore();
@@ -58,7 +58,7 @@ describe("createNodeAtViewportCentre", () => {
   it("opens no panel for a written kind", () => {
     const commit = vi.spyOn(canvasHistory, "commit").mockImplementation(() => {});
     expect(createNodeAtViewportCentre("compose")).toBe(true);
-    expect(useNodePanel.getState().panels[0].isPanelOpen).toBe(false);
+    expect(useNodePanel.getState().openId).toBeNull();
     commit.mockRestore();
   });
 });

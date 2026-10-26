@@ -8,14 +8,14 @@ import { canvasHistory } from "@/lib/canvas/history";
 import { usePanelDrag, type PanelDragOptions } from "../hooks/usePanelDrag";
 
 const panel = (over: Partial<PanelInstance> = {}): PanelInstance =>
-  ({ id: "a", kind: "image", canvasX: 10, canvasY: 20, w: 100, h: 100, isActive: false, isPanelOpen: false, ...over }) as PanelInstance;
+  ({ id: "a", kind: "image", canvasX: 10, canvasY: 20, w: 100, h: 100, ...over }) as PanelInstance;
 
 const ev = (clientX: number, clientY: number, over: Record<string, unknown> = {}) =>
   ({ clientX, clientY, buttons: 1, pointerId: 1, currentTarget: { setPointerCapture() {} }, ...over }) as unknown as React.PointerEvent;
 
 function setup(over: Partial<PanelDragOptions> = {}) {
   const opts = {
-    instance: panel(), scale: 2, authored: false,
+    instance: panel(), isActive: false, isPanelOpen: false, scale: 2, authored: false,
     onActivate: vi.fn(), onOpenPanel: vi.fn(), onClosePanel: vi.fn(), onSetCanvasPos: vi.fn(),
     ...over,
   };
@@ -32,21 +32,21 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("usePanelDrag", () => {
   it("steps a click through inactive → active → panel-open → active", () => {
-    const click = (instance: PanelInstance) => {
-      const { opts, result } = setup({ instance });
+    const click = (state: Partial<PanelDragOptions> = {}) => {
+      const { opts, result } = setup(state);
       act(() => {
         result.current.handlers.onPointerDown(ev(0, 0));
         result.current.handlers.onPointerUp(ev(0, 0));
       });
       return opts;
     };
-    expect(click(panel()).onActivate).toHaveBeenCalled();
-    expect(click(panel({ isActive: true })).onOpenPanel).toHaveBeenCalled();
-    expect(click(panel({ isActive: true, isPanelOpen: true })).onClosePanel).toHaveBeenCalled();
+    expect(click().onActivate).toHaveBeenCalled();
+    expect(click({ isActive: true }).onOpenPanel).toHaveBeenCalled();
+    expect(click({ isActive: true, isPanelOpen: true }).onClosePanel).toHaveBeenCalled();
   });
 
   it("only selects an authored kind on a second click", () => {
-    const { opts, result } = setup({ instance: panel({ isActive: true }), authored: true });
+    const { opts, result } = setup({ isActive: true, authored: true });
     act(() => {
       result.current.handlers.onPointerDown(ev(0, 0));
       result.current.handlers.onPointerUp(ev(0, 0));
@@ -56,7 +56,7 @@ describe("usePanelDrag", () => {
   });
 
   it("toggles the selection on a modifier click", () => {
-    const toggle = vi.spyOn(useNodePanel.getState(), "togglePanel");
+    const toggle = vi.spyOn(useNodePanel.getState(), "toggleSelected");
     const { opts, result } = setup();
     act(() => {
       result.current.handlers.onPointerDown(ev(0, 0));
@@ -94,7 +94,7 @@ describe("usePanelDrag", () => {
   });
 
   it("does not drag while the panel is open", () => {
-    const { opts, result } = setup({ instance: panel({ isActive: true, isPanelOpen: true }) });
+    const { opts, result } = setup({ isActive: true, isPanelOpen: true });
     act(() => result.current.handlers.onPointerDown(ev(0, 0)));
     act(() => result.current.handlers.onPointerMove(ev(40, 20)));
     expect(opts.onSetCanvasPos).not.toHaveBeenCalled();

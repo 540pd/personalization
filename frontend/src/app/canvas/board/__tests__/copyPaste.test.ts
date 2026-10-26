@@ -27,10 +27,20 @@ function fakeTransformer() {
   } as unknown as Konva.Transformer;
 }
 
-const panel = (over: Partial<PanelInstance>): PanelInstance => ({
-  id: "p1", kind: "image", canvasX: 100, canvasY: 100, w: 200, h: 150,
-  isActive: false, isPanelOpen: false, ...over,
+// `isActive` here only marks a fixture as selected: setPanels puts it in the
+// store's selection, where selection lives (not on the panel).
+type Fixture = PanelInstance & { isActive?: boolean };
+const panel = (over: Partial<Fixture>): Fixture => ({
+  id: "p1", kind: "image", canvasX: 100, canvasY: 100, w: 200, h: 150, ...over,
 });
+
+function setPanels(list: Fixture[]) {
+  useNodePanel.setState({
+    panels: list.map(({ isActive: _a, ...p }) => p),
+    selectedIds: list.filter((p) => p.isActive).map((p) => p.id),
+    openId: null,
+  });
+}
 
 const wire = (fromNodeId: string, fromNodeType: "panel" | "konva", toNodeId: string): Connection => ({
   id: `${fromNodeId}->${toNodeId}`, fromNodeId, fromNodeType, toNodeId, toNodeType: "panel",
@@ -81,11 +91,11 @@ beforeEach(() => {
 
 describe("copySelection", () => {
   it("takes active panels and only the wires with both ends selected", () => {
-    useNodePanel.setState({ panels: [
+    setPanels([
       panel({ id: "a", isActive: true }),
       panel({ id: "b", isActive: true }),
       panel({ id: "c" }),
-    ] });
+    ]);
     useConnectionStore.setState({ connections: [wire("a", "panel", "b"), wire("b", "panel", "c")] });
 
     const clip = copySelection([]);
@@ -95,7 +105,7 @@ describe("copySelection", () => {
 
   it("counts a selected uploaded image as a wire end", () => {
     const img = image(layer(), "img");
-    useNodePanel.setState({ panels: [panel({ id: "a", isActive: true })] });
+    setPanels([panel({ id: "a", isActive: true })]);
     useConnectionStore.setState({ connections: [wire("img", "konva", "a")] });
 
     const clip = copySelection([img]);
@@ -107,10 +117,10 @@ describe("copySelection", () => {
 describe("Ctrl+C / Ctrl+V", () => {
   it("pastes a generated node with its output, size and kind, minus the job", () => {
     const { handle } = setup();
-    useNodePanel.setState({ panels: [panel({
+    setPanels([panel({
       id: "a", kind: "video", isActive: true, label: "sunset",
       output: { type: "video", value: "https://x/v.mp4" }, job: "job-1",
-    })] });
+    })]);
 
     handle(key("KeyC"));
     handle(key("KeyV"));
@@ -122,21 +132,23 @@ describe("Ctrl+C / Ctrl+V", () => {
     expect(copy).toMatchObject({
       kind: "video", w: 200, h: 150, canvasX: 120, canvasY: 120,
       output: { type: "video", value: "https://x/v.mp4" },
-      isActive: true, isPanelOpen: false,
     });
     expect(copy.job).toBeUndefined();
     // Names are model context, so the copy is told apart from its original.
     expect(copy.label).toBe("sunset (2)");
-    expect(orig.isActive).toBe(false);
+    // The copy is the selection, not the original; no panel is open.
+    expect(useNodePanel.getState().selectedIds).toEqual([copy.id]);
+    expect(useNodePanel.getState().openId).toBeNull();
+    expect(orig.id).toBe("a");
   });
 
   it("pastes every kind: image, instruction and video", () => {
     const { handle } = setup();
-    useNodePanel.setState({ panels: [
+    setPanels([
       panel({ id: "a", kind: "image", isActive: true }),
       panel({ id: "b", kind: "instruction", isActive: true, output: { type: "text", value: "hi" } }),
       panel({ id: "c", kind: "video", isActive: true }),
-    ] });
+    ]);
 
     handle(key("KeyC"));
     handle(key("KeyV"));
@@ -150,10 +162,10 @@ describe("Ctrl+C / Ctrl+V", () => {
     const { l, transformer, handle } = setup();
     const img = image(l, "img");
     transformer.nodes([img]);
-    useNodePanel.setState({ panels: [
+    setPanels([
       panel({ id: "a", isActive: true }),
       panel({ id: "b", isActive: true }),
-    ] });
+    ]);
     useConnectionStore.setState({ connections: [wire("img", "konva", "a"), wire("a", "panel", "b")] });
 
     handle(key("KeyC"));
@@ -179,7 +191,7 @@ describe("Ctrl+C / Ctrl+V", () => {
 
   it("drops a wire whose other end was not copied", () => {
     const { handle } = setup();
-    useNodePanel.setState({ panels: [panel({ id: "a" }), panel({ id: "b", isActive: true })] });
+    setPanels([panel({ id: "a" }), panel({ id: "b", isActive: true })]);
     useConnectionStore.setState({ connections: [wire("a", "panel", "b")] });
 
     handle(key("KeyC"));
@@ -191,7 +203,7 @@ describe("Ctrl+C / Ctrl+V", () => {
 
   it("deselects uploaded images when only panels are pasted", () => {
     const { l, transformer, handle } = setup();
-    useNodePanel.setState({ panels: [panel({ id: "a", isActive: true })] });
+    setPanels([panel({ id: "a", isActive: true })]);
     handle(key("KeyC"));
     transformer.nodes([image(l, "img")]);
 
@@ -201,10 +213,10 @@ describe("Ctrl+C / Ctrl+V", () => {
 
   it("is one undo step for nodes and wires together", () => {
     const { history, handle } = setup();
-    useNodePanel.setState({ panels: [
+    setPanels([
       panel({ id: "a", isActive: true }),
       panel({ id: "b", isActive: true }),
-    ] });
+    ]);
     useConnectionStore.setState({ connections: [wire("a", "panel", "b")] });
     history.commit();
 
@@ -219,9 +231,9 @@ describe("Ctrl+C / Ctrl+V", () => {
 
   it("keeps the previous clipboard when Ctrl+C has nothing selected", () => {
     const { handle } = setup();
-    useNodePanel.setState({ panels: [panel({ id: "a", isActive: true })] });
+    setPanels([panel({ id: "a", isActive: true })]);
     handle(key("KeyC"));
-    useNodePanel.getState().closeAllPanels();
+    useNodePanel.getState().clearSelection();
     handle(key("KeyC"));
 
     handle(key("KeyV"));
@@ -230,7 +242,7 @@ describe("Ctrl+C / Ctrl+V", () => {
 
   it("leaves Ctrl+C / Ctrl+V in a text field alone", () => {
     const { handle } = setup();
-    useNodePanel.setState({ panels: [panel({ id: "a", isActive: true })] });
+    setPanels([panel({ id: "a", isActive: true })]);
     const textarea = document.createElement("textarea");
     document.body.appendChild(textarea);
     const inField = (code: string) => {
@@ -249,9 +261,9 @@ describe("Ctrl+C / Ctrl+V", () => {
 describe("panel draft", () => {
   it("is carried to the pasted copy", () => {
     const { handle } = setup();
-    useNodePanel.setState({ panels: [panel({
+    setPanels([panel({
       id: "a", isActive: true, draft: { model: "gemini-3-pro-image", instruction: "a cat on a beach" },
-    })] });
+    })]);
 
     handle(key("KeyC"));
     handle(key("KeyV"));
@@ -263,7 +275,7 @@ describe("panel draft", () => {
 
   it("is not reverted by undoing an unrelated step", () => {
     const { history } = setup();
-    useNodePanel.setState({ panels: [panel({ id: "a" })] });
+    setPanels([panel({ id: "a" })]);
     history.commit();
     useNodePanel.getState().setCanvasPos("a", 500, 500);
     history.commit();
@@ -280,10 +292,10 @@ describe("panel draft", () => {
 describe("labels on paste", () => {
   it("does not stack suffixes: copying \"cat (2)\" gives \"cat (3)\"", () => {
     const { handle } = setup();
-    useNodePanel.setState({ panels: [
+    setPanels([
       panel({ id: "a", label: "cat" }),
       panel({ id: "b", label: "cat (2)", isActive: true }),
-    ] });
+    ]);
 
     handle(key("KeyC"));
     handle(key("KeyV"));
@@ -296,7 +308,7 @@ describe("labels on paste", () => {
     const img = image(l, "img");
     useKonvaNodes.getState().upsert({ ...useKonvaNodes.getState().nodes.img, label: "cat" });
     transformer.nodes([img]);
-    useNodePanel.setState({ panels: [panel({ id: "a", isActive: true, label: "cat" })] });
+    setPanels([panel({ id: "a", isActive: true, label: "cat" })]);
 
     handle(key("KeyC"));
     handle(key("KeyV"));
@@ -312,7 +324,7 @@ describe("labels on paste", () => {
     const { l, handle } = setup();
     image(l, "img");
     useKonvaNodes.getState().upsert({ ...useKonvaNodes.getState().nodes.img, label: "cat (2)" });
-    useNodePanel.setState({ panels: [panel({ id: "a", isActive: true, label: "cat" })] });
+    setPanels([panel({ id: "a", isActive: true, label: "cat" })]);
 
     handle(key("KeyC"));
     handle(key("KeyV"));

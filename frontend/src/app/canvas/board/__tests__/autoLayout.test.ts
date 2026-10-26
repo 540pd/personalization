@@ -15,7 +15,7 @@ const node = (id: string, x: number, y: number, w = 90, h = 60): KonvaNodeRecord
   ({ id, canvasX: x, canvasY: y, canvasW: w, canvasH: h });
 // Panels are centre-anchored: canvasY is the middle.
 const panel = (id: string, x: number, top: number, w = 100, h = 80): PanelInstance =>
-  ({ id, kind: "image", canvasX: x, canvasY: top + h / 2, w, h, isActive: false, isPanelOpen: false }) as PanelInstance;
+  ({ id, kind: "image", canvasX: x, canvasY: top + h / 2, w, h }) as PanelInstance;
 const frame = (over: Partial<FrameRecord> = {}): FrameRecord =>
   ({ id: "f", label: "Frame", canvasX: 0, canvasY: 0, canvasW: 600, canvasH: 400, ...over });
 

@@ -92,7 +92,9 @@ export default function Minimap() {
   // Subscribed, not read imperatively: the menu's disabled states have to
   // update as the selection changes while it is open.
   const selectedNodeIds = useKonvaSelection((s) => s.selectedIds);
-  const panels = useNodePanel((s) => s.panels);
+  // Only whether any node is selected: subscribing to every panel re-rendered
+  // the map on every node move.
+  const panelSelected = useNodePanel((s) => s.selectedIds.length > 0);
 
   const zoom = (direction: 1 | -1) =>
     useViewport.setState(zoomStep(useViewport.getState(), direction, canvasArea()));
@@ -129,7 +131,7 @@ export default function Minimap() {
   useDismiss(isZoomMenuOpen, [containerRef], () => setIsZoomMenuOpen(false));
 
   const at100 = Math.round(scale * 100) === 100;
-  const hasSelection = selectedNodeIds.length > 0 || panels.some((p) => p.isActive);
+  const hasSelection = selectedNodeIds.length > 0 || panelSelected;
 
   const close = (fn: () => void) => () => {
     fn();

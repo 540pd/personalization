@@ -17,6 +17,9 @@ const pointerOnCanvas = (e: React.PointerEvent) => {
 
 export interface PanelDragOptions {
   instance: PanelInstance;
+  /** Selected; and selected with its panel open. From the store's selection. */
+  isActive: boolean;
+  isPanelOpen: boolean;
   scale: number;
   /** An authored kind has no panel, so a click only selects it. */
   authored: boolean;
@@ -31,9 +34,9 @@ export interface PanelDragOptions {
  * Returns the placeholder's pointer handlers and whether a drag is under way.
  */
 export function usePanelDrag({
-  instance, scale, authored, onActivate, onOpenPanel, onClosePanel, onSetCanvasPos,
+  instance, isActive, isPanelOpen, scale, authored, onActivate, onOpenPanel, onClosePanel, onSetCanvasPos,
 }: PanelDragOptions) {
-  const { canvasX, canvasY, isActive, isPanelOpen } = instance;
+  const { canvasX, canvasY } = instance;
   const [dragging, setDragging] = useState(false);
   const isDragging = useRef(false);
   /** True only between a pointerdown on THIS node and its pointerup. */
@@ -89,7 +92,7 @@ export function usePanelDrag({
         // without this the dragged node is not selected and the previously
         // selected one never lets go — two nodes selected at once, with the
         // keyboard handlers aimed at the wrong one. Same hole #24 fixed for
-        // uploaded images. activatePanel clears every other panel.
+        // uploaded images. select clears every other panel.
         if (!isActive) {
           onActivate();
           selectOnly("panel");
@@ -114,7 +117,7 @@ export function usePanelDrag({
       if (e.shiftKey || e.ctrlKey || e.metaKey) {
         // Added to the selection, it comes forward; dropped from it, it stays.
         if (!isActive) bringToFront();
-        useNodePanel.getState().togglePanel(instance.id);
+        useNodePanel.getState().toggleSelected(instance.id);
       } else {
         // Normal click: clear other selection types.
         selectOnly("panel");

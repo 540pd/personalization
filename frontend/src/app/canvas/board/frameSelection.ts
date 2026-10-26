@@ -9,7 +9,7 @@ import type Konva from "konva";
 import { useFrames, type FrameRecord } from "@/store/frame.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
-import { useNodePanel } from "@/store/nodePanel.store";
+import { selectedPanels, useNodePanel } from "@/store/nodePanel.store";
 import { boardStage } from "@/lib/canvas/boardStage";
 import { boundsOf, containsBox, type Bounds } from "@/lib/canvas/bounds";
 import { membersOf } from "./frameMembers";
@@ -71,9 +71,7 @@ export function selectedBoxes(): SelectedBox[] {
     const box = r ? { x: r.x, y: r.y, w: r.width, h: r.height } : boundsOf(record);
     return [{ id, ...box, named: !!record.label }];
   });
-  const panels = useNodePanel
-    .getState()
-    .panels.filter((p) => p.isActive)
+  const panels = selectedPanels(useNodePanel.getState())
     .map((p) => ({ id: p.id, ...boundsOf(p), named: !!p.label }));
   return [...konva, ...panels];
 }
@@ -126,7 +124,7 @@ export function removableFrame(): FrameRecord | null {
   const { frames, selectedIds } = useFrames.getState();
   if (selectedIds.length !== 1) return null;
   if (useKonvaSelection.getState().selectedIds.length) return null;
-  if (useNodePanel.getState().panels.some((p) => p.isActive)) return null;
+  if (useNodePanel.getState().selectedIds.length) return null;
   return frames[selectedIds[0]] ?? null;
 }
 
@@ -144,7 +142,7 @@ export function removeSelectedFrame(): boolean {
   selectOnly(null);
   selectNodeIds(nodes);
   const panelState = useNodePanel.getState();
-  panels.forEach((id) => panelState.togglePanel(id));
+  panels.forEach((id) => panelState.toggleSelected(id));
   canvasHistory.commit();
   return true;
 }

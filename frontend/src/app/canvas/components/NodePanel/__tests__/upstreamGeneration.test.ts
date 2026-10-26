@@ -8,7 +8,6 @@ import { generateUpstream, useGenerationProgress } from "../upstreamGeneration";
 function node(id: string, instruction: string, output?: string): PanelInstance {
   return {
     id, kind: "image", canvasX: 0, canvasY: 0, w: 320, h: 180,
-    isActive: false, isPanelOpen: false,
     draft: { model: `model-${id}`, instruction, settings: { ...imageKind.defaultSettings, temperature: 1 } },
     ...(output ? { output: { type: "image" as const, value: output } } : {}),
   };
@@ -19,7 +18,7 @@ const wire = (fromNodeId: string, toNodeId: string, fromNodeType: "panel" | "kon
 });
 
 beforeEach(() => {
-  useNodePanel.setState({ panels: [node("A", "make A"), node("B", "make B")], selectedId: null });
+  useNodePanel.setState({ panels: [node("A", "make A"), node("B", "make B")], selectedIds: [], openId: null });
   useKonvaNodes.setState({ nodes: {
     upload: { id: "upload", canvasX: 0, canvasY: 0, canvasW: 100, canvasH: 100, imageUrl: "upload-url", label: "Source" },
   } });

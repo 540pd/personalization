@@ -1,4 +1,3 @@
-import { deactivated } from "./selection";
 import type { NewId, PanelInstance, PanelsState, VariantPlacement } from "./types";
 
 /**
@@ -26,15 +25,14 @@ export function pastePanels(
       labelAuto: src.labelAuto,
       // No job: the original's in-flight generation stays the original's.
       // Copying it would make both nodes poll the same job.
-      isActive: true,
-      isPanelOpen: false,
     };
   });
   return {
     idMap,
     state: {
-      selectedId: copies.length === 1 ? copies[0].id : null,
-      panels: [...deactivated(s.panels), ...copies],
+      panels: [...s.panels, ...copies],
+      selectedIds: copies.map((c) => c.id),
+      openId: null,
     },
   };
 }
@@ -52,8 +50,6 @@ export function addVariants(
     canvasY: v.canvasY,
     w: source.w,
     h: source.h,
-    isActive: false,
-    isPanelOpen: false,
     output: v.output,
     label: v.label,
     // A copy named from an auto-named source follows its own prompt too.

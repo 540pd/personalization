@@ -27,7 +27,7 @@ describe("resizeFromCorner", () => {
   });
 });
 
-const panel = { id: "a", kind: "image", canvasX: 0, canvasY: 50, w: 200, h: 100, isActive: true, isPanelOpen: false } as PanelInstance;
+const panel = { id: "a", kind: "image", canvasX: 0, canvasY: 50, w: 200, h: 100 } as PanelInstance;
 const ev = (clientX: number, buttons = 1) =>
   ({ clientX, clientY: 0, buttons, pointerId: 1, stopPropagation() {}, currentTarget: { setPointerCapture() {} } }) as unknown as React.PointerEvent;
 

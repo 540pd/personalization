@@ -34,7 +34,7 @@ describe("unknown node kinds", () => {
     store = memoryStorage();
     vi.stubGlobal("window", { localStorage: store });
     warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    useNodePanel.setState({ panels: [], parked: [], selectedId: null });
+    useNodePanel.setState({ panels: [], parked: [], selectedIds: [], openId: null });
     // That reset queues a deferred save; a read flushes it. Flush it now, or
     // the first rehydrate below writes the empty board over the seed.
     await useNodePanel.persist.rehydrate();
@@ -86,10 +86,10 @@ describe("unknown node kinds", () => {
     seed([node("panel-1", "image"), node("panel-2", "mask")]);
     await useNodePanel.persist.rehydrate();
 
-    useNodePanel.getState().activateAll();
-    const { panels, parked } = useNodePanel.getState();
-    expect(panels.every((p) => p.isActive)).toBe(true);
-    expect(parked[0].isActive).toBe(false);
+    useNodePanel.getState().selectAll();
+    const { panels, parked, selectedIds } = useNodePanel.getState();
+    expect(selectedIds).toEqual(panels.map((p) => p.id));
+    expect(selectedIds).not.toContain(parked[0].id);
   });
 
   it("keeps the unknown node's data unchanged across a save", async () => {

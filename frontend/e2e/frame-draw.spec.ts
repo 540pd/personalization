@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, uploadImage, imageBox, collapsePanels, setZoom, addPanel } from "./helpers";
+import { openBoard, uploadImage, imageBox, collapsePanels, setZoom, addPanel, activePanelCount } from "./helpers";
 
 // Issue #118. A frame drawn corner to corner around an image passes over the
 // image's name label, which is DOM above the canvas. The draw used to listen
@@ -171,10 +171,7 @@ test.describe("drawing a frame across chrome", () => {
 
     expect(await frameCount(page)).toBe(1);
     expect(await selectedFrames(page)).toBe(1);
-    const active = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("gcos-node-panels")!).state.panels.filter((p: { isActive: boolean }) => p.isActive).length
-    );
-    expect(active).toBe(0);
+    expect(await activePanelCount(page)).toBe(0);
   });
 
   for (const level of [0.5, 1.5]) {

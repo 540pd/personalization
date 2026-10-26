@@ -1,7 +1,6 @@
 import type { PersistOptions, PersistStorage, StorageValue } from "zustand/middleware";
 import { createDeferredFlush, warnOnce, writeWithLeanFallback } from "@/lib/storage";
 import { bumpNextId } from "./ids";
-import { deactivated } from "./selection";
 import { isKnownKind, type NodePanelState, type PanelInstance } from "./types";
 
 type Persisted = { panels: PanelInstance[] };
@@ -101,12 +100,19 @@ export function deferredStorage<S>(inner: PersistStorage<S>, delay = SAVE_DELAY_
   };
 }
 
+type LegacyPanel = PanelInstance & { isActive?: unknown; isPanelOpen?: unknown };
+
+/** A saved panel without the selection flags older saves stored on it. */
+export function withoutLegacyFlags(panels: LegacyPanel[]): PanelInstance[] {
+  return panels.map(({ isActive: _a, isPanelOpen: _o, ...p }) => p);
+}
+
 export const persistOptions: PersistOptions<NodePanelState, Persisted> = {
   name: "gcos-node-panels",
   storage: deferredStorage(panelStorage),
-  // Only persist canvas data; UI-open flags and selectedId reset on load.
-  // Set-aside nodes go back into the same list, so the saved shape is the
-  // same for every build.
+  // Only persist canvas data: the selection and the open panel are not
+  // saved, so a reload starts with nothing selected. Set-aside nodes go back
+  // into the same list, so the saved shape is the same for every build.
   partialize: (s) => ({ panels: [...s.panels, ...s.parked] }),
   // Split saved nodes into those this build can show and those it cannot.
   merge: (persisted, current) => {
@@ -126,8 +132,9 @@ export const persistOptions: PersistOptions<NodePanelState, Persisted> = {
   },
   onRehydrateStorage: () => (state) => {
     if (!state) return;
-    // Reset interaction flags that shouldn't survive a reload.
-    state.panels = deactivated(state.panels);
+    // Saves from before the shared selection carry each node's own
+    // isActive / isPanelOpen flags. They mean nothing now; drop them.
+    state.panels = withoutLegacyFlags(state.panels);
     // Keep _nextId ahead of all restored IDs to avoid collisions -- set-aside
     // ones too, or a new node could take the id of one that comes back later.
     bumpNextId([...state.panels, ...state.parked]);

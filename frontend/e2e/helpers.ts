@@ -256,16 +256,11 @@ export async function topmostPanelAt(page: Page, x: number, y: number): Promise<
   }, [x, y]);
 }
 
-/** Create Image nodes showing their active border. */
+/**
+ * Generated nodes showing their selection border. Counted by the
+ * SelectionBox's own marker: counting every bordered fixed box also took in
+ * the style bar and a hovered node's outline.
+ */
 export async function activePanelCount(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    let n = 0;
-    for (const d of document.querySelectorAll("div")) {
-      const s = getComputedStyle(d);
-      if (s.position !== "fixed") continue;
-      const r = d.getBoundingClientRect();
-      if (r.width > 40 && s.borderStyle === "solid" && parseFloat(s.borderTopWidth) > 0) n++;
-    }
-    return n;
-  });
+  return page.locator("[data-panel-selection]").count();
 }
