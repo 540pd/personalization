@@ -2,24 +2,18 @@
 // generation is fed from.
 
 import type { Reference } from "../capabilities/types.js";
+import { cleanPromptName } from "../common/promptText.js";
 
 // Accepts the current discriminated shape, the older { url, name } image
 // shape, and a bare data-URL string, so a client that has not been redeployed
-// still works -- it just sends an unnamed image reference. Names are bounded
-// and stripped of control characters: they are user-supplied text that ends up
-// inside a model prompt.
-const MAX_REFERENCE_NAME = 60;
+// still works -- it just sends an unnamed image reference. Names are cleaned
+// like every name a prompt mentions (common/promptText).
 // Text references travel in the prompt itself, so an unbounded one is a way to
 // push arbitrary length at the model on someone else's behalf.
 const MAX_REFERENCE_TEXT = 4000;
 
-// eslint-disable-next-line no-control-regex
-const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
-
 function cleanName(raw: unknown): string | undefined {
-  if (typeof raw !== "string") return undefined;
-  const clean = raw.replace(CONTROL_CHARS, " ").trim().slice(0, MAX_REFERENCE_NAME);
-  return clean || undefined;
+  return typeof raw === "string" ? cleanPromptName(raw) || undefined : undefined;
 }
 
 function toReference(raw: unknown): Reference | null {
