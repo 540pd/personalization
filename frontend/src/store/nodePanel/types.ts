@@ -12,6 +12,21 @@ import type { NodeSettings } from "@/app/canvas/components/NodePanel/nodeKinds";
 // generating it (#181).
 export type NodeKind = "image" | "video" | "instruction" | "compose";
 
+// Every kind this build can show. A Record rather than a list so adding a
+// NodeKind without adding it here is a type error. A saved node of any other
+// kind -- from a newer branch, or a rolled-back release -- is set aside on
+// load instead of crashing the board (#186).
+const KNOWN_KINDS: Record<NodeKind, true> = {
+  image: true,
+  video: true,
+  instruction: true,
+  compose: true,
+};
+
+export function isKnownKind(kind: unknown): kind is NodeKind {
+  return typeof kind === "string" && Object.prototype.hasOwnProperty.call(KNOWN_KINDS, kind);
+}
+
 // A node's generated result. Typed rather than a bare URL string because a
 // video needs a <video> and an instruction node produces text, not a URL --
 // and because what a node contributes to a downstream generation depends on
@@ -74,6 +89,12 @@ export interface VariantPlacement {
 
 export interface NodePanelState {
   panels:      PanelInstance[];
+  /**
+   * Saved nodes of a kind this build does not know (#186). Never rendered and
+   * never touched; only written back on save, so a build that knows the kind
+   * shows them again. Their `kind` is not really a NodeKind.
+   */
+  parked:      PanelInstance[];
   selectedId:  string | null;
   /** `open` false lands the node selected but with no panel: a written kind has none. */
   addPanel:        (cx: number, cy: number, kind?: NodeKind, open?: boolean) => void;

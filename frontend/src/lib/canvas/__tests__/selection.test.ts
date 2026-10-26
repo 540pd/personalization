@@ -92,7 +92,7 @@ describe("selectOnly", () => {
 
 describe("frame selection", () => {
   beforeEach(() => {
-    useFrames.setState({ frames: {}, selectedIds: [], draft: null, drag: {} });
+    useFrames.setState({ frames: {}, selectedIds: [], draft: null, drag: {}, resize: {} });
   });
 
   it("select replaces rather than adds", () => {
@@ -136,5 +136,23 @@ describe("frame selection", () => {
     });
     useFrames.getState().clearDrag();
     expect(useFrames.getState().drag).toEqual({});
+  });
+
+  // A frame deleted mid-resize never reaches transformend (#183).
+  it("removing a frame drops its live resize box", () => {
+    const box = { canvasX: 5, canvasY: 5, canvasW: 50, canvasH: 50 };
+    useFrames.getState().upsert(frame("a"));
+    useFrames.getState().upsert(frame("b"));
+    useFrames.getState().setResize("a", box);
+    useFrames.getState().setResize("b", box);
+    useFrames.getState().remove("a");
+    expect(useFrames.getState().resize).toEqual({ b: box });
+  });
+
+  it("replaceAll clears every live resize box, for undo / redo mid-resize", () => {
+    useFrames.getState().upsert(frame("a"));
+    useFrames.getState().setResize("a", { canvasX: 5, canvasY: 5, canvasW: 50, canvasH: 50 });
+    useFrames.getState().replaceAll({ a: frame("a") });
+    expect(useFrames.getState().resize).toEqual({});
   });
 });
