@@ -11,9 +11,11 @@ import {
   BOARD_FILE_FORMAT,
   BOARD_FILE_VERSION,
   boardFileName,
+  boardFileProblem,
   parseBoardFile,
   plainAttrs,
   serializeBoard,
+  toFilePanel,
 } from "../boardFile";
 
 const panel = (over: Partial<PanelInstance>): PanelInstance => ({
@@ -218,5 +220,25 @@ describe("loadPanels", () => {
     const ids = useNodePanel.getState().panels.map((p) => p.id);
     expect(new Set(ids).size).toBe(2);
     expect(Number(ids[1].replace("panel-", ""))).toBeGreaterThan(41);
+  });
+});
+
+describe("toFilePanel", () => {
+  it("drops what describes the session, and keeps the rest", () => {
+    const p = panel({ isActive: true, isPanelOpen: true, job: "j1", label: "kite" });
+    const out = toFilePanel(p);
+    expect(out).toEqual({ id: "p1", kind: "image", canvasX: 100, canvasY: 100, w: 200, h: 150, label: "kite" });
+    expect(p.job).toBe("j1");
+  });
+});
+
+describe("boardFileProblem", () => {
+  it("words each parse error for a chosen file and for the saved board", () => {
+    expect(boardFileProblem("newer", "file")).toBe("This board was saved by a newer version of PlaySpace.");
+    expect(boardFileProblem("invalid", "file")).toBe("This file isn't a PlaySpace board.");
+    expect(boardFileProblem("newer", "saved")).toBe(
+      "The saved board is from a newer version of PlaySpace and was not restored.",
+    );
+    expect(boardFileProblem("invalid", "saved")).toBe("The saved board is unreadable and was not restored.");
   });
 });

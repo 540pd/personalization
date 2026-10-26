@@ -18,19 +18,15 @@ import { useConnectionStore } from "@/store/connection.store";
 import { useFrames } from "@/store/frame.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { canvasHistory } from "@/lib/canvas/history";
-import { parseBoardFile, serializeBoard, type BoardFile } from "./boardFile";
+import { createDeferredFlush, warnOnce, writeWithLeanFallback } from "@/lib/storage";
+import { boardFileProblem, parseBoardFile, serializeBoard, toFilePanel, type BoardFile } from "./boardFile";
 
 export const CANVAS_STORAGE_KEY = "gcos-board-canvas";
 
 /** What is stored: a board file without its panels, which persist on their own. */
 type SavedCanvas = Omit<BoardFile, "panels">;
 
-let warned = false;
-function warnOnce(message: string) {
-  if (warned) return;
-  warned = true;
-  console.warn(`[board] ${message}`);
-}
+const warn = warnOnce("[board]");
 
 /**
  * Writes the canvas half of the board. Over quota -- uploaded images are data
@@ -41,22 +37,20 @@ function warnOnce(message: string) {
  */
 export function writeCanvas(container: Konva.Container, storage: Storage = window.localStorage): void {
   const { panels: _panels, ...canvas } = serializeBoard(container);
-  try {
-    storage.setItem(CANVAS_STORAGE_KEY, JSON.stringify(canvas));
-    return;
-  } catch {
-    // Fall through to the lean save.
-  }
-  try {
-    const lean: SavedCanvas = {
+  writeWithLeanFallback(
+    storage,
+    CANVAS_STORAGE_KEY,
+    canvas,
+    (): SavedCanvas => ({
       ...canvas,
       nodes: canvas.nodes.map(({ imageUrl: _image, ...rest }) => rest),
-    };
-    storage.setItem(CANVAS_STORAGE_KEY, JSON.stringify(lean));
-    warnOnce("Uploaded images are too large to keep across a reload; everything else on the board is saved without them.");
-  } catch {
-    warnOnce("The board could not be saved. It is unaffected until the page reloads.");
-  }
+    }),
+    {
+      log: warn,
+      lean: "Uploaded images are too large to keep across a reload; everything else on the board is saved without them.",
+      failed: "The board could not be saved. It is unaffected until the page reloads.",
+    },
+  );
 }
 
 /**
@@ -77,20 +71,14 @@ export function readSavedCanvas(storage: Storage = window.localStorage): BoardFi
   try {
     saved = JSON.parse(text);
   } catch {
-    console.warn("[board] The saved board is unreadable and was not restored.");
+    console.warn(`[board] ${boardFileProblem("invalid", "saved")}`);
     return null;
   }
   // The panels are added so wires to them pass the parser's both-ends check.
-  const panels = useNodePanel
-    .getState()
-    .panels.map(({ isActive: _a, isPanelOpen: _o, job: _j, ...rest }) => rest);
+  const panels = useNodePanel.getState().panels.map(toFilePanel);
   const parsed = parseBoardFile(JSON.stringify({ ...(saved as object), panels }));
   if (!parsed.ok) {
-    console.warn(
-      parsed.error === "newer"
-        ? "[board] The saved board is from a newer version of PlaySpace and was not restored."
-        : "[board] The saved board is unreadable and was not restored.",
-    );
+    console.warn(`[board] ${boardFileProblem(parsed.error, "saved")}`);
     return null;
   }
   return parsed.file;
@@ -105,27 +93,19 @@ export function startCanvasPersistence(
   getContainer: () => Konva.Container | null,
   delay = SAVE_DELAY_MS,
 ): () => void {
-  let timer: ReturnType<typeof setTimeout> | null = null;
   let dirty = false;
 
-  const flush = () => {
-    if (timer) clearTimeout(timer);
-    timer = null;
+  const save = createDeferredFlush(() => {
     if (!dirty) return;
     const container = getContainer();
     if (!container) return;
     dirty = false;
     writeCanvas(container);
-  };
+  }, delay);
 
   const markDirty = () => {
     dirty = true;
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(flush, delay);
-  };
-
-  const onHidden = () => {
-    if (document.visibilityState === "hidden") flush();
+    save.schedule();
   };
 
   // History catches what changes only on the Konva node -- a recolour, a
@@ -144,13 +124,10 @@ export function startCanvasPersistence(
       if (s.topLayer !== prev.topLayer) markDirty();
     }),
   ];
-  window.addEventListener("pagehide", flush);
-  document.addEventListener("visibilitychange", onHidden);
 
   return () => {
-    flush();
+    save.flush();
     unsubscribe.forEach((u) => u());
-    window.removeEventListener("pagehide", flush);
-    document.removeEventListener("visibilitychange", onHidden);
+    save.dispose();
   };
 }

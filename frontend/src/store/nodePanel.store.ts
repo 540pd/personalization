@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { NodeSettings } from "@/app/canvas/components/NodePanel/nodeKinds";
 import { persist, type PersistStorage, type StorageValue } from "zustand/middleware";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
+import { createDeferredFlush, warnOnce, writeWithLeanFallback } from "@/lib/storage";
 
 // What a panel node generates. The dock already offers all three
 // (tool.store.ts declares generate-instruction and generate-video, and both
@@ -172,12 +173,7 @@ function bumpNextId(panels: { id: string }[]): void {
 
 type Persisted = { panels: PanelInstance[] };
 
-let warned = false;
-function warnOnce(message: string) {
-  if (warned) return;
-  warned = true;
-  console.warn(`[nodePanel] ${message}`);
-}
+const warn = warnOnce("[nodePanel]");
 
 /**
  * localStorage that cannot take a user action down with it.
@@ -206,22 +202,20 @@ export const panelStorage: PersistStorage<Persisted> = {
   },
   setItem: (name, value) => {
     if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(name, JSON.stringify(value));
-      return;
-    } catch {
-      // Fall through to the lean save.
-    }
-    try {
-      const lean: StorageValue<Persisted> = {
+    writeWithLeanFallback(
+      window.localStorage,
+      name,
+      value,
+      (): StorageValue<Persisted> => ({
         ...value,
         state: { panels: value.state.panels.map(({ output: _image, ...rest }) => rest) },
-      };
-      window.localStorage.setItem(name, JSON.stringify(lean));
-      warnOnce("Generated images are too large to keep across a reload; the nodes and their prompts are saved without them.");
-    } catch {
-      warnOnce("The board could not be saved to localStorage. It is unaffected until the page reloads.");
-    }
+      }),
+      {
+        log: warn,
+        lean: "Generated images are too large to keep across a reload; the nodes and their prompts are saved without them.",
+        failed: "The board could not be saved to localStorage. It is unaffected until the page reloads.",
+      },
+    );
   },
   removeItem: (name) => {
     if (typeof window === "undefined") return;
@@ -249,34 +243,23 @@ export const SAVE_DELAY_MS = 150;
  */
 export function deferredStorage<S>(inner: PersistStorage<S>, delay = SAVE_DELAY_MS): PersistStorage<S> {
   let pending: { name: string; value: StorageValue<S> } | null = null;
-  let timer: ReturnType<typeof setTimeout> | null = null;
 
-  const flush = () => {
-    if (timer) clearTimeout(timer);
-    timer = null;
+  const save = createDeferredFlush(() => {
     if (!pending) return;
     const { name, value } = pending;
     pending = null;
     void inner.setItem(name, value);
-  };
-
-  if (typeof window !== "undefined" && typeof document !== "undefined") {
-    window.addEventListener("pagehide", flush);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") flush();
-    });
-  }
+  }, delay);
 
   return {
     // A read must see the last write, even one still waiting.
     getItem: (name) => {
-      flush();
+      save.flush();
       return inner.getItem(name);
     },
     setItem: (name, value) => {
       pending = { name, value };
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(flush, delay);
+      save.schedule();
     },
     removeItem: (name) => {
       if (pending?.name === name) pending = null;

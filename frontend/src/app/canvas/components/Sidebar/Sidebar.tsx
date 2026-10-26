@@ -21,6 +21,7 @@ import SidebarNav from "./SidebarNav";
 import SidebarFooter from "./SidebarFooter";
 import { requestClearBoard, useBoardItemCount } from "../../board/clearBoard";
 import {
+  boardFileProblem,
   parseBoardFile,
   requestLoadBoard,
   saveBoardToFile,
@@ -86,12 +87,7 @@ export default function Sidebar() {
     }
     const parsed = parseBoardFile(text);
     if (!parsed.ok) {
-      showToast(
-        parsed.error === "newer"
-          ? "This board was saved by a newer version of PlaySpace."
-          : "This file isn't a PlaySpace board.",
-        true,
-      );
+      showToast(boardFileProblem(parsed.error, "file"), true);
       return;
     }
     // Nothing to lose, nothing to ask.
