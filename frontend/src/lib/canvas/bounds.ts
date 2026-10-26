@@ -44,6 +44,11 @@ export function boundsOf(box: NodeBox): Bounds {
     : { x: box.canvasX, y: box.canvasY - box.h / 2, w: box.w, h: box.h };
 }
 
+/** Sort order for "the smallest first": the box most plainly holding a point or a node. */
+export function byArea(a: TopAnchoredBox, b: TopAnchoredBox): number {
+  return a.canvasW * a.canvasH - b.canvasW * b.canvasH;
+}
+
 /** Inclusive on every edge, matching the >= / <= the occlusion tests used. */
 export function contains(b: Bounds, pt: Point): boolean {
   return pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h;

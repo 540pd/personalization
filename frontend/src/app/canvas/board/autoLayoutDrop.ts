@@ -16,18 +16,16 @@
 
 import { useFrames, type FrameRecord } from "@/store/frame.store";
 import { useLayoutDrop, type DropLine } from "@/store/layoutDrop.store";
-import { containsBox, contains, type Bounds } from "@/lib/canvas/bounds";
+import { boundsOf, byArea, containsBox, contains, type Bounds } from "@/lib/canvas/bounds";
 import type { Point } from "@/lib/canvas/coords";
 import { FRAME_LAYOUT_GAP, FRAME_LAYOUT_NAME_BAND, FRAME_LAYOUT_PADDING } from "@/constants/canvas.constants";
 import { childBoxes, childrenOf, withoutIds, type ChildBox } from "./autoLayout";
 
-const areaOf = (f: FrameRecord): Bounds => ({ x: f.canvasX, y: f.canvasY, w: f.canvasW, h: f.canvasH });
-const byArea = (a: FrameRecord, b: FrameRecord) => a.canvasW * a.canvasH - b.canvasW * b.canvasH;
 
 /** The smallest Frame with auto layout under `pt`, if any. */
 export function layoutFrameAt(pt: Point): FrameRecord | null {
   return Object.values(useFrames.getState().frames)
-    .filter((f) => f.layout && contains(areaOf(f), pt))
+    .filter((f) => f.layout && contains(boundsOf(f), pt))
     .sort(byArea)[0] ?? null;
 }
 
@@ -155,7 +153,7 @@ export function trackLayoutDrag(id: string, pt: Point): void {
     return;
   }
   const columns = withoutIds(frame.layout.columns, new Set([id]));
-  useLayoutDrop.getState().setLine(dropTarget(areaOf(frame), columns, pt).line);
+  useLayoutDrop.getState().setLine(dropTarget(boundsOf(frame), columns, pt).line);
 }
 
 /** The drag is over without a drop to make: hide the line. */
@@ -187,7 +185,7 @@ export function dropIntoLayout(id: string, pt: Point): boolean {
 
   const current = useFrames.getState().frames[target.id];
   const columns = withoutIds(current.layout!.columns, new Set([id]));
-  const next = placeInto(columns, id, dropTarget(areaOf(current), columns, pt).placement);
+  const next = placeInto(columns, id, dropTarget(boundsOf(current), columns, pt).placement);
   if (!same(next, current.layout!.columns)) {
     upsert({ ...current, layout: { columns: next } });
     changed = true;
@@ -207,7 +205,7 @@ export function joinLayout(id: string, pt?: Point): boolean {
   const frame = pt
     ? layoutFrameAt(pt)
     : Object.values(useFrames.getState().frames)
-        .filter((f) => f.layout && containsBox(areaOf(f), box))
+        .filter((f) => f.layout && containsBox(boundsOf(f), box))
         .sort(byArea)[0] ?? null;
   if (!frame?.layout) return false;
   useFrames.getState().upsert({ ...frame, layout: { columns: [...frame.layout.columns, [id]] } });

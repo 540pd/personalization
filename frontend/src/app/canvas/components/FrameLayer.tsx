@@ -18,7 +18,9 @@ import { selectOnly } from "@/lib/canvas/selection";
 import { useViewport } from "@/store/viewport.store";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { canvasHistory } from "@/lib/canvas/history";
-import { membersOf, moveMembers, type FrameMembers } from "../board/frameMembers";
+import { beginFrameMove, type FrameMove } from "../board/frameDrag";
+import { nodeBox } from "../board/geometry";
+import { boundsOf } from "@/lib/canvas/bounds";
 import {
   finishRearrange, rearrangeLive, startAutoLayoutSync, startRearrange, type ChildBox,
 } from "../board/autoLayout";
@@ -42,7 +44,7 @@ export default function FrameLayer() {
   const previewRef = useRef<Konva.Rect | null>(null);
   // Membership is fixed when the drag starts, so a node is not picked up or
   // dropped halfway through just because the frame swept over it.
-  const membersRef = useRef<FrameMembers>({ images: [], panels: [] });
+  const moveRef = useRef<FrameMove | null>(null);
   const dragFromRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   // One object per resize gesture, shared by every frame it resizes, so the
   // gesture commits a single undo step however many frames it touched.
@@ -266,28 +268,19 @@ export default function FrameLayer() {
       });
 
       rect.on("dragstart", () => {
-        membersRef.current = membersOf(f);
+        moveRef.current = beginFrameMove(f);
         dragFromRef.current = { x: rect.x(), y: rect.y() };
       });
 
-      rect.on("dragmove", () => {
-        const dx = rect.x() - dragFromRef.current.x;
-        const dy = rect.y() - dragFromRef.current.y;
-        // Everything resting on the frame travels with it.
-        moveMembers(membersRef.current, dx, dy);
-        // And the name keeps up, instead of arriving when the drag ends.
-        useFrames.getState().setDrag(f.id, { dx, dy });
-      });
+      // The name keeps up too, instead of arriving when the drag ends.
+      const moveTo = () =>
+        moveRef.current?.move(rect.x() - dragFromRef.current.x, rect.y() - dragFromRef.current.y);
+      rect.on("dragmove", moveTo);
 
       rect.on("dragend", () => {
-        const dx = rect.x() - dragFromRef.current.x;
-        const dy = rect.y() - dragFromRef.current.y;
-        moveMembers(membersRef.current, dx, dy);
-        membersRef.current = { images: [], panels: [] };
-        useFrames.getState().clearDrag();
-        useFrames.getState().upsert({ ...f, canvasX: rect.x(), canvasY: rect.y() });
-        // One step for the frame and everything it carried.
-        canvasHistory.commit();
+        moveTo();
+        moveRef.current?.end();
+        moveRef.current = null;
       });
 
       // Konva scales rather than resizes, so bake the scale back into width
@@ -302,16 +295,11 @@ export default function FrameLayer() {
       // The name renders from the store, so it reads the live box to keep up
       // (#156). Not an upsert: that would rebuild the rect mid-gesture.
       rect.on("transform", () => {
-        const box = {
-          canvasX: rect.x(),
-          canvasY: rect.y(),
-          canvasW: rect.width() * rect.scaleX(),
-          canvasH: rect.height() * rect.scaleY(),
-        };
+        const box = nodeBox(rect);
         useFrames.getState().setResize(f.id, box);
         // With auto layout, its items follow the shape being dragged (#232).
         const order = rearrangeRef.current.get(f.id);
-        if (order) rearrangeLive(order, { x: box.canvasX, y: box.canvasY, w: box.canvasW, h: box.canvasH });
+        if (order) rearrangeLive(order, boundsOf(box));
       });
       rect.on("transformend", () => {
         announceGesture(false);
