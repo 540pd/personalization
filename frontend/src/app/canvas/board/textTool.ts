@@ -12,6 +12,7 @@
 // every zoom.
 
 import Konva from "konva";
+import type { BoardLayerDeps } from "./boardContext";
 import { useToolStore } from "@/store/tool.store";
 import { useViewport } from "@/store/viewport.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
@@ -25,16 +26,7 @@ import { createText, fitAutoWidth, isAutoWidth } from "./text";
 import { joinLayout } from "./autoLayoutDrop";
 import { COLORS, SHAPE_CLICK_SLOP, Z_INDEX } from "@/constants/canvas.constants";
 
-export interface TextToolDeps {
-  layer: Konva.Layer;
-  transformer: Konva.Transformer;
-  applyDraggability: () => void;
-  syncAllNodeGeometry: () => void;
-  updateSelectionChrome: () => void;
-  saveSnapshot: () => void;
-}
-
-export function createTextTool(deps: TextToolDeps) {
+export function createTextTool(deps: BoardLayerDeps) {
   let start: Konva.Vector2d | null = null;
   // The dashed box shown while a fixed-width text is being dragged out.
   let preview: Konva.Rect | null = null;

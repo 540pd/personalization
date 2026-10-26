@@ -9,6 +9,7 @@
 // that for images.
 
 import type Konva from "konva";
+import type { BoardLayerDeps } from "./boardContext";
 import { useToolStore, shapeKindOf } from "@/store/tool.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
@@ -31,15 +32,6 @@ import {
   SHAPE_DEFAULT_SIZE,
   SHAPE_MIN_SIZE,
 } from "@/constants/canvas.constants";
-
-export interface ShapeDrawDeps {
-  layer: Konva.Layer;
-  transformer: Konva.Transformer;
-  applyDraggability: () => void;
-  syncAllNodeGeometry: () => void;
-  updateSelectionChrome: () => void;
-  saveSnapshot: () => void;
-}
 
 /**
  * What a released draw becomes.
@@ -105,7 +97,7 @@ function drawnAttrs(
   return { ...final, pointing: moved ? pointingOf(start, at) : "right" };
 }
 
-export function createShapeDrawHandlers(deps: ShapeDrawDeps) {
+export function createShapeDrawHandlers(deps: BoardLayerDeps) {
   let start: Konva.Vector2d | null = null;
   // The shape being drawn, shown live. Not yet "selectable": until the
   // release it is not part of the board, so no snapshot, select-all or
