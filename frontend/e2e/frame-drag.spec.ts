@@ -7,7 +7,7 @@ import { openBoard, uploadImage, imageBox, addPanel, panelBoxes, collapsePanels,
 
 type Box = { x: number; y: number; w: number; h: number };
 
-const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
+const frameBtn = (page: Page) => page.getByRole("button", { name: "Frame", exact: true });
 
 /**
  * Draw a frame around a box, corner to corner -- straight across the node's

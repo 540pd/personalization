@@ -48,7 +48,7 @@ async function stubMedia(page: Page) {
 }
 
 async function addNode(page: Page, label: RegExp) {
-  await page.locator(".floating-dock button").nth(1).click();
+  await page.getByRole("button", { name: "Create", exact: true }).click();
   await page.waitForTimeout(250);
   await page.locator(".floating-dock-submenu button").filter({ hasText: label }).first().click();
   await expect(page.locator(".node-panel-instruction.mention-textarea, textarea.node-panel-instruction").first()).toBeVisible();

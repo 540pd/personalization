@@ -25,7 +25,7 @@ async function deselect(page: Page) {
   await page.waitForTimeout(250);
 }
 
-const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
+const frameBtn = (page: Page) => page.getByRole("button", { name: "Frame", exact: true });
 
 async function drawFrame(page: Page, x1: number, y1: number, x2: number, y2: number) {
   await frameBtn(page).click();

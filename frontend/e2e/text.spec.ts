@@ -5,10 +5,10 @@ import { openBoard, setZoom, zoom, portCount } from "./helpers";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const pointerBtn = (page: Page) => page.locator(".floating-dock button").nth(0);
+const pointerBtn = (page: Page) => page.getByRole("button", { name: "Select", exact: true });
 // Pointer, Create, Links, Frame, Shapes, then Text.
-const textBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(5);
-const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
+const textBtn = (page: Page) => page.getByRole("button", { name: "Text", exact: true });
+const frameBtn = (page: Page) => page.getByRole("button", { name: "Frame", exact: true });
 const editor = (page: Page) => page.getByTestId("text-editor");
 
 interface TextInfo {

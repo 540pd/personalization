@@ -7,11 +7,11 @@ import { openBoard, setZoom, zoom, portCount, uploadImage, imageBox, collapsePan
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const pointerBtn = (page: Page) => page.locator(".floating-dock button").nth(0);
+const pointerBtn = (page: Page) => page.getByRole("button", { name: "Select", exact: true });
 // Pointer, Create, Links, Frame, then Shapes: the fifth button that carries
 // aria-pressed.
-const shapesBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(4);
-const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
+const shapesBtn = (page: Page) => page.getByRole("button", { name: "Shapes", exact: true });
+const frameBtn = (page: Page) => page.getByRole("button", { name: "Frame", exact: true });
 // Matched on the item's own label, exactly: a bare has-text('Arrow') also
 // matches "Block Arrow".
 const menuItem = (page: Page, label: string) =>

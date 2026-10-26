@@ -4,11 +4,11 @@ import { openBoard, uploadImage, imageBox, addPanel, panelBoxes, collapsePanels,
 // A frame is a labelled backdrop, not a container: it sits behind the nodes
 // and does not own them.
 
-const pointerBtn = (page: Page) => page.locator(".floating-dock button").nth(0);
+const pointerBtn = (page: Page) => page.getByRole("button", { name: "Select", exact: true });
 // Frame is the first right-side tool, and the only one past Links carrying
 // aria-pressed besides Upload.
 const frameBtn = (page: Page) =>
-  page.locator('.floating-dock button[aria-pressed]').nth(3);
+  page.getByRole("button", { name: "Frame", exact: true });
 
 /** Drag on the board from one point to another. */
 async function drawFrame(page: Page, x1: number, y1: number, x2: number, y2: number) {

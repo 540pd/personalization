@@ -6,7 +6,7 @@ import { openBoard, uploadImage, imageBox, addPanel, collapsePanels, panelBoxes,
 // the wheel, reached the page instead. These pin the fix and what the
 // pass-through still has to do.
 
-const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
+const frameBtn = (page: Page) => page.getByRole("button", { name: "Frame", exact: true });
 const handles = (page: Page) =>
   page.evaluate(() => (window as any).Konva.stages[0].findOne("Transformer")?.nodes().length ?? 0);
 const scale = (page: Page) => page.evaluate(() => (window as any).Konva.stages[0].scaleX() as number);

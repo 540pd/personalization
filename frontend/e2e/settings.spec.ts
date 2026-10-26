@@ -13,7 +13,7 @@ async function openSettings(page: Page) {
 
 /** Adds an Image node; its panel stays open unless `close`. */
 async function addImageNode(page: Page, close = true) {
-  await page.locator(".floating-dock button").nth(1).click();
+  await page.getByRole("button", { name: "Create", exact: true }).click();
   await page.waitForTimeout(250);
   await page.locator(".floating-dock-submenu button").filter({ hasText: /^Image$/ }).first().click();
   await page.waitForTimeout(400);

@@ -4,7 +4,7 @@ import { openBoard, addPanel, collapsePanels, panelBoxes } from "./helpers";
 // #129: changing a Create node's aspect ratio keeps its top-left fixed, and a
 // Frame that held the node grows so it still does.
 
-const frameBtn = (page: Page) => page.locator('.floating-dock button[aria-pressed]').nth(3);
+const frameBtn = (page: Page) => page.getByRole("button", { name: "Frame", exact: true });
 
 async function drawFrame(page: Page, x1: number, y1: number, x2: number, y2: number) {
   await page.mouse.move(x1, y1);

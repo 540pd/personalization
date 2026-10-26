@@ -124,7 +124,7 @@ export async function addPanel(page: Page) {
   // Scoped to the dock. This was `page.locator("button").nth(1)` -- a
   // position in the whole document, which broke the moment the sidebar put
   // buttons ahead of the dock in the DOM.
-  await page.locator(".floating-dock button").nth(1).click();
+  await page.getByRole("button", { name: "Create", exact: true }).click();
   await page.waitForTimeout(250);
   await page.locator(".floating-dock-submenu button:has-text('Image')").first().click();
   await page.waitForFunction(

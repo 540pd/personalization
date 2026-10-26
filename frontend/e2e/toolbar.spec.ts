@@ -5,15 +5,12 @@ import { openBoard, makePng, imageBox } from "./helpers";
 // used to lie: an armed tool survived a click on empty canvas, and Upload
 // could never render active at all -- its class was a hardcoded false.
 
-// Scoped to the dock and indexed the way helpers.addPanel already does:
-// pointer, Generate, Links, then the right-side tools. Tooltips are
-// display:none until hover, so their text is not a usable handle.
-const pointerBtn = (page: Page) => page.locator(".floating-dock button").nth(0);
-const linksBtn   = (page: Page) => page.locator(".floating-dock button").nth(2);
-// Upload is the only right-side tool carrying aria-pressed; the disabled ones
-// pass undefined, so the attribute is absent on them.
+// The dock's buttons by name: each is an icon, named by its aria-label
+// (#301). Upload is "Upload files", apart from the dialogs' Upload.
+const pointerBtn = (page: Page) => page.getByRole("button", { name: "Select", exact: true });
+const linksBtn   = (page: Page) => page.getByRole("button", { name: "Links", exact: true });
 const uploadBtn  = (page: Page) =>
-  page.locator(".floating-dock button[aria-pressed]").last();
+  page.getByRole("button", { name: "Upload files", exact: true });
 
 // Not helpers.clickEmpty: that clicks (1400, 120), which is outside the
 // 1280x720 the chromium project actually runs at -- devices["Desktop Chrome"]

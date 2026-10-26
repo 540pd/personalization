@@ -6,9 +6,9 @@ import { openBoard, uploadImage, collapsePanels, setZoom } from "./helpers";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
-const shapesBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(4);
-const textBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(5);
+const frameBtn = (page: Page) => page.getByRole("button", { name: "Frame", exact: true });
+const shapesBtn = (page: Page) => page.getByRole("button", { name: "Shapes", exact: true });
+const textBtn = (page: Page) => page.getByRole("button", { name: "Text", exact: true });
 const colorBtn = (page: Page) => page.getByRole("button", { name: "Color", exact: true });
 const card = (page: Page) => page.getByRole("group", { name: "Colors" });
 const swatch = (page: Page, name: string) => card(page).getByRole("button", { name, exact: true });

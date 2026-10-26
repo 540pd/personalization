@@ -9,7 +9,7 @@ import { openBoard, setZoom } from "./helpers";
 const GAP = 14;
 const LIFTED = 38; // GAP + the name row (8 + 16)
 
-const frameBtn = (page: Page) => page.locator(".floating-dock button[aria-pressed]").nth(3);
+const frameBtn = (page: Page) => page.getByRole("button", { name: "Frame", exact: true });
 const bar = (page: Page) => page.getByTestId("shape-style-bar");
 const frameName = (page: Page, name: string) => page.locator(`div[title="${name}"]`);
 
