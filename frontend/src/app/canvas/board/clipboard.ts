@@ -150,7 +150,7 @@ export function createEditKeysHandler(deps: BoardLayerDeps) {
       deps.updateSelectionChrome();
       deleteNodes(selected);
       deps.syncAllNodeGeometry();
-      useKonvaSelection.getState().deselect();
+      useKonvaSelection.getState().clearSelection();
       deps.saveSnapshot(e);
       return;
     }
@@ -169,7 +169,7 @@ export function createEditKeysHandler(deps: BoardLayerDeps) {
       const pasted = pasteNodes(deps.layer, clipboard.konva);
       // The copies become the selection, so everything else lets go first.
       deps.transformer.nodes([]);
-      useKonvaSelection.getState().deselect();
+      useKonvaSelection.getState().clearSelection();
       if (pasted.length) {
         deps.applyDraggability();
         deps.syncAllNodeGeometry();

@@ -144,13 +144,13 @@ export default function ConnectionOverlay() {
               onClick={(e) => {
                 e.stopPropagation();
                 if (e.shiftKey || e.ctrlKey || e.metaKey) {
-                  useConnectionStore.getState().addConnectionToSelection(conn.id);
+                  useConnectionStore.getState().addToSelection(conn.id);
                 } else {
                   // Through selectOnly like every other click path. This one
                   // cleared nodes and panels by hand and so missed frames
                   // (#127) -- and the node transformer's chrome with them.
                   selectOnly("wire");
-                  useConnectionStore.getState().selectConnection(conn.id);
+                  useConnectionStore.getState().select(conn.id);
                 }
               }}
             />

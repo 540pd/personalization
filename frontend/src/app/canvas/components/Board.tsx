@@ -165,7 +165,7 @@ export default function Board() {
   // also clear the Konva transformer so the selection ring disappears.
   useEffect(() => {
     return useKonvaSelection.subscribe((s) => {
-      if (!s.nodeIds.length && transformerRef.current && layerRef.current) {
+      if (!s.selectedIds.length && transformerRef.current && layerRef.current) {
         transformerRef.current.nodes([]);
         updateSelectionChrome();
         layerRef.current.batchDraw();

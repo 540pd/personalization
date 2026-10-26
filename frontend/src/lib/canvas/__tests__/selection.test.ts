@@ -14,19 +14,19 @@ function selectEverything() {
   useKonvaSelection.getState().select("node-1");
   useFrames.getState().upsert(frame("f1"));
   useFrames.getState().select("f1");
-  useConnectionStore.getState().selectConnection("wire-1");
+  useConnectionStore.getState().select("wire-1");
 }
 
 const frameSelected = () => useFrames.getState().selectedIds;
-const nodeSelected = () => useKonvaSelection.getState().nodeIds;
+const nodeSelected = () => useKonvaSelection.getState().selectedIds;
 const wireSelected = () => useConnectionStore.getState().selectedIds;
 
 describe("selectOnly", () => {
   beforeEach(() => {
     registerNodeChromeClear(null);
     useFrames.setState({ frames: {}, selectedIds: [], draft: null, drag: {} });
-    useKonvaSelection.getState().deselect();
-    useConnectionStore.getState().deselectConnection();
+    useKonvaSelection.getState().clearSelection();
+    useConnectionStore.getState().clearSelection();
     useNodePanel.getState().clearAll();
   });
 

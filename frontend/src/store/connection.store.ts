@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { createSelection, type SelectionSlice } from "./selectionSlice";
 
 export interface Connection {
   id: string;
@@ -15,18 +16,14 @@ export interface DragState {
   cursorY: number;
 }
 
-interface ConnectionState {
+interface ConnectionState extends SelectionSlice {
   connections:           Connection[];
   drag:                  DragState | null;
-  selectedIds:           string[];
   startDrag:             (fromNodeId: string, fromNodeType: "panel" | "konva", x: number, y: number) => void;
   updateDrag:            (x: number, y: number) => void;
   commitConnection:      (toNodeId: string) => void;
   cancelDrag:            () => void;
-  selectConnection:      (id: string) => void;
-  addConnectionToSelection: (id: string) => void;
-  deselectConnection:    () => void;
-  selectAllConnections:  () => void;
+  selectAll:             () => void;
   removeConnection:      (id: string) => void;
   removeForNode:         (nodeId: string) => void;
   /**
@@ -41,7 +38,6 @@ interface ConnectionState {
 export const useConnectionStore = create<ConnectionState>((set, get) => ({
   connections: [],
   drag:        null,
-  selectedIds: [],
 
   startDrag: (fromNodeId, fromNodeType, x, y) =>
     set({ drag: { fromNodeId, fromNodeType, cursorX: x, cursorY: y }, selectedIds: [] }),
@@ -75,14 +71,8 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
 
   cancelDrag: () => set({ drag: null }),
 
-  selectConnection:      (id) => set({ selectedIds: [id] }),
-  addConnectionToSelection: (id) =>
-    set((s) =>
-      s.selectedIds.includes(id) ? s : { selectedIds: [...s.selectedIds, id] }
-    ),
-  deselectConnection: () => set({ selectedIds: [] }),
-  selectAllConnections: () =>
-    set((s) => ({ selectedIds: s.connections.map((c) => c.id) })),
+  ...createSelection(set),
+  selectAll: () => get().setSelection(get().connections.map((c) => c.id)),
 
   removeConnection: (id) =>
     set((s) => ({

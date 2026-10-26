@@ -211,7 +211,7 @@ export function createTextTool(deps: BoardLayerDeps) {
           node.destroy();
         } else {
           deleteNodes([node]);
-          useKonvaSelection.getState().deselect();
+          useKonvaSelection.getState().clearSelection();
           deps.syncAllNodeGeometry();
           deps.saveSnapshot();
         }

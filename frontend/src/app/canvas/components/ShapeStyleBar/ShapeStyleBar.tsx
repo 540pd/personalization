@@ -134,7 +134,7 @@ function useGesture(active: boolean): boolean {
 // --- bar --------------------------------------------------------------------
 
 export default function ShapeStyleBar() {
-  const ids = useKonvaSelection((s) => s.nodeIds);
+  const ids = useKonvaSelection((s) => s.selectedIds);
   const nodes = useKonvaNodes((s) => s.nodes);
   const pointer = useToolStore((s) => s.activeTool === "pointer");
   const frameIds = useFrames((s) => s.selectedIds);

@@ -158,7 +158,7 @@ export function bindStageEvents(board: BoardContext, deps: StageEventDeps): () =
       transformer.nodes([n]);
       useKonvaSelection.getState().select(n.id() || String(n._id));
       useNodePanel.getState().closeAllPanels();
-      useConnectionStore.getState().deselectConnection();
+      useConnectionStore.getState().clearSelection();
       hover.hide(); // transformer border replaces the hover outline
     }
     // Raise the dragged node so it cannot vanish under something it is

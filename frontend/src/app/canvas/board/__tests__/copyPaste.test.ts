@@ -73,7 +73,7 @@ function setup() {
 
 beforeEach(() => {
   useKonvaNodes.setState({ nodes: {} });
-  useKonvaSelection.getState().deselect();
+  useKonvaSelection.getState().clearSelection();
   useNodePanel.getState().clearAll();
   useConnectionStore.setState({ connections: [], drag: null, selectedIds: [] });
   useToolStore.setState({ activeTool: "pointer" });

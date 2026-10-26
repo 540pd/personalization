@@ -29,7 +29,7 @@ function deps(l: Konva.Layer) {
 
 beforeEach(() => {
   useKonvaNodes.setState({ nodes: {} });
-  useKonvaSelection.getState().deselect();
+  useKonvaSelection.getState().clearSelection();
   useToolStore.setState({ activeTool: "pointer" });
 });
 
@@ -114,7 +114,7 @@ describe("restoreSnapshot", () => {
     restoreSnapshot(captureLayer(l), d);
 
     expect(d.transformer.nodes()).toEqual([]);
-    expect(useKonvaSelection.getState().nodeIds).toEqual([]);
+    expect(useKonvaSelection.getState().selectedIds).toEqual([]);
     expect(d.updateSelectionChrome).toHaveBeenCalled();
   });
 });

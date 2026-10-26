@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { createSelection, type SelectionSlice } from "./selectionSlice";
 import { saveFrameImagePositions } from "@/app/canvas/board/frameImageStorage";
 
 const STORAGE_KEY = "gcos-frames";
@@ -84,13 +85,11 @@ export interface FrameDrag {
   dy: number;
 }
 
-interface FrameState {
+interface FrameState extends SelectionSlice {
   frames: Record<string, FrameRecord>;
-  /**
-   * A set, not one id: Ctrl+A selects every frame alongside the images, panels
-   * and wires, and one Delete has to take all of them.
-   */
-  selectedIds: string[];
+  // selectedIds (SelectionSlice) is a set, not one id: Ctrl+A selects every
+  // frame alongside the images, panels and wires, and one Delete has to take
+  // all of them.
   draft: FrameDraft | null;
   /**
    * Set on every dragmove, cleared on dragend.
@@ -116,10 +115,7 @@ interface FrameState {
 
   upsert: (frame: FrameRecord) => void;
   remove: (id: string) => void;
-  /** Select exactly this frame, or nothing when passed null. */
-  select: (id: string | null) => void;
   selectAll: () => void;
-  clearSelection: () => void;
   setDraft: (draft: FrameDraft | null) => void;
   setDrag: (id: string, drag: FrameDrag) => void;
   clearDrag: () => void;
@@ -129,9 +125,8 @@ interface FrameState {
   replaceAll: (frames: Record<string, FrameRecord>) => void;
 }
 
-export const useFrames = create<FrameState>((set) => ({
+export const useFrames = create<FrameState>((set, get) => ({
   frames: readFrames(),
-  selectedIds: [],
   draft: null,
   drag: {},
   resize: {},
@@ -152,17 +147,10 @@ export const useFrames = create<FrameState>((set) => ({
       delete resize[id];
       return { frames: next, selectedIds: s.selectedIds.filter((sid) => sid !== id), resize };
     }),
-  select: (id) =>
-    set((s) => {
-      // Same selection, same array: a fresh reference on every mousedown would
-      // re-render FrameLayer in the middle of a drag.
-      if (id ? s.selectedIds.length === 1 && s.selectedIds[0] === id : !s.selectedIds.length) {
-        return s;
-      }
-      return { selectedIds: id ? [id] : [] };
-    }),
-  selectAll: () => set((s) => ({ selectedIds: Object.keys(s.frames) })),
-  clearSelection: () => set({ selectedIds: [] }),
+  // Same selection, same array (createSelection): a fresh reference on every
+  // mousedown would re-render FrameLayer in the middle of a drag.
+  ...createSelection(set),
+  selectAll: () => get().setSelection(Object.keys(get().frames)),
   setDraft: (draft) => set({ draft }),
   setDrag: (id, drag) => set((s) => ({ drag: { ...s.drag, [id]: drag } })),
   clearDrag: () => set({ drag: {} }),

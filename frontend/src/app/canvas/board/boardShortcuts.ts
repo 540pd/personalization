@@ -79,9 +79,9 @@ export function bindBoardShortcuts(board: BoardContext, deps: ShortcutDeps): () 
     }
     const nodes = layer.find(".selectable") as Konva.Shape[];
     selectNodes(transformer, nodes);
-    if (!nodes.length) useKonvaSelection.getState().deselect();
+    if (!nodes.length) useKonvaSelection.getState().clearSelection();
     useNodePanel.getState().activateAll();
-    useConnectionStore.getState().selectAllConnections();
+    useConnectionStore.getState().selectAll();
     useFrames.getState().selectAll();
     hover.hide(); // transformer borders take over
     updateSelectionChrome();
