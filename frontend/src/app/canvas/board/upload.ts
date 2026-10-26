@@ -14,6 +14,7 @@ import { COLORS, DEFAULT_NODE_MAX_EDGE, NODE_CORNER_RADIUS } from "@/constants/c
 import { toCanvas, viewportCentre, type Point } from "@/lib/canvas/coords";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { canvasArea } from "../canvasArea";
+import { saveFrameBitmap } from "./frameImageStorage";
 import { joinLayout } from "./autoLayoutDrop";
 import { canvasEvent } from "@/lib/canvas/events";
 import type { BoardLayerDeps } from "./boardContext";
@@ -99,7 +100,7 @@ function addImage(
   const url = URL.createObjectURL(file);
   const img = new window.Image() as HTMLImageElement;
 
-  img.onload = () => {
+  img.onload = async () => {
     const { w, h } = fitToBox(img.naturalWidth, img.naturalHeight);
     const id = crypto.randomUUID();
     const x = cx - w / 2 + off;
@@ -135,9 +136,17 @@ function addImage(
     // Read taken labels here rather than at drop time: onload fires per file
     // and placeNode registers each one synchronously, so uploading two
     // cat.png gives "cat" then "cat (2)" instead of two "cat"s.
+    const imageUrl = canvas.toDataURL("image/png");
+    try {
+      await saveFrameBitmap(id, imageUrl);
+    } catch (err) {
+      // Storage can be disabled or full. The current upload still works;
+      // only its ability to survive a future frame reload is affected.
+      console.warn("[frames] Could not save uploaded image for reload.", err);
+    }
     placeNode(deps, node, {
       id, canvasX: x, canvasY: y, canvasW: w, canvasH: h,
-      imageUrl: canvas.toDataURL("image/png"),
+      imageUrl,
       label: uniqueLabel(stripExtension(file.name), takenLabels()),
     }, droppedAt);
     URL.revokeObjectURL(url);
