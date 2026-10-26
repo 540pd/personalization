@@ -11,10 +11,11 @@
 //
 // This container sits at Z_INDEX.frames and never flips.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFrames } from "@/store/frame.store";
 import { useViewport } from "@/store/viewport.store";
 import { disposeAll } from "@/lib/dom/listen";
+import { boardStage } from "@/lib/canvas/boardStage";
 import { createFrameStage, type FrameStage } from "../board/createFrameStage";
 import { selectFrameRects } from "../board/frameRects";
 import { bindFrameHover } from "../board/frameHover";
@@ -31,6 +32,16 @@ export default function FrameLayer() {
   const draft = useFrames((s) => s.draft);
   const selectedIds = useFrames((s) => s.selectedIds);
   const { x: stageX, y: stageY, scale } = useViewport();
+  const [boardReady, setBoardReady] = useState(false);
+
+  // Restored frames are present on the first render. Do not construct their
+  // stage before Board's: other canvas code assumes Board is Konva.stages[0].
+  useEffect(() => {
+    if (boardStage.current) { setBoardReady(true); return; }
+    const ready = () => setBoardReady(true);
+    window.addEventListener("canvas:board-ready", ready);
+    return () => window.removeEventListener("canvas:board-ready", ready);
+  }, []);
 
   // --- Create the stage lazily, on the first frame ---
   //
@@ -62,9 +73,10 @@ export default function FrameLayer() {
 
   // --- Rebuild the frame rects whenever the store changes ---
   useEffect(() => {
+    if (!boardReady) return;
     if (!Object.keys(frames).length && !partsRef.current) return;
     ensureStage()?.rects.render(frames);
-  }, [frames]);
+  }, [frames, boardReady]);
 
   // --- Attach the transformer to whatever is selected ---
   //

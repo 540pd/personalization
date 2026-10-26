@@ -9,6 +9,7 @@ import * as selection from "./nodePanel/selection";
 import type { NodePanelState, PanelInstance } from "./nodePanel/types";
 
 export type { NodeKind, PanelDraft, PanelInstance, PanelOutput, VariantPlacement } from "./nodePanel/types";
+export { isKnownKind } from "./nodePanel/types";
 export { deferredStorage, panelStorage, SAVE_DELAY_MS } from "./nodePanel/persistence";
 
 // The store is the wiring: each action is a pure transition from
@@ -22,6 +23,7 @@ export const useNodePanel = create<NodePanelState>()(
   persist(
     (set, get) => ({
       panels:     [],
+      parked:     [],
       selectedId: null,
 
       addPanel: (cx, cy, kind = "image", open = true) =>

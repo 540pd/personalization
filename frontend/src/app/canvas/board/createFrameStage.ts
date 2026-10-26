@@ -5,6 +5,7 @@ import type { FrameDraft } from "@/store/frame.store";
 import { useViewport } from "@/store/viewport.store";
 import { selectOnly } from "@/lib/canvas/selection";
 import { frameStage } from "@/lib/canvas/frameStage";
+import { bindWheelZoom } from "@/lib/canvas/wheelZoom";
 import { COLORS, FRAME_CORNER_RADIUS, FRAME_MIN_EDGE } from "@/constants/canvas.constants";
 import { createSelectionTransformer } from "./transformer";
 import { createHoverOutline, type HoverOutline } from "./hoverOutline";
@@ -57,6 +58,9 @@ export function createFrameStage(container: HTMLDivElement): FrameStage {
     if (e.target === stage) selectOnly(null);
   });
 
+  // Over a bare frame the wheel lands here, not on Board's stage (#142).
+  bindWheelZoom(stage);
+
   const observer = new ResizeObserver(() => {
     stage.width(container.offsetWidth);
     stage.height(container.offsetHeight);
@@ -91,7 +95,7 @@ export function createFrameStage(container: HTMLDivElement): FrameStage {
   frameStage.current = stage;
   return {
     stage, layer, transformer, hover, showDraft,
-    rects: createFrameRects(layer),
+    rects: createFrameRects(layer, transformer),
     dispose: () => {
       observer.disconnect();
       frameStage.current = null;

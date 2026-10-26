@@ -4,12 +4,13 @@
 // Each Node → Image click creates an independent placeholder + panel instance.
 // Instances are stored in the nodePanelStore array and rendered here.
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { LABEL_GAP, LABEL_MIN_NODE_W } from "@/constants/canvas.constants";
 import { canvasHistory } from "@/lib/canvas/history";
+import { selectOnly } from "@/lib/canvas/selection";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { useSection } from "@/store/section.store";
 import { boardKeyAllowed } from "@/lib/canvas/boardKeys";
@@ -33,6 +34,7 @@ import SelectionBox from "./SelectionBox";
 import NodePorts from "./NodePorts";
 import Placeholder from "./Placeholder";
 import ComposeEditor from "./ComposeEditor";
+import ComposeOutputLayer from "./ComposeOutputLayer";
 import "./NodePanel.scss";
 
 // ── Per-instance component ────────────────────────────────────────────────────
@@ -58,6 +60,8 @@ function SinglePanel({
   hideInputPort, hideOutputPort, hideLabel,
 }: SinglePanelProps) {
   const { canvasX, canvasY, isActive, isPanelOpen } = instance;
+  const onActivateRef = useRef(onActivate);
+  onActivateRef.current = onActivate;
 
   // The kind's spec is the only thing that differs between node types.
   const spec = kindSpec(instance.kind);
@@ -72,7 +76,7 @@ function SinglePanel({
   const setDraft = (next: GenerateDraft) =>
     useNodePanel.getState().setDraft(instance.id, { model: next.model, instruction: next.instruction, settings });
 
-  const { busy, busyLabel, error, generate } = useGeneration(instance, spec, draft, settings);
+  const { busy, waiting, busyLabel, error, upstreamError, generate } = useGeneration(instance, spec, draft, settings);
   const { dragging, handlers } = usePanelDrag({
     instance, scale, authored: !!spec.authored, onActivate, onOpenPanel, onClosePanel, onSetCanvasPos,
   });
@@ -134,6 +138,15 @@ function SinglePanel({
 
   // What the box shows: a written kind shows its text; others their output.
   const shown = spec.authored ? panelOutput(instance) : instance.output;
+  // A link in an unselected Compose box selects the box instead of following.
+  const handleComposeLinkClick = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isActive) return;
+    event.preventDefault();
+    selectOnly("panel");
+    useNodePanel.getState().raisePanel(instance.id);
+    useLayerOrder.getState().raiseDom();
+    onActivateRef.current();
+  }, [instance.id, isActive]);
 
   return (
     <>
@@ -183,6 +196,8 @@ function SinglePanel({
         spec={spec}
         shown={shown}
         busy={busy}
+        waiting={waiting}
+        upstreamError={upstreamError}
         dragging={dragging}
         isPanelOpen={isPanelOpen}
         left={placeholderLeft}
@@ -194,6 +209,22 @@ function SinglePanel({
         onDoubleClick={() => { if (spec.authored) setEditing(true); }}
         onHoverChange={setHovered}
       />
+
+      {shown && spec.authored && (
+        <ComposeOutputLayer
+          spec={spec}
+          value={shown.value}
+          left={placeholderLeft}
+          top={placeholderTop}
+          width={pw}
+          height={ph}
+          scale={scale}
+          handlers={handlers}
+          onDoubleClick={() => setEditing(true)}
+          onHoverChange={setHovered}
+          onLinkClick={handleComposeLinkClick}
+        />
+      )}
 
       {/* ── In-place editor — an authored kind's double-click (#181) ── */}
       {editing && (

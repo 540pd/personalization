@@ -3,11 +3,13 @@
 
 import type Konva from "konva";
 import { useLayerOrder } from "@/store/layerOrder.store";
+import { useFrames } from "@/store/frame.store";
 import { canvasHistory } from "@/lib/canvas/history";
 import { registerNodeChromeClear, registerNodeChromeSelect } from "@/lib/canvas/selection";
 import { applyDraggability } from "./draggability";
 import { syncAllNodeGeometry } from "./geometry";
 import { selectNodes } from "./clipboard";
+import { saveFrameImagePositions } from "./frameImageStorage";
 import type { HoverOutline } from "./hoverOutline";
 
 /** What a tool that adds, removes or selects nodes on Board's layer needs. */
@@ -45,7 +47,12 @@ export function createBoardContext(parts: {
     ...parts,
     applyDraggability: () => applyDraggability(layer),
     syncAllNodeGeometry: syncAll,
-    saveSnapshot: (coalesceKey) => canvasHistory.commit(coalesceKey),
+    // Every commit also records where a frame's uploaded images sit, so a
+    // reload can put their bitmaps back.
+    saveSnapshot: (coalesceKey) => {
+      saveFrameImagePositions(useFrames.getState().frames);
+      canvasHistory.commit(coalesceKey);
+    },
     // A selected or dragged node comes to the front (#106), so its whole
     // content and its handles show over whatever it overlaps. moveToTop only
     // reorders within the canvas; bringing the canvas itself forward is what
