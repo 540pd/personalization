@@ -8,7 +8,8 @@ export function nextPanelId(): string {
 /** Keep _nextId ahead of every `panel-N` id in `panels`, so new ids never collide. */
 export function bumpNextId(panels: { id: string }[]): void {
   const maxNum = panels.reduce((max, p) => {
-    const n = Number(p.id.replace("panel-", ""));
+    // String(p?.id): set-aside entries are unchecked saved data (#186).
+    const n = Number(String(p?.id).replace("panel-", ""));
     return isNaN(n) ? max : Math.max(max, n);
   }, 0);
   if (maxNum >= _nextId) _nextId = maxNum + 1;
