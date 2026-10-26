@@ -25,6 +25,7 @@ import { bindStageEvents } from "../board/stageEvents";
 import { bindBoardShortcuts } from "../board/boardShortcuts";
 import { createDrawTools } from "../board/drawTools";
 import { bindBoardFile } from "../board/placeBoard";
+import { restoreFrameImages } from "../board/frameImageStorage";
 import DropOverlay from "./DropOverlay";
 import { useCanvasPassThrough } from "./useCanvasPassThrough";
 import { Z_INDEX } from "@/constants/canvas.constants";
@@ -84,6 +85,7 @@ export default function Board() {
     layerRef.current = layer;
     transformerRef.current = transformer;
     hoverRef.current = hover;
+    window.dispatchEvent(new Event("canvas:board-ready"));
 
     const board = createBoardContext({ stage, layer, transformer, hover, updateSelectionChrome });
     // Every listener below, removed together on unmount.
@@ -92,9 +94,18 @@ export default function Board() {
     off.push(registerKonvaHistory(board));
     off.push(bindNodeChrome(board));
 
-    // Snapshot initial state (demo node).
+    // Snapshot initial state (demo node). A plain commit: saveSnapshot would
+    // also save the frames' image positions, and this empty stage must not
+    // overwrite them before restoreFrameImages has read them.
     canvasHistory.clear();
-    board.saveSnapshot();
+    canvasHistory.commit();
+    let disposed = false;
+    void restoreFrameImages(layer).then(() => {
+      if (disposed) return;
+      board.applyDraggability();
+      board.syncAllNodeGeometry();
+      canvasHistory.commit();
+    });
 
     const draw = createDrawTools(board);
     off.push(draw.dispose);
@@ -127,6 +138,7 @@ export default function Board() {
     off.push(() => observer.disconnect());
 
     return () => {
+      disposed = true;
       disposeAll(off);
       boardStage.current = null;
       // Entries hold references into this layer, so they outlive their

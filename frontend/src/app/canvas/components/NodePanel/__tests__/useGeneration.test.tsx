@@ -93,6 +93,8 @@ describe("useGeneration", () => {
     const { result, unmount } = renderHook(() => useGeneration(panel(), s, draft, settings));
     let pending!: Promise<void>;
     act(() => { pending = result.current.generate(); });
+    // Upstream nodes are resolved first (#11), so the request starts a tick later.
+    await waitFor(() => expect(s.generate).toHaveBeenCalled());
     unmount();
     expect(signal?.aborted).toBe(true);
     finish({ type: "image", value: "late" });

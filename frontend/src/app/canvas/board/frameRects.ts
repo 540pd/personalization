@@ -14,8 +14,9 @@ import { finishRearrange, rearrangeLive, startRearrange, type ChildBox } from ".
 /**
  * Builds the rects for `layer` and wires their drag and resize. The gesture
  * state lives here, shared by every rect, so it outlives a rebuild.
+ * `transformer` is the frames' own, so a rebuild can drop a resize it cuts short.
  */
-export function createFrameRects(layer: Konva.Layer) {
+export function createFrameRects(layer: Konva.Layer, transformer?: Konva.Transformer) {
   // Membership is fixed when the drag starts, so a node is not picked up or
   // dropped halfway through just because the frame swept over it.
   let move: FrameMove | null = null;
@@ -117,6 +118,14 @@ export function createFrameRects(layer: Konva.Layer) {
    * writes only happen on dragend/transformend, so this never runs mid-gesture.
    */
   const render = (frames: Record<string, FrameRecord>) => {
+    // Delete / undo / redo mid-resize: drop the resize without saving it (#183).
+    if (transformer?.isTransforming()) {
+      transformer.nodes([]);
+      transformer.stopTransform();
+      announceGesture(false);
+      resizeKey = null;
+    }
+
     layer.find(".frame").forEach((n) => n.destroy());
     Object.values(frames).forEach((f) => {
       const rect = createRect(f);
@@ -143,6 +152,9 @@ export function createFrameRects(layer: Konva.Layer) {
  * than point at destroyed ones.
  */
 export function selectFrameRects(layer: Konva.Layer, transformer: Konva.Transformer, ids: string[]): void {
+  // Escape mid-resize: end it while still attached, so transformend saves it (#183).
+  if (transformer.isTransforming()) transformer.stopTransform();
+
   const selected = ids
     .map((id) => layer.findOne<Konva.Rect>(`#${id}`))
     .filter((r): r is Konva.Rect => !!r);
