@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import Konva from "konva";
-import { PALETTE, outlineFor } from "../palette";
+import { PALETTE, colorEvent, outlineFor, pickColor } from "../palette";
+import { useToolStore } from "@/store/tool.store";
 import { applyColor, colorAttrs } from "../recolor";
 import { createShape } from "../shapes";
 import { hasAttrs } from "../shapeStyle";
@@ -72,5 +73,15 @@ describe("creating in the current colour", () => {
     const line = createShape("line", box, "#c08cf5");
     expect(line.stroke()).toBe("#c08cf5");
     expect(line.fill()).toBeUndefined();
+  });
+});
+
+describe("pickColor", () => {
+  it("sets the drawing colour and announces the pick", () => {
+    const emit = vi.spyOn(colorEvent, "emit").mockImplementation(() => {});
+    pickColor("#3b9ef5");
+    expect(useToolStore.getState().color).toBe("#3b9ef5");
+    expect(emit).toHaveBeenCalledWith({ hex: "#3b9ef5" });
+    emit.mockRestore();
   });
 });
