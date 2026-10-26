@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Bounds } from "@/lib/canvas/bounds";
 import { MIN_SCALE, MAX_SCALE } from "@/store/viewport.store";
-import { zoomStep, fitTo, clampScale, FIT_PAD, ZOOM_STEP } from "../zoom";
+import { zoomStep, fitTo, clampScale, FIT_PAD, ZOOM_STEP, ZOOM_SHORTCUTS, shortcutLabel, zoomShortcutFor } from "../zoom";
 
 const size = { width: 1000, height: 800 };
 const b = (x: number, y: number, w: number, h: number): Bounds => ({ x, y, w, h });
@@ -167,5 +167,33 @@ describe("fitTo", () => {
     // entries did the same thing and neither fitted anything.
     const vp = fitTo(b(2000, 2000, 1500, 1200), size);
     expect(vp).not.toEqual({ x: 0, y: 0, scale: 1 });
+  });
+});
+
+describe("zoom shortcuts", () => {
+  const key = (code: string, mods: { ctrl?: boolean; meta?: boolean; shift?: boolean } = {}) =>
+    zoomShortcutFor({ code, ctrlKey: !!mods.ctrl, metaKey: !!mods.meta, shiftKey: !!mods.shift })?.action ?? null;
+
+  it("zooms in and out with Ctrl or ⌘, on the main keys and the numpad, Shift or not", () => {
+    expect(key("Equal", { ctrl: true })).toBe("in");
+    expect(key("NumpadAdd", { meta: true })).toBe("in");
+    expect(key("Equal", { meta: true, shift: true })).toBe("in");
+    expect(key("Minus", { meta: true })).toBe("out");
+    expect(key("NumpadSubtract", { ctrl: true })).toBe("out");
+    expect(key("Equal")).toBeNull();
+  });
+
+  it("takes Shift+0/1/2 for 100%, fit and selection, and nothing with Ctrl/⌘ or without Shift", () => {
+    expect(key("Digit0", { shift: true })).toBe("reset");
+    expect(key("Digit1", { shift: true })).toBe("fit");
+    expect(key("Digit2", { shift: true })).toBe("selection");
+    expect(key("Digit0")).toBeNull();
+    expect(key("Digit1", { shift: true, ctrl: true })).toBeNull();
+    expect(key("Digit3", { shift: true })).toBeNull();
+  });
+
+  it("labels each row from the same table, with this machine's modifier", () => {
+    expect(ZOOM_SHORTCUTS.map((s) => shortcutLabel(s, "⌘"))).toEqual(["⌘ + =", "⌘ + –", "⇧ + 0", "⇧ + 1", "⇧ + 2"]);
+    expect(shortcutLabel(ZOOM_SHORTCUTS[0], "Ctrl")).toBe("Ctrl + =");
   });
 });
