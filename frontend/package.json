@@ -17,7 +17,6 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "@use-gesture/react": "^10.3.0",
     "google-auth-library": "^9.15.0",
     "hotkeys-js": "^3.13.0",
     "konva": "^9.3.0",
@@ -28,7 +27,6 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.0",
     "sass": "^1.105.1",
-    "zundo": "^2.3.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
