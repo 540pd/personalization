@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
-import { useConnectionStore } from "@/store/connection.store";
-import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useFrames } from "@/store/frame.store";
 import { useSkills } from "@/store/skills.store";
 import { useAgents } from "@/store/agents.store";
@@ -14,7 +12,7 @@ import { boundsOf } from "@/lib/canvas/bounds";
 import { labelFromInstruction, relabel, takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { layoutVariants } from "../../../board/variants";
 import { mentionContext, resolveMentions } from "../../../mentions/mentions";
-import { collectReferences } from "../references";
+import { generateUpstream, useGenerationProgress } from "../upstreamGeneration";
 import type { GenerateDraft } from "../GenerateForm";
 import type { NodeKindSpec, NodeSettings } from "../nodeKinds";
 
@@ -31,10 +29,16 @@ export function useGeneration(
 ) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // While the nodes wired into this one are generated first (#11).
+  const [waiting, setWaiting] = useState(false);
+  // This node's own progress when a downstream node is generating it.
+  const upstream = useGenerationProgress((s) => s.byId[instance.id]);
   // A batch takes as long as its slowest variant, so say how many are coming
   // rather than showing the same spinner as for one.
   const variantTotal = spec.variantCount?.(settings) ?? 1;
-  const busyLabel = variantTotal > 1 ? `Creating ${variantTotal} images…` : undefined;
+  const busyLabel = waiting
+    ? "Waiting for upstream…"
+    : variantTotal > 1 ? `Creating ${variantTotal} images…` : undefined;
 
   // Aborts any in-flight generate call when the node is deleted.
   const generateAbort = useRef<AbortController | null>(null);
@@ -65,15 +69,15 @@ export function useGeneration(
     const controller = new AbortController();
     generateAbort.current = controller;
     setBusy(true);
+    setWaiting(true);
     setError(null);
+    useGenerationProgress.getState().setProgress(instance.id, null);
     try {
-      // Collect reference images from all nodes connected to this node's input port.
-      const references = collectReferences(
-        instance.id,
-        useConnectionStore.getState().connections,
-        useKonvaNodes.getState().nodes,
-        useNodePanel.getState().panels,
-      );
+      // Resolve missing predecessors before taking their references. Each
+      // predecessor reads its own saved prompt/settings, not this node's draft.
+      const references = await generateUpstream(instance.id, controller.signal);
+      if (controller.signal.aborted) return;
+      setWaiting(false);
 
       // Looked up now, by handle: an edited skill applies to this Create.
       const context = spec.mentions
@@ -181,7 +185,10 @@ export function useGeneration(
       useNodePanel.getState().setJob(instance.id, undefined);
       setError(err instanceof Error ? err.message : "Generation failed. Please try again.");
     } finally {
-      if (!controller.signal.aborted) setBusy(false);
+      if (!controller.signal.aborted) {
+        setBusy(false);
+        setWaiting(false);
+      }
       if (generateAbort.current === controller) generateAbort.current = null;
     }
   };
@@ -220,5 +227,14 @@ export function useGeneration(
     };
   }, [instance.job, instance.output, instance.id, spec]);
 
-  return { busy, busyLabel, error, generate };
+  return {
+    // Busy too while a downstream node is generating this one.
+    busy: busy || upstream?.status === "generating",
+    waiting,
+    busyLabel,
+    error: error ?? upstream?.error ?? null,
+    /** This node failed while a downstream node was generating it. */
+    upstreamError: upstream?.status === "error" ? upstream.error : undefined,
+    generate,
+  };
 }

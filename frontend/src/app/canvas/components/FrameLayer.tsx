@@ -11,7 +11,7 @@
 //
 // This container sits at Z_INDEX.frames and never flips.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Konva from "konva";
 import { useFrames } from "@/store/frame.store";
 import { selectOnly } from "@/lib/canvas/selection";
@@ -26,6 +26,7 @@ import {
 } from "../board/autoLayout";
 import { createHoverOutline, type HoverOutline } from "../board/hoverOutline";
 import { boardStage } from "@/lib/canvas/boardStage";
+import { bindWheelZoom } from "@/lib/canvas/wheelZoom";
 import FrameLabels from "./FrameLabels";
 import AutoLayoutDropLine from "./AutoLayoutDropLine";
 import { announceGesture } from "@/lib/canvas/gesture";
@@ -48,6 +49,7 @@ export default function FrameLayer() {
   // One object per resize gesture, shared by every frame it resizes, so the
   // gesture commits a single undo step however many frames it touched.
   const resizeKeyRef = useRef<object | null>(null);
+  const [boardReady, setBoardReady] = useState(false);
   // Per Frame with auto layout being resized: its items in the order they
   // had when the resize began, repacked live to the dragged shape (#232).
   const rearrangeRef = useRef<Map<string, ChildBox[]>>(new Map());
@@ -56,6 +58,15 @@ export default function FrameLayer() {
   const draft = useFrames((s) => s.draft);
   const selectedIds = useFrames((s) => s.selectedIds);
   const { x: stageX, y: stageY, scale } = useViewport();
+
+  // Restored frames are present on the first render. Do not construct their
+  // stage before Board's: other canvas code assumes Board is Konva.stages[0].
+  useEffect(() => {
+    if (boardStage.current) { setBoardReady(true); return; }
+    const ready = () => setBoardReady(true);
+    window.addEventListener("canvas:board-ready", ready);
+    return () => window.removeEventListener("canvas:board-ready", ready);
+  }, []);
 
   // --- Create the stage lazily, on the first frame ---
   //
@@ -104,6 +115,9 @@ export default function FrameLayer() {
     stage.on("click tap", (e) => {
       if (e.target === stage) selectOnly(null);
     });
+
+    // Over a bare frame the wheel lands here, not on Board's stage (#142).
+    bindWheelZoom(stage);
 
     const observer = new ResizeObserver(() => {
       stage.width(container.offsetWidth);
@@ -216,10 +230,20 @@ export default function FrameLayer() {
   // Rebuild rather than reconcile: a board holds a handful of frames, and
   // writes only happen on dragend/transformend, so this never runs mid-gesture.
   useEffect(() => {
+    if (!boardReady) return;
     if (!Object.keys(frames).length && !stageRef.current) return;
     ensureStage();
     const layer = layerRef.current;
     if (!layer) return;
+
+    // Delete / undo / redo mid-resize: drop the resize without saving it (#183).
+    const transformer = transformerRef.current;
+    if (transformer?.isTransforming()) {
+      transformer.nodes([]);
+      transformer.stopTransform();
+      announceGesture(false);
+      resizeKeyRef.current = null;
+    }
 
     layer.find(".frame").forEach((n) => n.destroy());
 
@@ -311,7 +335,7 @@ export default function FrameLayer() {
     });
 
     layer.batchDraw();
-  }, [frames]);
+  }, [frames, boardReady]);
 
   // --- Attach the transformer to whatever is selected ---
   //
@@ -328,6 +352,9 @@ export default function FrameLayer() {
     const layer = layerRef.current;
     const transformer = transformerRef.current;
     if (!layer || !transformer) return;
+
+    // Escape mid-resize: end it while still attached, so transformend saves it (#183).
+    if (transformer.isTransforming()) transformer.stopTransform();
 
     const selected = selectedIds
       .map((id) => layer.findOne<Konva.Rect>(`#${id}`))

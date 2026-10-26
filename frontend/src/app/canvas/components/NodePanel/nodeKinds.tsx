@@ -8,7 +8,7 @@
 // Ships with a single entry on purpose: the abstraction is proved against the
 // kind that already exists before instruction and video are built on it.
 
-import type { FC } from "react";
+import type { FC, MouseEvent } from "react";
 import type { NodeKind, PanelOutput } from "@/store/nodePanel.store";
 import type { Reference } from "@/types/canvas.types";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
@@ -118,7 +118,7 @@ export interface NodeKindSpec {
   /** Empty-state shown before anything is generated. */
   EmptyState: FC;
   /** Renders a completed output inside the node box. */
-  Output: FC<{ value: string }>;
+  Output: FC<NodeOutputProps>;
   /**
    * Can this kind feed another node? Terminal kinds render no output port,
    * so there is nothing to drag a wire from.
@@ -172,4 +172,9 @@ export interface VariantBatch {
   urls: string[];
   /** How many of the requested results did not come back. */
   failed: number;
+}
+
+export interface NodeOutputProps {
+  value: string;
+  onLinkClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }

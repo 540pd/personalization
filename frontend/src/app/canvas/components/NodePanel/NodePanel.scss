@@ -24,6 +24,98 @@
   @apply h-full w-full overflow-y-auto rounded-[inherit] px-3 py-2.5 text-left text-[11px] leading-snug text-neutral-700 whitespace-pre-wrap;
 }
 
+.node-panel-compose-output-layer {
+  @apply overflow-hidden;
+  pointer-events: auto;
+}
+
+.node-panel-compose-markdown {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+
+  p {
+    @apply my-2 first:mt-0 last:mb-0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply my-2 font-semibold leading-tight text-neutral-900;
+  }
+
+  h1 {
+    @apply text-base;
+  }
+
+  h2 {
+    @apply text-sm;
+  }
+
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-xs;
+  }
+
+  ul,
+  ol {
+    @apply my-2 list-inside pl-1;
+  }
+
+  ul {
+    @apply list-disc;
+  }
+
+  ol {
+    @apply list-decimal;
+  }
+
+  blockquote {
+    @apply my-2 border-l-2 border-neutral-300 pl-2 text-neutral-500;
+  }
+
+  pre {
+    @apply my-2 max-w-full overflow-x-auto rounded bg-neutral-100 p-2;
+    white-space: pre;
+  }
+
+  code {
+    @apply rounded bg-neutral-200 px-0.5 font-mono;
+  }
+
+  pre code {
+    @apply bg-transparent p-0;
+  }
+
+  table {
+    @apply my-2 block max-w-full overflow-x-auto;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    @apply border border-neutral-300 px-1.5 py-1;
+  }
+
+  th {
+    @apply bg-neutral-100 font-semibold;
+  }
+
+  hr {
+    @apply my-2 border-0 border-t border-neutral-300;
+  }
+
+  a {
+    @apply text-blue-700 underline decoration-transparent transition-colors hover:decoration-current;
+    pointer-events: auto;
+  }
+}
+
 // A Compose box's editor (#181): the same type and padding as the text it
 // replaces, so opening it does not shift a line. White marks it as editing.
 .node-panel-compose-editor {
