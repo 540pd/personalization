@@ -10,7 +10,7 @@
 //
 // Free of store imports, like GenerateForm: the lists arrive as props.
 
-import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import {
@@ -41,13 +41,15 @@ export interface MentionInputProps {
 
 type Item = { kind: "skill" | "agent"; id: string; name: string; description: string; agent?: MentionAgent };
 
-const MENU_ID = "mention-menu";
 /** .mention-menu's w-64, before it has rendered once. */
 const MENU_WIDTH = 256;
 
 export default function MentionInput({
   value, onChange, onBlur, placeholder, className, scope, mentionables, known, onOpenLibrary,
 }: MentionInputProps) {
+  // Per field, so two open forms cannot share the menu's id or each other's
+  // aria-controls target.
+  const menuId = `mention-menu${useId()}`;
   const taRef = useRef<HTMLTextAreaElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
   const anchorRef = useRef<HTMLSpanElement>(null);
@@ -96,7 +98,7 @@ export default function MentionInput({
     }
     const r = anchorRef.current.getBoundingClientRect();
     // Kept in the window: flipped above the @ when there's no room below.
-    const menu = document.getElementById(MENU_ID)?.getBoundingClientRect();
+    const menu = document.getElementById(menuId)?.getBoundingClientRect();
     const w = menu?.width ?? MENU_WIDTH;
     const h = menu?.height ?? 0;
     const below = r.bottom + 4;
@@ -104,7 +106,7 @@ export default function MentionInput({
       left: Math.max(8, Math.min(r.left, window.innerWidth - w - 8)),
       top: below + h > window.innerHeight - 8 && r.top - 4 - h > 8 ? r.top - 4 - h : below,
     });
-  }, [open, value, caret]);
+  }, [open, value, caret, menuId]);
 
   const pick = (item: Item) => {
     const ta = taRef.current;
@@ -216,14 +218,14 @@ export default function MentionInput({
         role={scope ? "combobox" : undefined}
         aria-autocomplete={scope ? "list" : undefined}
         aria-expanded={scope ? open : undefined}
-        aria-controls={open ? MENU_ID : undefined}
-        aria-activedescendant={open && items.length ? `${MENU_ID}-${hi}` : undefined}
+        aria-controls={open ? menuId : undefined}
+        aria-activedescendant={open && items.length ? `${menuId}-${hi}` : undefined}
       />
       {open &&
         menuPos &&
         createPortal(
           <div
-            id={MENU_ID}
+            id={menuId}
             role="listbox"
             aria-label={scope === "skills-and-agents" ? "Skills and agents" : "Skills"}
             className="mention-menu"
@@ -242,7 +244,7 @@ export default function MentionInput({
                     </div>
                   )}
                   <div
-                    id={`${MENU_ID}-${i}`}
+                    id={`${menuId}-${i}`}
                     role="option"
                     aria-selected={i === hi}
                     className={`mention-menu-item ${i === hi ? "mention-menu-item-active" : ""}`}

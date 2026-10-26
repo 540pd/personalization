@@ -9,14 +9,8 @@
 
 import { lazy, Suspense } from "react";
 import { PencilLine } from "lucide-react";
-import { DEFAULT_NODE_MAX_EDGE } from "@/constants/canvas.constants";
 import type { NodeKindSpec, NodeOutputProps } from "../nodeKinds";
-
-// Sized like a Prompt node: both are reading surfaces, not pictures.
-const COMPOSE_NODE_SIZE = {
-  w: DEFAULT_NODE_MAX_EDGE,
-  h: Math.round(DEFAULT_NODE_MAX_EDGE * 0.75),
-};
+import { TEXT_NODE_SIZE, TextOutput } from "./controls";
 
 function EmptyState() {
   return (
@@ -27,17 +21,13 @@ function EmptyState() {
   );
 }
 
-function PlainOutput({ value }: NodeOutputProps) {
-  return <div className="node-panel-text-output">{value}</div>;
-}
-
 // Keep the Markdown packages out of the initial canvas bundle. The separate
 // renderer is fetched only when a written Compose box has content to display.
 const MarkdownOutput = lazy(() => import("./ComposeMarkdownOutput"));
 
 function Output(props: NodeOutputProps) {
   return (
-    <Suspense fallback={<PlainOutput value={props.value} />}>
+    <Suspense fallback={<TextOutput value={props.value} />}>
       <MarkdownOutput {...props} />
     </Suspense>
   );
@@ -49,7 +39,8 @@ export const composeKind: NodeKindSpec = {
   prompt: "",
   models: [],
   defaultSettings: {},
-  sizeFor: () => COMPOSE_NODE_SIZE,
+  // Sized like a Prompt node: both are reading surfaces, not pictures.
+  sizeFor: () => TEXT_NODE_SIZE,
   EmptyState,
   Output,
   acceptsInput: false,

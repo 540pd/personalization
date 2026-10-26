@@ -1,13 +1,16 @@
 import { getIdToken, notifySessionExpired } from "@/auth/authState";
 import type { GenerateImageV2Params, GenerateImageV2Result, GenerateTextParams, GenerateTextResult, GenerateVideoParams, JobAccepted, JobState } from "@/types/canvas.types";
 
-async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = getIdToken();
   const headers = new Headers(init?.headers);
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  headers.set("Content-Type", "application/json");
+  // Only a request that sends JSON says so; a GET has no body to describe.
+  if (init?.body !== undefined && init.body !== null) {
+    headers.set("Content-Type", "application/json");
+  }
 
   const res = await fetch(`/api/proxy/${path}`, { ...init, headers });
 
@@ -21,41 +24,35 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   return res;
 }
 
-export async function generateImageV2(params: GenerateImageV2Params): Promise<GenerateImageV2Result> {
-  const res = await apiFetch("generate/image", {
+/**
+ * POSTs `body` as JSON and returns the parsed response. A failed request
+ * throws with the backend's message, or the status when it sent none.
+ * `signal` cancels the request: a node deleted mid-generation stops waiting.
+ */
+export async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  const res = await apiFetch(path, {
     method: "POST",
-    body: JSON.stringify(params),
+    body: JSON.stringify(body),
+    signal,
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string };
-    throw new Error(body?.message ?? `Generation failed (${res.status})`);
+    const err = await res.json().catch(() => ({})) as { message?: string };
+    throw new Error(err?.message ?? `Generation failed (${res.status})`);
   }
-  return res.json() as Promise<GenerateImageV2Result>;
+  return res.json() as Promise<T>;
 }
 
-export async function generateText(params: GenerateTextParams): Promise<GenerateTextResult> {
-  const res = await apiFetch("generate/text", {
-    method: "POST",
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string };
-    throw new Error(body?.message ?? `Generation failed (${res.status})`);
-  }
-  return res.json() as Promise<GenerateTextResult>;
+export function generateImageV2(params: GenerateImageV2Params, signal?: AbortSignal): Promise<GenerateImageV2Result> {
+  return postJson<GenerateImageV2Result>("generate/image", params, signal);
+}
+
+export function generateText(params: GenerateTextParams, signal?: AbortSignal): Promise<GenerateTextResult> {
+  return postJson<GenerateTextResult>("generate/text", params, signal);
 }
 
 /** Starts a video generation. Returns immediately with a job to poll. */
-export async function startVideo(params: GenerateVideoParams): Promise<JobAccepted> {
-  const res = await apiFetch("generate/video", {
-    method: "POST",
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string };
-    throw new Error(body?.message ?? `Generation failed (${res.status})`);
-  }
-  return res.json() as Promise<JobAccepted>;
+export function startVideo(params: GenerateVideoParams, signal?: AbortSignal): Promise<JobAccepted> {
+  return postJson<JobAccepted>("generate/video", params, signal);
 }
 
 /**

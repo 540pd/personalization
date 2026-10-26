@@ -9,6 +9,7 @@ import type { AspectRatioV2, Reference } from "@/types/canvas.types";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 import type { ImageSettings, NodeKindSpec, NodeSettings, SettingsProps } from "../nodeKinds";
 import type { MentionContext } from "../../../mentions/mentions";
+import { baseRequest, KindPlaceholder, SettingSelect, TemperatureSlider } from "./controls";
 
 // To add a new model: append an entry with the Vertex AI model ID as `id` and
 // the display name as `label`. The `id` value is sent verbatim to the backend
@@ -46,43 +47,18 @@ function Advanced({ value, onChange, supports }: SettingsProps) {
     <div className="node-panel-advanced-content">
       {supports.thinking && (
         <div className="node-panel-advanced-row">
-          <div className="node-panel-setting">
-            <p className="node-panel-setting-label">Thinking</p>
-            <select
-              value={s.thinking}
-              onChange={(e) => onChange({ ...s, thinking: e.target.value })}
-              className="node-panel-select"
-            >
-              {THINKING_OPTS.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-          </div>
+          <SettingSelect
+            variant="setting"
+            label="Thinking"
+            options={THINKING_OPTS}
+            value={s.thinking}
+            onChange={(thinking) => onChange({ ...s, thinking })}
+          />
         </div>
       )}
 
       {supports.temperature && (
-        <div className="node-panel-temperature">
-          <div className="node-panel-temperature-header">
-            <p className="node-panel-setting-label">Temperature</p>
-            <span className="node-panel-temperature-value">{s.temperature.toFixed(1)}</span>
-          </div>
-
-          <div className="node-panel-temperature-slider">
-            <span className="node-panel-range-label">0</span>
-            <input
-              type="range"
-              aria-label="Temperature"
-              min={0}
-              max={2}
-              step={0.1}
-              value={s.temperature}
-              onChange={(e) => onChange({ ...s, temperature: Number(e.target.value) })}
-              className="node-panel-range"
-            />
-            <span className="node-panel-range-label">2</span>
-          </div>
-        </div>
+        <TemperatureSlider value={s.temperature} onChange={(temperature) => onChange({ ...s, temperature })} />
       )}
     </div>
   );
@@ -93,80 +69,51 @@ function Options({ value, onChange, supports }: SettingsProps) {
   return (
     <div className="node-panel-options">
       {supports.aspectRatio && (
-      <div className="node-panel-option">
-        <select
-          aria-label="Aspect ratio"
+        <SettingSelect
+          variant="option"
+          label="Aspect ratio"
+          options={ASPECT_RATIOS}
           value={s.aspectRatio}
-          onChange={(e) => onChange({ ...s, aspectRatio: e.target.value })}
-          className="node-panel-option-select"
-        >
-          {ASPECT_RATIOS.map((r) => (
-            <option key={r}>{r}</option>
-          ))}
-        </select>
-      </div>
+          onChange={(aspectRatio) => onChange({ ...s, aspectRatio })}
+        />
       )}
 
       {supports.imageSize && (
-      <div className="node-panel-option">
-        <select
-          aria-label="Quality"
+        <SettingSelect
+          variant="option"
+          label="Quality"
+          options={QUALITIES}
           value={s.quality}
-          onChange={(e) => onChange({ ...s, quality: e.target.value })}
-          className="node-panel-option-select"
-        >
-          {QUALITIES.map((q) => (
-            <option key={q}>{q}</option>
-          ))}
-        </select>
-      </div>
+          onChange={(quality) => onChange({ ...s, quality })}
+        />
       )}
 
-      <div className="node-panel-option">
-        {/* A bare count beside "16:9" and "1K" could mean anything, so the
-            multiplier reads as "this many" at a glance, and the label says
-            what of -- on hover, and to a screen reader, which has no hover. */}
-        <select
-          aria-label="Images"
-          title="Images"
-          value={s.variants}
-          onChange={(e) => onChange({ ...s, variants: Number(e.target.value) })}
-          className="node-panel-option-select"
-        >
-          {VARIANT_OPTS.map((n) => (
-            <option key={n} value={n}>{`×${n}`}</option>
-          ))}
-        </select>
-      </div>
+      {/* A bare count beside "16:9" and "1K" could mean anything, so the
+          multiplier reads as "this many" at a glance, and the label says
+          what of -- on hover, and to a screen reader, which has no hover. */}
+      <SettingSelect
+        variant="option"
+        label="Images"
+        title="Images"
+        options={VARIANT_OPTS}
+        value={s.variants}
+        format={(n) => `×${n}`}
+        onChange={(n) => onChange({ ...s, variants: Number(n) })}
+      />
     </div>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="node-panel-placeholder-content">
-      <svg
-        width="28"
-        height="28"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="node-panel-image-icon"
-      >
+    <KindPlaceholder
+      noun="Image"
+      icon={<>
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <circle cx="8.5" cy="8.5" r="1.5" />
         <path d="M21 15l-5-5L5 21" />
-      </svg>
-
-      <span className="node-panel-placeholder-text">
-        Image will
-        <br />
-        appear here
-      </span>
-    </div>
+      </>}
+    />
   );
 }
 
@@ -202,17 +149,17 @@ export const imageKind: NodeKindSpec = {
   Output,
   Advanced,
   Options,
-  async generate({ modelId, instruction, settings, references, context }) {
-    const result = await generateImageV2(requestFor(modelId, instruction, settings, references, context));
+  async generate({ modelId, instruction, settings, references, context, signal }) {
+    const result = await generateImageV2(requestFor(modelId, instruction, settings, references, context), signal);
     if (!result.imageUrl) throw new Error("Generation returned no image.");
     return { type: "image", value: result.imageUrl };
   },
   variantCount: (settings) => (settings as ImageSettings).variants ?? 1,
-  async generateVariants({ modelId, instruction, settings, references, context }, count) {
+  async generateVariants({ modelId, instruction, settings, references, context, signal }, count) {
     const result = await generateImageV2({
       ...requestFor(modelId, instruction, settings, references, context),
       variants: count,
-    });
+    }, signal);
     const urls = result.imageUrls ?? [];
     // A backend from before variants (#113) ignores the count and answers in
     // the single-image shape. Say that, rather than "no images" -- one did
@@ -243,7 +190,6 @@ function requestFor(
     quality: s.quality,
     thinking: s.thinking,
     temperature: s.temperature,
-    references: references.length ? references : undefined,
-    ...(context?.skills ? { skills: context.skills } : {}),
+    ...baseRequest(references, context),
   };
 }
