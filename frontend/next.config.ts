@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
     root: import.meta.dirname,
   },
   poweredByHeader: false,
+  // The dev-tools button defaults to bottom-left, where it covers the
+  // minimised sidebar's user button. Next keeps a moved button's position
+  // per checkout in .next/cache, so a fresh checkout or worktree failed
+  // sidebar.spec.ts:224 while an older one passed. Dev only.
+  devIndicators: { position: "bottom-right" },
   webpack: (config) => {
     // Konva's package.json `main` field resolves to index-node.js which
     // requires the `canvas` npm package (a native Node.js binding). Webpack

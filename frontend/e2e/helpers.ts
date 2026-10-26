@@ -65,6 +65,29 @@ export async function openBoard(page: Page) {
   await page.waitForTimeout(400);
 }
 
+/**
+ * Reloads and waits until the board is back with what the test left on it:
+ * the stage, `shapes` Konva nodes and `panels` node placeholders, then two
+ * frames for auto layout to reflow. A fixed pause here was too short on a
+ * busy machine: the board mounts via next/dynamic after networkidle.
+ */
+export async function reloadBoard(page: Page, { shapes = 0, panels = 0 } = {}) {
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForFunction(
+    ([s, p]) => {
+      const stage = (window as any).Konva?.stages?.[0];
+      return (
+        !!stage &&
+        stage.find(".selectable").length >= s &&
+        document.querySelectorAll("button.node-panel-placeholder").length >= p
+      );
+    },
+    [shapes, panels],
+    { timeout: 20_000 },
+  );
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+}
+
 export async function uploadImage(page: Page, w: number, h: number, name = "photo.png") {
   const before = await page.evaluate(() => (window as any).Konva.stages[0].find("Image").length);
   await page.locator('input[type="file"]').setInputFiles({

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, setZoom } from "./helpers";
+import { openBoard, setZoom, reloadBoard } from "./helpers";
 
 // #230: in a Frame with auto layout, dropping an item on another's top or
 // bottom stacks it in that item's column; on its left or right puts it
@@ -217,8 +217,7 @@ test.describe("auto layout stacks (#230)", () => {
     const q = bottomOf(boxes[a]);
     await drag(page, p.x, p.y, q.x, q.y);
     await page.waitForTimeout(1200); // past the save delay
-    await page.reload();
-    await page.waitForTimeout(800);
+    await reloadBoard(page, { shapes: Object.keys(boxes).length });
     boxes = await shapeBoxes(page);
     expectStacked(boxes[a], boxes[c]);
     await selectFrame(page);

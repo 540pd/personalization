@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, uploadImage, imageBox, addPanel, panelBoxes, collapsePanels, setZoom, makePng } from "./helpers";
+import { openBoard, uploadImage, imageBox, addPanel, panelBoxes, collapsePanels, setZoom, makePng, reloadBoard } from "./helpers";
 
 // Issue #119. A selected frame owns a drag that starts inside it: pressing on
 // a node within it and dragging moves the frame and everything in it. A plain
@@ -379,8 +379,7 @@ test.describe("a frame drag's cost", () => {
     const [moved] = await panelBoxes(page);
 
     // Inside the save delay: the pending write must not be lost with the page.
-    await page.reload({ waitUntil: "networkidle" });
-    await page.waitForTimeout(800);
+    await reloadBoard(page, { panels: 1 });
 
     const [after] = await panelBoxes(page);
     expect(Math.round(after.x)).toBe(Math.round(moved.x));

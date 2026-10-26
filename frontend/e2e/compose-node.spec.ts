@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
-import { openBoard, panelBoxes, dragFrom, portCount, setZoom } from "./helpers";
+import { openBoard, panelBoxes, dragFrom, portCount, reloadBoard , setZoom} from "./helpers";
 
 // node > compose (#181): a box the user writes in. No panel, an output port
 // and no input, and its text feeds a downstream node as a text reference.
@@ -234,8 +234,7 @@ test.describe("node > compose", () => {
     await openBoard(page);
     await addNode(page, /^Compose$/);
     await write(page, "kept across reloads");
-    await page.reload({ waitUntil: "networkidle" });
-    await page.waitForTimeout(800);
+    await reloadBoard(page, { panels: 1 });
     await expect(page.locator(".node-panel-text-output")).toHaveText("kept across reloads");
   });
 

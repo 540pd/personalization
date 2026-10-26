@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, setZoom } from "./helpers";
+import { openBoard, setZoom, reloadBoard } from "./helpers";
 
 // #232: dragging a corner of a Frame with auto layout rearranges its items
 // live to the shape being dragged -- a row, a column or a compact rectangle
@@ -186,8 +186,7 @@ test.describe("auto layout: resize to rearrange (#232)", () => {
     const order = await setUp(page);
     await resizeTo(page, 300, 170);
     await page.waitForTimeout(1200); // past the save delay
-    await page.reload();
-    await page.waitForTimeout(800);
+    await reloadBoard(page, { shapes: order.length });
     expect(columnsOf(await shapeBoxes(page))).toEqual([
       [order[0], order[3]], [order[1], order[4]], [order[2], order[5]],
     ]);

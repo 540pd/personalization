@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { addPanel, collapsePanels, openBoard, panelBoxes, setZoom } from "./helpers";
+import { addPanel, collapsePanels, openBoard, panelBoxes, setZoom, reloadBoard } from "./helpers";
 
 // #225: one click on a Frame's Auto layout lines its contents up in a row,
 // 16 padding and 16 gap, top-aligned, the Frame hugging them; Remove auto
@@ -222,8 +222,7 @@ test.describe("Frame auto layout (#225)", () => {
     await layoutOn(page).click();
     const laid = await shapeBoxes(page);
     await page.waitForTimeout(1200); // past the save delay
-    await page.reload();
-    await page.waitForTimeout(800);
+    await reloadBoard(page, { shapes: Object.keys(laid).length });
     await selectFrame(page);
     await expect(layoutOff(page)).toBeVisible();
     const back = await shapeBoxes(page);
