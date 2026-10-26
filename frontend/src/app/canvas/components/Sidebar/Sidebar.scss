@@ -119,7 +119,7 @@
 
 .sidebar-options-button:focus-visible,
 .playspace-menu-item:focus-visible {
-  @apply outline-2 -outline-offset-2 outline-neutral-900;
+  @apply focus-ring-inset;
 }
 
 // Shown on hover and keyboard focus only: a permanent badge on the active
@@ -165,7 +165,7 @@
 // Brand's discard prompt (brand-confirm), on a backdrop of its own: that
 // one is positioned inside the Brand popup.
 .board-confirm-backdrop {
-  @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20;
+  @apply dialog-backdrop;
 }
 
 .board-confirm {
@@ -209,7 +209,7 @@
 }
 
 .board-confirm button:focus-visible {
-  @apply outline-2 outline-offset-2 outline-neutral-900;
+  @apply focus-ring;
 }
 
 // Brand's saved toast (brand-toast), plus an action.
@@ -276,8 +276,8 @@
 }
 
 .sidebar-user-menu {
+  @apply menu-surface;
   @apply absolute bottom-full left-0 right-0 mb-1 z-10 p-1;
-  @apply rounded-xl bg-white shadow-md border border-black/[0.08];
 }
 
 .sidebar-user-email {

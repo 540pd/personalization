@@ -165,5 +165,5 @@
 
 // Focus rings only for keyboard users, on every control on the page.
 .library-page :is(.brand-card, .brand-profile, .brand-save-bar) :is(button, input[type="checkbox"]):focus-visible {
-  @apply outline-2 outline-offset-2 outline-neutral-900;
+  @apply focus-ring;
 }

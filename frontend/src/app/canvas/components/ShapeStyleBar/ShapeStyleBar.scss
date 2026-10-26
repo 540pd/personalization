@@ -5,7 +5,8 @@
 // what it edits, rather than at the edge of the window.
 
 .shape-style-bar {
-  @apply fixed flex items-center gap-1 h-11 px-1.5 rounded-full bg-white/95 border border-black/10 shadow-lg backdrop-blur-sm -translate-x-1/2 select-none;
+  @apply glass;
+  @apply fixed flex items-center gap-1 h-11 px-1.5 rounded-full shadow-lg -translate-x-1/2 select-none;
 }
 
 .shape-style-wrapper {
@@ -48,7 +49,8 @@
 ---------------------------------- */
 
 .shape-style-tooltip {
-  @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-full bg-white border border-black/10 shadow-md px-3 py-1 text-sm text-neutral-700 whitespace-nowrap pointer-events-none;
+  @apply pill-tooltip;
+  @apply text-sm text-neutral-700;
 
   display: none;
 }
@@ -62,7 +64,9 @@
 ---------------------------------- */
 
 .shape-style-card {
-  @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-2xl bg-white/95 border border-black/10 shadow-xl backdrop-blur-sm;
+  @apply float-above;
+  @apply glass;
+  @apply rounded-2xl shadow-xl;
 }
 
 .shape-style-bar-below {

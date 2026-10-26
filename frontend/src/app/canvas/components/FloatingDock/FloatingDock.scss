@@ -10,7 +10,8 @@
 }
 
 .floating-dock {
-  @apply flex items-center gap-1 rounded-xl bg-white/95 border border-black/10 shadow-xl px-3.5 py-2.5 pointer-events-auto backdrop-blur-sm;
+  @apply glass;
+  @apply flex items-center gap-1 rounded-xl shadow-xl px-3.5 py-2.5 pointer-events-auto;
 }
 
 /* ---------------------------------
@@ -54,7 +55,8 @@
 ---------------------------------- */
 
 .floating-dock-tooltip {
-  @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 items-center gap-1.5 rounded-full bg-white border border-black/10 shadow-md px-3 py-1 whitespace-nowrap pointer-events-none z-10;
+  @apply pill-tooltip;
+  @apply items-center gap-1.5 z-10;
 
   display: none;
 }
@@ -76,7 +78,9 @@
 ---------------------------------- */
 
 .floating-dock-submenu {
-  @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-xl bg-white/95 border border-black/10 shadow-xl backdrop-blur-sm overflow-hidden pointer-events-auto;
+  @apply float-above;
+  @apply glass;
+  @apply rounded-xl shadow-xl overflow-hidden pointer-events-auto;
 }
 
 /* Splits a menu into groups, e.g. model-backed items from Compose (#181).
