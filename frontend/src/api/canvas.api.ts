@@ -7,8 +7,9 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  // Only a request that sends JSON says so; a GET has no body to describe.
-  if (init?.body !== undefined && init.body !== null) {
+  // A body is JSON unless the caller says what it is: a file upload sends
+  // its own type (#323). A GET has no body to describe.
+  if (init?.body !== undefined && init.body !== null && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
