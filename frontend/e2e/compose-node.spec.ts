@@ -185,7 +185,9 @@ test.describe("node > compose", () => {
     await expect(label(page, "harbour notes")).toHaveCount(1);
 
     await box(page).dblclick();
-    await page.keyboard.press("Control+A");
+    // Select all inside the editor: Cmd+A on macOS, where Ctrl+A only moves
+    // the caret to the start of the line.
+    await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.insertText("> city notes");
     await page.keyboard.press("Escape");
     await expect(label(page, "city notes")).toHaveCount(1);
