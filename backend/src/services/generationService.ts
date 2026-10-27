@@ -7,11 +7,18 @@ import type {
   VideoGenerationParams,
   VideoGenerationResult,
 } from "../capabilities/types.js";
+import { storeGenerated } from "./generatedAssets.js";
+
+/** One image, its output kept as an asset (#323). */
+async function generateOneImage(params: ImageGenerationV2Params): Promise<ImageGenerationResult> {
+  const result = await getCapability().generateV2(params);
+  return { ...result, imageUrl: await storeGenerated(params.userId, result.imageUrl) };
+}
 
 export function generateImageV2(
   params: ImageGenerationV2Params
 ): Promise<ImageGenerationResult> {
-  return getCapability().generateV2(params);
+  return generateOneImage(params);
 }
 
 /** One variant that failed, named by its position in the requested batch. */
@@ -46,7 +53,7 @@ export async function generateImageVariants(
   count: number
 ): Promise<ImageVariantsResult> {
   const settled = await Promise.allSettled(
-    Array.from({ length: count }, () => getCapability().generateV2(params))
+    Array.from({ length: count }, () => generateOneImage(params))
   );
 
   const images: ImageGenerationResult[] = [];
@@ -73,8 +80,10 @@ export function generateText(
   return getTextCapability().generateText(params);
 }
 
-export function generateVideo(
+/** A video, its output kept as an asset (#323). */
+export async function generateVideo(
   params: VideoGenerationParams
 ): Promise<VideoGenerationResult> {
-  return getVideoCapability().generateVideo(params);
+  const result = await getVideoCapability().generateVideo(params);
+  return { ...result, videoUrl: await storeGenerated(params.userId, result.videoUrl) };
 }

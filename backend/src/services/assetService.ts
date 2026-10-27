@@ -1,4 +1,4 @@
-import { assetStore, assetUrl, type Asset, type AssetSource } from "../lib/assets/index.js";
+import { assetStore, assetsAreDurable, assetUrl, type Asset, type AssetSource } from "../lib/assets/index.js";
 
 /** What the API answers for an asset: no owner, plus the URL to show it at. */
 export interface AssetView {
@@ -16,6 +16,11 @@ export function toView({ id, mimeType, bytes, source, createdAt }: Asset): Asset
 
 export async function saveAsset(userId: string, data: Buffer, mimeType: string, source: AssetSource): Promise<AssetView> {
   return toView(await assetStore().put(userId, data, mimeType, source));
+}
+
+/** An upload's answer: the asset, and whether it outlives this process. */
+export async function saveUpload(userId: string, data: Buffer, mimeType: string): Promise<AssetView & { durable: boolean }> {
+  return { ...(await saveAsset(userId, data, mimeType, "upload")), durable: assetsAreDurable() };
 }
 
 export async function listAssets(userId: string): Promise<AssetView[]> {

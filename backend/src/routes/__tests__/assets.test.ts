@@ -40,7 +40,8 @@ describe("POST /api/assets", () => {
   it("stores the bytes and answers the asset's URL", async () => {
     const res = await upload(await app(), ANA);
     expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ mimeType: "image/png", bytes: PNG.length, source: "upload" });
+    // In memory: not durable, so the board keeps its own copy.
+    expect(res.body).toMatchObject({ mimeType: "image/png", bytes: PNG.length, source: "upload", durable: false });
     expect(res.body.url).toBe(`/api/proxy/assets/${res.body.id}/content`);
     expect(res.body).not.toHaveProperty("userId");
   });
