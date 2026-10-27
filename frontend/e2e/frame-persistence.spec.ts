@@ -42,8 +42,19 @@ async function moveFrame(page: Page, b: Box) {
   await page.mouse.up();
 }
 
-async function checkReload(page: Page, before: Box) {
+// Reload, then wait for the board to load and restore its Frame. The checks
+// after a reload read window.Konva and throw until then, and a throw fails
+// expect.poll at once rather than being retried.
+async function reloadBoard(page: Page) {
   await page.reload();
+  await page.waitForFunction(() => {
+    const konva = (window as unknown as { Konva?: { stages: { find(q: string): unknown[] }[] } }).Konva;
+    return !!konva && konva.stages.some((s) => s.find('.frame').length > 0);
+  });
+}
+
+async function checkReload(page: Page, before: Box) {
+  await reloadBoard(page);
   await expect.poll(() => frameCanvasBox(page)).toBeTruthy();
   const after = await frameCanvasBox(page);
   expect(after.x).toBeCloseTo(before.x, 0);
@@ -72,7 +83,7 @@ test.describe('Frame reload persistence (#180)', () => {
     await moveFrame(page, await frameBox(page));
     const moved = await frameBox(page);
     const imageBefore = await imageBox(page);
-    await page.reload();
+    await reloadBoard(page);
     await expect.poll(async () => page.evaluate(() =>
       (window as unknown as { Konva: { stages: { find(q: string): unknown[] }[] } }).Konva.stages[0].find('Image').length)).toBe(1);
     const after = await frameBox(page);
@@ -91,7 +102,7 @@ test.describe('Frame reload persistence (#180)', () => {
     await moveFrame(page, await frameBox(page));
     const before = await frameBox(page);
     const [panelBefore] = await panelBoxes(page);
-    await page.reload();
+    await reloadBoard(page);
     await expect.poll(async () => (await panelBoxes(page)).length).toBe(1);
     const after = await frameBox(page);
     const [panelAfter] = await panelBoxes(page);
@@ -123,7 +134,7 @@ test.describe('Frame reload persistence (#180)', () => {
     const before = await frameBox(page);
     const [panelBefore] = await panelBoxes(page);
     const imageBefore = await imageBox(page);
-    await page.reload();
+    await reloadBoard(page);
     await expect.poll(async () => (await panelBoxes(page)).length).toBe(1);
     await expect.poll(async () => page.evaluate(() =>
       (window as unknown as { Konva: { stages: { find(q: string): unknown[] }[] } }).Konva.stages[0].find('Image').length)).toBe(1);
