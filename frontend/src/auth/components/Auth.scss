@@ -1,0 +1,73 @@
+@reference "../../app/globals.css";
+
+// The sign-in screen and the session-ended banner (#321).
+
+.auth-screen {
+  @apply fixed inset-0 flex items-center justify-center bg-neutral-50 p-4;
+}
+
+.auth-card {
+  @apply flex w-full max-w-[360px] flex-col items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-8 py-10 text-center shadow-sm;
+}
+
+.auth-title {
+  @apply m-0 text-lg font-semibold text-neutral-900;
+}
+
+.auth-text {
+  @apply m-0 text-sm text-neutral-600;
+}
+
+.auth-error {
+  @apply m-0 text-[13px] text-red-600;
+  overflow-wrap: anywhere;
+}
+
+.auth-button {
+  @apply h-9 rounded-full bg-neutral-900 px-5 text-sm font-medium text-white hover:bg-neutral-700;
+
+  &:focus-visible {
+    @apply focus-ring;
+  }
+}
+
+.auth-link {
+  @apply cursor-pointer border-0 bg-transparent p-0 font-medium text-neutral-900 underline;
+
+  &:focus-visible {
+    @apply focus-ring;
+  }
+}
+
+// GIS draws the button into an iframe of its own height; reserving it keeps
+// the card from jumping when the script arrives.
+.auth-google {
+  @apply flex flex-col items-center gap-2;
+}
+
+.auth-google-slot {
+  @apply min-h-10;
+}
+
+.auth-google[data-state="failed"] .auth-google-slot {
+  @apply hidden;
+}
+
+.auth-google-failed {
+  @apply m-0 text-[13px] text-neutral-600;
+}
+
+// Over everything on the board, the pages over it included.
+.auth-banner {
+  @apply fixed left-1/2 top-4 z-[300] flex -translate-x-1/2 items-center gap-3 rounded-full py-1.5 pl-4 pr-1.5;
+  @apply menu-surface text-sm text-neutral-800;
+  max-width: calc(100vw - 32px);
+
+  .auth-google-slot {
+    @apply min-h-8;
+  }
+}
+
+.auth-banner-text {
+  @apply min-w-0;
+}

@@ -16,7 +16,9 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
 
   if (res.status === 401) {
     const body = await res.clone().json().catch(() => ({}));
-    if (body?.error === "token_expired") {
+    // Expired, or gone: a cookie cleared by signing out in another tab
+    // arrives as no credential at all.
+    if (body?.error === "token_expired" || body?.error === "token_missing") {
       notifySessionExpired();
     }
   }

@@ -92,6 +92,9 @@ jobs:
         working-directory: frontend
         env:
           BACKEND_URL: http://localhost:4000
+          # The sign-in specs stub Google, but the screen needs a client id to
+          # offer the button at all. Client ids are public; this one is fake.
+          NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID: e2e-client-id
         run: npx playwright test --shard=${{ matrix.shard }}/4
 
       - name: Keep the traces of failed tests

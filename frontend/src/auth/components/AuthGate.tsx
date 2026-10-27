@@ -1,24 +1,31 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useAuth } from "./AuthProvider";
+import { useEffect, type ReactNode } from "react";
+import { checkSession } from "../session";
+import { useIdentityStore } from "../useIdentity";
+import SignInScreen from "./SignInScreen";
+import SessionExpiredBanner from "./SessionExpiredBanner";
+import "./Auth.scss";
 
+/**
+ * The board, once the backend says who is here (#321). While it is asked,
+ * an empty page: neither the board, which would load and then vanish, nor
+ * the sign-in screen, which would flash for someone already signed in.
+ */
 export default function AuthGate({ children }: { children: ReactNode }) {
-  const { authenticated, signIn } = useAuth();
+  const status = useIdentityStore((s) => s.status);
+  const expired = useIdentityStore((s) => s.expired);
 
-  if (!authenticated) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-950 text-white">
-        <h1 className="text-xl font-semibold mb-4">GCOS Personalization</h1>
-        <button
-          onClick={signIn}
-          className="px-6 py-2 rounded-full bg-white text-neutral-900 font-medium hover:bg-neutral-200 transition-colors"
-        >
-          Sign in with Google
-        </button>
-      </div>
-    );
-  }
+  useEffect(() => {
+    void checkSession();
+  }, []);
 
-  return <>{children}</>;
+  if (status === "checking") return <div className="auth-screen" aria-busy="true" />;
+  if (status === "signedOut" || status === "unreachable") return <SignInScreen />;
+  return (
+    <>
+      {children}
+      {expired && <SessionExpiredBanner />}
+    </>
+  );
 }

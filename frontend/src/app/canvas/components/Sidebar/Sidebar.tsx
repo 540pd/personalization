@@ -15,7 +15,8 @@ import { useRef, useState } from "react";
 import { useSidebar, sidebarInset } from "@/store/sidebar.store";
 import { useSection } from "@/store/section.store";
 import { Z_INDEX } from "@/constants/canvas.constants";
-import { useIdentity, useIdentityStore } from "@/auth/useIdentity";
+import { useIdentity } from "@/auth/useIdentity";
+import { signOut } from "@/auth/session";
 import SidebarHeader from "./SidebarHeader";
 import SidebarNav from "./SidebarNav";
 import SidebarFooter from "./SidebarFooter";
@@ -43,7 +44,6 @@ export default function Sidebar() {
   const collapsed = useSidebar((s) => s.collapsed);
   const toggle = useSidebar((s) => s.toggle);
   const user = useIdentity();
-  const signOut = useIdentityStore((s) => s.signOut);
   const active = useSection((s) => s.section);
   const setActive = useSection((s) => s.setSection);
 
@@ -133,7 +133,7 @@ export default function Sidebar() {
         // Locally this just clears the dev identity, so the signed-out state
         // is reachable without a restart. Deployed, IAP owns sign-out at
         // /_gcp_iap/clear_login_cookie.
-        onSignOut={signOut}
+        onSignOut={() => void signOut()}
       />
       {confirm?.kind === "clear" && (
         <ConfirmDialog

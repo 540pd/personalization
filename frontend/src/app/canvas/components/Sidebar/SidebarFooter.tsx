@@ -60,10 +60,10 @@ export default function SidebarFooter({
           />
         )}
         {/* No tooltip while the menu is open: it would sit on top of the
-            menu it is describing. Signed out is local dev's anonymous mode
-            only (IAP gates deployed builds upstream), so there is nothing to
-            sign in to -- but Settings needs no account, so the row still
-            opens the menu (#214). */}
+            menu it is describing. Signed out here is local dev's anonymous
+            mode only -- where sign-in is required, the sign-in screen stands
+            in for the board (#321) -- so there is nothing to sign in to; but
+            Settings needs no account, so the row still opens the menu (#214). */}
         <RailTip content={menuOpen ? "" : (user?.name ?? "Not signed in")}>
           <button
             ref={triggerRef}

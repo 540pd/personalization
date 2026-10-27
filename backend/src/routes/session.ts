@@ -25,6 +25,12 @@ sessionRouter.post("/session/refresh", requireIdentity(), (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /api/session — who the session (or bearer token) is. The frontend asks
+// on load: a 200 means it can show the board without a Google prompt.
+sessionRouter.get("/session", requireIdentity(), (req, res) => {
+  res.json({ email: req.identity.email });
+});
+
 // POST /api/session/sign-out — clears the session cookie. Not gated: an
 // expired or missing session must still be able to sign out. The JWT itself
 // stays valid until it expires (no server-side session store).
