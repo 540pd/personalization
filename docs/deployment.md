@@ -30,6 +30,67 @@
 | `VERTEX_PROJECT_ID` | GCP project ID for Vertex AI Imagen 3 |
 | `VERTEX_LOCATION` | Vertex AI region — Nano Banana models require `global` (default: `global`) |
 | `PORT` | Server port (default: 4000 locally, set to 8080 by Cloud Run) |
+| `FIRESTORE_EMULATOR_HOST` | Local only: the Firestore emulator (`127.0.0.1:8080`) |
+| `STORAGE_EMULATOR_HOST` | Local only: the Storage emulator (`http://127.0.0.1:9199`) |
+
+## Where data goes (storage modes)
+
+Each store picks its mode from env alone, and the backend logs both at startup
+(`[storage] Firestore: …; Storage: …`). Nothing crashes on a missing key.
+
+| Firestore | Storage | Set |
+|---|---|---|
+| **memory** (lost on restart) | **memory** | nothing: the default for local dev and CI |
+| **emulator** | **emulator** | the project / bucket, plus `FIRESTORE_EMULATOR_HOST` / `STORAGE_EMULATOR_HOST` |
+| **GCP** | **GCP** | `FIRESTORE_PROJECT_ID` / `GCS_BUCKET_NAME` only |
+
+## Local emulators
+
+The Firestore and Storage emulators run from Firebase's CLI (pinned, fetched
+by `npx`; nothing to install but **Java 21**, e.g. `brew install --cask temurin@21`).
+`demo-` project ids are offline-only: nothing reaches GCP, and no login is needed.
+
+```bash
+cd backend
+npm run dev:emulators                 # terminal 1: Firestore :8080, Storage :9199
+. emulators/env.sh && npm run dev     # terminal 2: the backend against them
+npm run test:emulators                # or: start them, run every test, stop them
+```
+
+The plain `npm test` skips the emulator tests; CI's `backend-emulators` job runs
+them. `emulators/storage.rules` lets the unauthenticated backend into the
+Storage emulator and is never deployed: real buckets use IAM.
+
+## Staging project
+
+A project of its own, so staging data and permissions never touch production.
+
+```bash
+PROJECT=gcos-staging REGION=us-central1
+gcloud config set project $PROJECT
+gcloud services enable firestore.googleapis.com storage.googleapis.com \
+  run.googleapis.com aiplatform.googleapis.com secretmanager.googleapis.com
+
+# Firestore (Native mode)
+gcloud firestore databases create --location=$REGION
+
+# The bucket: uniform access, never public
+gcloud storage buckets create gs://$PROJECT-assets --location=$REGION \
+  --uniform-bucket-level-access --public-access-prevention
+
+# The backend's service account, with only what it uses
+gcloud iam service-accounts create gcos-backend
+SA=gcos-backend@$PROJECT.iam.gserviceaccount.com
+gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=roles/datastore.user
+gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=roles/aiplatform.user
+gcloud storage buckets add-iam-policy-binding gs://$PROJECT-assets \
+  --member=serviceAccount:$SA --role=roles/storage.objectAdmin
+```
+
+Deploy the backend with `--service-account=$SA`,
+`FIRESTORE_PROJECT_ID=$PROJECT` and `GCS_BUCKET_NAME=$PROJECT-assets`; `/api/health`
+then probes both. Production's full setup (the frontend's account, Cloud Tasks,
+secrets) is #326.
 
 ## Secrets (Secret Manager)
 
@@ -126,6 +187,8 @@ If `VERTEX_PROJECT_ID` is not set, the backend returns a mock placeholder image 
 ## GCS bucket setup
 
 ```bash
-gsutil mb -l us-central1 gs://<GCS_BUCKET_NAME>
-gsutil iam ch serviceAccount:<backend-sa>:roles/storage.objectAdmin gs://<GCS_BUCKET_NAME>
+gcloud storage buckets create gs://<GCS_BUCKET_NAME> --location=us-central1 \
+  --uniform-bucket-level-access --public-access-prevention
+gcloud storage buckets add-iam-policy-binding gs://<GCS_BUCKET_NAME> \
+  --member=serviceAccount:<backend-sa> --role=roles/storage.objectAdmin
 ```

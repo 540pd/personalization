@@ -46,6 +46,33 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
 
+  # The backend's stores against the Firestore and Storage emulators (#322):
+  # the tests that the plain backend job skips. No secrets: "demo-" project
+  # ids never reach GCP. The emulators need Java; their jars are cached.
+  backend-emulators:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-15.32.1
+      - run: npm ci
+      - run: npm run test:emulators
+
   # The canvas cannot be tested in jsdom (a Konva.Stage needs a real 2D
   # context), so the e2e suite is the only cover for the board itself. It
   # runs one worker per shard (playwright.config: Konva drags are timing-
