@@ -116,9 +116,17 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
       method: req.method,
       headers: forwardHeaders,
       body,
-      signal: AbortSignal.timeout(BACKEND_TIMEOUT_MS),
+      // The browser's abort as well as the timeout: a closed tab or a
+      // deleted node stops holding a proxy connection and a backend request
+      // slot for up to BACKEND_TIMEOUT_MS. It does not stop a model call
+      // already made -- @google/genai cannot cancel one in the service, and
+      // it is billed either way -- so the backend is not wired to it.
+      signal: AbortSignal.any([req.signal, AbortSignal.timeout(BACKEND_TIMEOUT_MS)]),
     });
   } catch (err) {
+    // The browser gave up: no one is waiting for an answer, and nothing
+    // went wrong. 499 is the usual "client closed the request".
+    if (req.signal.aborted) return new NextResponse(null, { status: 499 });
     // A JSON answer the client can read, rather than Next's own 500 page.
     if ((err as { name?: unknown } | null)?.name === "TimeoutError") {
       return errorResponse(504, {
