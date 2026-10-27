@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Video, Image as ImageIcon, Sparkles, PencilLine, Upload, Shapes } from "lucide-react";
 import type { ShapeKind, Tool } from "@/store/tool.store";
 import type { NodeKind } from "@/store/nodePanel.store";
+import { modShortcut } from "@/lib/dom/keys";
 import { NODE_KINDS } from "@/app/canvas/components/NodePanel/kinds";
 import {
   IconArrow, IconBlockArrow, IconDiamond, IconEllipse, IconFrame, IconLine,
@@ -105,7 +106,9 @@ export const TOOLS_RIGHT: ToolDef[] = [
   {
     id: "media-upload",
     label: "Upload",
-    shortcut: "⌘U",
+    // ⌘U on a Mac, Ctrl+U elsewhere: the key works on both. The dock renders
+    // in the browser only (ssr: false), so reading the platform here is safe.
+    shortcut: modShortcut("U"),
     icon: <Upload size={16} />,
   },
 ];
