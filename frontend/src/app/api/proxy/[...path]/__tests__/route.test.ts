@@ -166,3 +166,68 @@ describe("proxy route", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:4000/api/boards/a%3Fb%23c%2050%25");
   });
 });
+
+// The session cookie travels as a cookie and only it (#320): never as a
+// credential header, and the page's other cookies stay on this origin.
+describe("proxy route: credentials", () => {
+  const sent = () => new Headers(fetchMock.mock.calls[0][1]?.headers);
+  const get = (headers: Record<string, string>) =>
+    GET(new NextRequest("http://localhost:3000/api/proxy/boards", { headers }), params("boards"));
+
+  it("forwards only the session cookie, and no credential header for it", async () => {
+    fetchMock.mockResolvedValue(backendJson({}));
+    await get({ cookie: "theme=dark; gcos_session=a.b=c; _ga=1" });
+    expect(sent().get("cookie")).toBe("gcos_session=a.b=c");
+    expect(sent().get("authorization")).toBeNull();
+    expect(sent().get("x-user-identity")).toBeNull();
+  });
+
+  it("forwards no cookie when there is no session cookie", async () => {
+    fetchMock.mockResolvedValue(backendJson({}));
+    await get({ cookie: "theme=dark" });
+    expect(sent().get("cookie")).toBeNull();
+  });
+
+  it("locally, forwards the page's bearer token as Authorization", async () => {
+    fetchMock.mockResolvedValue(backendJson({}));
+    await get({ authorization: "Bearer id-token", cookie: "gcos_session=s" });
+    expect(sent().get("authorization")).toBe("Bearer id-token");
+    expect(sent().get("cookie")).toBe("gcos_session=s");
+  });
+
+  it("deployed, moves the bearer token to X-User-Identity, never the cookie", async () => {
+    vi.resetModules();
+    vi.stubEnv("K_SERVICE", "gcos-frontend");
+    try {
+      const deployed = await import("../route");
+      fetchMock.mockResolvedValue(backendJson({}));
+      await deployed.GET(
+        new NextRequest("http://localhost:3000/api/proxy/boards", { headers: { cookie: "gcos_session=s" } }),
+        params("boards"),
+      );
+      expect(sent().get("x-user-identity")).toBeNull();
+      expect(sent().get("cookie")).toBe("gcos_session=s");
+
+      fetchMock.mockClear();
+      await deployed.GET(
+        new NextRequest("http://localhost:3000/api/proxy/boards", { headers: { authorization: "Bearer id-token" } }),
+        params("boards"),
+      );
+      expect(sent().get("x-user-identity")).toBe("Bearer id-token");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("passes several Set-Cookie headers through unjoined", async () => {
+    const headers = new Headers({ "content-type": "application/json" });
+    headers.append("set-cookie", "gcos_session=new; Expires=Thu, 01 Jan 2026 00:00:00 GMT; HttpOnly");
+    headers.append("set-cookie", "other=1");
+    fetchMock.mockResolvedValue(new Response("{}", { status: 200, headers }));
+    const res = await get({});
+    expect(res.headers.getSetCookie()).toEqual([
+      "gcos_session=new; Expires=Thu, 01 Jan 2026 00:00:00 GMT; HttpOnly",
+      "other=1",
+    ]);
+  });
+});

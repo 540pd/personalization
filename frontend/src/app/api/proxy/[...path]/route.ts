@@ -20,7 +20,21 @@ const auth = new GoogleAuth();
 // only route handlers and config as exports of a route file.
 const BACKEND_TIMEOUT_MS = 5 * 60 * 1000;
 
+// The backend's HttpOnly session cookie (backend lib/sessionCookie.ts). It is
+// the only cookie forwarded: the backend needs no other, and the rest of this
+// origin's cookies are none of its business.
+const SESSION_COOKIE = "gcos_session";
+
 type ErrorBody = { error: string; message: string };
+
+/** `name=value` for the session cookie in a Cookie header, or null. */
+function sessionCookie(header: string | null): string | null {
+  for (const part of header?.split(";") ?? []) {
+    const [name, ...value] = part.trim().split("=");
+    if (name === SESSION_COOKIE && value.length) return `${SESSION_COOKIE}=${value.join("=")}`;
+  }
+  return null;
+}
 
 function errorResponse(status: number, body: ErrorBody): NextResponse {
   return NextResponse.json(body, { status });
@@ -80,10 +94,9 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
   const contentType = req.headers.get("content-type");
   if (contentType) forwardHeaders.set("content-type", contentType);
 
-  const userCredential =
-    req.headers.get("authorization") ??
-    req.headers.get("cookie") ?? // session cookie forwarded for HttpOnly handling
-    undefined;
+  // The user's bearer token, when the page holds one. The session cookie is
+  // not a credential header: it travels as a cookie, below.
+  const userCredential = req.headers.get("authorization");
 
   if (IS_PRODUCTION) {
     // Deployed: put infra OIDC token in Authorization, user credential in X-User-Identity
@@ -101,8 +114,7 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
     }
   }
 
-  // Forward session cookie for HttpOnly session token
-  const cookie = req.headers.get("cookie");
+  const cookie = sessionCookie(req.headers.get("cookie"));
   if (cookie) forwardHeaders.set("cookie", cookie);
 
   // Bytes, not text: req.text() decodes as UTF-8, which corrupts a binary
@@ -142,8 +154,11 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
   }
 
   const responseHeaders = new Headers();
-  const setCookie = backendResponse.headers.get("set-cookie");
-  if (setCookie) responseHeaders.set("set-cookie", setCookie);
+  // Each Set-Cookie on its own: get() would join several with commas, which
+  // a cookie's Expires date also contains.
+  for (const setCookie of backendResponse.headers.getSetCookie()) {
+    responseHeaders.append("set-cookie", setCookie);
+  }
 
   const responseContentType = backendResponse.headers.get("content-type");
   if (responseContentType) responseHeaders.set("content-type", responseContentType);

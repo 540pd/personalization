@@ -13,7 +13,7 @@ in-memory token is gone) requires a fresh interactive Google sign-in, which is d
 canvas product where users may have a board open for hours.
 
 A sliding 30-day session token lets users stay authenticated across a work session without
-re-prompting. The token renews on every successful request (`POST /api/session/refresh`).
+re-prompting. The token renews itself once a day while in use (see Session cookie below).
 
 ## Two-layer composition
 
@@ -34,7 +34,18 @@ Solution (borrowed from brand-play-space):
 - User's real identity credential → `X-User-Identity: Bearer <user-token-or-session>`
 - In local dev (no `K_SERVICE`): proxy forwards `Authorization` directly — no infra token, no collision
 
-`requireIdentity.ts` reads `X-User-Identity` first, falls back to `Authorization`.
+`requireIdentity.ts` reads the user's bearer token from `X-User-Identity`; locally it falls back to
+`Authorization`. Deployed it never does: there `Authorization` is the infra token.
+
+## Session cookie
+
+- `POST /api/session/refresh` (with the Google ID token as a bearer) sets `gcos_session`:
+  HttpOnly, `SameSite=Lax`, `Secure` in production, path `/`, 30 days.
+- A request with no bearer token is identified by that cookie, so a reload needs no Google prompt.
+  A bearer token wins when both come, so a fresh sign-in is never blocked by an expired cookie.
+- Sliding renewal: a cookie more than a day old is re-issued on its next request.
+- `POST /api/session/sign-out` clears it. The JWT stays valid until it expires (no session store).
+- The proxy forwards only this cookie to the backend, and never as a credential header.
 
 ## Security properties
 
