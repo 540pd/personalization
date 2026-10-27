@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import { useToast } from "@/components/Toast/useToast";
-import { useLibraryFilters, useReturnFocus } from "./LibraryPage";
+import { useLibraryFilters } from "./LibraryToolbar";
 import { useRemoval } from "./useRemoval";
 import { allTags, filterItems, sortByName, type Listed } from "../../library/fields";
 import type { ItemSaved, LibraryNoun } from "../../library/itemForm";
@@ -88,3 +88,16 @@ export function useLibraryCollection<T extends Listed>({
 }
 
 export type LibraryCollectionState<T extends Listed> = ReturnType<typeof useLibraryCollection<T>>;
+
+/** Where focus goes back to once a dialog opened from the page closes. */
+export function useReturnFocus(fallback: RefObject<HTMLElement | null>) {
+  const target = useRef<HTMLElement | null>(null);
+  return {
+    from: (el: HTMLElement | null) => {
+      target.current = el;
+    },
+    restore: () =>
+      // After the dialog has gone, and the empty state may have become a table.
+      requestAnimationFrame(() => (target.current?.isConnected ? target.current : fallback.current)?.focus()),
+  };
+}
