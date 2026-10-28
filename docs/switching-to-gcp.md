@@ -50,7 +50,7 @@ and warned about.
    GCS_BUCKET_NAME=<bucket>
    ```
 4. Verify: `modes.storage` is `{ "firestore": "gcp", "storage": "gcp" }` and
-   `storage` is `"ok"`.
+   `storage` is `"ok"`; `npm run smoke` passes **assets** and **boards**.
 
 Notes:
 - Both are needed: with only one set, assets stay on the local fallback (logged).
@@ -85,7 +85,8 @@ the backend restarts. A deployed backend refuses to start with it.
    ```
    Unset `AUTH_MODE` (the dev placeholder) if it was set.
 4. Verify: `modes.auth` is `"required"`; the app opens on the sign-in screen with
-   Google's button; after signing in, a reload stays signed in (the session cookie).
+   Google's button; after signing in, a reload stays signed in (the session cookie);
+   `npm run smoke -- <url> --cookie <value>` passes **session**.
 
 **Verify on first use:** Google's token check is covered by tests only with Google
 stubbed; the first real sign-in is its first real run.
@@ -102,10 +103,39 @@ like real outputs; text and video answer canned placeholders. No network is used
    `roles/aiplatform.user` (deployment.md, **Vertex AI setup**).
 2. Set, and restart: `VERTEX_PROJECT_ID=<project>` (`VERTEX_LOCATION` defaults to
    `global`, which the Nano Banana models need).
-3. Verify: `modes.ai` is `"vertex"`; a generated image is a real one.
+3. Verify: `modes.ai` is `"vertex"`; `npm run smoke -- <url> --generate` reports the
+   model rather than `placeholder` (billed: one image).
 
 **Verify on first use:** real generation is billed and has not run in CI.
 
-## Checking everything at once
+## Checking everything at once: the smoke test
 
-A smoke test that runs the checks above against any backend URL is #336.
+One command checks any backend and prints a line per service; it exits non-zero
+if anything failed, and removes what it created.
+
+```bash
+cd backend
+npm run smoke -- http://localhost:4000            # placeholders: signs in by itself in dev mode
+npm run smoke -- https://<backend-url> --cookie <gcos_session value> [--generate]
+```
+
+```
+Smoke test: http://localhost:4000
+  ✓ health        sign-in=dev storage=local/local ai=placeholder
+  ✓ sign-in mode  dev
+  ✓ session       signed in as dev.user@accenture.com
+  ✓ assets        upload, download (byte-identical), delete; durable=true
+  ✓ boards        create, list, delete
+  – generate      pass --generate (billed on Vertex AI)
+All checks passed.
+```
+
+- **With Google sign-in**, sign in in the browser, then copy the `gcos_session`
+  cookie's value from DevTools → Application → Cookies (it is HttpOnly, so scripts
+  cannot read it) and pass it as `--cookie`. Without it, the checks that need a
+  session are skipped and say so.
+- **`--generate`** runs one image generation: free on the placeholders, billed on
+  Vertex AI.
+- **A Cloud Run backend that admits only authenticated callers** also needs
+  `--infra-token "$(gcloud auth print-identity-token)"`.
+- CI runs it against its own backend on every PR.

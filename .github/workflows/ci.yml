@@ -114,6 +114,13 @@ jobs:
           cat "$RUNNER_TEMP/backend.log"
           exit 1
 
+      # The smoke test (#336) against the same backend, once: placeholders
+      # throughout, so --generate costs nothing.
+      - name: Smoke test
+        if: matrix.shard == 1
+        working-directory: backend
+        run: npm run smoke -- http://localhost:4000 --generate
+
       # playwright.config starts the frontend's dev server itself.
       - name: e2e (shard ${{ matrix.shard }} of 4)
         working-directory: frontend
