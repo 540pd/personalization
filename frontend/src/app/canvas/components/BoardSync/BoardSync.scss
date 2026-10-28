@@ -1,0 +1,41 @@
+@reference "../../../globals.css";
+
+// Saving the board to the account (#324): the rail's status and the
+// conflict banner.
+
+// At the row's far end; the row already keeps clear of its options button.
+.board-sync-status {
+  @apply ml-auto flex shrink-0 items-center text-neutral-400;
+
+  &[data-state="retrying"],
+  &[data-state="conflict"],
+  &[data-state="tooLarge"] {
+    @apply text-amber-600;
+  }
+}
+
+.board-sync-spin {
+  @apply animate-spin;
+}
+
+.board-sync-banner {
+  @apply fixed left-1/2 top-4 z-[290] flex -translate-x-1/2 items-center gap-2 rounded-full py-1.5 pl-4 pr-1.5;
+  @apply menu-surface text-sm text-neutral-800;
+  max-width: calc(100vw - 32px);
+}
+
+.board-sync-banner-text {
+  @apply min-w-0 pr-1;
+}
+
+.board-sync-banner-button {
+  @apply h-8 shrink-0 rounded-full border border-neutral-300 bg-white px-3 text-[13px] font-medium text-neutral-800 hover:bg-neutral-50;
+
+  &:focus-visible {
+    @apply focus-ring;
+  }
+}
+
+.board-sync-banner-primary {
+  @apply border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-700;
+}

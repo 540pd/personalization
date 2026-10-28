@@ -14,6 +14,7 @@ const KonvaNodePorts = dynamic(() => import("@/app/canvas/components/KonvaNodePo
 const LineHandles = dynamic(() => import("@/app/canvas/components/LineHandles"), { ssr: false });
 const ShapeStyleBar = dynamic(() => import("@/app/canvas/components/ShapeStyleBar/ShapeStyleBar"), { ssr: false });
 const KonvaNodeLabels = dynamic(() => import("@/app/canvas/components/KonvaNodeLabels"), { ssr: false });
+const BoardSyncBanner = dynamic(() => import("@/app/canvas/components/BoardSync/BoardSyncBanner"), { ssr: false });
 const UploadBadges = dynamic(() => import("@/app/canvas/components/UploadBadges"), { ssr: false });
 const ConnectionOverlay = dynamic(() => import("@/app/canvas/components/ConnectionOverlay"), { ssr: false });
 const SkillsPage = dynamic(() => import("@/app/canvas/components/Skills/SkillsPage"), { ssr: false });
@@ -38,6 +39,7 @@ export default function CanvasPage() {
       <ShapeStyleBar />
       <KonvaNodeLabels />
       <UploadBadges />
+      <BoardSyncBanner />
       {/* Over the board, not instead of it: the board stays mounted (#206, #208, #214, #219). */}
       <SkillsPage />
       <AgentsPage />

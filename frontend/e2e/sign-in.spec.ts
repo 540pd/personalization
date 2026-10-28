@@ -37,6 +37,7 @@ async function requireSignIn(page: Page, auth: Auth, credentialEmail = "ana.silv
     };
   }, credential(credentialEmail));
 
+  await stubAccountBoard(page);
   const json = (route: Route, status: number, body: unknown) =>
     route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
   await page.route("**/api/proxy/auth-config", (r) => json(r, 200, { mode: "required" }));
@@ -54,6 +55,19 @@ async function requireSignIn(page: Page, auth: Auth, credentialEmail = "ana.silv
     auth.calls.push("sign-out");
     auth.session = null;
     return r.fulfill({ status: 204 });
+  });
+}
+
+/** Signed in, the board saves to the account (#324): kept per test, here,
+ * so no test sees another's board. */
+async function stubAccountBoard(page: Page) {
+  let saved = { revision: 0, content: null as unknown };
+  await page.route("**/api/proxy/boards/current", async (r) => {
+    if (r.request().method() === "PUT") {
+      const { content } = r.request().postDataJSON() as { content: unknown };
+      saved = { revision: saved.revision + 1, content };
+    }
+    await r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ board: { id: "b", name: "PlaySpace" }, updatedAt: null, ...saved }) });
   });
 }
 
@@ -152,6 +166,7 @@ test.describe("Sign in with Google (#321)", () => {
 
   test.describe("dev sign-in, the placeholder for Google (#334)", () => {
     async function devMode(page: Page, auth: Auth) {
+      await stubAccountBoard(page);
       await page.route("**/api/proxy/auth-config", (r) =>
         r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ mode: "dev" }) }));
       await page.route("**/api/proxy/session", (r) =>

@@ -16,6 +16,7 @@ import { imageHitFunc } from "./upload";
 import { clearBoardEvent } from "./clearBoard";
 import { loadBoardEvent, type BoardFile } from "./boardFile";
 import { readSavedCanvas, startCanvasPersistence } from "./canvasPersistence";
+import { accountOwner, bindAccountBoard, forgetOtherAccountsBoard } from "./accountBoard";
 import type { BoardContext } from "./boardContext";
 
 export interface BoardScene extends BoardContext {
@@ -107,6 +108,10 @@ export function bindBoardFile(board: BoardScene): () => void {
     }),
   ];
 
+  // Signed in, another account's copy in this browser is never shown (#324).
+  const owner = accountOwner();
+  if (owner) forgetOtherAccountsBoard(owner);
+
   // The board as it was before the reload (#203). The restored board is the
   // first undo entry, not a step: there is nothing before it to go back to.
   // Saving starts only after this, so the empty stage that exists until now
@@ -118,5 +123,7 @@ export function bindBoardFile(board: BoardScene): () => void {
     board.saveSnapshot();
   }
   off.push(startCanvasPersistence(() => board.layer));
+  // Then the account's copy, which may replace this one (#324).
+  if (owner) off.push(bindAccountBoard(board, owner, (file) => placeBoard(board, file, { panels: true })));
   return () => disposeAll(off);
 }
