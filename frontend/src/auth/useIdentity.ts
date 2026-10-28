@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import type { AuthMode } from "./authApi";
 
 /**
  * Who is signed in, and where sign-in stands (#321).
@@ -29,6 +30,9 @@ export type AuthStatus =
 
 interface IdentityState {
   status: AuthStatus;
+  /** How sign-in works here, once the backend has said: Google's button,
+   * or the dev placeholder's email field (#334). */
+  mode: AuthMode | null;
   identity: Identity | null;
   /** Signed in, but a request just answered that the session ended. */
   expired: boolean;
@@ -38,6 +42,7 @@ interface IdentityState {
 
 export const useIdentityStore = create<IdentityState>(() => ({
   status: "checking",
+  mode: null,
   identity: null,
   expired: false,
   error: null,

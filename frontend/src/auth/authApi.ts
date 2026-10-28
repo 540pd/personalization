@@ -4,7 +4,8 @@
 // a 401 here is an answer ("not signed in"), not a session that just
 // expired -- apiFetch would raise the expired banner for it.
 
-export type AuthMode = "anonymous" | "required";
+/** "dev": the placeholder for Google, a typed email (#334). */
+export type AuthMode = "anonymous" | "dev" | "required";
 
 /** The backend's mode, or null when it cannot be reached or makes no sense. */
 export async function fetchAuthMode(): Promise<AuthMode | null> {
@@ -12,7 +13,7 @@ export async function fetchAuthMode(): Promise<AuthMode | null> {
     const res = await fetch("/api/proxy/auth-config");
     if (!res.ok) return null;
     const { mode } = (await res.json()) as { mode?: unknown };
-    return mode === "anonymous" || mode === "required" ? mode : null;
+    return mode === "anonymous" || mode === "dev" || mode === "required" ? mode : null;
   } catch {
     return null;
   }
@@ -44,6 +45,22 @@ export async function startSession(idToken: string): Promise<StartSessionResult>
     const body = (await res.json().catch(() => ({}))) as { error?: string; note?: string };
     if (!res.ok) return { ok: false, error: body.error ?? `http_${res.status}` };
     return { ok: true, cookie: !body.note };
+  } catch {
+    return { ok: false, error: "unreachable" };
+  }
+}
+
+/** Dev sign-in (#334): the same session cookie, for the email typed. */
+export async function startDevSession(email: string): Promise<StartSessionResult> {
+  try {
+    const res = await fetch("/api/proxy/session/dev-sign-in", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { ok: false, error: body.error ?? `http_${res.status}` };
+    return { ok: true, cookie: true };
   } catch {
     return { ok: false, error: "unreachable" };
   }

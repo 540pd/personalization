@@ -3,12 +3,13 @@
 import { GOOGLE_CLIENT_ID } from "../googleIdentity";
 import { checkSession } from "../session";
 import { useIdentityStore } from "../useIdentity";
-import GoogleSignInButton from "./GoogleSignInButton";
+import SignInControl from "./SignInControl";
 
 /** Before the board, when sign-in is required and no session holds (#321). */
 export default function SignInScreen() {
   const status = useIdentityStore((s) => s.status);
   const error = useIdentityStore((s) => s.error);
+  const mode = useIdentityStore((s) => s.mode);
 
   return (
     <main className="auth-screen">
@@ -21,7 +22,7 @@ export default function SignInScreen() {
               Try again
             </button>
           </>
-        ) : !GOOGLE_CLIENT_ID ? (
+        ) : mode !== "dev" && !GOOGLE_CLIENT_ID ? (
           // A deploy without NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID: say so,
           // rather than a Google button that fails inside its popup.
           <p className="auth-text" role="alert">
@@ -29,8 +30,10 @@ export default function SignInScreen() {
           </p>
         ) : (
           <>
-            <p className="auth-text">Sign in with your work Google account to open your board.</p>
-            <GoogleSignInButton options={{ theme: "outline", size: "large", text: "signin_with", shape: "pill", width: 280 }} />
+            <p className="auth-text">
+              {mode === "dev" ? "Sign in to open your board." : "Sign in with your work Google account to open your board."}
+            </p>
+            <SignInControl />
             {error && (
               <p className="auth-error" role="alert">
                 {error}

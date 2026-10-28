@@ -1,7 +1,7 @@
 "use client";
 
 import { useIdentityStore } from "../useIdentity";
-import GoogleSignInButton from "./GoogleSignInButton";
+import SignInControl from "./SignInControl";
 
 /**
  * Over the board when a request answers that the session ended (#321): the
@@ -12,7 +12,7 @@ export default function SessionExpiredBanner() {
   return (
     <div className="auth-banner" role="status">
       <span className="auth-banner-text">{error ?? "Your session has ended. Sign in again to keep generating."}</span>
-      <GoogleSignInButton options={{ theme: "outline", size: "medium", text: "signin", shape: "pill" }} />
+      <SignInControl compact />
     </div>
   );
 }

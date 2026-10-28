@@ -149,4 +149,69 @@ test.describe("Sign in with Google (#321)", () => {
     await expect(banner).toHaveCount(0);
     await expect(page.locator("textarea.node-panel-instruction")).toHaveValue("three taglines");
   });
+
+  test.describe("dev sign-in, the placeholder for Google (#334)", () => {
+    async function devMode(page: Page, auth: Auth) {
+      await page.route("**/api/proxy/auth-config", (r) =>
+        r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ mode: "dev" }) }));
+      await page.route("**/api/proxy/session", (r) =>
+        auth.session
+          ? r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ email: auth.session }) })
+          : r.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "token_missing" }) }));
+      await page.route("**/api/proxy/session/dev-sign-in", (r) => {
+        const { email } = r.request().postDataJSON() as { email: string };
+        auth.calls.push(`dev ${email}`);
+        if (!email.endsWith("@accenture.com")) {
+          return r.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "domain_not_allowed" }) });
+        }
+        auth.session = email;
+        return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+      });
+    }
+
+    test("an email field instead of Google, and the board after Continue", async ({ page }) => {
+      const google: string[] = [];
+      page.on("request", (r) => { if (r.url().includes("accounts.google.com")) google.push(r.url()); });
+      const auth: Auth = { session: null, calls: [] };
+      await devMode(page, auth);
+      await page.goto("/");
+      await expect(signInScreen(page)).toContainText("Dev sign-in — a placeholder for Google, not for production.");
+      await expect(page.getByLabel("Email")).toHaveValue("dev.user@accenture.com");
+      await page.getByRole("button", { name: "Continue" }).click();
+      await expect(stage(page)).toBeVisible();
+      await expect(page.locator(".sidebar-identity-name")).toHaveText("Dev User");
+      expect(auth.calls).toEqual(["dev dev.user@accenture.com"]);
+      expect(google).toEqual([]);
+    });
+
+    test("a refused domain is named, as with Google", async ({ page }) => {
+      const auth: Auth = { session: null, calls: [] };
+      await devMode(page, auth);
+      await page.goto("/");
+      await page.getByLabel("Email").fill("ana@gmail.com");
+      await page.getByRole("button", { name: "Continue" }).click();
+      await expect(signInScreen(page).getByRole("alert")).toHaveText("ana@gmail.com isn't allowed here. Sign in with your work Google account.");
+    });
+
+    test("the session-ended banner signs in again with the same form", async ({ page }) => {
+      const auth: Auth = { session: "dev.user@accenture.com", calls: [] };
+      await devMode(page, auth);
+      let expired = true;
+      await page.route("**/api/proxy/generate/text", (r) =>
+        expired
+          ? r.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "token_expired" }) })
+          : r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ jobId: "j", status: "done", text: "ok", modelUsed: "m" }) }));
+      await openBoard(page);
+      await page.getByRole("button", { name: "Create", exact: true }).click();
+      await page.locator(".floating-dock-submenu button").filter({ hasText: /^Prompt$/ }).first().click();
+      await page.locator("textarea.node-panel-instruction").fill("three taglines");
+      await page.locator("button.node-panel-create-button").click();
+      const banner = page.locator(".auth-banner");
+      await expect(banner).toBeVisible();
+      expired = false;
+      await banner.getByRole("button", { name: "Continue" }).click();
+      await expect(banner).toHaveCount(0);
+      await expect(page.locator("textarea.node-panel-instruction")).toHaveValue("three taglines");
+    });
+  });
 });

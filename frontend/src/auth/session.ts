@@ -2,7 +2,7 @@
 // The only writer of the identity store.
 
 import { setIdToken, onSessionExpired } from "./authState";
-import { endSession, fetchAuthMode, fetchSessionEmail, startSession } from "./authApi";
+import { endSession, fetchAuthMode, fetchSessionEmail, startDevSession, startSession, type StartSessionResult } from "./authApi";
 import { emailOfIdToken, forgetGoogleAccount } from "./googleIdentity";
 import { identityOf, useIdentityStore, type Identity } from "./useIdentity";
 
@@ -25,6 +25,7 @@ const set = useIdentityStore.setState;
 export async function checkSession(): Promise<void> {
   set({ status: "checking" });
   const mode = await fetchAuthMode();
+  set({ mode });
   if (mode === null) {
     // The gate is not the security boundary -- the backend refuses every
     // gated call on its own -- so a dev build without a backend still opens
@@ -51,6 +52,18 @@ const REFUSED: Record<string, string> = {
   unreachable: "We couldn't reach the server. Check your connection and try again.",
 };
 
+/** Why sign-in failed, for the screen: the account named when refused. */
+function refusal(error: string, email: string | null): string {
+  const reason = REFUSED[error] ?? "Sign-in didn't work. Try again.";
+  return error === "domain_not_allowed" && email ? `${email} ${reason}` : reason;
+}
+
+/** Signed in: who the session is, then the board. */
+async function signedIn(result: Extract<StartSessionResult, { ok: true }>, fallbackEmail: string | null): Promise<void> {
+  const email = (result.cookie ? await fetchSessionEmail().catch(() => null) : null) ?? fallbackEmail;
+  set({ status: "signedIn", identity: email ? identityOf(email) : null, expired: false, error: null });
+}
+
 /** A credential from the Google button: the session cookie, then the board. */
 export async function completeSignIn(idToken: string): Promise<void> {
   setIdToken(idToken);
@@ -58,17 +71,25 @@ export async function completeSignIn(idToken: string): Promise<void> {
   const result = await startSession(idToken);
   if (!result.ok) {
     setIdToken(null);
-    const email = emailOfIdToken(idToken);
-    const reason = REFUSED[result.error] ?? "Sign-in didn't work. Try again.";
-    set({ error: result.error === "domain_not_allowed" && email ? `${email} ${reason}` : reason });
+    set({ error: refusal(result.error, emailOfIdToken(idToken)) });
     return;
   }
   // With the cookie set, it is the credential: the ID token lasts an hour,
   // and sent alongside it would win and then expire mid-session. Without a
   // cookie (no SESSION_SECRET) the token is all there is.
   if (result.cookie) setIdToken(null);
-  const email = (result.cookie ? await fetchSessionEmail().catch(() => null) : null) ?? emailOfIdToken(idToken);
-  set({ status: "signedIn", identity: email ? identityOf(email) : null, expired: false, error: null });
+  await signedIn(result, emailOfIdToken(idToken));
+}
+
+/** Dev sign-in (#334): the email typed, and the same session from there. */
+export async function completeDevSignIn(email: string): Promise<void> {
+  set({ error: null });
+  const result = await startDevSession(email);
+  if (!result.ok) {
+    set({ error: result.error === "validation_error" ? "Enter an email address." : refusal(result.error, email.trim().toLowerCase()) });
+    return;
+  }
+  await signedIn(result, email);
 }
 
 /** Back to the sign-in screen. The board in this browser is left as it is. */

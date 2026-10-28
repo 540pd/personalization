@@ -1,7 +1,9 @@
 import { Router } from "express";
-import { requireIdentity } from "../middleware/requireIdentity.js";
+import { getAuthMode, isAllowedEmailDomain, requireIdentity } from "../middleware/requireIdentity.js";
 import { refreshSessionToken } from "../services/authService.js";
 import { clearSessionCookie, setSessionCookie } from "../lib/sessionCookie.js";
+import { signSessionToken } from "../lib/sessionToken.js";
+import { sendValidationError } from "../common/errors.js";
 
 export const sessionRouter = Router();
 
@@ -37,4 +39,31 @@ sessionRouter.get("/session", requireIdentity(), (req, res) => {
 sessionRouter.post("/session/sign-out", (_req, res) => {
   clearSessionCookie(res);
   res.status(204).end();
+});
+
+// POST /api/session/dev-sign-in — the placeholder for Google (#334): the
+// email typed is who you are. Only in AUTH_MODE=dev, which a deployed
+// backend refuses; in any other mode the route is not there at all.
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+sessionRouter.post("/session/dev-sign-in", (req, res, next) => {
+  if (getAuthMode() !== "dev") return next();
+  const { email } = (req.body ?? {}) as { email?: unknown };
+  const address = typeof email === "string" ? email.trim().toLowerCase() : "";
+  if (!EMAIL.test(address) || address.length > 254) {
+    sendValidationError(res, "Enter an email address.");
+    return;
+  }
+  // The same allowlist as Google sign-in, so the refused account can be seen.
+  if (!isAllowedEmailDomain(address)) {
+    res.status(401).json({ error: "domain_not_allowed", message: "This account's email domain is not permitted." });
+    return;
+  }
+  const token = signSessionToken(address);
+  if (!token) {
+    res.status(500).json({ error: "internal_error", message: "Failed to sign session token." });
+    return;
+  }
+  setSessionCookie(res, token);
+  res.json({ ok: true });
 });
