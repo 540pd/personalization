@@ -33,14 +33,17 @@
 | `FIRESTORE_EMULATOR_HOST` | Local only: the Firestore emulator (`127.0.0.1:8080`) |
 | `STORAGE_EMULATOR_HOST` | Local only: the Storage emulator (`http://127.0.0.1:9199`) |
 
+> Without GCP access yet? Every service has a placeholder; [switching-to-gcp.md](switching-to-gcp.md) is the checklist for moving each one.
+
 ## Where data goes (storage modes)
 
 Each store picks its mode from env alone, and the backend logs both at startup
-(`[storage] Firestore: …; Storage: …`). Nothing crashes on a missing key.
+(see switching-to-gcp.md). Nothing crashes on a missing key; a deployed backend refuses to start on local disk or memory.
 
 | Firestore | Storage | Set |
 |---|---|---|
-| **memory** (lost on restart) | **memory** | nothing: the default for local dev and CI |
+| **local disk** (placeholder) | **local disk** | nothing: the default for `npm run dev` (`LOCAL_DATA_DIR`, default `backend/.data`) |
+| **memory** (lost on restart) | **memory** | tests, or `LOCAL_DATA_DIR=memory` |
 | **emulator** | **emulator** | the project / bucket, plus `FIRESTORE_EMULATOR_HOST` / `STORAGE_EMULATOR_HOST` |
 | **GCP** | **GCP** | `FIRESTORE_PROJECT_ID` / `GCS_BUCKET_NAME` only |
 
@@ -112,7 +115,7 @@ cd backend
 gcloud run deploy gcos-backend \
   --source . \
   --region us-central1 \
-  --set-env-vars GOOGLE_OAUTH_CLIENT_ID=<id>,ALLOWED_ORIGINS=<frontend-url>,FIRESTORE_PROJECT_ID=<project>,VERTEX_PROJECT_ID=<project> \
+  --set-env-vars GOOGLE_OAUTH_CLIENT_ID=<id>,ALLOWED_ORIGINS=<frontend-url>,FIRESTORE_PROJECT_ID=<project>,GCS_BUCKET_NAME=<bucket>,VERTEX_PROJECT_ID=<project> \
   --set-secrets SESSION_SECRET=gcos-session-secret:latest \
   --no-allow-unauthenticated
 ```

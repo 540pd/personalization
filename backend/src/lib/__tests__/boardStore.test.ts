@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { Firestore } from "@google-cloud/firestore";
 import { memoryBoardStore } from "../boards/memory.js";
+import { localBoardStore } from "../boards/local.js";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { firestoreBoardStore } from "../boards/firestore.js";
 import type { BoardStore } from "../boards/types.js";
 
-// One contract for every board store (#322). The memory store runs it on
+// One contract for every (memory, local disk #333, and) board store (#322). The memory store runs it on
 // every `npm test`; the Firestore store whenever the emulator is up
 // (`npm run test:emulators`, and CI).
 
@@ -12,6 +16,7 @@ const EMULATOR = !!process.env.FIRESTORE_EMULATOR_HOST;
 
 const stores: Array<[string, () => BoardStore, boolean]> = [
   ["memory", memoryBoardStore, true],
+  ["local disk", () => localBoardStore(mkdtempSync(path.join(tmpdir(), "gcos-boards-"))), true],
   ["firestore (emulator)", () => firestoreBoardStore(new Firestore({ projectId: process.env.FIRESTORE_PROJECT_ID ?? "demo-gcos" })), EMULATOR],
 ];
 

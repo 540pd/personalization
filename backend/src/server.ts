@@ -10,7 +10,7 @@ import { generateRouter } from "./routes/generate.js";
 import { assetsRouter } from "./routes/assets.js";
 import { isFirestoreMode, getFirestoreClient } from "./lib/firestore.js";
 import { isGcsMode, getBucket } from "./lib/gcs.js";
-import { describeStorageModes } from "./lib/storageMode.js";
+import { assertDeployable, describeServiceModes, serviceModes } from "./lib/serviceModes.js";
 import { globalErrorHandler } from "./common/errors.js";
 
 const PORT = process.env.PORT ?? 4000;
@@ -108,6 +108,8 @@ export function createApp(): express.Express {
         res.status(status).json({
           ok: storageOk,
           storage: storageOk ? "ok" : storageError,
+          // Which services are real and which are placeholders (#333).
+          modes: serviceModes(),
           uptime: process.uptime(),
         });
       })
@@ -140,12 +142,12 @@ if (isEntryPoint) {
     process.exit(1);
   });
 
+  // Before binding: a deployed backend on a storage placeholder must not
+  // take traffic it would lose (#333).
+  assertDeployable();
+
   const server = createApp().listen(PORT, () => {
-    console.log(
-      `GCOS backend listening on http://localhost:${PORT}\n` +
-        `  ${describeStorageModes()}\n` +
-        `  auth:    ${process.env.GOOGLE_OAUTH_CLIENT_ID ? "Google OAuth" : "anonymous (no OAuth client)"}`
-    );
+    console.log(`GCOS backend listening on http://localhost:${PORT}\n${describeServiceModes()}`);
   });
 
   const gracefulShutdown = (signal: string) => {

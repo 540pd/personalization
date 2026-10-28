@@ -12,3 +12,6 @@ screenshots/
 # Playwright e2e
 test-results/
 playwright-report/
+
+# Local-disk placeholder data (#333)
+.data/
