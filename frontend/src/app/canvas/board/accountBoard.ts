@@ -10,6 +10,7 @@ import { parseBoardFile, serializeBoard, type BoardFile } from "./boardFile";
 import { CANVAS_STORAGE_KEY, onBoardChange } from "./canvasPersistence";
 import { createBoardSync } from "./boardSync";
 import { readSyncMeta, SYNC_META_KEY } from "./syncMeta";
+import { backupBoard, moveImagesToAssets } from "./importBoard";
 import type { BoardScene } from "./placeBoard";
 import { listen } from "@/lib/dom/listen";
 
@@ -53,6 +54,14 @@ export function bindAccountBoard(board: BoardScene, owner: string, place: (file:
       place(file);
       canvasHistory.clear();
       board.saveSnapshot();
+    },
+    // The browser's board becoming the account's first: kept as it was,
+    // then its pictures moved into stored assets.
+    beforeFirstSave: async () => {
+      const local = serializeBoard(board.layer);
+      if (!local.nodes.length && !local.panels.length) return;
+      backupBoard(local);
+      await moveImagesToAssets();
     },
   });
   const off = [
