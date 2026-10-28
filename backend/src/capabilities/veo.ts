@@ -3,8 +3,8 @@
 // Shape taken from docs/llm_parameter/Veo 3.1 Lite.txt, not guessed. Unlike
 // the image and text capabilities this is a long-running operation: Vertex
 // returns an operation handle and the result arrives by polling it. That maps
-// straight onto lib/jobStore — this runs in the background and settles the
-// job, and the HTTP contract the client sees never changes.
+// straight onto a video job (lib/jobs, #325) — this runs inside it and settles
+// the job, and the HTTP contract the client sees never changes.
 //
 // Gemini Omni 1.1 Flash is the other video model in that folder. It is NOT
 // implemented here: its sample calls client.interactions.create() with an

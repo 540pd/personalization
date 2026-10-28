@@ -70,6 +70,8 @@ describe("@skills on image and video (#240)", () => {
         .send({ modelId: "veo-3.1-lite-generate-001", instruction: "a poster in @brand-voice", ...extra });
     const res = await video({ skills });
     expect(res.status).toBe(202);
+    // The job runs once the request has answered (#325): wait for it.
+    await vi.waitFor(() => expect(generateVideo).toHaveBeenCalled());
     expect(generateVideo.mock.calls[0][0].instruction).toBe(withBrandVoice);
     expect((await video({ skills: "brand-voice" })).status).toBe(400);
     expect(generateVideo).toHaveBeenCalledTimes(1);

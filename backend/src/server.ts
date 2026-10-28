@@ -11,6 +11,7 @@ import { assetsRouter } from "./routes/assets.js";
 import { isFirestoreMode, getFirestoreClient } from "./lib/firestore.js";
 import { isGcsMode, getBucket } from "./lib/gcs.js";
 import { assertDeployable, describeServiceModes, serviceModes } from "./lib/serviceModes.js";
+import { resumeUnfinishedJobs } from "./services/videoJobs.js";
 import { globalErrorHandler } from "./common/errors.js";
 
 const PORT = process.env.PORT ?? 4000;
@@ -148,6 +149,10 @@ if (isEntryPoint) {
 
   const server = createApp().listen(PORT, () => {
     console.log(`GCOS backend listening on http://localhost:${PORT}\n${describeServiceModes()}`);
+    // Video jobs a restart interrupted run again (#325).
+    resumeUnfinishedJobs()
+      .then((n) => n && console.log(`[jobs] Picked up ${n} unfinished video job(s).`))
+      .catch((err) => console.error("[jobs] Could not pick up unfinished jobs", err));
   });
 
   const gracefulShutdown = (signal: string) => {
