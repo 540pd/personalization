@@ -55,6 +55,17 @@ describe.each(stores)("%s board store", (_name, make, enabled) => {
     expect(await store.get(board.id, ana)).toEqual(board);
   });
 
+  run("ensure makes a board once, under the id given", async () => {
+    const store = make();
+    const ana = user();
+    const id = `board-${Math.random().toString(36).slice(2)}`;
+    const [a, b] = await Promise.all([store.ensure(id, ana, "PlaySpace"), store.ensure(id, ana, "PlaySpace")]);
+    expect(a.id).toBe(id);
+    expect((await store.ensure(id, ana, "Other")).name).toBe("PlaySpace");
+    expect((await store.list(ana)).filter((x) => x.id === id)).toHaveLength(1);
+    expect(b.id).toBe(id);
+  });
+
   run("removes a board; removing again or a missing one is a no-op", async () => {
     const store = make();
     const ana = user();
