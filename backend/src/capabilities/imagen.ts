@@ -1,8 +1,9 @@
 // Vertex AI image generation using the Google Gen AI SDK (@google/genai).
 //
-// Mock fallback: if VERTEX_PROJECT_ID is not set, return a placeholder result
-// with a console.warn rather than throwing. This lets the backend start and
-// serve requests locally without GCP credentials.
+// Mock fallback: if VERTEX_PROJECT_ID is not set, return a placeholder image
+// drawn here (#335), at the requested shape, with a console.warn rather than
+// throwing. This lets the backend start and serve requests locally without
+// GCP credentials, and with no network.
 
 import type {
   ImageCapability,
@@ -12,10 +13,8 @@ import type {
 } from "./types.js";
 import { buildContentParts } from "./prompt.js";
 import { makeGenAI } from "./genai.js";
+import { placeholderImageUrl } from "./placeholderImage.js";
 
-
-const MOCK_IMAGE_URL =
-  "https://via.placeholder.com/1024x1024/1a1a1a/666666?text=Mock+Image";
 
 // Our Thinking control's labels, mapped onto the SDK's ThinkingLevel. The
 // samples in docs/llm_parameter use MINIMAL and MEDIUM; the enum also has
@@ -33,7 +32,7 @@ export class ImagenCapability implements ImageCapability {
       console.warn(
         `[ImagenCapability] VERTEX_PROJECT_ID not set — returning mock for ${params.modelId}.`
       );
-      return { imageUrl: MOCK_IMAGE_URL, modelUsed: "mock" };
+      return { imageUrl: placeholderImageUrl(params.aspectRatio), modelUsed: "mock" };
     }
 
     const ai = makeGenAI();
