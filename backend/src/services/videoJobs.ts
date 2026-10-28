@@ -7,6 +7,7 @@ import { createId } from "../utils/id.js";
 import { currentIsoDate } from "../utils/date.js";
 import { JOB_TIMEOUT_MS, jobStore, type Job, type VideoJobParams } from "../lib/jobs/index.js";
 import { inProcessDispatcher, type JobDispatcher } from "../lib/jobs/dispatch.js";
+import { cloudTasksConfig, cloudTasksDispatcher } from "../lib/jobs/cloudTasks.js";
 import { generateVideo } from "./generationService.js";
 import { resolveAssetReferences } from "./generatedAssets.js";
 
@@ -15,8 +16,13 @@ const QUEUE_TIMEOUT_MS = 30 * 60 * 1000;
 
 let _dispatcher: JobDispatcher | null = null;
 
+/** Cloud Tasks when it is set up (CLOUD_TASKS_*, JOBS_WORKER_URL); in
+ * process, the placeholder, otherwise. */
 export function jobDispatcher(): JobDispatcher {
-  _dispatcher ??= inProcessDispatcher(runJob);
+  if (!_dispatcher) {
+    const config = cloudTasksConfig();
+    _dispatcher = config ? cloudTasksDispatcher(config) : inProcessDispatcher(runJob);
+  }
   return _dispatcher;
 }
 

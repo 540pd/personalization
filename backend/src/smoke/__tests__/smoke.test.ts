@@ -45,7 +45,7 @@ describe("runSmoke", () => {
     expect(summary(results)).toEqual({
       health: "pass", "sign-in mode": "pass", session: "pass", assets: "pass", boards: "pass", generate: "pass",
     });
-    expect(results[0].detail).toBe("sign-in=anonymous storage=local/local ai=placeholder");
+    expect(results[0].detail).toBe("sign-in=anonymous storage=local/local ai=placeholder jobs=in-process");
     expect(results.find((r) => r.name === "assets")!.detail).toContain("durable=true");
     expect(results.find((r) => r.name === "generate")!.detail).toBe("placeholder, stored as an asset");
   });

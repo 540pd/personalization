@@ -10,6 +10,7 @@ variables and restarting, **never a code change**. Services switch one at a time
 | Sign-in | anonymous, or **dev sign-in** with `AUTH_MODE=dev` | Google, `ALLOWED_EMAIL_DOMAINS` only | `GOOGLE_OAUTH_CLIENT_ID`, `SESSION_SECRET`; frontend `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` |
 | Data and files | local disk at `backend/.data` | Firestore + Cloud Storage | `FIRESTORE_PROJECT_ID`, `GCS_BUCKET_NAME` |
 | AI generation | offline placeholders | Vertex AI | `VERTEX_PROJECT_ID` (and `VERTEX_LOCATION`) |
+| Video jobs | in process, picked up again after a restart | Cloud Tasks | `CLOUD_TASKS_QUEUE`, `CLOUD_TASKS_SERVICE_ACCOUNT`, `JOBS_WORKER_URL` |
 
 ## How to tell what is running
 
@@ -21,6 +22,7 @@ GCOS backend listening on http://localhost:4000
   sign-in: anonymous (placeholder) -- to switch: GOOGLE_OAUTH_CLIENT_ID, SESSION_SECRET
   storage: local disk at …/backend/.data (placeholder) -- to switch: FIRESTORE_PROJECT_ID, GCS_BUCKET_NAME
   AI:      offline placeholders -- to switch: VERTEX_PROJECT_ID
+  jobs:    in process (placeholder) -- to switch: CLOUD_TASKS_QUEUE, CLOUD_TASKS_SERVICE_ACCOUNT, JOBS_WORKER_URL
 ```
 
 `GET /api/health` answers the same as `modes`, plus a probe of each configured
@@ -33,8 +35,9 @@ curl -s localhost:4000/api/health
 
 A deployed backend (`K_SERVICE` or `NODE_ENV=production`) **refuses to start** on
 the storage placeholder, so a misconfigured deploy fails loudly instead of keeping
-data on an instance's disk. Placeholder AI is allowed deployed (it costs nothing)
-and warned about.
+data on an instance's disk, or with video jobs in process (Cloud Run throttles a
+request's CPU once it has answered, so they would stall). Placeholder AI is allowed
+deployed (it costs nothing) and warned about.
 
 ## Data and files: Firestore + Cloud Storage
 
@@ -107,6 +110,45 @@ like real outputs; text and video answer canned placeholders. No network is used
    model rather than `placeholder` (billed: one image).
 
 **Verify on first use:** real generation is billed and has not run in CI.
+
+## Video jobs: Cloud Tasks
+
+In process, a video runs in the backend that queued it, after the request has
+answered; on local disk, a job a restart interrupted runs again at startup. On
+Cloud Run each job is a Cloud Task instead, which calls the backend's worker
+endpoint (`POST /internal/jobs/:id/run`, outside `/api`, so the proxy never
+reaches it) on whichever instance it lands, retrying if the call fails.
+
+1. Create the queue, and a service account for the tasks:
+   ```bash
+   gcloud services enable cloudtasks.googleapis.com
+   gcloud tasks queues create gcos-video --location=$REGION \
+     --max-attempts=3 --max-concurrent-dispatches=10
+   gcloud iam service-accounts create gcos-tasks
+   TASKS=gcos-tasks@$PROJECT.iam.gserviceaccount.com
+   ```
+2. Roles: the **backend** enqueues and mints tokens as the tasks account; the
+   **tasks** account may invoke the backend, and nothing else.
+   ```bash
+   gcloud tasks queues add-iam-policy-binding gcos-video --location=$REGION \
+     --member=serviceAccount:$SA --role=roles/cloudtasks.enqueuer
+   gcloud iam service-accounts add-iam-policy-binding $TASKS \
+     --member=serviceAccount:$SA --role=roles/iam.serviceAccountUser
+   gcloud run services add-iam-policy-binding gcos-backend --region=$REGION \
+     --member=serviceAccount:$TASKS --role=roles/run.invoker
+   ```
+3. Set, and deploy with a request timeout that outlasts a video
+   (`--timeout=1800`: Veo is polled for up to 15 minutes):
+   ```bash
+   CLOUD_TASKS_QUEUE=projects/$PROJECT/locations/$REGION/queues/gcos-video
+   CLOUD_TASKS_SERVICE_ACCOUNT=$TASKS
+   JOBS_WORKER_URL=https://<the backend's run.app URL>
+   ```
+4. Verify: `modes.jobs` is `"cloud-tasks"`; a video started in the app finishes,
+   and the queue's console shows its task.
+
+**Verify on first use:** the worker's token check is tested with Google's
+verification stubbed, and enqueuing with the REST call stubbed.
 
 ## Checking everything at once: the smoke test
 

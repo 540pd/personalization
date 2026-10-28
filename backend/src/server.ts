@@ -12,6 +12,8 @@ import { isFirestoreMode, getFirestoreClient } from "./lib/firestore.js";
 import { isGcsMode, getBucket } from "./lib/gcs.js";
 import { assertDeployable, describeServiceModes, serviceModes } from "./lib/serviceModes.js";
 import { resumeUnfinishedJobs } from "./services/videoJobs.js";
+import { cloudTasksConfig } from "./lib/jobs/cloudTasks.js";
+import { internalJobsRouter } from "./routes/internalJobs.js";
 import { globalErrorHandler } from "./common/errors.js";
 
 const PORT = process.env.PORT ?? 4000;
@@ -124,6 +126,11 @@ export function createApp(): express.Express {
   app.use("/api", boardsRouter);
   app.use("/api", generateRouter);
   app.use("/api", assetsRouter);
+
+  // Cloud Tasks' worker endpoint (#325), outside /api and only when the
+  // queue is set up: in process, nothing calls in.
+  const tasks = cloudTasksConfig();
+  if (tasks) app.use(internalJobsRouter(tasks));
 
   app.use(globalErrorHandler);
 
