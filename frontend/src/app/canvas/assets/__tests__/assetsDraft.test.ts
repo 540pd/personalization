@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AssetView, BrandAssetsView } from "@/api/brandAssets.api";
 import {
   addImage, addUploading, changedImages, draftFrom, editImage, imagesOf, isDirty, isDuplicate, isLowRes, isUploading, makeMaster,
-  master, otherViews, recordOf, removeImage, saveProblems, uploadFailed, uploadRetried, uploaded,
+  master, otherViews, recordOf, removeImage, replaceImage, saveProblems, uploadFailed, uploadRetried, uploaded, cleanColour, isColour,
 } from "../assetsDraft";
 
 // The Assets page's editing rules (#414).
@@ -18,7 +18,7 @@ const view = (over: Partial<BrandAssetsView["record"]> = {}, assets: AssetView[]
 
 describe("assets draft (#414)", () => {
   it("loads the saved page, keeping assets of other kinds aside", async () => {
-    const logo = asset("logo", { kind: "logo" });
+    const logo = asset("logo", { kind: "reference" });
     const d = draftFrom(view({ productName: "Shoe", masterId: "b" }, [asset("a"), asset("b"), logo]));
     expect(d.images.map((i) => i.asset.id)).toEqual(["a", "b"]);
     expect(master(d)?.asset.id).toBe("b");
@@ -71,11 +71,11 @@ describe("assets draft (#414)", () => {
 
   it("blocks Save without a master image or a product name, with the doc's message", () => {
     const empty = draftFrom(view());
-    expect(saveProblems(empty)).toEqual({ message: "Add a Master Product Image and Product Name before saving.", missingMaster: true, missingName: true });
+    expect(saveProblems(empty)).toEqual({ message: "Add a Master Product Image and Product Name before saving.", missingMaster: true, missingName: true, missingLogo: false, badColours: [] });
     const named = { ...empty, productName: "  " };
     expect(saveProblems(named).missingName).toBe(true);
     const ready = addImage({ ...empty, productName: "Shoe" }, asset("a"));
-    expect(saveProblems(ready)).toEqual({ message: null, missingMaster: false, missingName: false });
+    expect(saveProblems(ready)).toEqual({ message: null, missingMaster: false, missingName: false, missingLogo: false, badColours: [] });
   });
 
   it("trims the record it saves", () => {
@@ -171,5 +171,61 @@ describe("creatives to adapt from and style examples (#416)", () => {
     const d = draftFrom(view({}, [asset("a", { name: "x.png", bytes: 5 })]));
     expect(isDuplicate(d, { name: "x.png", size: 5 }, "h", new Map())).toBe(true);
     expect(isDuplicate(d, { name: "x.png", size: 5 }, "h", new Map(), "styleExample")).toBe(false);
+  });
+});
+
+describe("logos and colours (#417)", () => {
+  const png = { name: "wordmark.png", type: "image/png", size: 10 };
+  const ready = (assets: AssetView[] = []) =>
+    draftFrom(view({ productName: "Shoe", masterId: "a" }, [asset("a"), ...assets]));
+
+  it("makes the first logo the primary, used by default, and later ones secondary", () => {
+    let d = addUploading(ready(), "t1", png, "blob:1", "logo");
+    d = addUploading(d, "t2", { ...png, name: "symbol.png" }, "blob:2", "logo");
+    expect(imagesOf(d, "logo").map((i) => i.details)).toEqual([
+      { logoType: "Primary logo", usage: "By default" },
+      { logoType: "Secondary logo" },
+    ]);
+    expect(d.masterId).toBe("a");
+  });
+
+  it("asks for a logo only when the brief makes it mandatory, and not one still uploading", () => {
+    const none = ready();
+    expect(saveProblems(none).message).toBeNull();
+    const required = saveProblems(none, { logoRequired: true });
+    expect(required.missingLogo).toBe(true);
+    expect(required.message).toBe("Add a Primary Logo because Logo is marked as mandatory in the Campaign Brief.");
+    const uploading = addUploading(none, "t1", png, "blob:1", "logo");
+    expect(saveProblems(uploading, { logoRequired: true }).missingLogo).toBe(true);
+    const stored = ready([asset("l", { kind: "logo" })]);
+    expect(saveProblems(stored, { logoRequired: true }).message).toBeNull();
+    // Both messages together.
+    expect(saveProblems(draftFrom(view()), { logoRequired: true }).message).toBe(
+      "Add a Master Product Image and Product Name before saving. Add a Primary Logo because Logo is marked as mandatory in the Campaign Brief.",
+    );
+  });
+
+  it("replaces a logo in place, keeping its details, and sends the change", () => {
+    const d0 = ready([asset("l", { kind: "logo", description: "Black wordmark", details: { logoType: "Primary logo" } })]);
+    let d = replaceImage(d0, "l", "t1", png, "blob:1");
+    expect(imagesOf(d, "logo")).toHaveLength(1);
+    expect(imagesOf(d, "logo")[0]).toMatchObject({ description: "Black wordmark", details: { logoType: "Primary logo" }, upload: { state: "uploading" } });
+    expect(recordOf(d).assetIds).toEqual(["a"]);
+    d = uploaded(d, "t1", asset("l2", { kind: "logo" }));
+    expect(recordOf(d).assetIds).toEqual(["a", "l2"]);
+    expect(changedImages(d).map((i) => i.asset.id)).toEqual(["l2"]);
+  });
+
+  it("reads colours as hex values, and blocks Save on one that isn't", () => {
+    expect(cleanColour(" 1a2b3c ")).toBe("#1A2B3C");
+    expect(cleanColour("#abcdef")).toBe("#ABCDEF");
+    expect(cleanColour("")).toBe("");
+    expect(cleanColour("red")).toBe("red");
+    expect(isColour("")).toBe(true);
+    expect(isColour("#12345")).toBe(false);
+    const d = { ...ready(), colours: { primary: "1a2b3c", secondary: "nope", accent: "" } };
+    expect(saveProblems(d).badColours).toEqual(["secondary"]);
+    expect(saveProblems(d).message).toBe("Use hex values like #1A2B3C for the brand colours.");
+    expect(recordOf({ ...d, colours: { ...d.colours, secondary: "" } }).colours).toEqual({ primary: "#1A2B3C", secondary: "", accent: "" });
   });
 });

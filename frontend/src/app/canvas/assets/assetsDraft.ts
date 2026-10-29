@@ -7,10 +7,10 @@ import type { AssetKind, AssetView, BrandAssetsRecord, BrandAssetsView, BrandCol
 
 /**
  * The kinds the page edits as images with details: product images (#414),
- * and creatives to adapt from and style examples (#416). Others are kept
- * as they were until their sections exist.
+ * creatives to adapt from and style examples (#416), and logos (#417).
+ * Others are kept as they were until their sections exist.
  */
-export const IMAGE_KINDS = ["productImage", "adaptFrom", "styleExample"] as const;
+export const IMAGE_KINDS = ["productImage", "adaptFrom", "styleExample", "logo"] as const;
 export type ImageKind = (typeof IMAGE_KINDS)[number];
 const isImageKind = (kind: AssetKind | null): kind is ImageKind => (IMAGE_KINDS as readonly (AssetKind | null)[]).includes(kind);
 
@@ -48,6 +48,11 @@ export const PRODUCT_IMAGE_TYPES_ACCEPTED = ["image/png", "image/jpeg"];
 
 export const ADAPT_CREATIVE_TYPES = ["Campaign key visual", "Hero creative", "Social creative", "Display creative", "Other"] as const;
 export const ASPECT_RATIOS = ["1:1", "4:5", "9:16", "16:9", "Other"] as const;
+/** Logos take PNG only: they are placed on creatives, so they need transparency (#412). */
+export const LOGO_TYPES_ACCEPTED = ["image/png"];
+export const LOGO_TYPES = ["Primary logo", "Secondary logo", "Monochrome logo", "Symbol / icon", "Other"] as const;
+export const LOGO_USES = ["By default", "On light backgrounds", "On dark backgrounds", "As a reference only"] as const;
+
 export const STYLE_EXAMPLE_TYPES = [
   "Social creative", "Campaign creative", "Product creative", "Layout reference", "Typography reference", "Logo usage", "Other",
 ] as const;
@@ -78,11 +83,14 @@ export function addImage(draft: AssetsDraft, asset: AssetView): AssetsDraft {
   return { ...draft, images: [...draft.images, asImage(asset)], masterId };
 }
 
-/**
- * Adds an image that is still uploading, shown from `preview` (a local copy)
- * under `tempId`. A creative or style example is named after its file to
- * start with (#416).
- */
+/** What a new image's details start as: a creative is named after its file (#416); the first logo is the primary (#417). */
+function startingDetails(draft: AssetsDraft, kind: ImageKind, fileName: string): Record<string, string> {
+  if (kind === "adaptFrom" || kind === "styleExample") return { name: fileName.replace(/\.[^.]+$/, "") };
+  if (kind === "logo") return imagesOf(draft, "logo").length ? { logoType: "Secondary logo" } : { logoType: "Primary logo", usage: "By default" };
+  return {};
+}
+
+/** Adds an image that is still uploading, shown from `preview` (a local copy) under `tempId`. */
 export function addUploading(
   draft: AssetsDraft,
   tempId: string,
@@ -96,11 +104,38 @@ export function addUploading(
   };
   const image: DraftImage = {
     ...asImage(asset),
-    details: kind === "productImage" ? {} : { name: file.name.replace(/\.[^.]+$/, "") },
+    details: startingDetails(draft, kind, file.name),
     upload: { state: "uploading" },
   };
   const masterId = draft.masterId || (kind === "productImage" ? tempId : "");
   return { ...draft, images: [...draft.images, image], masterId };
+}
+
+/**
+ * Puts a new file in `id`'s place (#417: Replace on a logo), uploading under
+ * `tempId`, its description and details kept. The old asset leaves the page,
+ * so Save deletes it (#413).
+ */
+export function replaceImage(
+  draft: AssetsDraft,
+  id: string,
+  tempId: string,
+  file: { name: string; type: string; size: number },
+  preview: string,
+): AssetsDraft {
+  return {
+    ...draft,
+    images: draft.images.map((i) =>
+      i.asset.id !== id
+        ? i
+        : {
+            ...i,
+            asset: { ...i.asset, id: tempId, url: preview, mimeType: file.type, bytes: file.size, createdAt: "", name: file.name, description: "", details: {} },
+            upload: { state: "uploading" },
+          },
+    ),
+    masterId: draft.masterId === id ? tempId : draft.masterId,
+  };
 }
 
 /** The upload under `tempId` landed: the stored asset takes its place, with what was typed meanwhile. */
@@ -155,22 +190,42 @@ export const master = (draft: AssetsDraft): DraftImage | null => draft.images.fi
 export const otherViews = (draft: AssetsDraft): DraftImage[] => draft.images.filter((i) => isProduct(i) && i.asset.id !== draft.masterId);
 
 export interface SaveProblems {
-  /** The doc's message, for the banner; null when Save may go ahead. */
+  /** The doc's messages, for the banner; null when Save may go ahead. */
   message: string | null;
   missingMaster: boolean;
   missingName: boolean;
+  missingLogo: boolean;
+  /** Brand colours that are not hex values. */
+  badColours: (keyof BrandColours)[];
 }
 
-/** What blocks Save (#414): a master image and a product name. Nothing else is blocked. */
-export function saveProblems(draft: AssetsDraft): SaveProblems {
+/** A colour as typed, made a hex value when it reads as one: "1a2b3c" is "#1A2B3C". Empty stays empty. */
+export function cleanColour(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  const hex = t.startsWith("#") ? t : `#${t}`;
+  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex.toUpperCase() : t;
+}
+
+export const isColour = (value: string): boolean => value === "" || /^#[0-9A-F]{6}$/.test(cleanColour(value));
+
+/**
+ * What blocks Save: a master image and a product name (#414); a logo, when
+ * the Campaign Brief marks it mandatory (#417); and colours the server would
+ * refuse. Nothing else is blocked.
+ */
+export function saveProblems(draft: AssetsDraft, opts: { logoRequired?: boolean } = {}): SaveProblems {
   const hero = master(draft);
   const missingMaster = !hero || !!hero.upload;
   const missingName = !draft.productName.trim();
-  return {
-    message: missingMaster || missingName ? "Add a Master Product Image and Product Name before saving." : null,
-    missingMaster,
-    missingName,
-  };
+  const missingLogo = !!opts.logoRequired && !imagesOf(draft, "logo").some((i) => !i.upload);
+  const badColours = (Object.keys(draft.colours) as (keyof BrandColours)[]).filter((k) => !isColour(draft.colours[k]));
+  const messages = [
+    (missingMaster || missingName) && "Add a Master Product Image and Product Name before saving.",
+    missingLogo && "Add a Primary Logo because Logo is marked as mandatory in the Campaign Brief.",
+    badColours.length > 0 && "Use hex values like #1A2B3C for the brand colours.",
+  ].filter(Boolean);
+  return { message: messages.length ? messages.join(" ") : null, missingMaster, missingName, missingLogo, badColours };
 }
 
 export function recordOf(draft: AssetsDraft): BrandAssetsRecord {
@@ -178,7 +233,11 @@ export function recordOf(draft: AssetsDraft): BrandAssetsRecord {
     productName: draft.productName.trim(),
     sku: draft.sku.trim(),
     masterId: stored(draft).some((i) => i.asset.id === draft.masterId) ? draft.masterId : "",
-    colours: draft.colours,
+    colours: {
+      primary: cleanColour(draft.colours.primary),
+      secondary: cleanColour(draft.colours.secondary),
+      accent: cleanColour(draft.colours.accent),
+    },
     assetIds: [...stored(draft).map((i) => i.asset.id), ...draft.others.map((a) => a.id)],
   };
 }
