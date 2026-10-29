@@ -98,7 +98,7 @@ function Page() {
   };
 
   return (
-    <LibraryPage title="Brand" subtitle="What every generation knows about this client. Edits apply once you save.">
+    <LibraryPage closable title="Brand" subtitle="What every generation knows about this client. Edits apply once you save.">
       <div className="brand-row">
         <div className="brand-field">
           <label className="brand-field-label" htmlFor={`${fieldId}-industry`}>

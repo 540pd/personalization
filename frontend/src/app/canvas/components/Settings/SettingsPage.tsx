@@ -59,6 +59,7 @@ function Page() {
 
   return (
     <LibraryPage
+      closable
       title="Settings"
       subtitle="How the board looks and behaves. Changes apply right away and are kept in this browser."
     >
