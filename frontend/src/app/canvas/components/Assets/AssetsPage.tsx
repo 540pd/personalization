@@ -31,6 +31,7 @@ import {
   isDuplicate,
   isUploading,
   imagesOf,
+  isImageKind,
   recordOf,
   replaceImage,
   saveProblems,
@@ -46,6 +47,7 @@ import ProductSection from "./ProductSection";
 import BrandSection from "./BrandSection";
 import BrandColours from "./BrandColours";
 import LogoGroup from "./LogoGroup";
+import ReferencesSection from "./ReferencesSection";
 import type { LogoReading } from "../../assets/logoAnalysis";
 import CreativeGroup, { type CreativeKind } from "./CreativeGroup";
 import type { ImageSize } from "./AssetTiles";
@@ -65,8 +67,11 @@ const NOUNS: Record<ImageKind, string> = {
   adaptFrom: "creatives to adapt from",
   styleExample: "style examples",
   logo: "logos",
+  reference: "references",
 };
-const NOTHING_SELECTED: Record<ImageKind, string | null> = { productImage: null, adaptFrom: null, styleExample: null, logo: null };
+const NOTHING_SELECTED: Record<ImageKind, string | null> = {
+  productImage: null, adaptFrom: null, styleExample: null, logo: null, reference: null,
+};
 const LOGO_NOT_PNG = "The logo must be a PNG. Export it with a transparent background and try again.";
 
 /** Why `file` can't be added as `kind`, or null. */
@@ -218,7 +223,7 @@ function Page() {
   /** A new file in an image's place (#417: Replace on a logo), its details kept. */
   const replace = async (id: string, file: File) => {
     const kind = latest.current?.images.find((i) => i.asset.id === id)?.asset.kind;
-    if (!kind || kind === "reference") return;
+    if (!isImageKind(kind)) return;
     setAddError(null);
     const wrong = wrongType(file, kind);
     if (wrong) {
@@ -254,7 +259,7 @@ function Page() {
       if (!pasted.length) return;
       e.preventDefault();
       const group = document.activeElement?.closest<HTMLElement>("[data-asset-kind]")?.dataset.assetKind;
-      void addFiles(pasted, group === "adaptFrom" || group === "styleExample" || group === "logo" ? group : "productImage");
+      void addFiles(pasted, isImageKind(group) ? group : "productImage");
     });
   });
 
@@ -400,6 +405,17 @@ function Page() {
             />
             {creativeGroup("styleExample")}
           </BrandSection>
+          <ReferencesSection
+            draft={draft}
+            onChange={edit}
+            onAddFiles={(picked) => void addFiles(picked, "reference")}
+            onRetry={retry}
+            selected={selected.reference}
+            onSelect={(id) => setSelected((sel) => ({ ...sel, reference: id }))}
+            sizes={sizes}
+            onMeasure={measure}
+            addError={addError?.kind === "reference" ? addError.message : null}
+          />
 
           {/* Pinned to the bottom of the page while it scrolls, as on Brand. */}
           <div className="assets-save-bar" role="region" aria-label="Save assets">

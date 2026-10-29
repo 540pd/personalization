@@ -3,16 +3,16 @@
 // master, details per image, what Save checks and sends) are tested apart
 // from the page.
 
-import type { AssetKind, AssetView, BrandAssetsRecord, BrandAssetsView, BrandColours } from "@/api/brandAssets.api";
+import type { AssetView, BrandAssetsRecord, BrandAssetsView, BrandColours } from "@/api/brandAssets.api";
 
 /**
  * The kinds the page edits as images with details: product images (#414),
- * creatives to adapt from and style examples (#416), and logos (#417).
- * Others are kept as they were until their sections exist.
+ * creatives to adapt from and style examples (#416), logos (#417) and
+ * creative references (#418). Any other kind is kept as it was.
  */
-export const IMAGE_KINDS = ["productImage", "adaptFrom", "styleExample", "logo"] as const;
+export const IMAGE_KINDS = ["productImage", "adaptFrom", "styleExample", "logo", "reference"] as const;
 export type ImageKind = (typeof IMAGE_KINDS)[number];
-const isImageKind = (kind: AssetKind | null): kind is ImageKind => (IMAGE_KINDS as readonly (AssetKind | null)[]).includes(kind);
+export const isImageKind = (kind: unknown): kind is ImageKind => (IMAGE_KINDS as readonly unknown[]).includes(kind);
 
 /** An image on the page, with its details as edited (saved with the page). */
 export interface DraftImage {
@@ -53,6 +53,23 @@ export const LOGO_TYPES_ACCEPTED = ["image/png"];
 export const LOGO_TYPES = ["Primary logo", "Secondary logo", "Monochrome logo", "Symbol / icon", "Other"] as const;
 export const LOGO_USES = ["By default", "On light backgrounds", "On dark backgrounds", "As a reference only"] as const;
 
+export const REFERENCE_TYPES = [
+  "Background", "Scene / environment", "Mood board", "Lighting", "Composition / layout", "Styling / props", "Texture / pattern", "Other",
+] as const;
+
+/** How a reference is used: the image itself, or only its mood, light or setting. */
+export type ReferenceUse = "asIs" | "inspiration";
+/** Which campaigns use it: every one, or those whose brief picks it. */
+export type ReferenceScope = "always" | "picked";
+
+/** What a reference type is used as unless changed: a background or texture as is; the rest for inspiration. */
+export const defaultUse = (type: string): ReferenceUse => (type === "Background" || type === "Texture / pattern" ? "asIs" : "inspiration");
+
+/** A reference's new type, with How to use it set to that type's default (#418). */
+export function setReferenceType(draft: AssetsDraft, id: string, type: string): AssetsDraft {
+  return editImage(draft, id, { details: { referenceType: type, use: type ? defaultUse(type) : "" } });
+}
+
 export const STYLE_EXAMPLE_TYPES = [
   "Social creative", "Campaign creative", "Product creative", "Layout reference", "Typography reference", "Logo usage", "Other",
 ] as const;
@@ -87,6 +104,7 @@ export function addImage(draft: AssetsDraft, asset: AssetView): AssetsDraft {
 function startingDetails(draft: AssetsDraft, kind: ImageKind, fileName: string): Record<string, string> {
   if (kind === "adaptFrom" || kind === "styleExample") return { name: fileName.replace(/\.[^.]+$/, "") };
   if (kind === "logo") return imagesOf(draft, "logo").length ? { logoType: "Secondary logo" } : { logoType: "Primary logo", usage: "By default" };
+  if (kind === "reference") return { referenceType: "Scene / environment", use: "inspiration", scope: "picked" };
   return {};
 }
 
