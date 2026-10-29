@@ -3,16 +3,16 @@
 // Section 1 of the Assets page (#414): the product's name and SKU, its
 // master image shown large, and its other views, each with its details.
 // Images arrive by click, drop or paste, several at once, and show while
-// they upload (#415).
+// they upload (#415). Last comes the creative to adapt from (#416), passed
+// in as `children`.
 
-import { useId, useRef, useState, type DragEvent } from "react";
+import { useId, type ReactNode } from "react";
 import { pickFiles } from "@/lib/dom/pickFile";
 import {
   PRODUCT_IMAGE_TYPES,
   PRODUCT_IMAGE_TYPES_ACCEPTED,
   PRODUCT_VIEWS,
   editImage,
-  isLowRes,
   makeMaster,
   master,
   otherViews,
@@ -20,9 +20,9 @@ import {
   type AssetsDraft,
   type DraftImage,
 } from "../../assets/assetsDraft";
+import { AddTile, ImageTile, LowResWarning, UploadOverlay, measured, useDropZone, type ImageSize } from "./AssetTiles";
 
 type Edit = (update: (d: AssetsDraft) => AssetsDraft) => void;
-export type ImageSize = { width: number; height: number };
 
 export default function ProductSection({
   draft,
@@ -36,6 +36,7 @@ export default function ProductSection({
   addError,
   missingMaster,
   missingName,
+  children,
 }: {
   draft: AssetsDraft;
   onChange: Edit;
@@ -50,6 +51,7 @@ export default function ProductSection({
   addError: string | null;
   missingMaster: boolean;
   missingName: boolean;
+  children?: ReactNode;
 }) {
   const id = useId();
   const hero = master(draft);
@@ -58,8 +60,6 @@ export default function ProductSection({
   const add = () => pickFiles(PRODUCT_IMAGE_TYPES_ACCEPTED.join(","), onAddFiles);
   const emptyDrop = useDropZone(onAddFiles);
   const viewsDrop = useDropZone(onAddFiles);
-  const measure = (image: DraftImage) => (e: React.SyntheticEvent<HTMLImageElement>) =>
-    onMeasure(image.asset.id, { width: e.currentTarget.naturalWidth, height: e.currentTarget.naturalHeight });
 
   return (
     <section className="assets-section" aria-labelledby={`${id}-title`}>
@@ -133,7 +133,7 @@ export default function ProductSection({
             </div>
             <div className="assets-master-frame">
               {/* eslint-disable-next-line @next/next/no-img-element -- an asset behind the signed-in proxy (or a local copy), which next/image cannot fetch */}
-              <img src={hero.asset.url} alt={hero.description || `Master image: ${hero.asset.name}`} onLoad={measure(hero)} />
+              <img src={hero.asset.url} alt={hero.description || `Master image: ${hero.asset.name}`} onLoad={measured(hero, onMeasure)} />
               <span className="assets-badge">Master</span>
               <UploadOverlay image={hero} onRetry={onRetry} onRemove={() => onChange((d) => removeImage(d, hero.asset.id))} />
             </div>
@@ -160,34 +160,19 @@ export default function ProductSection({
             </div>
             <div className="assets-grid">
               {views.map((v) => (
-                <div key={v.asset.id} className="assets-tile-wrap">
-                  <button
-                    type="button"
-                    className={[
-                      "assets-tile",
-                      current?.asset.id === v.asset.id && "is-selected",
-                      v.upload?.state === "failed" && "is-failed",
-                    ].filter(Boolean).join(" ")}
-                    aria-pressed={current?.asset.id === v.asset.id}
-                    onClick={() => onSelect(v.asset.id)}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- as above */}
-                    <img src={v.asset.url} alt="" onLoad={measure(v)} />
-                    <span>{v.upload?.state === "uploading" ? "Uploading…" : caption(v)}</span>
-                  </button>
-                  {isLowRes(sizes[v.asset.id]) && (
-                    <span className="assets-tile-flag" title="Low resolution" aria-label="Low resolution">
-                      !
-                    </span>
-                  )}
-                  <UploadOverlay image={v} onRetry={onRetry} onRemove={() => onChange((d) => removeImage(d, v.asset.id))} compact />
-                </div>
+                <ImageTile
+                  key={v.asset.id}
+                  image={v}
+                  caption={caption(v)}
+                  selected={current?.asset.id === v.asset.id}
+                  onSelect={() => onSelect(v.asset.id)}
+                  size={sizes[v.asset.id]}
+                  onMeasure={onMeasure}
+                  onRetry={onRetry}
+                  onRemove={() => onChange((d) => removeImage(d, v.asset.id))}
+                />
               ))}
-              <button type="button" className="assets-add" onClick={add}>
-                <span aria-hidden>+</span>
-                Add view
-                <small>or drop or paste</small>
-              </button>
+              <AddTile label="Add view" onClick={add} />
             </div>
             {addError && <span className="assets-field-error" role="alert">{addError}</span>}
             <span className="assets-hint">Suggested: side, back, close-up of details.</span>
@@ -221,103 +206,8 @@ export default function ProductSection({
           </div>
         </div>
       )}
+      {children}
     </section>
-  );
-}
-
-const isFileDrag = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
-
-/**
- * Files dropped on an element, with whether a drag is over it. The drop is
- * the element's own: it stops here, so neither the page nor the board
- * underneath acts on it too (#206).
- */
-function useDropZone(onFiles: (files: File[]) => void) {
-  const [active, setActive] = useState(false);
-  const depth = useRef(0);
-  return {
-    active,
-    handlers: {
-      onDragEnter: (e: DragEvent) => {
-        if (!isFileDrag(e)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        depth.current += 1;
-        setActive(true);
-      },
-      onDragOver: (e: DragEvent) => {
-        if (!isFileDrag(e)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        e.dataTransfer.dropEffect = "copy";
-      },
-      onDragLeave: (e: DragEvent) => {
-        if (!isFileDrag(e)) return;
-        e.stopPropagation();
-        depth.current = Math.max(0, depth.current - 1);
-        if (depth.current === 0) setActive(false);
-      },
-      onDrop: (e: DragEvent) => {
-        if (!isFileDrag(e)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        depth.current = 0;
-        setActive(false);
-        const files = Array.from(e.dataTransfer.files);
-        if (files.length) onFiles(files);
-      },
-    },
-  };
-}
-
-/** Over an image still uploading (a spinner) or failed (why, Retry, Remove). */
-function UploadOverlay({
-  image,
-  onRetry,
-  onRemove,
-  compact,
-}: {
-  image: DraftImage;
-  onRetry: (id: string) => void;
-  onRemove: () => void;
-  compact?: boolean;
-}) {
-  if (!image.upload) return null;
-  const className = compact ? "assets-overlay is-compact" : "assets-overlay";
-  if (image.upload.state === "uploading") {
-    return (
-      <div className={className} role="status">
-        <span className="assets-spinner" aria-hidden />
-        {!compact && "Uploading…"}
-        {compact && <span className="sr-only">Uploading {image.asset.name}</span>}
-      </div>
-    );
-  }
-  return (
-    <div className={`${className} is-failed`} role="alert">
-      <span>Couldn&apos;t save it</span>
-      {!compact && <span className="assets-overlay-reason">{image.upload.error}</span>}
-      <span className="assets-overlay-actions">
-        <button type="button" className="assets-pill" onClick={() => onRetry(image.asset.id)} title={image.upload.error}>
-          Retry
-        </button>
-        {!compact && (
-          <button type="button" className="assets-danger" onClick={onRemove}>
-            Remove
-          </button>
-        )}
-      </span>
-    </div>
-  );
-}
-
-function LowResWarning({ size }: { size: ImageSize | undefined }) {
-  if (!isLowRes(size)) return null;
-  return (
-    <div className="assets-warning" role="status">
-      <strong>Low resolution.</strong> This image is {size!.width} px wide. Generated images may look soft; 1500 px or more
-      works best.
-    </div>
   );
 }
 

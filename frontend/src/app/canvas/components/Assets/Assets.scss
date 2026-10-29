@@ -161,10 +161,29 @@ select.assets-input {
   }
 }
 
+// ── creatives: adapt from, style examples (#416) ───────────────────────
+// A full-width group under a rule, its tiles the size of product views.
+.assets-group {
+  @apply flex flex-col gap-3;
+
+  .assets-grid {
+    @apply grid-cols-6;
+  }
+
+  .assets-details {
+    @apply max-w-[760px];
+  }
+}
+
+.assets-section > .assets-group {
+  @apply border-t border-neutral-200 pt-5;
+}
+
 // ── uploads (#415) ──────────────────────────────────────────────────────
 // A drop target lights up while files are dragged over it.
 .assets-empty.is-dropping,
-.assets-views.is-dropping {
+.assets-views.is-dropping,
+.assets-group.is-dropping {
   @apply rounded-2xl bg-neutral-50 outline-2 outline-offset-4 outline-dashed outline-neutral-900;
 }
 
