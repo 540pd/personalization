@@ -16,6 +16,41 @@
   @apply focus-visible:focus-ring;
 }
 
+// ── ready for generation (#419) ─────────────────────────────────────────
+.assets-ready {
+  @apply flex max-w-[1080px] flex-wrap items-center gap-2 rounded-[14px] border border-neutral-200 bg-neutral-50 px-3.5 py-3;
+}
+
+.assets-ready-title {
+  @apply mr-1 text-[13px] font-semibold text-neutral-700;
+}
+
+.assets-ready-item {
+  @apply inline-flex h-[30px] items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 text-[13px] text-neutral-800 no-underline;
+  @apply transition-colors hover:border-neutral-400 hover:bg-neutral-50;
+  @apply focus-visible:focus-ring;
+
+  &.is-missing {
+    @apply border-amber-300;
+  }
+}
+
+.assets-ready-mark {
+  @apply flex size-4 items-center justify-center rounded-full text-[10px] font-extrabold text-white;
+
+  .is-done & {
+    @apply bg-green-700;
+  }
+
+  .is-missing & {
+    @apply bg-amber-700;
+  }
+
+  .is-optional & {
+    @apply bg-neutral-500;
+  }
+}
+
 // ── sections ────────────────────────────────────────────────────────────
 .assets-section {
   @apply flex max-w-[1080px] flex-col gap-5 rounded-2xl border border-black/10 p-6;

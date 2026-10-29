@@ -74,7 +74,8 @@ export default function ProductSection({
       </div>
 
       <div className="assets-fields">
-        <div className="assets-field">
+        {/* The readiness strip links here (#419). */}
+        <div className="assets-field" id="assets-product-name">
           <label htmlFor={`${id}-name`} className="assets-label">
             Product Name <span className="assets-required" aria-hidden>*</span>
           </label>
@@ -111,6 +112,7 @@ export default function ProductSection({
 
       {!hero ? (
         <div
+          id="assets-master"
           className={["assets-empty", missingMaster && "is-missing", emptyDrop.active && "is-dropping"].filter(Boolean).join(" ")}
           {...emptyDrop.handlers}
         >
@@ -124,7 +126,7 @@ export default function ProductSection({
         </div>
       ) : (
         <div className="assets-product">
-          <div className="assets-master">
+          <div className="assets-master" id="assets-master">
             <div className="assets-col-head">
               <span className="assets-label">
                 Master image <span className="assets-required" aria-hidden>*</span>

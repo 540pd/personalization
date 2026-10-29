@@ -35,7 +35,7 @@ export default function BrandColours({
   const nextEmpty = FIELDS.find((f) => !colours[f.key].trim())?.key;
 
   return (
-    <div className="assets-group" role="group" aria-labelledby={`${id}-title`}>
+    <div className="assets-group" role="group" aria-labelledby={`${id}-title`} id="assets-colours">
       <div>
         <h3 id={`${id}-title`} className="assets-label">
           Brand colours
