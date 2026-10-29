@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSection, setLeaveGuard } from "@/store/section.store";
+import { listen } from "@/lib/dom/listen";
 import { useToast } from "@/components/Toast/useToast";
 import {
   deletePendingUploads,
@@ -21,17 +22,22 @@ import {
 } from "@/api/brandAssets.api";
 import {
   PRODUCT_IMAGE_TYPES_ACCEPTED,
-  addImage,
+  addUploading,
   changedImages,
   draftFrom,
   isDirty,
+  isDuplicate,
+  isUploading,
   recordOf,
   saveProblems,
+  uploadFailed,
+  uploadRetried,
+  uploaded,
   type AssetsDraft,
 } from "../../assets/assetsDraft";
 import LibraryPage from "../Library/LibraryPage";
 import { DiscardChanges } from "../Library/LibraryDialog";
-import ProductSection from "./ProductSection";
+import ProductSection, { type ImageSize } from "./ProductSection";
 import "./Assets.scss";
 
 export default function AssetsPage() {
@@ -50,8 +56,15 @@ function Page() {
   // Set by the first Save with something missing: from then on the missing
   // parts are marked as they stay missing.
   const [tried, setTried] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [sizes, setSizes] = useState<Record<string, ImageSize>>({});
+  // Each upload's file, for Retry, and each image's content hash, to spot a
+  // duplicate (#415). By id: a temporary one until the upload lands.
+  const files = useRef(new Map<string, File>());
+  const hashes = useRef(new Map<string, string>());
+  // The local copy each upload shows meanwhile, released once it lands.
+  const previews = useRef(new Map<string, string>());
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   // The move a Discard would make, while the confirm is up.
   const [pending, setPending] = useState<(() => void) | null>(null);
@@ -109,22 +122,77 @@ function Page() {
     if (saveState.kind === "failed") setSaveState({ kind: "idle" });
   };
 
-  const addFile = async (file: File) => {
-    setUploadError(null);
-    if (!PRODUCT_IMAGE_TYPES_ACCEPTED.includes(file.type)) {
-      setUploadError("Product images must be PNG or JPG.");
-      return;
-    }
-    setUploading(true);
+  // The latest draft, for checks made between awaits.
+  const latest = useRef(draft);
+  latest.current = draft;
+
+  const send = async (tempId: string) => {
+    const file = files.current.get(tempId);
+    if (!file) return;
     try {
       const asset = await uploadPageAsset(file, "productImage");
-      edit((d) => addImage(d, asset));
+      files.current.delete(tempId);
+      const preview = previews.current.get(tempId);
+      previews.current.delete(tempId);
+      const hash = hashes.current.get(tempId);
+      if (hash) hashes.current.set(asset.id, hash);
+      setSizes((s) => (s[tempId] ? { ...s, [asset.id]: s[tempId] } : s));
+      setSelected((sel) => (sel === tempId ? asset.id : sel));
+      edit((d) => uploaded(d, tempId, asset));
+      if (preview) setTimeout(() => URL.revokeObjectURL(preview), 1000);
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : "Couldn't upload it.");
-    } finally {
-      setUploading(false);
+      edit((d) => uploadFailed(d, tempId, e instanceof Error ? e.message : "Couldn't upload it."));
     }
   };
+
+  /** Click, drop or paste: each file shows at once and uploads in turn. */
+  const addFiles = async (picked: File[]) => {
+    setAddError(null);
+    const hadMaster = !!latest.current?.masterId;
+    const problems: string[] = [];
+    const added: string[] = [];
+    for (const file of picked) {
+      if (!PRODUCT_IMAGE_TYPES_ACCEPTED.includes(file.type)) {
+        problems.push(`${file.name}: product images must be PNG or JPG.`);
+        continue;
+      }
+      const hash = await contentHash(file);
+      const now = latest.current;
+      if (now && (isDuplicate(now, file, hash, hashes.current) || added.some((id) => hashes.current.get(id) === hash))) {
+        problems.push(`${file.name}: this image is already here.`);
+        continue;
+      }
+      const tempId = `tmp-${crypto.randomUUID()}`;
+      files.current.set(tempId, file);
+      hashes.current.set(tempId, hash);
+      added.push(tempId);
+      const preview = URL.createObjectURL(file);
+      previews.current.set(tempId, preview);
+      edit((d) => addUploading(d, tempId, file, preview));
+    }
+    if (problems.length) setAddError(problems.join(" "));
+    // The first new view opens its details; with no master yet, the first
+    // file became it, so that is the second.
+    const firstView = hadMaster ? added[0] : added[1];
+    if (firstView) setSelected(firstView);
+    for (const id of added) await send(id);
+  };
+
+  const retry = (tempId: string) => {
+    edit((d) => uploadRetried(d, tempId));
+    void send(tempId);
+  };
+
+  // Paste an image from the clipboard (#415). Images only: pasted text is
+  // the field's own business.
+  useEffect(() => {
+    return listen(window, "paste", (e) => {
+      const pasted = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+      if (!pasted.length) return;
+      e.preventDefault();
+      void addFiles(pasted);
+    });
+  });
 
   const onSave = async () => {
     if (!draft) return;
@@ -159,8 +227,9 @@ function Page() {
   const onCancel = () => {
     setDraft(saved);
     setTried(false);
-    setUploadError(null);
+    setAddError(null);
     setSaveState({ kind: "idle" });
+    files.current.clear();
     void deletePendingUploads();
   };
 
@@ -216,9 +285,13 @@ function Page() {
           <ProductSection
             draft={draft}
             onChange={edit}
-            onAddFile={(file) => void addFile(file)}
-            uploading={uploading}
-            uploadError={uploadError}
+            onAddFiles={(picked) => void addFiles(picked)}
+            onRetry={retry}
+            selected={selected}
+            onSelect={setSelected}
+            sizes={sizes}
+            onMeasure={(id, size) => setSizes((s) => ({ ...s, [id]: size }))}
+            addError={addError}
             missingMaster={tried && !!problems?.missingMaster}
             missingName={tried && !!problems?.missingName}
           />
@@ -240,7 +313,13 @@ function Page() {
             <button type="button" className="assets-pill" onClick={onCancel} disabled={!dirty || saveState.kind === "saving"}>
               Cancel
             </button>
-            <button type="button" className="assets-primary" onClick={() => void onSave()} disabled={!dirty || saveState.kind === "saving"}>
+            <button
+              type="button"
+              className="assets-primary"
+              onClick={() => void onSave()}
+              disabled={!dirty || saveState.kind === "saving" || isUploading(draft)}
+              title={isUploading(draft) ? "Wait for the uploads to finish" : undefined}
+            >
               {saveState.kind === "saving" ? "Saving…" : "Save assets"}
             </button>
           </div>
@@ -251,4 +330,10 @@ function Page() {
       {toast}
     </LibraryPage>
   );
+}
+
+/** A file's SHA-256, to tell the same image added twice. */
+async function contentHash(file: File): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }

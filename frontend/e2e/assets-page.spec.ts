@@ -1,14 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, setZoom } from "./helpers";
+import { makePng, openBoard, setZoom } from "./helpers";
 
 // The Assets page and its Product section (#414), on the real backend
 // (#412, #413). The page is the user's own and outlives a test, so each test
 // starts from an empty one.
 
-const PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-  "base64",
-);
 const GIF = Buffer.from("R0lGODlhAQABAAAAACw=", "base64");
 
 /** Empties the saved page (its images go with it) and any unsaved uploads. */
@@ -25,11 +21,16 @@ async function openAssets(page: Page) {
   await expect(page.getByText("Loading your assets…")).toHaveCount(0);
 }
 
-/** Picks `name` in the file dialog the next click opens. */
-async function uploadVia(page: Page, button: string, name: string, buffer = PNG, mimeType = "image/png") {
+/** A distinct image per upload, so none is refused as a duplicate (#415). */
+let shade = 0;
+const nextPng = () => makePng(16, 16, [shade++ % 256, 90, 160]);
+
+/** Picks `name` in the file dialog the next click opens, and waits for it to be stored. */
+async function uploadVia(page: Page, button: string, name: string, buffer = nextPng(), mimeType = "image/png") {
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: button }).click();
   await (await chooser).setFiles({ name, mimeType, buffer });
+  await expect(page.locator(".assets-overlay")).toHaveCount(0);
 }
 
 const saveBar = (page: Page) => page.getByRole("region", { name: "Save assets" });
@@ -67,7 +68,7 @@ test.describe("Assets page", () => {
     await page.getByLabel("Product Name").fill("Trail running shoe");
     await expect(saveBar(page)).toContainText("Unsaved changes");
     await save(page).click();
-    await expect(page.getByRole("status")).toContainText("Assets saved");
+    await expect(page.locator(".board-toast")).toContainText("Assets saved");
     await expect(save(page)).toBeDisabled();
 
     await page.reload();
@@ -168,16 +169,18 @@ test.describe("Assets page", () => {
   });
 
   test("says when the page can't load, and Retry loads it", async ({ page }) => {
-    let failed = false;
+    // Every load fails until Retry: in development the page mounts twice and
+    // only the newer load counts, so failing just the first wouldn't show.
+    let failing = true;
     await page.route("**/api/proxy/brand-assets", (route) => {
-      if (route.request().method() === "GET" && !failed) {
-        failed = true;
+      if (route.request().method() === "GET" && failing) {
         return route.fulfill({ status: 500, json: { message: "Loading assets failed (500)" } });
       }
       return route.fallback();
     });
     await page.locator(".sidebar-item", { hasText: "Assets" }).click();
     await expect(page.locator(".assets-alert")).toContainText("Loading assets failed");
+    failing = false;
     await page.getByRole("button", { name: "Retry" }).click();
     await expect(page.getByText("No product image added yet.")).toBeVisible();
   });
