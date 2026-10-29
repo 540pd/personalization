@@ -118,3 +118,98 @@ describe("GET /api/assets and DELETE /api/assets/:id", () => {
     expect((await request(a).get(`/api/assets/${first.id}/content`).set("Cookie", ANA)).status).toBe(404);
   });
 });
+
+// What each asset is, for the Assets page (#412).
+describe("asset kinds and details", () => {
+  const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+  const uploadAs = (a: Express, query: string, body: Buffer = PNG, type = "image/png") =>
+    request(a).post(`/api/assets?${query}`).set("Cookie", ANA).set("Content-Type", type).send(body);
+  const patch = (a: Express, id: string, body: unknown, cookie = ANA) =>
+    request(a).patch(`/api/assets/${id}`).set("Cookie", cookie).send(body as object);
+
+  it("takes a kind and file name with the upload, and answers the info", async () => {
+    const res = await uploadAs(await app(), "kind=productImage&name=" + encodeURIComponent("../shoes/side view.png"));
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ kind: "productImage", name: "side view.png", description: "", details: {} });
+  });
+
+  it("answers empty info for an upload without any, as board uploads send", async () => {
+    const res = await upload(await app(), ANA);
+    expect(res.body).toMatchObject({ kind: null, name: "", description: "", details: {} });
+  });
+
+  it("refuses an unknown kind", async () => {
+    const res = await uploadAs(await app(), "kind=font");
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/kind must be one of/);
+  });
+
+  it("takes a logo only as a PNG", async () => {
+    const a = await app();
+    const jpeg = await uploadAs(a, "kind=logo", JPEG, "image/jpeg");
+    expect(jpeg.status).toBe(415);
+    expect(jpeg.body.message).toBe("The logo must be a PNG.");
+    expect((await uploadAs(a, "kind=logo")).status).toBe(201);
+    // A JPEG product image is fine.
+    expect((await uploadAs(a, "kind=productImage", JPEG, "image/jpeg")).status).toBe(201);
+  });
+
+  it("lists one kind on request", async () => {
+    const a = await app();
+    const logo = (await uploadAs(a, "kind=logo")).body;
+    await uploadAs(a, "kind=productImage");
+    await upload(a, ANA);
+    const res = await request(a).get("/api/assets?kind=logo").set("Cookie", ANA);
+    expect(res.body.map((x: { id: string }) => x.id)).toEqual([logo.id]);
+    expect((await request(a).get("/api/assets").set("Cookie", ANA)).body).toHaveLength(3);
+    expect((await request(a).get("/api/assets?kind=nope").set("Cookie", ANA)).status).toBe(400);
+  });
+
+  it("updates the description and details, keeping the rest", async () => {
+    const a = await app();
+    const shoe = (await uploadAs(a, "kind=productImage&name=shoe.png")).body;
+    const res = await patch(a, shoe.id, { description: "White trail shoe, side view", details: { imageType: "Packshot", view: "Side" } });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: shoe.id, kind: "productImage", name: "shoe.png", description: "White trail shoe, side view", details: { imageType: "Packshot", view: "Side" } });
+    const listed = (await request(a).get("/api/assets").set("Cookie", ANA)).body[0];
+    expect(listed.details).toEqual({ imageType: "Packshot", view: "Side" });
+  });
+
+  it("refuses details that do not fit the kind, and bad descriptions", async () => {
+    const a = await app();
+    const shoe = (await uploadAs(a, "kind=productImage")).body;
+    expect((await patch(a, shoe.id, { details: { usage: "By default" } })).status).toBe(400);
+    expect((await patch(a, shoe.id, { details: { view: "Underneath" } })).status).toBe(400);
+    expect((await patch(a, shoe.id, { description: 5 })).status).toBe(400);
+    expect((await patch(a, shoe.id, { description: "x".repeat(2001) })).status).toBe(400);
+    expect((await patch(a, shoe.id, { kind: "font" })).status).toBe(400);
+    expect((await patch(a, shoe.id, [1])).status).toBe(400);
+  });
+
+  it("starts a new kind with no details, unless they come with it", async () => {
+    const a = await app();
+    const img = (await uploadAs(a, "kind=productImage")).body;
+    await patch(a, img.id, { details: { view: "Side" } });
+    const moved = await patch(a, img.id, { kind: "reference" });
+    expect(moved.body).toMatchObject({ kind: "reference", details: {} });
+    const withDetails = await patch(a, img.id, { kind: "styleExample", details: { exampleType: "Social creative" } });
+    expect(withDetails.body).toMatchObject({ kind: "styleExample", details: { exampleType: "Social creative" } });
+  });
+
+  it("will not make a non-PNG into a logo", async () => {
+    const a = await app();
+    const jpeg = (await uploadAs(a, "kind=productImage", JPEG, "image/jpeg")).body;
+    const res = await patch(a, jpeg.id, { kind: "logo" });
+    expect(res.status).toBe(415);
+    expect(res.body.message).toBe("The logo must be a PNG.");
+  });
+
+  it("is a 404 for another user's asset or none at all", async () => {
+    const a = await app();
+    const mine = (await uploadAs(a, "kind=logo")).body;
+    expect((await patch(a, mine.id, { description: "theirs now" }, BEN)).status).toBe(404);
+    expect((await patch(a, "no-such-id", { description: "x" })).status).toBe(404);
+    const listed = (await request(a).get("/api/assets").set("Cookie", ANA)).body[0];
+    expect(listed.description).toBe("");
+  });
+});

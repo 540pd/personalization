@@ -55,6 +55,38 @@ describe.each(stores)("%s asset store", (_name, make, enabled) => {
     expect(await store.get(asset.id, ana)).toEqual(asset);
   });
 
+  run("keeps an asset's kind, name, description and details (#412)", async () => {
+    const store = make();
+    const ana = user();
+    const info = { kind: "logo" as const, name: "brand-logo.png", description: "Black wordmark", details: { usage: "On light backgrounds" } };
+    const asset = await store.put(ana, bytes, "image/png", "upload", info);
+    expect(asset).toMatchObject(info);
+    expect(await store.get(asset.id, ana)).toEqual(asset);
+    expect((await store.list(ana)).find((a) => a.id === asset.id)).toEqual(asset);
+  });
+
+  run("updates only the info given, never the bytes or owner, and only for the owner", async () => {
+    const store = make();
+    const ana = user();
+    const asset = await store.put(ana, bytes, "image/png", "upload", { kind: "productImage", name: "shoe.png" });
+    const updated = await store.update(asset.id, ana, { description: "Side view", details: { view: "Side" } });
+    expect(updated).toMatchObject({ id: asset.id, userId: ana, bytes: bytes.length, kind: "productImage", name: "shoe.png", description: "Side view", details: { view: "Side" } });
+    expect(await store.get(asset.id, ana)).toEqual(updated);
+    const opened = await store.open(asset.id, ana);
+    expect(Buffer.compare(await readAll(opened!.stream), bytes)).toBe(0);
+    expect(await store.update(asset.id, user(), { description: "not mine" })).toBeNull();
+    expect((await store.get(asset.id, ana))?.description).toBe("Side view");
+    expect(await store.update("no-such-id", ana, { description: "x" })).toBeNull();
+  });
+
+  run("still reads an asset stored without any info", async () => {
+    const store = make();
+    const ana = user();
+    const asset = await store.put(ana, bytes, "image/png", "generated");
+    expect(asset.kind).toBeUndefined();
+    expect(await store.get(asset.id, ana)).toEqual(asset);
+  });
+
   run("lists the user's assets newest first; remove takes one away", async () => {
     const store = make();
     const ana = user();
