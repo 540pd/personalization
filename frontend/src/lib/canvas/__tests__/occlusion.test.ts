@@ -5,7 +5,7 @@ import {
   PORT_FRACTION,
   PORT_WIDTH,
 } from "@/constants/canvas.constants";
-import { isCovered, labelProbe, portProbe, type Blocker } from "../occlusion";
+import { isCovered, konvaBlocker, labelProbe, portProbe, type Blocker } from "../occlusion";
 
 // Top-anchored (Konva) and centre-anchored (panel) boxes describing the SAME
 // rectangle: x 0..200, y 0..100. Every test below relies on that.
@@ -107,6 +107,35 @@ describe("isCovered — across layers", () => {
     expect(isCovered(pt, konva("self", 5), [konva("other", 1)], "canvas")).toBe(false);
     expect(isCovered(pt, konva("self", 1), [konva("other", 5)], "dom")).toBe(true);
     expect(isCovered(portProbe(panelBox, "output", 1), panel("a"), [panel("b")], "canvas")).toBe(true);
+  });
+});
+
+describe("isCovered — drawn shapes, always underneath (#430)", () => {
+  const p = { x: 100, y: 50 };
+  const shape = (id: string, z: number): Blocker => ({ id, box: konvaBox, layer: "shapes", z });
+
+  it("a shape covers nothing on another layer, whichever way the board flips", () => {
+    for (const front of ["canvas", "dom"] as const) {
+      expect(isCovered(p, konva("img", 0), [shape("s", 99)], front)).toBe(false);
+      expect(isCovered(p, panel("n"), [shape("s", 99)], front)).toBe(false);
+    }
+  });
+
+  it("everything else covers a shape, whichever way the board flips", () => {
+    for (const front of ["canvas", "dom"] as const) {
+      expect(isCovered(p, shape("s", 99), [konva("img", 0)], front)).toBe(true);
+      expect(isCovered(p, shape("s", 99), [panel("n")], front)).toBe(true);
+    }
+  });
+
+  it("between shapes, the higher z covers", () => {
+    expect(isCovered(p, shape("a", 0), [shape("b", 1)])).toBe(true);
+    expect(isCovered(p, shape("b", 1), [shape("a", 0)])).toBe(false);
+  });
+
+  it("konvaBlocker puts a record with a shape kind on the shapes layer", () => {
+    expect(konvaBlocker({ id: "s", ...konvaBox, z: 2, shape: "rect" })).toEqual({ id: "s", box: expect.anything(), layer: "shapes", z: 2 });
+    expect(konvaBlocker({ id: "i", ...konvaBox, z: 2 }).layer).toBe("canvas");
   });
 });
 

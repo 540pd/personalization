@@ -12,7 +12,6 @@ import type Konva from "konva";
 import type { BoardLayerDeps } from "./boardContext";
 import { useToolStore, shapeKindOf } from "@/store/tool.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
-import { useLayerOrder } from "@/store/layerOrder.store";
 import { selectOnly } from "@/lib/canvas/selection";
 import {
   createShape,
@@ -141,9 +140,13 @@ export function createShapeDrawHandlers(deps: BoardLayerDeps) {
     // applyDraggability reads the tool.
     useToolStore.getState().setTool("pointer");
     deps.applyDraggability();
-    // A newly created node comes to the front, as an upload does.
+    // Drawn on the main canvas, which is in front while a tool is armed, so
+    // the draw shows over the Create nodes it crosses; done, it goes behind
+    // them with the other shapes (#430), in front of those, as an upload
+    // comes to the front.
+    node.moveTo(deps.shapes);
     node.moveToTop();
-    useLayerOrder.getState().raiseCanvas();
+    deps.shapes.batchDraw();
 
     // The new shape is the selection, alone (#107).
     selectOnly("node");
