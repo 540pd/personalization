@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSection, setLeaveGuard } from "@/store/section.store";
+import { useBrand } from "@/store/brand.store";
 import { listen } from "@/lib/dom/listen";
 import { useToast } from "@/components/Toast/useToast";
 import {
@@ -21,6 +22,7 @@ import {
   uploadPageAsset,
 } from "@/api/brandAssets.api";
 import {
+  LOGO_TYPES_ACCEPTED,
   PRODUCT_IMAGE_TYPES_ACCEPTED,
   addUploading,
   changedImages,
@@ -28,7 +30,9 @@ import {
   isDirty,
   isDuplicate,
   isUploading,
+  imagesOf,
   recordOf,
+  replaceImage,
   saveProblems,
   uploadFailed,
   uploadRetried,
@@ -40,6 +44,9 @@ import LibraryPage from "../Library/LibraryPage";
 import { DiscardChanges } from "../Library/LibraryDialog";
 import ProductSection from "./ProductSection";
 import BrandSection from "./BrandSection";
+import BrandColours from "./BrandColours";
+import LogoGroup from "./LogoGroup";
+import type { LogoReading } from "../../assets/logoAnalysis";
 import CreativeGroup, { type CreativeKind } from "./CreativeGroup";
 import type { ImageSize } from "./AssetTiles";
 import "./Assets.scss";
@@ -57,8 +64,16 @@ const NOUNS: Record<ImageKind, string> = {
   productImage: "product images",
   adaptFrom: "creatives to adapt from",
   styleExample: "style examples",
+  logo: "logos",
 };
-const NOTHING_SELECTED: Record<ImageKind, string | null> = { productImage: null, adaptFrom: null, styleExample: null };
+const NOTHING_SELECTED: Record<ImageKind, string | null> = { productImage: null, adaptFrom: null, styleExample: null, logo: null };
+const LOGO_NOT_PNG = "The logo must be a PNG. Export it with a transparent background and try again.";
+
+/** Why `file` can't be added as `kind`, or null. */
+function wrongType(file: File, kind: ImageKind): string | null {
+  if (kind === "logo") return LOGO_TYPES_ACCEPTED.includes(file.type) ? null : LOGO_NOT_PNG;
+  return PRODUCT_IMAGE_TYPES_ACCEPTED.includes(file.type) ? null : `${file.name}: ${NOUNS[kind]} must be PNG or JPG.`;
+}
 
 function Page() {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
@@ -73,6 +88,10 @@ function Page() {
   // The item whose details are open, in each group.
   const [selected, setSelected] = useState(NOTHING_SELECTED);
   const [sizes, setSizes] = useState<Record<string, ImageSize>>({});
+  // What each logo's pixels say: transparency and colours (#417).
+  const [readings, setReadings] = useState<Record<string, LogoReading>>({});
+  // Whether the Campaign Brief needs a logo (#409), as it is in this session.
+  const logoRequired = useBrand((s) => s.brand.campaign.mandatory.logo);
   // Each upload's file and kind, for Retry, and each image's content hash, to
   // spot a duplicate (#415). By id: a temporary one until the upload lands.
   const files = useRef(new Map<string, { file: File; kind: ImageKind }>());
@@ -151,6 +170,7 @@ function Page() {
       const hash = hashes.current.get(tempId);
       if (hash) hashes.current.set(asset.id, hash);
       setSizes((s) => (s[tempId] ? { ...s, [asset.id]: s[tempId] } : s));
+      setReadings((r) => (r[tempId] ? { ...r, [asset.id]: r[tempId] } : r));
       setSelected((sel) => (sel[pending.kind] === tempId ? { ...sel, [pending.kind]: asset.id } : sel));
       edit((d) => uploaded(d, tempId, asset));
       if (preview) setTimeout(() => URL.revokeObjectURL(preview), 1000);
@@ -166,8 +186,9 @@ function Page() {
     const problems: string[] = [];
     const added: string[] = [];
     for (const file of picked) {
-      if (!PRODUCT_IMAGE_TYPES_ACCEPTED.includes(file.type)) {
-        problems.push(`${file.name}: ${NOUNS[kind]} must be PNG or JPG.`);
+      const wrong = wrongType(file, kind);
+      if (wrong) {
+        if (!problems.includes(wrong)) problems.push(wrong);
         continue;
       }
       const hash = await contentHash(file);
@@ -194,6 +215,31 @@ function Page() {
 
   const measure = (id: string, size: ImageSize) => setSizes((s) => ({ ...s, [id]: size }));
 
+  /** A new file in an image's place (#417: Replace on a logo), its details kept. */
+  const replace = async (id: string, file: File) => {
+    const kind = latest.current?.images.find((i) => i.asset.id === id)?.asset.kind;
+    if (!kind || kind === "reference") return;
+    setAddError(null);
+    const wrong = wrongType(file, kind);
+    if (wrong) {
+      setAddError({ kind, message: wrong });
+      return;
+    }
+    const hash = await contentHash(file);
+    const now = latest.current;
+    if (now && isDuplicate(now, file, hash, hashes.current, kind)) {
+      setAddError({ kind, message: `${file.name}: this image is already here.` });
+      return;
+    }
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    files.current.set(tempId, { file, kind });
+    hashes.current.set(tempId, hash);
+    const preview = URL.createObjectURL(file);
+    previews.current.set(tempId, preview);
+    edit((d) => replaceImage(d, id, tempId, file, preview));
+    await send(tempId);
+  };
+
   const retry = (tempId: string) => {
     edit((d) => uploadRetried(d, tempId));
     void send(tempId);
@@ -208,7 +254,7 @@ function Page() {
       if (!pasted.length) return;
       e.preventDefault();
       const group = document.activeElement?.closest<HTMLElement>("[data-asset-kind]")?.dataset.assetKind;
-      void addFiles(pasted, group === "adaptFrom" || group === "styleExample" ? group : "productImage");
+      void addFiles(pasted, group === "adaptFrom" || group === "styleExample" || group === "logo" ? group : "productImage");
     });
   });
 
@@ -229,7 +275,7 @@ function Page() {
 
   const onSave = async () => {
     if (!draft) return;
-    if (saveProblems(draft).message) {
+    if (saveProblems(draft, { logoRequired }).message) {
       setTried(true);
       return;
     }
@@ -279,7 +325,10 @@ function Page() {
     proceed?.();
   };
 
-  const problems = draft ? saveProblems(draft) : null;
+  const problems = draft ? saveProblems(draft, { logoRequired }) : null;
+  // Suggested from the primary (first) logo.
+  const primaryLogo = draft ? imagesOf(draft, "logo")[0] : undefined;
+  const suggestions = (primaryLogo && readings[primaryLogo.asset.id]?.colours) || [];
   const showProblems = tried && !!problems?.message;
 
   return (
@@ -330,7 +379,27 @@ function Page() {
           >
             {creativeGroup("adaptFrom")}
           </ProductSection>
-          <BrandSection>{creativeGroup("styleExample")}</BrandSection>
+          <BrandSection>
+            <LogoGroup
+              draft={draft}
+              onChange={edit}
+              onAddFiles={(picked) => void addFiles(picked, "logo")}
+              onReplace={(id, file) => void replace(id, file)}
+              onRetry={retry}
+              readings={readings}
+              onRead={(id, reading) => setReadings((r) => ({ ...r, [id]: reading }))}
+              required={logoRequired}
+              missing={tried && !!problems?.missingLogo}
+              addError={addError?.kind === "logo" ? addError.message : null}
+            />
+            <BrandColours
+              colours={draft.colours}
+              onChange={(key, value) => edit((d) => ({ ...d, colours: { ...d.colours, [key]: value } }))}
+              suggestions={suggestions}
+              flagged={tried ? (problems?.badColours ?? []) : []}
+            />
+            {creativeGroup("styleExample")}
+          </BrandSection>
 
           {/* Pinned to the bottom of the page while it scrolls, as on Brand. */}
           <div className="assets-save-bar" role="region" aria-label="Save assets">
