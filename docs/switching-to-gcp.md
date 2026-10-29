@@ -11,6 +11,7 @@ variables and restarting, **never a code change**. Services switch one at a time
 | Data and files | local disk at `backend/.data` | Firestore + Cloud Storage | `FIRESTORE_PROJECT_ID`, `GCS_BUCKET_NAME` |
 | AI generation | offline placeholders | Vertex AI | `VERTEX_PROJECT_ID` (and `VERTEX_LOCATION`) |
 | Video jobs | in process, picked up again after a restart | Cloud Tasks | `CLOUD_TASKS_QUEUE`, `CLOUD_TASKS_SERVICE_ACCOUNT`, `JOBS_WORKER_URL` |
+| Support email | messages kept and logged, not emailed | any SMTP server | `SUPPORT_EMAIL_TO`, `SUPPORT_EMAIL_FROM`, `SMTP_HOST` (and `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`) |
 
 ## How to tell what is running
 
@@ -23,6 +24,7 @@ GCOS backend listening on http://localhost:4000
   storage: local disk at …/backend/.data (placeholder) -- to switch: FIRESTORE_PROJECT_ID, GCS_BUCKET_NAME
   AI:      offline placeholders -- to switch: VERTEX_PROJECT_ID
   jobs:    in process (placeholder) -- to switch: CLOUD_TASKS_QUEUE, CLOUD_TASKS_SERVICE_ACCOUNT, JOBS_WORKER_URL
+  support: kept and logged, not emailed (placeholder) -- to switch: SUPPORT_EMAIL_TO, SUPPORT_EMAIL_FROM, SMTP_HOST
 ```
 
 `GET /api/health` answers the same as `modes`, plus a probe of each configured
@@ -37,7 +39,8 @@ A deployed backend (`K_SERVICE` or `NODE_ENV=production`) **refuses to start** o
 the storage placeholder, so a misconfigured deploy fails loudly instead of keeping
 data on an instance's disk, or with video jobs in process (Cloud Run throttles a
 request's CPU once it has answered, so they would stall). Placeholder AI is allowed
-deployed (it costs nothing) and warned about.
+deployed (it costs nothing) and warned about, and so is support email that is not
+set up.
 
 ## Data and files: Firestore + Cloud Storage
 
@@ -149,6 +152,39 @@ reaches it) on whichever instance it lands, retrying if the call fails.
 
 **Verify on first use:** the worker's token check is tested with Google's
 verification stubbed, and enqueuing with the REST call stubbed.
+
+## Support email: SMTP
+
+The support form (`POST /api/support`, open to anyone, signed in or not) keeps
+every message in the data store (`support/{id}` in Firestore, `.data/support/` on
+local disk) before anything else. Without SMTP that is all, plus a log line; with
+it, each message is then emailed to the team, with Reply-To set to the sender.
+An email that fails leaves the message kept and the failure logged.
+
+1. Pick an SMTP server: Google Workspace's SMTP relay, SendGrid, Mailgun or any
+   other. Port 587 uses STARTTLS; 465 uses TLS from the start.
+2. Keep the password in Secret Manager and give it to the service as `SMTP_PASS`:
+   ```bash
+   printf '%s' "<smtp password>" | gcloud secrets create gcos-smtp-pass --data-file=-
+   gcloud secrets add-iam-policy-binding gcos-smtp-pass \
+     --member=serviceAccount:$SA --role=roles/secretmanager.secretAccessor
+   gcloud run services update gcos-backend --region=$REGION \
+     --update-secrets=SMTP_PASS=gcos-smtp-pass:latest
+   ```
+3. Set the rest (`SUPPORT_EMAIL_TO` takes several addresses, comma-separated;
+   leave `SMTP_USER` and `SMTP_PASS` unset for a relay that trusts the backend's
+   address):
+   ```bash
+   SUPPORT_EMAIL_TO=support@yourteam.com
+   SUPPORT_EMAIL_FROM=no-reply@yourteam.com
+   SMTP_HOST=smtp.example.com
+   SMTP_PORT=587
+   SMTP_USER=<smtp user>
+   ```
+4. Verify: `modes.supportEmail` is `"smtp"`; a message sent from the sign-in
+   screen's **Contact us** arrives, and Reply answers the sender.
+
+Each address may send 5 messages an hour, counted per backend instance.
 
 ## Checking everything at once: the smoke test
 

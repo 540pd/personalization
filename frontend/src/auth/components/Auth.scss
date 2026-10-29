@@ -31,6 +31,19 @@
   }
 }
 
+// Under everything else on the card: the way to the support form (#428).
+.auth-help {
+  @apply m-0 mt-2 w-full border-t border-neutral-100 pt-4 text-[13px] text-neutral-600;
+}
+
+.auth-help-link {
+  @apply font-medium text-neutral-900 underline;
+
+  &:focus-visible {
+    @apply focus-ring;
+  }
+}
+
 .auth-link {
   @apply cursor-pointer border-0 bg-transparent p-0 font-medium text-neutral-900 underline;
 

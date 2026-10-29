@@ -182,6 +182,14 @@ describe("proxy route: credentials", () => {
     expect(sent().get("x-user-identity")).toBeNull();
   });
 
+  it("passes the browser's address on as X-Client-IP: the last X-Forwarded-For entry", async () => {
+    fetchMock.mockResolvedValue(backendJson({}));
+    await get({ "x-forwarded-for": "10.0.0.1, 203.0.113.7" });
+    expect(sent().get("x-client-ip")).toBe("203.0.113.7");
+    await get({});
+    expect(new Headers(fetchMock.mock.calls[1][1]?.headers).get("x-client-ip")).toBeNull();
+  });
+
   it("forwards no cookie when there is no session cookie", async () => {
     fetchMock.mockResolvedValue(backendJson({}));
     await get({ cookie: "theme=dark" });
