@@ -18,3 +18,16 @@ export function pickFile(accept: string, onPicked: (file: File) => void): void {
   });
   input.click();
 }
+
+/** As pickFile, choosing several at once (#415): `onPicked` gets them all, in order. */
+export function pickFiles(accept: string, onPicked: (files: File[]) => void): void {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = accept;
+  input.multiple = true;
+  input.addEventListener("change", () => {
+    const picked = Array.from(input.files ?? []);
+    if (picked.length) onPicked(picked);
+  });
+  input.click();
+}

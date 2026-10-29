@@ -2,14 +2,17 @@
 
 // Section 1 of the Assets page (#414): the product's name and SKU, its
 // master image shown large, and its other views, each with its details.
+// Images arrive by click, drop or paste, several at once, and show while
+// they upload (#415).
 
-import { useId, useState } from "react";
-import { pickFile } from "@/lib/dom/pickFile";
+import { useId, useRef, useState, type DragEvent } from "react";
+import { pickFiles } from "@/lib/dom/pickFile";
 import {
   PRODUCT_IMAGE_TYPES,
   PRODUCT_IMAGE_TYPES_ACCEPTED,
   PRODUCT_VIEWS,
   editImage,
+  isLowRes,
   makeMaster,
   master,
   otherViews,
@@ -19,30 +22,44 @@ import {
 } from "../../assets/assetsDraft";
 
 type Edit = (update: (d: AssetsDraft) => AssetsDraft) => void;
+export type ImageSize = { width: number; height: number };
 
 export default function ProductSection({
   draft,
   onChange,
-  onAddFile,
-  uploading,
-  uploadError,
+  onAddFiles,
+  onRetry,
+  selected,
+  onSelect,
+  sizes,
+  onMeasure,
+  addError,
   missingMaster,
   missingName,
 }: {
   draft: AssetsDraft;
   onChange: Edit;
-  onAddFile: (file: File) => void;
-  uploading: boolean;
-  uploadError: string | null;
+  onAddFiles: (files: File[]) => void;
+  onRetry: (id: string) => void;
+  /** The view whose details are open; the first view when it is null. */
+  selected: string | null;
+  onSelect: (id: string | null) => void;
+  /** Each image's pixel size, once it has loaded. */
+  sizes: Record<string, ImageSize>;
+  onMeasure: (id: string, size: ImageSize) => void;
+  addError: string | null;
   missingMaster: boolean;
   missingName: boolean;
 }) {
   const id = useId();
-  const [selected, setSelected] = useState<string | null>(null);
   const hero = master(draft);
   const views = otherViews(draft);
   const current = views.find((v) => v.asset.id === selected) ?? views[0] ?? null;
-  const add = () => pickFile(PRODUCT_IMAGE_TYPES_ACCEPTED.join(","), onAddFile);
+  const add = () => pickFiles(PRODUCT_IMAGE_TYPES_ACCEPTED.join(","), onAddFiles);
+  const emptyDrop = useDropZone(onAddFiles);
+  const viewsDrop = useDropZone(onAddFiles);
+  const measure = (image: DraftImage) => (e: React.SyntheticEvent<HTMLImageElement>) =>
+    onMeasure(image.asset.id, { width: e.currentTarget.naturalWidth, height: e.currentTarget.naturalHeight });
 
   return (
     <section className="assets-section" aria-labelledby={`${id}-title`}>
@@ -93,14 +110,17 @@ export default function ProductSection({
       </div>
 
       {!hero ? (
-        <div className={missingMaster ? "assets-empty is-missing" : "assets-empty"}>
+        <div
+          className={["assets-empty", missingMaster && "is-missing", emptyDrop.active && "is-dropping"].filter(Boolean).join(" ")}
+          {...emptyDrop.handlers}
+        >
           <strong>No product image added yet.</strong>
           <span className="assets-muted">Upload at least one product image to start generating creatives.</span>
-          <button type="button" className="assets-primary" onClick={add} disabled={uploading}>
-            {uploading ? "Uploading…" : "Upload product image"}
+          <button type="button" className="assets-primary" onClick={add}>
+            Upload product image
           </button>
-          <span className="assets-hint">PNG or JPG · high resolution works best</span>
-          {uploadError && <span className="assets-field-error" role="alert">{uploadError}</span>}
+          <span className="assets-hint">or drop or paste images here · PNG or JPG · high resolution works best</span>
+          {addError && <span className="assets-field-error" role="alert">{addError}</span>}
         </div>
       ) : (
         <div className="assets-product">
@@ -112,24 +132,26 @@ export default function ProductSection({
               <span className="assets-hint">The main reference for generation</span>
             </div>
             <div className="assets-master-frame">
-              {/* eslint-disable-next-line @next/next/no-img-element -- an asset behind the signed-in proxy, which next/image cannot fetch */}
-              <img src={hero.asset.url} alt={hero.description || `Master image: ${hero.asset.name}`} />
+              {/* eslint-disable-next-line @next/next/no-img-element -- an asset behind the signed-in proxy (or a local copy), which next/image cannot fetch */}
+              <img src={hero.asset.url} alt={hero.description || `Master image: ${hero.asset.name}`} onLoad={measure(hero)} />
               <span className="assets-badge">Master</span>
+              <UploadOverlay image={hero} onRetry={onRetry} onRemove={() => onChange((d) => removeImage(d, hero.asset.id))} />
             </div>
+            <LowResWarning size={sizes[hero.asset.id]} />
             <ImageDetails image={hero} onChange={onChange} />
             <button
               type="button"
               className="assets-danger"
               onClick={() => {
                 onChange((d) => removeImage(d, hero.asset.id));
-                setSelected(null);
+                onSelect(null);
               }}
             >
               Remove master image
             </button>
           </div>
 
-          <div className="assets-views">
+          <div className={viewsDrop.active ? "assets-views is-dropping" : "assets-views"} {...viewsDrop.handlers}>
             <div className="assets-col-head">
               <span className="assets-label">
                 Other views <span className="assets-muted">(optional)</span>
@@ -138,31 +160,49 @@ export default function ProductSection({
             </div>
             <div className="assets-grid">
               {views.map((v) => (
-                <button
-                  key={v.asset.id}
-                  type="button"
-                  className={current?.asset.id === v.asset.id ? "assets-tile is-selected" : "assets-tile"}
-                  aria-pressed={current?.asset.id === v.asset.id}
-                  onClick={() => setSelected(v.asset.id)}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- as above: behind the proxy */}
-                  <img src={v.asset.url} alt="" />
-                  <span>{caption(v)}</span>
-                </button>
+                <div key={v.asset.id} className="assets-tile-wrap">
+                  <button
+                    type="button"
+                    className={[
+                      "assets-tile",
+                      current?.asset.id === v.asset.id && "is-selected",
+                      v.upload?.state === "failed" && "is-failed",
+                    ].filter(Boolean).join(" ")}
+                    aria-pressed={current?.asset.id === v.asset.id}
+                    onClick={() => onSelect(v.asset.id)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- as above */}
+                    <img src={v.asset.url} alt="" onLoad={measure(v)} />
+                    <span>{v.upload?.state === "uploading" ? "Uploading…" : caption(v)}</span>
+                  </button>
+                  {isLowRes(sizes[v.asset.id]) && (
+                    <span className="assets-tile-flag" title="Low resolution" aria-label="Low resolution">
+                      !
+                    </span>
+                  )}
+                  <UploadOverlay image={v} onRetry={onRetry} onRemove={() => onChange((d) => removeImage(d, v.asset.id))} compact />
+                </div>
               ))}
-              <button type="button" className="assets-add" onClick={add} disabled={uploading}>
+              <button type="button" className="assets-add" onClick={add}>
                 <span aria-hidden>+</span>
-                {uploading ? "Uploading…" : "Add view"}
+                Add view
+                <small>or drop or paste</small>
               </button>
             </div>
-            {uploadError && <span className="assets-field-error" role="alert">{uploadError}</span>}
+            {addError && <span className="assets-field-error" role="alert">{addError}</span>}
             <span className="assets-hint">Suggested: side, back, close-up of details.</span>
 
             {current && (
               <div className="assets-details" role="group" aria-label="View details">
+                <LowResWarning size={sizes[current.asset.id]} />
                 <ImageDetails image={current} onChange={onChange} />
                 <div className="assets-details-actions">
-                  <button type="button" className="assets-pill" onClick={() => onChange((d) => makeMaster(d, current.asset.id))}>
+                  <button
+                    type="button"
+                    className="assets-pill"
+                    disabled={!!current.upload}
+                    onClick={() => onChange((d) => makeMaster(d, current.asset.id))}
+                  >
                     Make master
                   </button>
                   <button
@@ -170,7 +210,7 @@ export default function ProductSection({
                     className="assets-danger"
                     onClick={() => {
                       onChange((d) => removeImage(d, current.asset.id));
-                      setSelected(null);
+                      onSelect(null);
                     }}
                   >
                     Remove
@@ -182,6 +222,102 @@ export default function ProductSection({
         </div>
       )}
     </section>
+  );
+}
+
+const isFileDrag = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
+
+/**
+ * Files dropped on an element, with whether a drag is over it. The drop is
+ * the element's own: it stops here, so neither the page nor the board
+ * underneath acts on it too (#206).
+ */
+function useDropZone(onFiles: (files: File[]) => void) {
+  const [active, setActive] = useState(false);
+  const depth = useRef(0);
+  return {
+    active,
+    handlers: {
+      onDragEnter: (e: DragEvent) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        depth.current += 1;
+        setActive(true);
+      },
+      onDragOver: (e: DragEvent) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "copy";
+      },
+      onDragLeave: (e: DragEvent) => {
+        if (!isFileDrag(e)) return;
+        e.stopPropagation();
+        depth.current = Math.max(0, depth.current - 1);
+        if (depth.current === 0) setActive(false);
+      },
+      onDrop: (e: DragEvent) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        depth.current = 0;
+        setActive(false);
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length) onFiles(files);
+      },
+    },
+  };
+}
+
+/** Over an image still uploading (a spinner) or failed (why, Retry, Remove). */
+function UploadOverlay({
+  image,
+  onRetry,
+  onRemove,
+  compact,
+}: {
+  image: DraftImage;
+  onRetry: (id: string) => void;
+  onRemove: () => void;
+  compact?: boolean;
+}) {
+  if (!image.upload) return null;
+  const className = compact ? "assets-overlay is-compact" : "assets-overlay";
+  if (image.upload.state === "uploading") {
+    return (
+      <div className={className} role="status">
+        <span className="assets-spinner" aria-hidden />
+        {!compact && "Uploading…"}
+        {compact && <span className="sr-only">Uploading {image.asset.name}</span>}
+      </div>
+    );
+  }
+  return (
+    <div className={`${className} is-failed`} role="alert">
+      <span>Couldn&apos;t save it</span>
+      {!compact && <span className="assets-overlay-reason">{image.upload.error}</span>}
+      <span className="assets-overlay-actions">
+        <button type="button" className="assets-pill" onClick={() => onRetry(image.asset.id)} title={image.upload.error}>
+          Retry
+        </button>
+        {!compact && (
+          <button type="button" className="assets-danger" onClick={onRemove}>
+            Remove
+          </button>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function LowResWarning({ size }: { size: ImageSize | undefined }) {
+  if (!isLowRes(size)) return null;
+  return (
+    <div className="assets-warning" role="status">
+      <strong>Low resolution.</strong> This image is {size!.width} px wide. Generated images may look soft; 1500 px or more
+      works best.
+    </div>
   );
 }
 
