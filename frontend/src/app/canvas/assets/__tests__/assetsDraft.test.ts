@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { AssetView, BrandAssetsView } from "@/api/brandAssets.api";
 import {
-  addImage, addUploading, changedImages, draftFrom, editImage, isDirty, isDuplicate, isLowRes, isUploading, makeMaster, master,
-  otherViews, recordOf, removeImage, saveProblems, uploadFailed, uploadRetried, uploaded,
+  addImage, addUploading, changedImages, draftFrom, editImage, imagesOf, isDirty, isDuplicate, isLowRes, isUploading, makeMaster,
+  master, otherViews, recordOf, removeImage, saveProblems, uploadFailed, uploadRetried, uploaded,
 } from "../assetsDraft";
 
 // The Assets page's editing rules (#414).
@@ -127,5 +127,49 @@ describe("assets draft (#414)", () => {
       expect(isDuplicate(d, { name: "side.png", size: 10 }, "h2", new Map())).toBe(true);
       expect(isDuplicate(d, { name: "side.png", size: 11 }, "h2", new Map())).toBe(false);
     });
+  });
+});
+
+describe("creatives to adapt from and style examples (#416)", () => {
+  const file = { name: "spring-kv.final.png", type: "image/png", size: 10 };
+
+  it("loads them beside the product images, apart from the master and views", () => {
+    const d = draftFrom(view({ masterId: "a" }, [asset("k", { kind: "adaptFrom" }), asset("a"), asset("s", { kind: "styleExample" })]));
+    expect(d.images.map((i) => i.asset.id)).toEqual(["k", "a", "s"]);
+    expect(d.others).toEqual([]);
+    expect(imagesOf(d, "adaptFrom").map((i) => i.asset.id)).toEqual(["k"]);
+    expect(imagesOf(d, "styleExample").map((i) => i.asset.id)).toEqual(["s"]);
+    expect(otherViews(d)).toEqual([]);
+    expect(recordOf(d).assetIds).toEqual(["k", "a", "s"]);
+  });
+
+  it("never makes one the master, nor falls back to one", () => {
+    let d = draftFrom(view({}, [asset("k", { kind: "adaptFrom" })]));
+    expect(d.masterId).toBe("");
+    d = addUploading(d, "t1", file, "blob:1", "styleExample");
+    d = addImage(d, asset("k2", { kind: "adaptFrom" }));
+    expect(d.masterId).toBe("");
+    expect(makeMaster(d, "k").masterId).toBe("");
+    d = addImage(d, asset("a"));
+    d = addImage(d, asset("b"));
+    // Removing the master hands the badge to the next product image, skipping the others.
+    expect(removeImage(d, "a").masterId).toBe("b");
+  });
+
+  it("names a new one after its file, kept when it lands and saved as a change", () => {
+    let d = addUploading(draftFrom(view()), "t1", file, "blob:1", "adaptFrom");
+    expect(d.images[0].details).toEqual({ name: "spring-kv.final" });
+    d = editImage(d, "t1", { details: { name: "Spring key visual", aspectRatio: "16:9" } });
+    d = uploaded(d, "t1", asset("k", { kind: "adaptFrom", name: file.name }));
+    expect(d.images[0].details).toEqual({ name: "Spring key visual", aspectRatio: "16:9" });
+    expect(changedImages(d).map((i) => i.asset.id)).toEqual(["k"]);
+    // A product image starts with no details.
+    expect(addUploading(draftFrom(view()), "t2", file, "blob:2").images[0].details).toEqual({});
+  });
+
+  it("spots a duplicate only among images of the same kind", () => {
+    const d = draftFrom(view({}, [asset("a", { name: "x.png", bytes: 5 })]));
+    expect(isDuplicate(d, { name: "x.png", size: 5 }, "h", new Map())).toBe(true);
+    expect(isDuplicate(d, { name: "x.png", size: 5 }, "h", new Map(), "styleExample")).toBe(false);
   });
 });

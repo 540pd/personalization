@@ -34,10 +34,14 @@ import {
   uploadRetried,
   uploaded,
   type AssetsDraft,
+  type ImageKind,
 } from "../../assets/assetsDraft";
 import LibraryPage from "../Library/LibraryPage";
 import { DiscardChanges } from "../Library/LibraryDialog";
-import ProductSection, { type ImageSize } from "./ProductSection";
+import ProductSection from "./ProductSection";
+import BrandSection from "./BrandSection";
+import CreativeGroup, { type CreativeKind } from "./CreativeGroup";
+import type { ImageSize } from "./AssetTiles";
 import "./Assets.scss";
 
 export default function AssetsPage() {
@@ -48,6 +52,14 @@ export default function AssetsPage() {
 type Load = { kind: "loading" } | { kind: "error"; message: string } | { kind: "ready" };
 type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "failed"; message: string } | { kind: "conflict" };
 
+/** What each kind of image is called in a message about it. */
+const NOUNS: Record<ImageKind, string> = {
+  productImage: "product images",
+  adaptFrom: "creatives to adapt from",
+  styleExample: "style examples",
+};
+const NOTHING_SELECTED: Record<ImageKind, string | null> = { productImage: null, adaptFrom: null, styleExample: null };
+
 function Page() {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [saved, setSaved] = useState<AssetsDraft | null>(null);
@@ -56,12 +68,14 @@ function Page() {
   // Set by the first Save with something missing: from then on the missing
   // parts are marked as they stay missing.
   const [tried, setTried] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  // What the last add refused, shown in the group it was for.
+  const [addError, setAddError] = useState<{ kind: ImageKind; message: string } | null>(null);
+  // The item whose details are open, in each group.
+  const [selected, setSelected] = useState(NOTHING_SELECTED);
   const [sizes, setSizes] = useState<Record<string, ImageSize>>({});
-  // Each upload's file, for Retry, and each image's content hash, to spot a
-  // duplicate (#415). By id: a temporary one until the upload lands.
-  const files = useRef(new Map<string, File>());
+  // Each upload's file and kind, for Retry, and each image's content hash, to
+  // spot a duplicate (#415). By id: a temporary one until the upload lands.
+  const files = useRef(new Map<string, { file: File; kind: ImageKind }>());
   const hashes = useRef(new Map<string, string>());
   // The local copy each upload shows meanwhile, released once it lands.
   const previews = useRef(new Map<string, string>());
@@ -127,17 +141,17 @@ function Page() {
   latest.current = draft;
 
   const send = async (tempId: string) => {
-    const file = files.current.get(tempId);
-    if (!file) return;
+    const pending = files.current.get(tempId);
+    if (!pending) return;
     try {
-      const asset = await uploadPageAsset(file, "productImage");
+      const asset = await uploadPageAsset(pending.file, pending.kind);
       files.current.delete(tempId);
       const preview = previews.current.get(tempId);
       previews.current.delete(tempId);
       const hash = hashes.current.get(tempId);
       if (hash) hashes.current.set(asset.id, hash);
       setSizes((s) => (s[tempId] ? { ...s, [asset.id]: s[tempId] } : s));
-      setSelected((sel) => (sel === tempId ? asset.id : sel));
+      setSelected((sel) => (sel[pending.kind] === tempId ? { ...sel, [pending.kind]: asset.id } : sel));
       edit((d) => uploaded(d, tempId, asset));
       if (preview) setTimeout(() => URL.revokeObjectURL(preview), 1000);
     } catch (e) {
@@ -146,37 +160,39 @@ function Page() {
   };
 
   /** Click, drop or paste: each file shows at once and uploads in turn. */
-  const addFiles = async (picked: File[]) => {
+  const addFiles = async (picked: File[], kind: ImageKind) => {
     setAddError(null);
     const hadMaster = !!latest.current?.masterId;
     const problems: string[] = [];
     const added: string[] = [];
     for (const file of picked) {
       if (!PRODUCT_IMAGE_TYPES_ACCEPTED.includes(file.type)) {
-        problems.push(`${file.name}: product images must be PNG or JPG.`);
+        problems.push(`${file.name}: ${NOUNS[kind]} must be PNG or JPG.`);
         continue;
       }
       const hash = await contentHash(file);
       const now = latest.current;
-      if (now && (isDuplicate(now, file, hash, hashes.current) || added.some((id) => hashes.current.get(id) === hash))) {
+      if (now && (isDuplicate(now, file, hash, hashes.current, kind) || added.some((id) => hashes.current.get(id) === hash))) {
         problems.push(`${file.name}: this image is already here.`);
         continue;
       }
       const tempId = `tmp-${crypto.randomUUID()}`;
-      files.current.set(tempId, file);
+      files.current.set(tempId, { file, kind });
       hashes.current.set(tempId, hash);
       added.push(tempId);
       const preview = URL.createObjectURL(file);
       previews.current.set(tempId, preview);
-      edit((d) => addUploading(d, tempId, file, preview));
+      edit((d) => addUploading(d, tempId, file, preview, kind));
     }
-    if (problems.length) setAddError(problems.join(" "));
-    // The first new view opens its details; with no master yet, the first
-    // file became it, so that is the second.
-    const firstView = hadMaster ? added[0] : added[1];
-    if (firstView) setSelected(firstView);
+    if (problems.length) setAddError({ kind, message: problems.join(" ") });
+    // The first new item opens its details. For product images, with no
+    // master yet the first file became it, so that is the second.
+    const first = kind !== "productImage" || hadMaster ? added[0] : added[1];
+    if (first) setSelected((sel) => ({ ...sel, [kind]: first }));
     for (const id of added) await send(id);
   };
+
+  const measure = (id: string, size: ImageSize) => setSizes((s) => ({ ...s, [id]: size }));
 
   const retry = (tempId: string) => {
     edit((d) => uploadRetried(d, tempId));
@@ -184,15 +200,32 @@ function Page() {
   };
 
   // Paste an image from the clipboard (#415). Images only: pasted text is
-  // the field's own business.
+  // the field's own business. It joins the group that has focus (#416), else
+  // the product images.
   useEffect(() => {
     return listen(window, "paste", (e) => {
       const pasted = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
       if (!pasted.length) return;
       e.preventDefault();
-      void addFiles(pasted);
+      const group = document.activeElement?.closest<HTMLElement>("[data-asset-kind]")?.dataset.assetKind;
+      void addFiles(pasted, group === "adaptFrom" || group === "styleExample" ? group : "productImage");
     });
   });
+
+  const creativeGroup = (kind: CreativeKind) => (
+    <CreativeGroup
+      kind={kind}
+      draft={draft!}
+      onChange={edit}
+      onAddFiles={(picked) => void addFiles(picked, kind)}
+      onRetry={retry}
+      selected={selected[kind]}
+      onSelect={(id) => setSelected((sel) => ({ ...sel, [kind]: id }))}
+      sizes={sizes}
+      onMeasure={measure}
+      addError={addError?.kind === kind ? addError.message : null}
+    />
+  );
 
   const onSave = async () => {
     if (!draft) return;
@@ -285,16 +318,19 @@ function Page() {
           <ProductSection
             draft={draft}
             onChange={edit}
-            onAddFiles={(picked) => void addFiles(picked)}
+            onAddFiles={(picked) => void addFiles(picked, "productImage")}
             onRetry={retry}
-            selected={selected}
-            onSelect={setSelected}
+            selected={selected.productImage}
+            onSelect={(id) => setSelected((sel) => ({ ...sel, productImage: id }))}
             sizes={sizes}
-            onMeasure={(id, size) => setSizes((s) => ({ ...s, [id]: size }))}
-            addError={addError}
+            onMeasure={measure}
+            addError={addError?.kind === "productImage" ? addError.message : null}
             missingMaster={tried && !!problems?.missingMaster}
             missingName={tried && !!problems?.missingName}
-          />
+          >
+            {creativeGroup("adaptFrom")}
+          </ProductSection>
+          <BrandSection>{creativeGroup("styleExample")}</BrandSection>
 
           {/* Pinned to the bottom of the page while it scrolls, as on Brand. */}
           <div className="assets-save-bar" role="region" aria-label="Save assets">
