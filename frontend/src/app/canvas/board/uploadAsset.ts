@@ -8,6 +8,7 @@
 // mode (local dev) the store says it is not durable and the copy stays.
 
 import { apiFetch } from "@/api/canvas.api";
+import { uploadFailure } from "@/api/assets.api";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useNodeUploads } from "@/store/nodeUploads.store";
 
@@ -19,13 +20,6 @@ interface StoredAsset {
 // The file behind each upload still to settle, for Retry. Memory only: a
 // reload has no file to send, and the node keeps its local copy.
 const pending = new Map<string, File>();
-
-function failure(status: number | null): string {
-  if (status === 413) return "Too large to save (25 MB at most)";
-  if (status === 415) return "This kind of file can't be saved";
-  if (status === 401) return "Sign in again to save it";
-  return "Couldn't save it to your account";
-}
 
 /** Sends `file` for node `id`, and points the node at the stored asset. */
 export async function uploadNodeFile(id: string, file: File): Promise<void> {
@@ -56,7 +50,7 @@ export async function uploadNodeFile(id: string, file: File): Promise<void> {
       uploads.clear(id);
       return;
     }
-    uploads.set(id, { state: "failed", message: failure(status) });
+    uploads.set(id, { state: "failed", message: uploadFailure(status) });
   }
 }
 

@@ -1,0 +1,103 @@
+@reference "../../app/globals.css";
+
+// The image picker (#408): a trigger, or the chosen image, and a popover
+// below it with the user's image assets and an upload.
+
+.image-picker {
+  @apply relative inline-flex;
+}
+
+.image-picker-trigger {
+  @apply inline-flex h-[34px] items-center gap-2 rounded-lg border border-dashed border-neutral-300 bg-white px-3.5;
+  @apply text-[13px] text-neutral-700 transition-colors hover:border-neutral-400 hover:bg-neutral-50;
+  @apply focus-visible:focus-ring;
+}
+
+.image-picker-chosen {
+  @apply inline-flex h-[38px] items-center gap-2.5 rounded-lg border border-neutral-200 pl-1 pr-1.5;
+}
+
+.image-picker-thumb {
+  @apply size-[30px] rounded-md object-cover bg-neutral-100;
+}
+
+.image-picker-name {
+  @apply max-w-[220px] truncate text-[13px];
+}
+
+.image-picker-change {
+  @apply h-7 rounded-md px-2 text-[13px] text-neutral-600 transition-colors hover:bg-black/5 hover:text-neutral-900;
+  @apply focus-visible:focus-ring;
+}
+
+.image-picker-remove {
+  @apply flex size-7 items-center justify-center rounded-full text-neutral-500 transition-colors;
+  @apply hover:bg-black/5 hover:text-neutral-800;
+  @apply focus-visible:focus-ring;
+}
+
+.image-picker-popover {
+  @apply absolute left-0 top-full z-20 mt-1.5 flex w-96 flex-col gap-2.5 p-3 outline-none;
+  @apply menu-surface;
+}
+
+.image-picker-heading {
+  @apply text-xs font-semibold uppercase tracking-wide text-neutral-500;
+}
+
+// About three rows, then it scrolls: a long-used account has many images,
+// and an unbounded list ran the popover off the page. The padding keeps the
+// tiles' focus rings inside the scroll box.
+.image-picker-grid {
+  @apply grid max-h-[268px] grid-cols-3 gap-2 overflow-y-auto p-1 -m-1;
+}
+
+.image-picker-tile {
+  @apply flex flex-col gap-1 rounded-lg border border-neutral-200 bg-white p-1.5 text-left transition-colors;
+  @apply hover:border-neutral-400;
+  @apply focus-visible:focus-ring;
+
+  img {
+    @apply h-[52px] w-full rounded-md object-cover bg-neutral-100;
+  }
+
+  span {
+    @apply block min-w-0 truncate text-[11px] text-neutral-600;
+  }
+
+  &.is-chosen {
+    @apply border-neutral-900;
+  }
+
+  &.is-placeholder {
+    @apply h-[78px] animate-pulse border-transparent bg-neutral-100;
+  }
+}
+
+.image-picker-message {
+  @apply flex items-center gap-2 py-2 text-[13px] text-neutral-600;
+}
+
+.image-picker-retry {
+  @apply rounded-md px-1.5 py-0.5 font-medium text-neutral-900 underline underline-offset-2;
+  @apply focus-visible:focus-ring;
+}
+
+.image-picker-divider {
+  @apply h-px bg-neutral-100;
+}
+
+.image-picker-upload {
+  @apply inline-flex h-[34px] items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white;
+  @apply text-[13px] text-neutral-900 transition-colors hover:bg-neutral-50;
+  @apply disabled:cursor-default disabled:text-neutral-400 disabled:hover:bg-white;
+  @apply focus-visible:focus-ring;
+}
+
+.image-picker-note {
+  @apply text-xs text-neutral-500;
+}
+
+.image-picker-error {
+  @apply text-xs text-red-700;
+}
