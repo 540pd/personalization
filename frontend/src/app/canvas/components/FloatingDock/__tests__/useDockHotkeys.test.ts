@@ -4,6 +4,18 @@ import { cleanup, renderHook } from "@testing-library/react";
 import { useToolStore } from "@/store/tool.store";
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useSection } from "@/store/section.store";
+import { useSettings } from "@/store/settings.store";
+import { DEFAULT_SETTINGS, type Settings } from "@/app/canvas/settings/settings";
+
+const ALL_SHAPES: Partial<Settings> = {
+  showRect: true, showArrow: true, showLine: true, showEllipse: true,
+  showTriangle: true, showBlockArrow: true, showDiamond: true,
+};
+const NO_SHAPES: Partial<Settings> = Object.fromEntries(Object.keys(ALL_SHAPES).map((k) => [k, false]));
+
+function showShapes(shapes: Partial<Settings>) {
+  useSettings.setState({ settings: { ...DEFAULT_SETTINGS, ...shapes } });
+}
 import { useDockHotkeys } from "../useDockHotkeys";
 
 const keyCodes: Record<string, number> = { v: 86, f: 70, t: 84, r: 82, a: 65, l: 76, o: 79, s: 83, u: 85, Escape: 27 };
@@ -24,6 +36,8 @@ function setup() {
 beforeEach(() => {
   useSection.getState().setSection("playspace");
   useToolStore.setState({ activeTool: "pointer", lastShape: "rect" });
+  // Every shape offered, as these keys were written before #404 hid some.
+  showShapes(ALL_SHAPES);
 });
 afterEach(() => {
   cleanup();
@@ -49,6 +63,29 @@ describe("useDockHotkeys", () => {
     press("v");
     press("s");
     expect(useToolStore.getState().activeTool).toBe("shape-arrow");
+  });
+
+  it("ignores the letter of a shape hidden in Settings, and takes it back when shown (#404)", () => {
+    showShapes({ ...ALL_SHAPES, showEllipse: false });
+    setup();
+    press("o");
+    expect(useToolStore.getState().activeTool).toBe("pointer");
+    showShapes(ALL_SHAPES);
+    press("o");
+    expect(useToolStore.getState().activeTool).toBe("shape-ellipse");
+  });
+
+  it("arms the first shown shape on S when the last one is hidden, and nothing when none is (#404)", () => {
+    setup();
+    press("a");
+    press("v");
+    showShapes({ ...NO_SHAPES, showLine: true, showDiamond: true });
+    press("s");
+    expect(useToolStore.getState().activeTool).toBe("shape-line");
+    press("v");
+    showShapes(NO_SHAPES);
+    press("s");
+    expect(useToolStore.getState().activeTool).toBe("pointer");
   });
 
   it("leaves a modified letter alone", () => {
