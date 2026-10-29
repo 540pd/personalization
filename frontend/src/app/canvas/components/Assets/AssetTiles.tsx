@@ -5,7 +5,7 @@
 // and the low-resolution warning (#415). Product views (#414), creatives to
 // adapt from and style examples (#416) all use them.
 
-import { useRef, useState, type DragEvent, type SyntheticEvent } from "react";
+import { useRef, useState, type DragEvent, type ReactNode, type SyntheticEvent } from "react";
 import { isLowRes, type DraftImage } from "../../assets/assetsDraft";
 
 export type ImageSize = { width: number; height: number };
@@ -70,9 +70,12 @@ export function ImageTile({
   onMeasure,
   onRetry,
   onRemove,
+  badges,
 }: {
   image: DraftImage;
   caption: string;
+  /** Small labels under the caption (#418: a reference's type, Always). */
+  badges?: ReactNode;
   selected: boolean;
   onSelect: () => void;
   size: ImageSize | undefined;
@@ -91,6 +94,7 @@ export function ImageTile({
         {/* eslint-disable-next-line @next/next/no-img-element -- an asset behind the signed-in proxy (or a local copy), which next/image cannot fetch */}
         <img src={image.asset.url} alt="" onLoad={measured(image, onMeasure)} />
         <span>{image.upload?.state === "uploading" ? "Uploading…" : caption}</span>
+        {badges && <span className="assets-tile-badges">{badges}</span>}
       </button>
       {isLowRes(size) && (
         <span className="assets-tile-flag" title="Low resolution" aria-label="Low resolution">
