@@ -65,14 +65,15 @@ test.describe("Assets brand section", () => {
     await resetAssets(page);
   });
 
-  test("no logo yet: the brief's rule, the empty state, guidelines coming soon; PNG only", async ({ page }) => {
+  test("no logo yet: the brief's rule, the empty state, guidelines to upload; PNG only", async ({ page }) => {
     await openAssets(page);
     await expect(page.getByRole("heading", { name: "2 · Brand Assets", level: 2 })).toBeVisible();
     await expect(logoGroup(page)).toContainText("PNG with a transparent background. Required: Logo is mandatory in the Campaign Brief.");
     await expect(logoGroup(page)).toContainText("No logo added.");
     await expect(logoGroup(page)).toContainText("Add your primary logo if branding is required for this campaign.");
-    await expect(page.getByRole("button", { name: "Upload guidelines" })).toBeDisabled();
-    await expect(page.getByText("Coming soon")).toBeVisible();
+    // Guidelines are uploaded here now (#450), no longer coming soon.
+    await expect(page.getByRole("button", { name: "+ Upload guidelines" })).toBeEnabled();
+    await expect(page.getByText("Coming soon")).toHaveCount(0);
     await expect(colours(page).getByText("Suggested from your logo:")).toHaveCount(0);
 
     await choose(page, "Upload logo", "logo.jpg", Buffer.from([0xff, 0xd8, 0xff]), "image/jpeg");

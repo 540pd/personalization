@@ -31,6 +31,7 @@ import {
   isDuplicate,
   isUploading,
   imagesOf,
+  guidelinesProblem,
   isImageKind,
   master,
   readiness,
@@ -51,6 +52,7 @@ import BrandColours from "./BrandColours";
 import LogoGroup from "./LogoGroup";
 import ReferencesSection from "./ReferencesSection";
 import ReadinessStrip from "./ReadinessStrip";
+import GuidelinesGroup from "./GuidelinesGroup";
 import { stripExtension, uploadEvent } from "../../board/upload";
 import type { LogoReading } from "../../assets/logoAnalysis";
 import CreativeGroup, { type CreativeKind } from "./CreativeGroup";
@@ -72,14 +74,26 @@ const NOUNS: Record<ImageKind, string> = {
   styleExample: "style examples",
   logo: "logos",
   reference: "references",
+  guidelines: "brand guidelines",
 };
 const NOTHING_SELECTED: Record<ImageKind, string | null> = {
-  productImage: null, adaptFrom: null, styleExample: null, logo: null, reference: null,
+  productImage: null, adaptFrom: null, styleExample: null, logo: null, reference: null, guidelines: null,
 };
 const LOGO_NOT_PNG = "The logo must be a PNG. Export it with a transparent background and try again.";
 
 /** Why `file` can't be added as `kind`, or null. */
+/** Whether `file` reads as UTF-8 text (#450: brand guidelines). */
+async function isUtf8(file: File): Promise<boolean> {
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function wrongType(file: File, kind: ImageKind): string | null {
+  if (kind === "guidelines") return guidelinesProblem(file);
   if (kind === "logo") return LOGO_TYPES_ACCEPTED.includes(file.type) ? null : LOGO_NOT_PNG;
   return PRODUCT_IMAGE_TYPES_ACCEPTED.includes(file.type) ? null : `${file.name}: ${NOUNS[kind]} must be PNG or JPG.`;
 }
@@ -195,7 +209,8 @@ function Page() {
     const problems: string[] = [];
     const added: string[] = [];
     for (const file of picked) {
-      const wrong = wrongType(file, kind);
+      // Guidelines (#450) must be UTF-8 text, known only once read.
+      const wrong = wrongType(file, kind) ?? (kind === "guidelines" && !(await isUtf8(file)) ? guidelinesProblem(file, false) : null);
       if (wrong) {
         if (!problems.includes(wrong)) problems.push(wrong);
         continue;
@@ -203,7 +218,7 @@ function Page() {
       const hash = await contentHash(file);
       const now = latest.current;
       if (now && (isDuplicate(now, file, hash, hashes.current, kind) || added.some((id) => hashes.current.get(id) === hash))) {
-        problems.push(`${file.name}: this image is already here.`);
+        problems.push(`${file.name}: this ${kind === "guidelines" ? "file" : "image"} is already here.`);
         continue;
       }
       const tempId = `tmp-${crypto.randomUUID()}`;
@@ -408,6 +423,13 @@ function Page() {
               onChange={(key, value) => edit((d) => ({ ...d, colours: { ...d.colours, [key]: value } }))}
               suggestions={suggestions}
               flagged={tried ? (problems?.badColours ?? []) : []}
+            />
+            <GuidelinesGroup
+              draft={draft}
+              onChange={edit}
+              onAddFiles={(picked) => void addFiles(picked, "guidelines")}
+              onRetry={retry}
+              addError={addError?.kind === "guidelines" ? addError.message : null}
             />
             {creativeGroup("styleExample")}
           </BrandSection>

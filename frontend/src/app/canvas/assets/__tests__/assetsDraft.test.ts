@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AssetView, BrandAssetsView } from "@/api/brandAssets.api";
 import {
   addImage, addUploading, changedImages, draftFrom, editImage, imagesOf, isDirty, isDuplicate, isLowRes, isUploading, makeMaster,
-  master, otherViews, recordOf, removeImage, replaceImage, readiness, saveProblems, setReferenceType, defaultUse, uploadFailed, uploadRetried, uploaded, cleanColour, isColour,
+  master, otherViews, recordOf, removeImage, replaceImage, readiness, saveProblems, setReferenceType, defaultUse, uploadFailed, uploadRetried, uploaded, cleanColour, isColour, guidelinesProblem,
 } from "../assetsDraft";
 
 // The Assets page's editing rules (#414).
@@ -281,5 +281,21 @@ describe("readiness (#419)", () => {
   it("doesn't count an image still uploading", () => {
     const d = addUploading(draftFrom(view()), "t1", { name: "a.png", type: "image/png", size: 1 }, "blob:1");
     expect(readiness(d)[0].state).toBe("missing");
+  });
+});
+
+describe("brand guidelines (#450)", () => {
+  it("takes Markdown up to 100 KB, not empty, as text", () => {
+    expect(guidelinesProblem({ name: "Brand.MD", size: 2048 })).toBeNull();
+    expect(guidelinesProblem({ name: "brand.pdf", size: 2048 })).toBe("brand.pdf: only Markdown (.md) files.");
+    expect(guidelinesProblem({ name: "brand.md", size: 0 })).toBe("brand.md: this file is empty.");
+    expect(guidelinesProblem({ name: "brand.md", size: 100 * 1024 })).toBeNull();
+    expect(guidelinesProblem({ name: "brand.md", size: 100 * 1024 + 1 })).toBe("brand.md: too large, up to 100 KB.");
+    expect(guidelinesProblem({ name: "brand.md", size: 10 }, false)).toBe("brand.md: this file isn't plain text.");
+  });
+
+  it("starts named after the file, as Brand Guidelines", () => {
+    const d = addUploading(draftFrom(view()), "tmp-1", { name: "Logo rules.md", type: "", size: 10 }, "blob:x", "guidelines");
+    expect(d.images[0].details).toEqual({ title: "Logo rules", docType: "Brand Guidelines" });
   });
 });
