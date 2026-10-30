@@ -1,0 +1,699 @@
+# UI Design Analysis & Replication Guide
+
+The reference follows a premium, minimalist SaaS design language: clean typography, generous whitespace, restrained colors, sophisticated image presentation, and a carefully controlled visual hierarchy.
+
+The most important characteristic is the balance between an almost monochromatic interface and colorful, high-quality visual content.
+
+This is what makes it look modern and professional without feeling empty, generic, or overly designed.
+
+## 1. Understanding the overall design language
+
+Minimal editorial foundation
+
+Whitespace, typography, clarity
+
+[Saas Landing Page by Orix Creative on Dribbble](https://images.openai.com/static-rsc-4/irZJ8K1iy6t3AUomLD2Ej878FU5VwDgCPEk-73oj3QvTmTaBoAElONgU33MtHGMf5EVscVN8mFdc4w8Q9L1ln8wZHXVCsk7DZsSqDjzs1zGwDw_4aUll8w0wafeplCl36XsKtPcyoIPvt5ifKk_F9W50KzDeI4w2v6IYTvro13Y?purpose=inline)
+
+Expressive visual showcases
+
+Color concentrated around creative work
+
+The interface combines five defining design characteristics.
+
+| Design principle     | How it is applied                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| Minimalism           | Very few decorative elements. Each element has a clear purpose.                                 |
+| Editorial layout     | Large headlines, carefully composed sections, strong alignment, and ample negative space.       |
+| Restrained color     | White, light gray, black, and one dominant blue. Other colors appear selectively.               |
+| Content-first design | Product screenshots, image collections, and results are the primary visual attractions.         |
+| Quiet sophistication | Flat surfaces, soft corners, subtle boundaries, and minimal shadows rather than flashy effects. |
+
+The design feels closer to a modern creative-tool website than a traditional corporate dashboard.
+
+## 2. Color palette and visual styling
+
+A particularly important detail: the entire page is not pure white.
+
+It alternates between white and extremely light gray sections. That subtle difference creates separation without requiring visible dividers, thick borders, or colored containers.
+
+Approximate colors extracted and interpreted from the screenshot
+
+Primary Blue
+
+\#2C6ADC
+
+Buttons, active states
+
+Soft Gray
+
+\#F5F5F5
+
+Alternate backgrounds
+
+White
+
+\#FFFFFF
+
+Primary surfaces
+
+Near Black
+
+\#111111
+
+Headings and body
+
+Muted Indigo
+
+\#4D4A9B
+
+Metrics, highlights
+
+Cool Cyan
+
+\#45A3C4
+
+Secondary accents
+
+Soft Pink
+
+\#D95583
+
+Feature accents
+
+Light Border
+
+\#E7E7E7
+
+Subtle separators
+
+Secondary Text
+
+\#666666
+
+Supporting text
+
+### Color distribution
+
+The visual treatment can be summarized as:
+
+- 85–90% neutral UI: white, light gray, near-black typography.
+- Primary blue: mainly action buttons, selected tabs, and emphasis.
+- Indigo, pink, cyan: occasional status labels, feature icons, and metrics.
+- Orange, coral, teal, purple gradients: reserved for creative showcases, product imagery, and the promotional banner.
+
+The gradients are particularly important. They create visual energy behind product previews, while the actual interface remains clean and functional.
+
+Replication rule: Keep the application interface neutral. Let visual content and a limited number of active controls provide the color.
+
+## 3. Detailed layout breakdown
+
+The original appears to be a desktop landing page scaled down into a tall screenshot. The following proportions are inferred, not exact measurements from the site's code.
+
+| Section            | Layout composition          | Design details                                                                                                         |
+| ------------------ | --------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Navigation         | Slim horizontal header      | Small logo left, compact navigation right, blue CTA. No heavy border or shadow.                                        |
+| Hero               | Centered single-column      | Oversized two-line headline, blue second line, short supporting text, two compact CTAs.                                |
+| Hero preview       | Large centered visual       | Approximately 85% of page width. White application window inside a colorful abstract frame.                            |
+| Announcement       | Full-width horizontal strip | Coral/teal gradient background, brief white text, small blue CTA on the right.                                         |
+| Feature showcase   | Asymmetric two-column       | Narrow text column on the left, large screenshot on the right. Repeated three times with substantial vertical spacing. |
+| Product examples   | Tabs + editorial grid       | Light gray section, centered heading, understated tabs, descriptive copy, and a 2×2 image gallery.                     |
+| Engagement models  | Three equal cards           | Flat light gray cards, subtle rounded corners, colored category labels, concise content.                               |
+| Business outcomes  | Three-column metrics        | Explanatory text followed by two large indigo numbers, such as 3.4x and +18%.                                          |
+| Platform updates   | Horizontal card collection  | Image-led white cards on light gray, rounded thumbnails, compact labels and descriptions.                              |
+| Creative workflows | Asymmetric image gallery    | Centered heading, partner logos, and a six-image automotive gallery using mixed tile widths.                           |
+| FAQ                | Split-column accordion      | Heading left; stacked white, rounded accordion cards on the right, all on light gray.                                  |
+
+### What stands out about the composition
+
+The design uses three recurring spatial patterns rather than many different layouts:
+
+Centered introductions. Headlines and short supporting paragraphs are centered at the beginning of major sections. This creates a deliberate, calm rhythm.
+
+Asymmetric feature presentations. The feature rows give roughly 30% of their content width to text and 60% to the screenshot, with the rest as separation. The screenshot dominates because the product is the evidence.
+
+Structured collections. When several items must be displayed together, the design switches to equal-width cards, horizontal carousels, or a curated image grid.
+
+That controlled repetition is a major reason the page feels cohesive.
+
+## 4. Typography, spacing, and component styling
+
+Typography contributes heavily to the reference's professional appearance. It relies on clean, modern sans-serif type with relatively light headline weights rather than heavy, bold text throughout.
+
+### Recommended typography system
+
+| Element         | Suggested specification         | Visual intention                    |
+| --------------- | ------------------------------- | ----------------------------------- |
+| Font family     | Inter, Geist, or Helvetica Neue | Modern, neutral sans-serif          |
+| Hero heading    | 64–72px, weight 400–500         | Large, elegant, uncluttered         |
+| Section heading | 36–44px, weight 400–500         | Clear without becoming overpowering |
+| Card heading    | 20–24px, weight 500–600         | Balanced hierarchy                  |
+| Body text       | 15–16px, weight 400             | Readable and compact                |
+| Small labels    | 12–14px, weight 500             | Quiet supporting information        |
+| Display metrics | 56–72px, weight 300–400         | Large, refined emphasis             |
+
+The hero uses tight line spacing, while supporting paragraphs have more relaxed line height. Text remains mostly left-aligned inside content sections, even though primary introductions are centered.
+
+### Spacing and geometry
+
+Relative layout proportions
+
+Desktop estimate
+
+Centered page introduction, followed by a spacious 1:2 text-to-visual feature composition.
+
+| Property              | Recommended desktop value |
+| --------------------- | ------------------------- |
+| Maximum content width | 1200–1280px               |
+| Horizontal gutters    | 6–8vw                     |
+| Major section spacing | 100–144px                 |
+| Card padding          | 24–32px                   |
+| Card gap              | 16–24px                   |
+| Feature row gap       | 80–120px                  |
+| Card border radius    | 12–16px                   |
+| Screenshot radius     | 8–12px                    |
+| Button radius         | 6–8px                     |
+| Button height         | 40–44px                   |
+| Borders               | 1px, very light gray      |
+| Shadows               | None or extremely subtle  |
+
+A major visual detail is that rounded corners are used sparingly and consistently. The screenshot does not rely on excessively rounded buttons, large pill-shaped containers, or dramatic shadows.
+
+## 5. Translating the design into another application UI
+
+The reference is a marketing website, but its visual language can be applied effectively to a creative studio, dashboard, canvas editor, or other functional web application.
+
+The key is to reuse the design principles rather than reproduce the marketing page layout.
+
+| Reference design element        | Translation into an application                                   |
+| ------------------------------- | ----------------------------------------------------------------- |
+| Minimal top navigation          | Slim application header with logo, navigation, and primary action |
+| White/gray alternating sections | Light gray application shell with white work surfaces             |
+| Large product screenshots       | Main workspace or canvas remains the visual focus                 |
+| Compact blue CTAs               | Primary actions such as Create, Generate, Save                    |
+| Understated feature tabs        | Model, mode, workflow, or content selectors                       |
+| Clean rounded cards             | Generation history, asset cards, templates, and settings panels   |
+| Image-led bento grid            | Asset gallery, generation results, visual previews                |
+| Small colored labels            | Model status, generation type, tags, or categories                |
+| FAQ accordion styling           | Collapsible advanced settings and property groups                 |
+
+For a canvas-based creative editor specifically, I would preserve a white or very light gray central working area, use compact neutral toolbars and inspectors, and reserve the blue accent for selection, active tools, and primary actions.
+
+The colorful gradient treatment should be reserved for illustrations, thumbnails, preview frames, or occasional empty states—not every panel.
+
+## 6. Reusable CSS design tokens
+
+These are recommended starting values based on the reference, rather than exact original stylesheet values.
+
+```
+
+:root {
+  /* Core colors */
+  --bg-page: #ffffff;
+  --bg-subtle: #f5f5f5;
+  --bg-surface: #ffffff;
+
+  --text-primary: #111111;
+  --text-secondary: #666666;
+
+  --accent-primary: #2c6adc;
+  --accent-hover: #2057c4;
+  --accent-indigo: #4d4a9b;
+  --accent-pink: #d95583;
+  --accent-cyan: #45a3c4;
+
+  --border-subtle: #e7e7e7;
+
+  /* Typography */
+  --font-primary: "Inter", sans-serif;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Layout */
+  --content-width: 1240px;
+  --section-spacing: 120px;
+  --component-gap: 24px;
+
+  /* Shape */
+  --radius-button: 7px;
+  --radius-card: 16px;
+  --radius-media: 10px;
+
+  /* Effects */
+  --shadow-soft:
+    0 6px 24px rgba(0, 0, 0, 0.04);
+
+  --transition-fast: 160ms ease;
+}
+
+```
+
+## 7. Detailed AI prompt to replicate this design
+
+The following prompt is designed for use with a UI coding assistant. Attach the reference screenshot and provide access to the UI project you want redesigned.
+
+# UI Design Replication — Premium Minimalist Creative SaaS
+
+## Role
+
+Act as an expert **Senior Product Designer, UI/UX Architect, and Frontend Engineer** specializing in premium SaaS interfaces, minimalist design systems, and creative tools.
+
+## Objective
+
+Redesign my existing application UI using the attached screenshot as the primary visual reference.
+
+The goal is **not to clone the website's content or marketing page structure**, but to replicate its visual sophistication, typography, spacing, restrained color palette, clean composition, and professional design language.
+
+Preserve all existing application functionality, workflows, data integrations, routing, and business logic.
+
+## 1. Design Direction
+
+Create a visually refined, minimal, professional application with these qualities:
+
+- Premium, contemporary SaaS aesthetic.
+- Strong editorial typography.
+- Generous and deliberate whitespace.
+- Clean, flat surfaces and subtle visual separation.
+- Very limited use of saturated colors.
+- Clear distinction between functional interface elements and creative visual content.
+- Consistent alignment, spacing, sizing, and component shapes.
+- Subtle interactions rather than distracting animation.
+
+The final experience should feel polished, confident, calm, and intentionally designed.
+
+Avoid a generic admin-dashboard appearance.
+
+## 2. Color System
+
+Use a predominantly neutral palette:
+
+- White (`#FFFFFF`): primary surfaces.
+- Soft Gray (`#F5F5F5`): secondary backgrounds.
+- Near Black (`#111111`): primary typography.
+- Medium Gray (`#666666`): supporting text.
+- Electric Blue (`#2C6ADC`): primary actions and active states.
+- Muted Indigo (`#4D4A9B`): occasional emphasis and metrics.
+- Pink (`#D95583`) and Cyan (`#45A3C4`): selective secondary accents.
+- Light Gray (`#E7E7E7`): subtle borders.
+
+Keep most UI chrome neutral.
+
+Use expressive gradients containing muted coral, teal, cyan, orange, and purple only when they provide a purposeful creative backdrop, such as an asset showcase, product preview, or promotional illustration.
+
+Do not apply gradients indiscriminately to navigation, buttons, cards, or panels.
+
+## 3. Typography
+
+Use Inter, Geist, or another high-quality modern sans-serif font.
+
+Build a consistent type hierarchy:
+
+- Large page headlines: 48–72px where appropriate.
+- Section headings: 32–44px.
+- Application page titles: 24–32px.
+- Card headings: 18–24px.
+- Standard body: 15–16px.
+- Toolbar, panel, and metadata labels: 12–14px.
+
+Prefer regular and medium font weights for larger titles. Reserve semibold for important component labels and actions.
+
+Use tight line heights for large headlines and comfortable line heights for paragraphs.
+
+Avoid excessive bold text, uppercase labels, and unnecessary font-size variations.
+
+## 4. Layout & Composition
+
+Use a consistent grid-based layout with balanced proportions.
+
+For website-style sections, use a centered content container with a maximum width around 1240px and generous desktop margins.
+
+For application layouts, maintain a clear hierarchy between navigation, workspace, tools, and supporting panels.
+
+Use an 8px-based spacing system with common increments of 8, 16, 24, 32, 48, 64, and 96px.
+
+Preserve substantial whitespace between unrelated content groups.
+
+Use asymmetrical compositions where appropriate: compact descriptive content beside a visually dominant workspace, image, or preview.
+
+Avoid unnecessary nested containers, excessive cards, and overly dense content arrangements.
+
+## 5. Components
+
+### Navigation
+
+- Slim and visually lightweight.
+- Neutral background.
+- Minimal icons and labels.
+- Primary blue action where appropriate.
+- Subtle active states.
+
+### Buttons
+
+- Compact rectangular geometry.
+- Corner radius approximately 6–8px.
+- Blue primary buttons with white text.
+- White or light gray secondary buttons.
+- Subtle hover and focus treatments.
+
+### Cards
+
+- White or soft-gray surfaces.
+- Consistent padding of 20–32px.
+- Rounded corners of approximately 12–16px.
+- Minimal borders and shadows.
+- Strong hierarchy between title, content, and actions.
+
+### Tabs and Selectors
+
+- Compact and clearly grouped.
+- Active selection indicated using blue typography, an underline, or a subtle background.
+- Avoid thick borders and oversized controls.
+
+### Images and Preview Panels
+
+- Treat images as premium visual content.
+- Use consistent aspect ratios and rounded corners.
+- Allow certain key visuals to occupy more space.
+- Use asymmetric gallery layouts where relevant.
+- Avoid unnecessary decorative frames around every asset.
+
+### Toolbars and Side Panels
+
+- Compact, functional, and uncluttered.
+- Neutral icons by default.
+- Blue selected or active states.
+- Subtle dividers between logical groups.
+- Clear hierarchy without excessive visual decoration.
+
+## 6. Visual Hierarchy
+
+Use three distinct emphasis levels:
+
+**Primary:** Page headlines, main workspace, featured previews, primary actions.
+
+**Secondary:** Section titles, cards, tool panels, active modes, navigation.
+
+**Tertiary:** Supporting labels, metadata, helper text, secondary actions.
+
+The user's primary activity or content should remain the visual focus.
+
+## 7. Interaction Design
+
+Use restrained micro-interactions:
+
+- Subtle hover changes.
+- Smooth transitions of 150–200ms.
+- Clear selected and disabled states.
+- Accessible keyboard focus indicators.
+- Lightweight accordion and dropdown animations.
+
+Avoid bouncing effects, excessive motion, glow effects, unnecessary animated gradients, or glassmorphism.
+
+Respect reduced-motion preferences.
+
+## 8. Responsive Behavior
+
+Ensure that the redesigned UI works across desktop, tablet, and mobile viewports.
+
+Reduce large spacing and typography appropriately at smaller widths.
+
+Stack multi-column layouts when needed.
+
+Collapse or adapt tool panels without removing essential functionality.
+
+Maintain legible content and accessible control sizes.
+
+## 9. Implementation Requirements
+
+First inspect the existing UI structure, components, styles, and interactions.
+
+Then:
+
+1. Define shared design tokens for colors, typography, spacing, radius, and effects.
+2. Apply the visual system consistently throughout the existing interface.
+3. Refine layouts, alignment, visual hierarchy, and whitespace.
+4. Standardize buttons, cards, tabs, inputs, panels, menus, and interactive states.
+5. Make the UI responsive and accessible.
+6. Preserve existing functionality, data flow, integrations, and event handlers.
+7. Reuse existing application components and styling conventions where practical.
+8. Avoid adding irrelevant landing-page sections or replacing real content with placeholders.
+9. Review the rendered result at desktop and mobile sizes, and correct visual inconsistencies.
+
+## 10. Design Constraints
+
+Do not introduce:
+
+- Heavy drop shadows.
+- Excessively rounded or oversized cards.
+- Colorful gradients across every component.
+- Neon highlights or glassmorphism.
+- Large amounts of decorative imagery.
+- Multiple competing accent colors.
+- Unnecessary borders.
+- Dense layouts lacking breathing space.
+- Excessive text decoration or animation.
+
+Do not copy the reference's branding, logos, text, or proprietary imagery.
+
+## Expected Result
+
+Deliver a redesigned, fully functional interface that captures the reference's essential qualities:
+
+**Minimalist. Sophisticated. Spacious. Precise. Professional. Visually balanced.**
+
+The application should feel like a thoughtfully designed premium creative SaaS product, not a generic component-library demo.
+
+Prioritize visual consistency, usability, and production-quality implementation over unnecessary decoration.
+
+## 8. What to prioritize during replication
+
+The most valuable design decision is to preserve the reference's contrast between quiet interface surfaces and rich creative content.
+
+A common mistake would be to copy the colors, gradient backgrounds, and rounded cards but miss the underlying design discipline. That would make the result superficially similar, not equally professional.
+
+A successful replication should feel recognizable even when all of the screenshot's text, logos, product images, and page sections have been replaced by your application's actual content.
+
+Understood. The goal is to adopt the reference's UX philosophy, color palette, spacing, and visual composition without changing your application's existing structure or functionality.
+
+Your UI can have completely different components and workflows. What should remain consistent is the visual experience.
+
+## 1. Design characteristics to replicate
+
+01\. Clean visual hierarchy
+
+The important content gets attention first. Supporting controls remain visually quiet. No unnecessary competing elements.
+
+02\. Balanced spacing and proportions
+
+Generous breathing room, consistent alignment, thoughtful panel sizing, and predictable gaps between elements.
+
+03\. Restrained color usage
+
+Nearly monochromatic UI with blue accents. Color indicates meaning and interactivity rather than decorating every surface.
+
+04\. Subtle component separation
+
+Light-gray surfaces, white content areas, minimal shadows, and gentle corners instead of heavy boxes and borders.
+
+## 2. Reference-inspired color palette
+
+White · Soft gray · Near-black · Primary blue · Muted indigo
+
+These colors should be treated as the foundation. Additional colors can exist for previews, creative assets, and meaningful statuses, but should not compete with the primary UI.
+
+## 3. Refined AI prompt — UX, color, and layout only
+
+# UI Redesign — Premium Minimalist UX, Color & Layout
+
+## Objective
+
+Redesign the visual experience of my existing UI using the attached reference screenshot as design inspiration.
+
+**Important:** My application has a different layout, components, features, and workflows from the reference. Do not copy its page structure or try to transform my application into the reference website.
+
+Instead, understand and apply its underlying design principles:
+
+- Premium, minimalist visual experience.
+- Sophisticated and restrained color palette.
+- Clean, spacious, professionally balanced layouts.
+- Strong visual hierarchy and intuitive UX.
+- Consistent component spacing and alignment.
+- Subtle, elegant interaction states.
+
+## 1. UX Philosophy
+
+The interface should feel clean, intuitive, and effortless to navigate.
+
+Prioritize:
+
+- Clear visual hierarchy: the most important information and actions should stand out naturally.
+- Reduced visual noise: avoid unnecessary borders, containers, labels, icons, and decorations.
+- Logical grouping: related components should feel connected through alignment, proximity, and spacing.
+- Progressive disclosure: present essential controls first and reveal advanced functionality when needed.
+- Consistency: similar UI elements should share the same visual treatment and interaction behavior.
+- Discoverability: interactive elements should be recognizable without relying on excessive color.
+- Balanced density: avoid both overcrowded interfaces and unnecessary empty space.
+
+Keep primary workflows easy to discover and complete.
+
+Do not remove existing features or hide frequently used functionality merely to make the interface appear minimal.
+
+## 2. Color Design
+
+Replicate the reference's neutral, elegant palette.
+
+### Primary colors
+
+- Background: #FFFFFF
+- Secondary background: #F5F5F5
+- Main text: #111111
+- Secondary text: #666666
+- Primary accent: #2C6ADC
+- Secondary accent: #4D4A9B
+- Subtle borders: #E7E7E7
+
+### Color principles
+
+Use white as the dominant application surface.
+
+Use soft gray to differentiate functional areas, panels, and grouped content.
+
+Use near-black typography for clarity and strong visual contrast.
+
+Use primary blue sparingly for:
+
+- Primary actions
+- Selected navigation items
+- Active tools and controls
+- Focused or highlighted interactive elements
+- Important links
+
+Use neutral states for secondary actions.
+
+Avoid excessive saturated colors, colorful backgrounds, gradients on ordinary controls, and competing accent colors.
+
+Reserve expressive colors and gradients for creative previews, artwork, or other content that genuinely benefits from them.
+
+The overall interface should appear calm, neutral, modern, and professional.
+
+## 3. Layout & Spatial Design
+
+Analyze my existing UI layout before making changes.
+
+Preserve its fundamental application structure, including existing navigation, toolbars, panels, content areas, dialogs, and workflows.
+
+Improve the layout by applying:
+
+### Visual balance
+
+- Use deliberate proportions between major regions.
+- Give important content more visual prominence.
+- Keep supporting panels compact without compromising usability.
+- Avoid oversized controls or unnecessary containers.
+
+### Consistent spacing
+
+- Establish a unified spacing system using 8px-based increments.
+- Align components precisely.
+- Use consistent padding within panels and cards.
+- Maintain predictable vertical and horizontal gaps.
+- Allow enough whitespace for content to breathe.
+
+### Surface hierarchy
+
+- Use white for primary working surfaces.
+- Use very light gray for secondary areas.
+- Prefer subtle background differences over visible borders.
+- Introduce dividers only when necessary.
+- Minimize box shadows and unnecessary nested cards.
+
+### Component geometry
+
+- Apply subtle rounded corners.
+- Maintain consistent component dimensions.
+- Avoid excessively rounded, bulky, or pill-shaped controls unless functionally appropriate.
+- Keep menus, tabs, cards, and toolbars visually lightweight.
+
+## 4. UX Refinement
+
+Evaluate the usability of the existing interface.
+
+Improve:
+
+- Navigation clarity
+- Placement of primary and secondary actions
+- Alignment of interactive controls
+- Discoverability of important features
+- Grouping of related functions
+- Spacing around dense content
+- Selected, hovered, focused, and disabled states
+- Consistency between different screens and panels
+
+Ensure that users can quickly identify:
+
+1. Where they are.
+2. What they can do.
+3. Which control or mode is currently active.
+4. Where to find supporting functionality.
+5. What the primary next action is.
+
+Do not prioritize aesthetic minimalism over practical usability.
+
+## 5. Visual Simplicity
+
+Use the reference's design approach:
+
+- Minimal ornamentation
+- Generous but purposeful whitespace
+- Clean, flat surfaces
+- Crisp alignment
+- Understated separators
+- Consistent typography
+- Restrained use of accent colors
+- Subtle interactive feedback
+
+Avoid:
+
+- Heavy shadows
+- Thick borders
+- Large amounts of nested containers
+- Unnecessary background colors
+- Excessive icons
+- Decorative gradients
+- Oversized cards
+- Dense control groups without clear organization
+
+## 6. Responsive Layout
+
+Retain the application's existing desktop-first or responsive behavior.
+
+Ensure layouts adapt naturally to available screen space.
+
+Maintain appropriate panel proportions and spacing.
+
+Avoid awkward gaps, cramped sections, overlapping controls, and unnecessary scrolling.
+
+Keep frequently used functionality accessible.
+
+## 7. Implementation Instructions
+
+1. First analyze the existing UI and identify visual inconsistencies.
+2. Understand the reference's color, spacing, layout, and UX characteristics.
+3. Extract reusable design principles rather than copying its components.
+4. Create consistent color, spacing, radius, and surface tokens.
+5. Apply those tokens throughout the existing application.
+6. Improve visual hierarchy, alignment, proportions, and component consistency.
+7. Preserve existing structure, workflows, functionality, integrations, and behavior.
+8. Verify that updated layouts remain usable and responsive.
+
+## Expected Outcome
+
+The redesigned interface should retain my application's unique functionality and layout while adopting the reference's sophisticated visual personality.
+
+It should feel:
+
+**Clean · Minimal · Spacious · Balanced · Modern · Premium · Professional**
+
+The main priority is to improve **UX, color harmony, visual hierarchy, and layout composition**, not to reproduce the reference website.
+
+The key instruction for your AI developer is: preserve your UI's architecture and user journeys, but use the reference as the visual design standard for every screen, panel, and control.
