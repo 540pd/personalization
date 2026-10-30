@@ -56,6 +56,10 @@ export interface TextGenerationParams {
   references?: Reference[];
   agent?: AgentContext;
   skills?: SkillContext[];
+  /** The brand's "## Brand" block (#452), for the system instruction. */
+  brand?: string;
+  /** What the brand brought, for the mock to name. */
+  brandUsed?: string[];
 }
 
 export interface TextGenerationResult {

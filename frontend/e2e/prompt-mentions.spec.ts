@@ -144,7 +144,8 @@ test.describe("Prompt panel: @ skills and agents (#239)", () => {
     await box(page).fill("plain prompt");
     await page.locator("button.node-panel-create-button").click();
     await expect.poll(() => bodies.length).toBe(1);
-    expect(Object.keys(bodies[0]).sort()).toEqual(["instruction", "modelId", "temperature"]);
+    // No agent or skills; the brand (#452) goes with every request, on or off.
+    expect(Object.keys(bodies[0]).sort()).toEqual(["brand", "instruction", "modelId", "temperature"]);
   });
 
   test("Esc closes the menu, not the panel; undo takes back an insert", async ({ page }) => {

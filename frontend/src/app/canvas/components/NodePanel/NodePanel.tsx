@@ -78,7 +78,7 @@ function SinglePanel({
   const setDraft = (next: GenerateDraft) =>
     useNodePanel.getState().setDraft(instance.id, { model: next.model, instruction: next.instruction, settings });
 
-  const { busy, waiting, busyLabel, error, upstreamError, generate } = useGeneration(instance, spec, draft, settings);
+  const { busy, waiting, busyLabel, error, notice, upstreamError, generate } = useGeneration(instance, spec, draft, settings);
   const { dragging, handlers } = usePanelDrag({
     instance, isActive, isPanelOpen, scale, authored: !!spec.authored, onActivate, onOpenPanel, onClosePanel, onSetCanvasPos,
   });
@@ -255,6 +255,7 @@ function SinglePanel({
           busy={busy}
           busyLabel={busyLabel}
           error={error}
+          notice={notice}
           left={panelLeft}
           top={screenCenterY}
           onClose={onClosePanel}
