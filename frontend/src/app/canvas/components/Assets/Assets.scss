@@ -557,3 +557,35 @@ select.assets-input {
   @apply disabled:cursor-default disabled:text-ink-muted/60;
   @apply focus-visible:focus-ring;
 }
+
+// ── brand guidelines (#450) ─────────────────────────────────────────────
+// A row per Markdown file: no picture, so no tile.
+.assets-docs {
+  @apply m-0 flex max-w-[1080px] list-none flex-col gap-3 p-0;
+}
+
+.assets-doc {
+  @apply flex flex-col gap-2.5 rounded-card border border-line bg-surface p-3.5;
+}
+
+.assets-doc-row {
+  @apply grid items-end gap-3;
+  grid-template-columns: auto minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.4fr);
+}
+
+.assets-doc-icon {
+  @apply mb-1 flex size-8 items-center justify-center rounded-control bg-subtle text-ink-muted;
+}
+
+.assets-doc-meta {
+  @apply flex flex-wrap items-center gap-x-3 gap-y-1 pl-11 text-body;
+}
+
+.assets-doc-preview {
+  @apply m-0 max-h-[320px] overflow-auto whitespace-pre-wrap break-words rounded-control border border-line bg-subtle p-3 font-mono text-meta text-ink;
+  @apply focus-visible:focus-ring;
+}
+
+.assets-docs-add {
+  @apply flex flex-wrap items-center gap-3;
+}

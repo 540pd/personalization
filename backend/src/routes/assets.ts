@@ -6,7 +6,10 @@ import { describeAsset } from "../services/describeService.js";
 import {
   ASSET_KINDS,
   ASSET_MIME_TYPES,
+  GUIDELINES_MIME,
   MAX_ASSET_BYTES,
+  MAX_GUIDELINES_BYTES,
+  isUtf8,
   MAX_DESCRIPTION,
   cleanFileName,
   detailsError,
@@ -24,6 +27,20 @@ export const assetsRouter = Router();
 const rawBody = express.raw({ type: () => true, limit: MAX_ASSET_BYTES });
 
 const KIND_LIST = ASSET_KINDS.join(", ");
+
+/**
+ * Brand guidelines are Markdown, and Markdown is only ever brand guidelines
+ * (#450): a text file is no image for any other kind, and an unnamed one
+ * would sit among the board's uploads as nothing at all.
+ */
+function refuseMarkdownMismatch(res: express.Response, kind: AssetKind | null | undefined, mimeType: string): boolean {
+  if ((kind === "guidelines") === (mimeType === GUIDELINES_MIME)) return false;
+  res.status(415).json({
+    error: "unsupported_type",
+    message: kind === "guidelines" ? "Brand guidelines must be Markdown (.md) files." : "Markdown files are stored as brand guidelines only.",
+  });
+  return true;
+}
 
 /** A logo is placed on creatives, so it needs transparency: PNG only (#412). */
 function refuseNonPngLogo(res: express.Response, kind: AssetKind | null | undefined, mimeType: string): boolean {
@@ -56,6 +73,17 @@ assetsRouter.post("/assets", requireIdentity(), rawBody, async (req, res, next) 
       return;
     }
     if (refuseNonPngLogo(res, kind, mimeType)) return;
+    if (refuseMarkdownMismatch(res, kind, mimeType)) return;
+    if (kind === "guidelines") {
+      if (req.body.length > MAX_GUIDELINES_BYTES) {
+        res.status(413).json({ error: "too_large", message: `Brand guidelines can be up to ${MAX_GUIDELINES_BYTES / 1024} KB.` });
+        return;
+      }
+      if (!isUtf8(req.body)) {
+        res.status(415).json({ error: "unsupported_type", message: "This file isn't plain text." });
+        return;
+      }
+    }
     const info: AssetInfo = {};
     if (kind) info.kind = kind;
     const fileName = cleanFileName(name);
@@ -115,6 +143,7 @@ assetsRouter.patch("/assets/:id", requireIdentity(), async (req, res, next) => {
       }
     }
     if (refuseNonPngLogo(res, nextKind, asset.mimeType)) return;
+    if (refuseMarkdownMismatch(res, nextKind, asset.mimeType)) return;
 
     const info: AssetInfo = {};
     if (kind !== undefined) info.kind = nextKind;
@@ -139,7 +168,8 @@ assetsRouter.get("/assets/:id/content", requireIdentity(), async (req, res, next
     }
     const { asset, stream } = found;
     res.set({
-      "Content-Type": asset.mimeType,
+      // Markdown is text: say how to read it, or a browser may guess wrong.
+      "Content-Type": asset.mimeType.startsWith("text/") ? `${asset.mimeType}; charset=utf-8` : asset.mimeType,
       "Content-Length": String(asset.bytes),
       "Cache-Control": "private, max-age=31536000, immutable",
       ETag: `"${asset.id}"`,

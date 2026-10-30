@@ -2,7 +2,8 @@
 // the fields its kind asks for. Kept beside the file so they survive a
 // reload, and so generation can read them later.
 
-export const ASSET_KINDS = ["productImage", "logo", "adaptFrom", "styleExample", "reference"] as const;
+// Brand guidelines (#450) are Markdown files, not images: see GUIDELINES_MIME.
+export const ASSET_KINDS = ["productImage", "logo", "adaptFrom", "styleExample", "reference", "guidelines"] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 
 /** A field takes one of its options, or (`TEXT`) short free text. */
@@ -33,6 +34,11 @@ export const DETAIL_FIELDS: Record<AssetKind, Record<string, Field>> = {
     referenceType: ["Background", "Scene / environment", "Mood board", "Lighting", "Composition / layout", "Styling / props", "Texture / pattern", "Other"],
     use: ["asIs", "inspiration"],
     scope: ["always", "picked"],
+  },
+  guidelines: {
+    title: TEXT,
+    docType: ["Brand Guidelines", "Visual Identity Guide", "Logo Guidelines", "Typography Guide", "Campaign Guideline", "Other"],
+    note: TEXT,
   },
 };
 

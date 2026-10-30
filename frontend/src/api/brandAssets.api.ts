@@ -2,7 +2,7 @@
 
 import { apiFetch } from "./canvas.api";
 
-export type AssetKind = "productImage" | "logo" | "adaptFrom" | "styleExample" | "reference";
+export type AssetKind = "productImage" | "logo" | "adaptFrom" | "styleExample" | "reference" | "guidelines";
 
 /** A stored asset as the backend answers it. */
 export interface AssetView {
@@ -70,7 +70,9 @@ export async function uploadPageAsset(file: File, kind: AssetKind): Promise<Asse
   const query = new URLSearchParams({ kind, name: file.name });
   let res: Response;
   try {
-    res = await apiFetch(`assets?${query}`, { method: "POST", body: file, headers: { "Content-Type": file.type } });
+    // A .md file often comes with no type at all: brand guidelines (#450) say theirs.
+    const type = kind === "guidelines" ? "text/markdown" : file.type;
+    res = await apiFetch(`assets?${query}`, { method: "POST", body: file, headers: { "Content-Type": type } });
   } catch {
     throw new Error("Couldn't upload it. Check your connection and try again.");
   }
