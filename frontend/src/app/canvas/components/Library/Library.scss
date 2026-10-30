@@ -6,7 +6,7 @@
 // about where one ends.
 .library-page {
   @apply fixed top-0 right-0 bottom-0 flex flex-col gap-5 overflow-y-auto;
-  @apply bg-white px-10 py-8 text-neutral-900 outline-none;
+  @apply bg-surface px-10 py-8 text-ink outline-none;
   // Follows the rail's width change, at the rail's pace.
   transition: left 150ms ease-out;
 
@@ -16,7 +16,7 @@
 }
 
 .library-page-dropping {
-  @apply ring-2 ring-inset ring-neutral-900/60;
+  @apply ring-2 ring-inset ring-accent/60;
 }
 
 // ── header ──────────────────────────────────────────────────────────────
@@ -27,19 +27,19 @@
 // which left a strip of scrolling content above the bar and the bar over the
 // subtitle.
 .library-header {
-  @apply sticky -top-8 z-10 flex items-center gap-4 bg-white;
+  @apply sticky -top-8 z-10 flex items-center gap-4 bg-surface;
   @apply -mx-10 -mt-8 px-10 pt-6 pb-2;
   @apply border-b border-transparent transition-colors;
 
   &.is-scrolled {
-    @apply border-neutral-200;
+    @apply border-line;
   }
 }
 
 .library-close {
-  @apply flex size-8 items-center justify-center rounded-full text-neutral-500 transition-colors;
-  @apply hover:bg-black/5 hover:text-neutral-800;
-  @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900;
+  @apply flex size-8 items-center justify-center rounded-control text-ink-muted transition-colors;
+  @apply hover:bg-subtle hover:text-ink;
+  @apply focus-visible:focus-ring;
 }
 
 // Below the button, right-aligned: the label tooltip's usual place, to its
@@ -49,17 +49,17 @@
 }
 
 .library-title {
-  @apply m-0 flex-1 min-w-0 text-[22px] font-semibold leading-tight;
+  @apply m-0 flex-1 min-w-0 text-page font-medium tracking-tight;
 }
 
 // Close under the title, against the page's gap: it was in the header.
 .library-subtitle {
-  @apply m-0 -mt-4 text-sm text-neutral-500;
+  @apply m-0 -mt-4 text-body text-ink-muted;
 }
 
 .library-action-button {
-  @apply inline-flex shrink-0 items-center gap-2 h-[38px] px-[18px] rounded-full;
-  @apply bg-neutral-900 text-sm font-medium text-white transition-colors hover:bg-neutral-800;
+  @apply inline-flex shrink-0 items-center gap-2 h-[38px] px-[18px] rounded-control;
+  @apply bg-accent text-body font-semibold text-white transition-colors hover:bg-accent-hover;
 }
 
 .library-action-button:focus-visible,
@@ -71,19 +71,19 @@
 // ── empty ───────────────────────────────────────────────────────────────
 .library-empty {
   @apply flex flex-1 flex-col items-center justify-center gap-1.5 p-10 text-center;
-  @apply rounded-[20px] border-[1.5px] border-dashed border-neutral-300;
+  @apply rounded-card border-[1.5px] border-dashed border-line;
 }
 
 .library-empty-icon {
-  @apply mb-2 flex size-[52px] items-center justify-center rounded-full bg-neutral-100 text-neutral-600;
+  @apply mb-2 flex size-[52px] items-center justify-center rounded-full bg-subtle text-ink-muted;
 }
 
 .library-empty-title {
-  @apply text-base font-semibold;
+  @apply text-title font-medium;
 }
 
 .library-empty-text {
-  @apply max-w-[380px] text-sm leading-[21px] text-neutral-500;
+  @apply max-w-[380px] text-body text-ink-muted;
 }
 
 .library-empty-button {
@@ -91,7 +91,7 @@
 }
 
 .library-empty-hint {
-  @apply mt-1 text-xs text-neutral-500;
+  @apply mt-1 text-meta text-ink-muted;
 }
 
 // ── toolbar ─────────────────────────────────────────────────────────────
@@ -100,12 +100,12 @@
 }
 
 .library-search {
-  @apply flex w-[280px] max-w-full h-9 items-center gap-2 rounded-full bg-neutral-100 px-3 text-neutral-500;
-  @apply focus-within:ring-2 focus-within:ring-black/10;
+  @apply flex w-[280px] max-w-full h-9 items-center gap-2 rounded-control bg-subtle px-3 text-ink-muted;
+  @apply focus-within:ring-2 focus-within:ring-accent/30;
 }
 
 .library-search-input {
-  @apply min-w-0 flex-1 bg-transparent text-[13px] text-neutral-900 outline-none placeholder:text-neutral-500;
+  @apply min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-muted;
 }
 
 .library-tag-filter {
@@ -113,20 +113,20 @@
 }
 
 .library-tag-filter-label {
-  @apply mr-1 text-[13px] text-neutral-500;
+  @apply mr-1 text-body text-ink-muted;
 }
 
 .library-filter-chip {
-  @apply h-[30px] px-3 rounded-full border border-black/10 bg-white text-[13px] text-neutral-700;
-  @apply transition-colors hover:bg-black/5;
+  @apply h-[30px] px-3 rounded-full border border-line bg-surface text-body text-ink;
+  @apply transition-colors hover:bg-subtle;
 }
 
 .library-filter-chip-on {
-  @apply border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800;
+  @apply border-accent bg-accent-soft text-accent hover:bg-accent-soft;
 }
 
 .library-count {
-  @apply ml-auto text-[13px] text-neutral-500;
+  @apply ml-auto text-body text-ink-muted;
 }
 
 // ── table ───────────────────────────────────────────────────────────────
@@ -135,18 +135,18 @@
 }
 
 .library-table {
-  @apply w-full min-w-[560px] table-fixed border-collapse text-sm;
+  @apply w-full min-w-[560px] table-fixed border-collapse text-body;
 
   th {
-    @apply px-3 py-2.5 border-b border-neutral-200 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500;
+    @apply px-3 py-2.5 border-b border-line text-left text-meta font-medium text-ink-muted;
   }
 
   td {
-    @apply px-3 py-3 border-b border-neutral-100 align-middle;
+    @apply px-3 py-3 border-b border-line/60 align-middle;
   }
 
   tbody tr {
-    @apply transition-colors hover:bg-neutral-50;
+    @apply transition-colors hover:bg-subtle;
   }
 }
 
@@ -171,15 +171,15 @@
 }
 
 .library-cell-name {
-  @apply block truncate font-medium text-neutral-900;
+  @apply block truncate font-medium text-ink;
 }
 
 .library-cell-file {
-  @apply block truncate text-xs text-neutral-500;
+  @apply block truncate text-meta text-ink-muted;
 }
 
 .library-cell-description {
-  @apply truncate text-neutral-700;
+  @apply truncate text-ink-muted;
 }
 
 .library-cell-tags {
@@ -187,20 +187,20 @@
 }
 
 .library-tag {
-  @apply rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700;
+  @apply rounded-full bg-subtle px-2 py-0.5 text-meta text-ink;
 }
 
 // A skill an agent uses: outlined, so it does not read as one of its tags.
 .library-skill-ref {
-  @apply rounded-full border border-neutral-200 px-2 py-0.5 text-xs text-neutral-700;
+  @apply rounded-full border border-line px-2 py-0.5 text-meta text-ink;
 }
 
 .library-cell-none {
-  @apply text-neutral-400;
+  @apply text-ink-muted/60;
 }
 
 .library-no-match {
-  @apply flex flex-col items-center gap-3 py-16 text-sm text-neutral-500;
+  @apply flex flex-col items-center gap-3 py-16 text-body text-ink-muted;
 }
 
 // ── dialogs (Upload skill, New agent) ──────────────────────────────────
@@ -209,7 +209,7 @@
 }
 
 .library-dialog {
-  @apply flex w-[520px] max-w-full max-h-full flex-col overflow-y-auto rounded-2xl bg-white shadow-2xl text-neutral-900;
+  @apply flex w-[520px] max-w-full max-h-full flex-col overflow-y-auto rounded-card bg-surface shadow-float text-ink;
 }
 
 .library-dialog-header {
@@ -217,15 +217,15 @@
 }
 
 .library-dialog-title {
-  @apply text-base font-semibold;
+  @apply text-title font-medium;
 }
 
 .library-dialog-subtitle {
-  @apply mt-1 text-sm text-neutral-500;
+  @apply mt-1 text-body text-ink-muted;
 }
 
 .library-dialog-close {
-  @apply flex size-7 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-600;
+  @apply flex size-7 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-subtle hover:text-ink;
 }
 
 .library-dialog-body {
@@ -237,25 +237,25 @@
 }
 
 .library-field-label {
-  @apply mb-1.5 block text-[13px] font-medium text-neutral-700;
+  @apply mb-1.5 block text-body font-medium text-ink;
 }
 
 .library-field-optional {
-  @apply font-normal text-neutral-500;
+  @apply font-normal text-ink-muted;
 }
 
 .library-field-count {
-  @apply text-xs text-neutral-500;
+  @apply text-meta text-ink-muted;
 }
 
 // Always rendered, empty or not, so a message appearing does not shift the form.
 .library-field-hint,
 .library-field-error {
-  @apply mt-1.5 min-h-4 text-xs leading-4;
+  @apply mt-1.5 min-h-4 text-meta;
 }
 
 .library-field-hint {
-  @apply text-neutral-500;
+  @apply text-ink-muted;
 }
 
 .library-field-error {
@@ -263,8 +263,8 @@
 }
 
 .library-input {
-  @apply block w-full h-10 rounded-xl bg-neutral-100 px-3.5 text-sm text-neutral-900 outline-none;
-  @apply placeholder:text-neutral-400 focus:ring-2 focus:ring-black/10;
+  @apply block w-full h-10 rounded-control bg-subtle px-3.5 text-body text-ink outline-none;
+  @apply placeholder:text-ink-muted/70 focus:ring-2 focus:ring-accent/30;
 }
 
 .library-input[aria-invalid="true"] {
@@ -276,29 +276,29 @@
 }
 
 .library-file-drop {
-  @apply flex w-full h-28 flex-col items-center justify-center gap-1.5 rounded-xl;
-  @apply border-[1.5px] border-dashed border-neutral-300 bg-neutral-50 text-neutral-600;
-  @apply transition-colors hover:border-neutral-400 hover:bg-neutral-100;
+  @apply flex w-full h-28 flex-col items-center justify-center gap-1.5 rounded-card;
+  @apply border-[1.5px] border-dashed border-line bg-subtle text-ink-muted;
+  @apply transition-colors hover:border-ink-muted/40;
 }
 
 .library-file-drop-over {
-  @apply border-neutral-900 bg-neutral-100;
+  @apply border-accent bg-accent-soft;
 }
 
 .library-file-drop-title {
-  @apply text-sm font-medium text-neutral-900;
+  @apply text-body font-medium text-ink;
 }
 
 .library-file-drop-hint {
-  @apply text-xs text-neutral-500;
+  @apply text-meta text-ink-muted;
 }
 
 .library-file-chosen {
-  @apply flex items-center gap-3 rounded-xl border border-neutral-200 py-3 pr-2 pl-3;
+  @apply flex items-center gap-3 rounded-card border border-line py-3 pr-2 pl-3;
 }
 
 .library-file-icon {
-  @apply flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600;
+  @apply flex size-9 shrink-0 items-center justify-center rounded-control bg-subtle text-ink-muted;
 }
 
 .library-file-text {
@@ -306,15 +306,15 @@
 }
 
 .library-file-name {
-  @apply block truncate text-sm font-medium;
+  @apply block truncate text-body font-medium;
 }
 
 .library-file-meta {
-  @apply block text-xs text-neutral-500;
+  @apply block text-meta text-ink-muted;
 }
 
 .library-file-change {
-  @apply h-[30px] px-3 rounded-full text-[13px] font-medium text-neutral-700 transition-colors hover:bg-black/5;
+  @apply h-[30px] px-3 rounded-control text-body font-medium text-ink transition-colors hover:bg-subtle;
 }
 
 .library-tags-field {
@@ -322,20 +322,20 @@
 }
 
 .library-tags-box {
-  @apply flex min-h-10 flex-wrap items-center gap-1.5 rounded-xl bg-neutral-100 px-2.5 py-1.5;
-  @apply focus-within:ring-2 focus-within:ring-black/10;
+  @apply flex min-h-10 flex-wrap items-center gap-1.5 rounded-control bg-subtle px-2.5 py-1.5;
+  @apply focus-within:ring-2 focus-within:ring-accent/30;
 }
 
 .library-tag-chip {
-  @apply inline-flex h-[26px] items-center gap-0.5 rounded-full border border-neutral-200 bg-white pr-1 pl-2.5 text-[13px];
+  @apply inline-flex h-[26px] items-center gap-0.5 rounded-full border border-line bg-surface pr-1 pl-2.5 text-body;
 }
 
 .library-tag-remove {
-  @apply flex size-5 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-black/5 hover:text-neutral-900;
+  @apply flex size-5 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-subtle hover:text-ink;
 }
 
 .library-tags-input {
-  @apply min-w-20 flex-1 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400;
+  @apply min-w-20 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-muted/70;
 }
 
 .library-tag-suggestions {
@@ -344,11 +344,11 @@
 }
 
 .library-tag-suggestion {
-  @apply flex h-8 cursor-pointer items-center rounded-full px-2.5 text-[13px] text-neutral-700 hover:bg-black/5;
+  @apply flex h-8 cursor-pointer items-center rounded-control px-2.5 text-body text-ink hover:bg-subtle;
 }
 
 .library-tag-suggestion-active {
-  @apply bg-black/5 text-neutral-900;
+  @apply bg-accent-soft text-accent;
 }
 
 .library-dialog-actions {
@@ -356,8 +356,8 @@
 }
 
 .library-dialog-submit {
-  @apply h-9 px-4 rounded-full bg-black text-sm font-semibold text-white transition-colors hover:bg-neutral-800;
-  @apply disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-black;
+  @apply h-9 px-4 rounded-control bg-accent text-body font-semibold text-white transition-colors hover:bg-accent-hover;
+  @apply disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent;
 }
 
 .library-dialog button:focus-visible {
@@ -367,7 +367,7 @@
 // ── Upload agent (#208) ──────────────────────────────────────────────────
 // A problem in a file that did not stop it: amber, not the error red.
 .library-field-note {
-  @apply mt-1.5 flex items-start gap-1.5 text-xs leading-[17px] text-amber-800;
+  @apply mt-1.5 flex items-start gap-1.5 text-meta text-amber-800;
 
   svg {
     @apply mt-px shrink-0;
@@ -375,12 +375,12 @@
 }
 
 .library-example-link {
-  @apply mr-auto inline-flex items-center gap-1.5 text-[13px] text-neutral-700 underline underline-offset-[3px];
-  @apply transition-colors hover:text-neutral-900;
+  @apply mr-auto inline-flex items-center gap-1.5 text-body text-ink-muted underline underline-offset-[3px];
+  @apply transition-colors hover:text-ink;
 }
 
 .library-empty-hint .library-example-link {
-  @apply mr-0 text-xs;
+  @apply mr-0 text-meta;
 }
 
 .library-example-link:focus-visible {
@@ -413,8 +413,8 @@
 // Shown on hover and keyboard focus only, like the rail's options dot; kept
 // while its menu is open.
 .library-row-menu-button {
-  @apply inline-flex size-7 items-center justify-center rounded-full text-neutral-600 opacity-0;
-  @apply transition-[opacity,background-color] hover:bg-black/[0.06] hover:text-neutral-900;
+  @apply inline-flex size-7 items-center justify-center rounded-control text-ink-muted opacity-0;
+  @apply transition-[opacity,background-color] hover:bg-black/[0.06] hover:text-ink;
 }
 
 .library-row:hover .library-row-menu-button,
@@ -424,9 +424,9 @@
 }
 
 .library-row-menu-button-open {
-  @apply bg-black/[0.08] text-neutral-900;
+  @apply bg-black/[0.08] text-ink;
 }
 
 .library-row-menu-button:focus-visible {
-  @apply opacity-100 outline-2 outline-offset-0 outline-neutral-900;
+  @apply opacity-100 outline-2 outline-offset-0 outline-accent;
 }
