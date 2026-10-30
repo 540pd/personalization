@@ -10,8 +10,10 @@ import type { AgentContext, Reference, SkillContext } from "./types.js";
  * prompt's `@brand-voice` points at a block the model can find by name.
  * Undefined when there are neither.
  */
-export function buildSystemInstruction(agent?: AgentContext, skills: SkillContext[] = []): string | undefined {
+export function buildSystemInstruction(agent?: AgentContext, skills: SkillContext[] = [], brand?: string): string | undefined {
   const blocks: string[] = [];
+  // The brand first (#452): the agent and skills work within it.
+  if (brand?.trim()) blocks.push(brand.trim());
   const instructions = agent?.instructions.trim();
   if (instructions) blocks.push(instructions);
   const named = skills.filter((s) => s.content.trim());

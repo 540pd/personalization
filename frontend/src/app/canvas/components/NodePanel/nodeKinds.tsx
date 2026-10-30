@@ -50,10 +50,14 @@ export interface ImageSettings {
   temperature: number;
   /** How many images one Create produces. 1 keeps the image in the node. */
   variants: number;
+  /** Use the brand (#452). Absent is on: nodes from before it use it too. */
+  useBrand?: boolean;
 }
 
 export interface InstructionSettings {
   temperature: number;
+  /** Use the brand (#452). Absent is on. */
+  useBrand?: boolean;
 }
 
 export interface VideoSettings {
@@ -86,6 +90,8 @@ export interface GenerateArgs {
    * multi-minute generation loses the job.
    */
   onJobStarted?: (jobId: string) => void;
+  /** The brand was asked for but could not be read: made without it (#452). */
+  onBrandFailed?: () => void;
   /** Aborted when the node is deleted mid-generation. */
   signal?: AbortSignal;
 }
@@ -98,6 +104,8 @@ export interface NodeKindSpec {
   prompt: string;
   /** What `@` offers in the Instruction (#239). Omitted: no @ menu. */
   mentions?: MentionScope;
+  /** Offers Use brand (#452): image and text kinds, not video or Compose yet. */
+  brand?: boolean;
   models: ModelOption[];
   /**
    * Model selected on a new node. Explicit rather than models[0], so the
