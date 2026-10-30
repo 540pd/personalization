@@ -20,6 +20,7 @@ import {
   type ReferenceScope,
   type ReferenceUse,
 } from "../../assets/assetsDraft";
+import DescriptionField from "./DescriptionField";
 import { AddTile, ImageTile, LowResWarning, measured, useDropZone, type ImageSize } from "./AssetTiles";
 
 type Edit = (update: (d: AssetsDraft) => AssetsDraft) => void;
@@ -208,22 +209,13 @@ function ReferenceDetails({
           </div>
           <Choices legend="How to use it" name={`${id}-use`} options={USES} value={reference.details.use} onPick={(use) => set({ use })} />
         </div>
-        <div className="assets-field">
-          <label htmlFor={`${id}-desc`} className="assets-label-sm">
-            Description
-          </label>
-          <textarea
-            id={`${id}-desc`}
-            className="assets-input assets-textarea"
-            rows={2}
-            placeholder="Wet city street at dusk, neon reflections"
-            value={reference.description}
-            onChange={(e) => {
-              const description = e.target.value;
-              onChange((d) => editImage(d, refId, { description }));
-            }}
-          />
-        </div>
+        <DescriptionField
+          id={`${id}-desc`}
+          image={reference}
+          labelClassName="assets-label-sm"
+          placeholder="Wet city street at dusk, neon reflections"
+          onChange={(description) => onChange((d) => editImage(d, refId, { description }))}
+        />
         <Choices legend="Use in campaigns" name={`${id}-scope`} options={SCOPES} value={reference.details.scope} onPick={(scope) => set({ scope })} />
       </div>
     </div>
