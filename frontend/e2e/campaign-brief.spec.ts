@@ -132,7 +132,7 @@ test.describe("Campaign Brief", () => {
     expect(await dos.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
   });
 
-  test("the brief saves with Save brand, Cancel restores it, and a reload starts empty", async ({ page }) => {
+  test("the brief saves with Save brand, Cancel restores it, and a reload keeps it", async ({ page }) => {
     await openBoard(page);
     await openBrand(page);
     await page.getByLabel("Campaign Name").fill("Monsoon Collection 2027");
@@ -148,13 +148,13 @@ test.describe("Campaign Brief", () => {
     await expect(page.getByRole("switch", { name: "Logo" })).toHaveAttribute("aria-checked", "true");
     await expect(page.getByRole("button", { name: "Bold", exact: true })).toHaveAttribute("aria-pressed", "true");
 
-    // Kept across leaving and coming back, in memory only.
+    // Kept across leaving and coming back, and since #454 across a reload.
     await page.locator(".sidebar-item", { hasText: "Playspace" }).click();
     await openBrand(page);
     await expect(page.getByLabel("Campaign Name")).toHaveValue("Monsoon Collection 2027");
     await reloadBoard(page);
     await openBrand(page);
-    await expect(page.getByLabel("Campaign Name")).toHaveValue("");
+    await expect(page.getByLabel("Campaign Name")).toHaveValue("Monsoon Collection 2027");
   });
 
   test("leaving with unsaved brief edits asks first", async ({ page }) => {

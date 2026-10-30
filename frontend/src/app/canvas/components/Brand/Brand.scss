@@ -304,3 +304,12 @@
 .brief-asset-missing {
   @apply text-body text-amber-800;
 }
+
+// ── saved to the account (#454) ─────────────────────────────────────────
+.brand-load-problem {
+  @apply m-0 flex max-w-[1080px] flex-wrap items-center gap-2 rounded-card border border-red-200 bg-red-50 px-4 py-3 text-body text-red-800;
+}
+
+.brand-save-error {
+  @apply mr-auto text-body text-red-700;
+}
