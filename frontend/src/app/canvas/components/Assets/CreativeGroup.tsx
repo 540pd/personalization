@@ -19,6 +19,7 @@ import {
   type AssetsDraft,
   type DraftImage,
 } from "../../assets/assetsDraft";
+import DescriptionField from "./DescriptionField";
 import { AddTile, ImageTile, LowResWarning, useDropZone, type ImageSize } from "./AssetTiles";
 
 type Edit = (update: (d: AssetsDraft) => AssetsDraft) => void;
@@ -197,22 +198,13 @@ function CreativeDetails({ image, group, onChange }: { image: DraftImage; group:
           </div>
         ))}
       </div>
-      <div className="assets-field">
-        <label htmlFor={`${id}-desc`} className="assets-label-sm">
-          Description
-        </label>
-        <textarea
-          id={`${id}-desc`}
-          className="assets-input assets-textarea"
-          rows={2}
-          placeholder={group.description}
-          value={image.description}
-          onChange={(e) => {
-            const description = e.target.value;
-            onChange((d) => editImage(d, image.asset.id, { description }));
-          }}
-        />
-      </div>
+      <DescriptionField
+        id={`${id}-desc`}
+        image={image}
+        labelClassName="assets-label-sm"
+        placeholder={group.description}
+        onChange={(description) => onChange((d) => editImage(d, image.asset.id, { description }))}
+      />
     </div>
   );
 }

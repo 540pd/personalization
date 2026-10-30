@@ -17,6 +17,7 @@ import {
   type AssetsDraft,
   type DraftImage,
 } from "../../assets/assetsDraft";
+import DescriptionField from "./DescriptionField";
 import { readLogo, type LogoReading } from "../../assets/logoAnalysis";
 import { UploadOverlay, useDropZone } from "./AssetTiles";
 
@@ -179,22 +180,13 @@ function Logo({
             <strong>Solid background.</strong> This logo isn&apos;t transparent, so it may show as a box on coloured creatives.
           </div>
         )}
-        <div className="assets-field">
-          <label htmlFor={`${id}-desc`} className="assets-label-sm">
-            Description
-          </label>
-          <textarea
-            id={`${id}-desc`}
-            className="assets-input assets-textarea"
-            rows={2}
-            placeholder="Black wordmark, for light backgrounds"
-            value={logo.description}
-            onChange={(e) => {
-              const description = e.target.value;
-              onChange((d) => editImage(d, logo.asset.id, { description }));
-            }}
-          />
-        </div>
+        <DescriptionField
+          id={`${id}-desc`}
+          image={logo}
+          labelClassName="assets-label-sm"
+          placeholder="Black wordmark, for light backgrounds"
+          onChange={(description) => onChange((d) => editImage(d, logo.asset.id, { description }))}
+        />
         <div className="assets-row2">
           <div className="assets-field">
             <label htmlFor={`${id}-type`} className="assets-label-sm">
