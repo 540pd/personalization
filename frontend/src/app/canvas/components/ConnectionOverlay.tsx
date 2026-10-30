@@ -13,14 +13,16 @@ import { useToolStore } from "@/store/tool.store";
 import { useSettings } from "@/store/settings.store";
 import { boardKeyAllowed } from "@/lib/canvas/boardKeys";
 import { COLORS, Z_INDEX } from "@/constants/canvas.constants";
+import { useGenerating } from "@/store/generating.store";
 import { toScreen, type Point } from "@/lib/canvas/coords";
 import { inputPoint } from "@/lib/canvas/ports";
-import { isLinkStyle, snapPort, wireEnds, wirePath, wireStart } from "@/lib/canvas/wires";
+import { isLinkStyle, snapPort, sourceSpan, wireEnds, wirePath, wireStart } from "@/lib/canvas/wires";
 import { canvasHistory } from "@/lib/canvas/history";
 import { selectOnly } from "@/lib/canvas/selection";
 import { kindSpec } from "./NodePanel/kinds";
 import { trackPointer } from "@/lib/dom/pointer";
 import { listen } from "@/lib/dom/listen";
+import "./Connections.scss";
 
 interface InputPortEntry extends Point {
   nodeId: string;
@@ -33,6 +35,8 @@ export default function ConnectionOverlay() {
   const vp         = useViewport();
   const activeTool = useToolStore((s) => s.activeTool);
   const settingsLinkStyle = useSettings((s) => s.settings.linkStyle);
+  // Wires into a node that is generating move (#456).
+  const generating = useGenerating((s) => s.ids);
   const panelById = useMemo(() => new Map(panels.map((p) => [p.id, p])), [panels]);
 
   // Only panels have input ports (konva nodes are output-only sources), and
@@ -111,6 +115,7 @@ export default function ConnectionOverlay() {
 
   // The live drag preview starts here; null once its source is gone.
   const fromPt = drag ? wireStart(drag, panelById, konvaNodes, vp) : null;
+  const fromSpan = drag ? sourceSpan(drag, panelById, konvaNodes, vp) : null;
 
   return (
     <svg
@@ -128,10 +133,14 @@ export default function ConnectionOverlay() {
       {connections.map((conn) => {
         const ends = wireEnds(conn, panelById, konvaNodes, vp);
         if (!ends) return null;
-        const d          = wirePath(ends.from, ends.to, linkStyle);
+        const d          = wirePath(ends.from, ends.to, linkStyle, ends.around);
         const isSelected = selectedIds.includes(conn.id);
+        const className  = ["board-wire", isSelected && "is-selected", generating.has(conn.toNodeId) && "is-flowing"]
+          .filter(Boolean)
+          .join(" ");
         return (
-          <g key={conn.id}>
+          <g key={conn.id} className={className}>
+            {isSelected && <path d={d} className="board-wire-halo" />}
             {/* Wide invisible hit area so thin lines are easy to click */}
             <path
               d={d}
@@ -154,15 +163,8 @@ export default function ConnectionOverlay() {
                 }
               }}
             />
-            {/* Visible wire */}
-            <path
-              d={d}
-              fill="none"
-              stroke={isSelected ? COLORS.selected : COLORS.ink}
-              strokeWidth={isSelected ? 2 : 1.5}
-              strokeLinecap="round"
-              style={{ pointerEvents: "none" }}
-            />
+            {/* Visible wire: colour and width follow hover and selection in Connections.scss */}
+            <path d={d} className="board-wire-line" />
           </g>
         );
       })}
@@ -170,26 +172,14 @@ export default function ConnectionOverlay() {
       {/* Live drag preview */}
       {drag && fromPt && (
         <path
-          d={wirePath(fromPt, snapTarget ?? { x: drag.cursorX, y: drag.cursorY }, linkStyle)}
-          fill="none"
-          stroke={COLORS.ink}
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeDasharray="5 3"
-          opacity={0.5}
+          d={wirePath(fromPt, snapTarget ?? { x: drag.cursorX, y: drag.cursorY }, linkStyle, { from: fromSpan ?? undefined })}
+          className="board-wire-preview"
         />
       )}
 
       {/* Snap highlight ring around the target input port */}
       {drag && snapTarget && (
-        <circle
-          cx={snapTarget.x}
-          cy={snapTarget.y}
-          r={8}
-          fill={COLORS.snapFill}
-          stroke={COLORS.ink}
-          strokeWidth={1.5}
-        />
+        <circle cx={snapTarget.x} cy={snapTarget.y} r={10} className="board-wire-snap" />
       )}
     </svg>
   );

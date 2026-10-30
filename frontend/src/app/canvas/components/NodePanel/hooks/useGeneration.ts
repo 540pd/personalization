@@ -3,6 +3,7 @@ import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useFrames } from "@/store/frame.store";
 import { useSkills } from "@/store/skills.store";
 import { useAgents } from "@/store/agents.store";
+import { useGenerating } from "@/store/generating.store";
 import { selectOnly } from "@/lib/canvas/selection";
 import { canvasHistory } from "@/lib/canvas/history";
 import { boundsOf } from "@/lib/canvas/bounds";
@@ -233,9 +234,17 @@ export function useGeneration(
     };
   }, [instance.job, instance.output, instance.id, spec]);
 
+  // Busy too while a downstream node is generating this one.
+  const generating = busy || upstream?.status === "generating";
+  // Told to the board, so the wires into this node show it (#456).
+  useEffect(() => {
+    if (!generating) return;
+    useGenerating.getState().setGenerating(instance.id, true);
+    return () => useGenerating.getState().setGenerating(instance.id, false);
+  }, [generating, instance.id]);
+
   return {
-    // Busy too while a downstream node is generating this one.
-    busy: busy || upstream?.status === "generating",
+    busy: generating,
     waiting,
     busyLabel,
     error: error ?? upstream?.error ?? null,

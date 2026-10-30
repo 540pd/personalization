@@ -2,15 +2,10 @@
 
 import type { PanelInstance } from "@/store/nodePanel.store";
 import { useConnectionStore } from "@/store/connection.store";
-import {
-  INPUT_PORT_STYLE,
-  OUTPUT_PORT_HIT_STYLE,
-  OUTPUT_PORT_STYLE,
-  PORT_HIT_PAD,
-  PORT_WIDTH,
-} from "@/constants/canvas.constants";
+import { Z_INDEX } from "@/constants/canvas.constants";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen, type Viewport } from "@/lib/canvas/coords";
+import "../Connections.scss";
 
 interface NodePortsProps {
   instance: PanelInstance;
@@ -23,17 +18,19 @@ interface NodePortsProps {
 export default function NodePorts({ instance, vp, showInput, showOutput }: NodePortsProps) {
   const inPt  = toScreen(inputPoint(instance), vp);
   const outPt = toScreen(outputPoint(instance), vp);
+  // A port with a wire on it is drawn filled (#456).
+  const inWired  = useConnectionStore((s) => s.connections.some((c) => c.toNodeId === instance.id));
+  const outWired = useConnectionStore((s) => s.connections.some((c) => c.fromNodeId === instance.id));
   return (
     <>
       {showInput && (
         <div
           title="Input"
-          style={{
-            ...INPUT_PORT_STYLE,
-            left: inPt.x,
-            top:  inPt.y,
-          }}
-        />
+          className={inWired ? "board-port is-input is-connected" : "board-port is-input"}
+          style={{ left: inPt.x, top: inPt.y, zIndex: Z_INDEX.ports }}
+        >
+          <div className="board-port-dot" />
+        </div>
       )}
 
       {/* Absent on a terminal kind, so there is nothing to start a
@@ -41,6 +38,7 @@ export default function NodePorts({ instance, vp, showInput, showOutput }: NodeP
       {showOutput && (
         <div
           title="Output"
+          className={outWired ? "board-port is-connected" : "board-port"}
           onPointerDown={(e) => {
             e.stopPropagation();
             useConnectionStore.getState().startDrag(instance.id, "panel", e.clientX, e.clientY);
@@ -49,13 +47,9 @@ export default function NodePorts({ instance, vp, showInput, showOutput }: NodeP
           // the same press also starts a text selection that runs to wherever
           // the wire is dropped, highlighting any node text in between (#184).
           onMouseDown={(e) => e.preventDefault()}
-          style={{
-            ...OUTPUT_PORT_HIT_STYLE,
-            left: outPt.x - PORT_WIDTH - PORT_HIT_PAD,
-            top:  outPt.y,
-          }}
+          style={{ left: outPt.x, top: outPt.y, zIndex: Z_INDEX.ports }}
         >
-          <div style={OUTPUT_PORT_STYLE} />
+          <div className="board-port-dot" />
         </div>
       )}
     </>

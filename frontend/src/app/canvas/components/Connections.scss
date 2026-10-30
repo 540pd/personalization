@@ -1,0 +1,122 @@
+@reference "../../globals.css";
+
+/* Wires and ports (#456). Calm at rest, clear on hover and selection. Sizes
+   are screen px: the overlay is drawn in screen space, so none of this
+   scales with zoom. */
+
+/* ── Ports: a circle centred on the node edge, in a larger grab area ── */
+.board-port {
+  /* Callers set left/top (the port centre) and z-index. */
+  @apply fixed flex items-center justify-center;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  cursor: crosshair;
+  pointer-events: auto;
+}
+
+/* An input is only a drop target; a small area keeps it from taking clicks
+   meant for the node's edge. */
+.board-port.is-input {
+  width: 14px;
+  height: 14px;
+}
+
+.board-port-dot {
+  @apply flex shrink-0 items-center justify-center rounded-full bg-white;
+  width: 12px;
+  height: 12px;
+  @apply border-ink-muted;
+  border-width: 1.5px;
+  transition: width 120ms ease, height 120ms ease, border-color 120ms ease;
+}
+
+/* A port with a wire on it is filled: where the wire ends. */
+.board-port.is-connected .board-port-dot::after {
+  @apply rounded-full;
+  content: "";
+  width: 4px;
+  height: 4px;
+  @apply bg-ink-muted;
+}
+
+.board-port:hover .board-port-dot {
+  width: 14px;
+  height: 14px;
+  @apply border-accent;
+}
+
+.board-port:hover.is-connected .board-port-dot::after {
+  @apply bg-accent;
+}
+
+/* ── Wires ── */
+.board-wire-line {
+  fill: none;
+  @apply stroke-ink-muted;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+  transition: stroke 120ms ease;
+}
+
+.board-wire:hover .board-wire-line {
+  @apply stroke-ink;
+  stroke-width: 2px;
+}
+
+/* After hover, so a selected wire stays blue under the pointer. */
+.board-wire.is-selected .board-wire-line {
+  @apply stroke-accent;
+  stroke-width: 2px;
+}
+
+.board-wire-halo {
+  fill: none;
+  @apply stroke-accent;
+  stroke-width: 6px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+/* Into a node that is generating: a slow moving dash. */
+.board-wire.is-flowing .board-wire-line {
+  stroke-dasharray: 6 6;
+  animation: board-wire-flow 1s linear infinite;
+}
+
+@keyframes board-wire-flow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+/* The live wire while dragging from an output. */
+.board-wire-preview {
+  fill: none;
+  @apply stroke-ink-muted;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 5 3;
+}
+
+.board-wire-snap {
+  @apply fill-accent-soft stroke-accent;
+  stroke-width: 1.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-port-dot,
+  .board-wire-line {
+    transition: none;
+  }
+
+  /* The dash still says "generating"; it just doesn't move. */
+  .board-wire.is-flowing .board-wire-line {
+    animation: none;
+  }
+}
