@@ -5,32 +5,27 @@
 // whatever the brief says; the rest are toggles. The library itself is edited
 // on Assets only, so this links there rather than adding or changing any.
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useId } from "react";
 import { Check } from "lucide-react";
-import { fetchBrandAssets, type BrandAssetsView } from "@/api/brandAssets.api";
 import { briefReferences, referenceSummary, togglePick } from "../../assets/briefReferences";
-import { useSection } from "@/store/section.store";
-
-type Load = { state: "loading" } | { state: "failed" } | { state: "ready"; view: BrandAssetsView };
+import { toAssets, type SavedAssets } from "./useSavedAssets";
 
 const USE_LABEL = { asIs: "As is", inspiration: "Inspiration only" } as const;
 const ALWAYS_HINT = "Every campaign uses it. Change this on the Assets page.";
 
-export default function BriefReferences({ picked, onChange }: { picked: string[]; onChange: (ids: string[]) => void }) {
+export default function BriefReferences({
+  load,
+  onRetry,
+  picked,
+  onChange,
+}: {
+  /** The saved Assets page, shared with the brief's product and logo rows (#444). */
+  load: SavedAssets;
+  onRetry: () => void;
+  picked: string[];
+  onChange: (ids: string[]) => void;
+}) {
   const id = useId();
-  const [load, setLoad] = useState<Load>({ state: "loading" });
-
-  const fetchAll = useCallback(() => {
-    setLoad({ state: "loading" });
-    fetchBrandAssets().then(
-      (view) => setLoad({ state: "ready", view }),
-      () => setLoad({ state: "failed" }),
-    );
-  }, []);
-  useEffect(fetchAll, [fetchAll]);
-
-  // Through setSection, so unsaved Brand edits are asked about first.
-  const toAssets = () => useSection.getState().setSection("assets");
 
   if (load.state === "loading") return <p className="brief-muted">Loading references…</p>;
 
@@ -38,7 +33,7 @@ export default function BriefReferences({ picked, onChange }: { picked: string[]
     return (
       <p className="brief-refs-problem" role="alert">
         Couldn&apos;t load the references.
-        <button type="button" className="brief-link" onClick={fetchAll}>
+        <button type="button" className="brief-link" onClick={onRetry}>
           Retry
         </button>
       </p>
