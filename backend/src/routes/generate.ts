@@ -12,17 +12,27 @@ import { readGenerateRequest } from "./generateRequest.js";
 import { readReferences } from "./references.js";
 import { resolveAssetReferences } from "../services/generatedAssets.js";
 import { buildBrandContext, readBrandRequest, withBrand, type BrandContext } from "../services/brandContext.js";
+import { getBrand } from "../services/brandService.js";
 
 export const generateRouter = Router();
 
 /**
- * The brand for a request (#452): null when off; never an error once the
- * body is valid, since a brand that cannot be read is generated without.
+ * The brand for a request (#452): null when off. On, the brief is the saved
+ * one (#454). Never an error once the body is valid: a brand that cannot be
+ * read is generated without.
  */
 async function brandFor(raw: unknown, userId: string): Promise<{ ok: true; brand: BrandContext | null } | { ok: false; message: string }> {
   const request = readBrandRequest(raw);
   if (!request.ok) return request;
-  return { ok: true, brand: request.brief ? await buildBrandContext(userId, request.brief) : null };
+  if (!request.on) return { ok: true, brand: null };
+  let brief;
+  try {
+    brief = (await getBrand(userId)).brand.campaign;
+  } catch (err) {
+    console.error("[generate] could not read the saved brand:", err);
+    return { ok: true, brand: { failed: true } };
+  }
+  return { ok: true, brand: await buildBrandContext(userId, brief) };
 }
 
 /** What the response says of the brand: what it used, or that it could not be read. */

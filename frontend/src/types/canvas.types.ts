@@ -21,11 +21,8 @@ export interface GenerateTextParams {
   agent?: { name: string; instructions: string };
   /** The prompt's @skills and the agent's own, each once, without front matter (#239). */
   skills?: { name: string; content: string }[];
-  /**
-   * The brand (#452): the Campaign Brief, which lives in the browser, and
-   * the backend adds the rest from the saved Assets page. false: off.
-   */
-  brand?: { brief: object } | false;
+  /** Use the brand (#452): the backend adds the saved brief and Assets (#454). */
+  brand?: boolean;
 }
 
 export interface GenerateTextResult {
@@ -76,11 +73,8 @@ export interface GenerateImageV2Params {
   variants?: number;
   /** The prompt's @skills, each once, without front matter (#240). */
   skills?: { name: string; content: string }[];
-  /**
-   * The brand (#452): the Campaign Brief, which lives in the browser, and
-   * the backend adds the rest from the saved Assets page. false: off.
-   */
-  brand?: { brief: object } | false;
+  /** Use the brand (#452): the backend adds the saved brief and Assets (#454). */
+  brand?: boolean;
 }
 
 /** One variant that failed, by its position in the requested batch. */

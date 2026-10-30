@@ -1,16 +1,17 @@
 import { create } from "zustand";
+import { fetchBrand, saveBrandPage } from "@/api/brand.api";
 
 /**
  * The client's brand settings, edited on the Brand page (#72, #219).
  *
- * In memory only for now: a reload loses them. Persisting is a later issue,
- * and when it lands this store becomes the cache in front of the API rather
- * than the source of truth.
+ * Saved to the account (#454): this store is the cache in front of
+ * /api/brand. It loads once when the app opens (BrandPage's outer component
+ * asks), and Save writes through it by revision, so a second tab is told
+ * rather than overwritten. Generation reads the saved brief on the backend
+ * (#452), so unsaved edits on the page never reach it.
  *
  * The Art-direction components (#72) were replaced by one Campaign Brief for
- * the MVP (#409, docs/sidebar/Brand_Page_MVP_Campaign_Brief_new.md). Nothing
- * outside the Brand page reads any of this yet: it is stored, not sent to
- * generation.
+ * the MVP (#409, docs/sidebar/Brand_Page_MVP_Campaign_Brief_new.md).
  *
  * The product and the logo themselves belong to the Assets page
  * (docs/sidebar/Assets_Page_Details.md): the brief only says whether each
@@ -92,12 +93,59 @@ export function emptyBrand(): BrandSettings {
   return { homepageUrl: "", industry: "", campaign: emptyCampaign() };
 }
 
-interface BrandState {
-  brand: BrandSettings;
-  save: (brand: BrandSettings) => void;
+/** The saved brand with what it does not say yet filled in from a new brief's defaults. */
+export function brandFrom(saved: { homepageUrl: string; industry: string; campaign: Partial<CampaignBrief> }): BrandSettings {
+  const empty = emptyCampaign();
+  return {
+    homepageUrl: saved.homepageUrl,
+    industry: saved.industry,
+    campaign: { ...empty, ...saved.campaign, mandatory: { ...empty.mandatory, ...saved.campaign.mandatory } },
+  };
 }
 
-export const useBrand = create<BrandState>((set) => ({
+export type BrandStatus = "idle" | "loading" | "ready" | "failed";
+export type BrandSaveResult = "saved" | "conflict" | "failed";
+
+interface BrandState {
+  brand: BrandSettings;
+  /** The saved revision the brand is from; 0 until first saved. */
+  revision: number;
+  status: BrandStatus;
+  /** One more for each load: the Brand page starts its editor again on a new one, not on its own save. */
+  loads: number;
+  /** Loads the saved brand, once: again only after a failure. */
+  load: () => Promise<void>;
+  /** Loads it again whatever the state: Retry, or Load the latest after a conflict. */
+  reload: () => Promise<void>;
+  save: (brand: BrandSettings) => Promise<BrandSaveResult>;
+}
+
+export const useBrand = create<BrandState>((set, get) => ({
   brand: emptyBrand(),
-  save: (brand) => set({ brand }),
+  revision: 0,
+  status: "idle",
+  loads: 0,
+  load: async () => {
+    if (get().status === "loading" || get().status === "ready") return;
+    await get().reload();
+  },
+  reload: async () => {
+    set({ status: "loading" });
+    try {
+      const view = await fetchBrand<CampaignBrief>();
+      set((s) => ({ brand: brandFrom(view.brand), revision: view.revision, status: "ready", loads: s.loads + 1 }));
+    } catch {
+      set({ status: "failed" });
+    }
+  },
+  save: async (brand) => {
+    try {
+      const reply = await saveBrandPage(get().revision, brand);
+      if (!reply.ok) return "conflict";
+      set({ brand, revision: reply.revision });
+      return "saved";
+    } catch {
+      return "failed";
+    }
+  },
 }));
