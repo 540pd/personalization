@@ -54,6 +54,11 @@ export interface CampaignBrief {
   /** Free multi-line text. */
   dos: string;
   donts: string;
+  /**
+   * Creative references from Assets this campaign uses (#442): those set to
+   * "When a campaign picks it". Always ones are used anyway and not listed.
+   */
+  referenceIds: string[];
 }
 
 export interface BrandSettings {
@@ -79,6 +84,7 @@ export function emptyCampaign(): CampaignBrief {
     legalText: "",
     dos: "",
     donts: "",
+    referenceIds: [],
   };
 }
 
