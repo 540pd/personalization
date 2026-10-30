@@ -6,7 +6,7 @@
 
 .shape-style-bar {
   @apply glass;
-  @apply fixed flex items-center gap-1 h-11 px-1.5 rounded-full shadow-lg -translate-x-1/2 select-none;
+  @apply fixed flex items-center gap-1 h-11 px-1.5 rounded-full shadow-float -translate-x-1/2 select-none;
 }
 
 .shape-style-wrapper {
@@ -14,30 +14,30 @@
 }
 
 .shape-style-button {
-  @apply w-8 h-8 flex items-center justify-center rounded-full text-neutral-700 transition-colors duration-150 cursor-pointer hover:bg-black/5 hover:text-neutral-900;
+  @apply w-8 h-8 flex items-center justify-center rounded-full text-ink-muted transition-colors duration-150 ease-standard motion-reduce:transition-none cursor-pointer hover:bg-subtle hover:text-ink;
 }
 
 /* Auto layout on an empty Frame (#225): nothing to lay out. */
 .shape-style-button:disabled {
-  @apply opacity-40 cursor-default hover:bg-transparent hover:text-neutral-700;
+  @apply opacity-40 cursor-default hover:bg-transparent hover:text-ink-muted;
 }
 
 .shape-style-button-open {
-  @apply bg-neutral-900 text-white hover:bg-neutral-900 hover:text-white;
+  @apply bg-accent text-white hover:bg-accent hover:text-white;
 }
 
 /* Bold and Italic: on, but not a card opened. */
 .shape-style-button-on {
-  @apply bg-neutral-200 text-neutral-900 hover:bg-neutral-200;
+  @apply bg-accent-soft text-accent hover:bg-accent-soft hover:text-accent;
 }
 
 /* The Size button and options: a number or a letter, not an icon. */
 .shape-style-size {
-  @apply text-sm font-medium tabular-nums;
+  @apply text-body font-medium tabular-nums;
 }
 
 .shape-style-divider {
-  @apply w-px h-5 bg-black/10 mx-0.5;
+  @apply w-px h-5 bg-line mx-0.5;
 }
 
 .shape-style-dot {
@@ -51,7 +51,7 @@
 // Shown by the shared Tooltip (pill variant) on hover and keyboard focus.
 .shape-style-tooltip {
   @apply pill-tooltip;
-  @apply text-sm text-neutral-700;
+  @apply text-body text-ink;
 }
 
 /* ---------------------------------
@@ -61,7 +61,7 @@
 .shape-style-card {
   @apply float-above;
   @apply glass;
-  @apply rounded-2xl shadow-xl;
+  @apply rounded-card shadow-menu;
 }
 
 .shape-style-bar-below {
@@ -76,11 +76,11 @@
 }
 
 .shape-style-swatch {
-  @apply w-7 h-7 rounded-full border border-black/10 cursor-pointer transition-transform duration-100 hover:scale-110;
+  @apply w-7 h-7 rounded-full border border-line cursor-pointer transition-transform duration-100 hover:scale-110;
 }
 
 .shape-style-swatch-current {
-  @apply ring-2 ring-neutral-900 ring-offset-2;
+  @apply ring-2 ring-accent ring-offset-2;
 }
 
 .shape-style-row {
@@ -88,14 +88,14 @@
 }
 
 .shape-style-option {
-  @apply w-8 h-8 flex items-center justify-center rounded-full text-neutral-600 cursor-pointer transition-colors duration-100 hover:bg-black/5 hover:text-neutral-900;
+  @apply w-8 h-8 flex items-center justify-center rounded-full text-ink-muted cursor-pointer transition-colors duration-150 motion-reduce:transition-none hover:bg-subtle hover:text-ink;
 }
 
 .shape-style-option-current {
-  @apply bg-neutral-200 text-neutral-900 hover:bg-neutral-200;
+  @apply bg-accent-soft text-accent hover:bg-accent-soft hover:text-accent;
 }
 
 /* A shortcut in a tooltip: Create frame F (#243) */
 .shape-style-kbd {
-  @apply ml-1.5 rounded bg-neutral-100 px-1.5 py-px font-sans text-xs text-neutral-500;
+  @apply ml-1.5 rounded-sm bg-subtle px-1.5 py-px font-sans text-meta text-ink-muted;
 }
