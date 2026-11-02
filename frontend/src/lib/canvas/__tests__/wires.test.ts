@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { PORT_FRACTION, SNAP_RADIUS } from "@/constants/canvas.constants";
-import { isLinkStyle, snapPort, sourceSpan, wireEnds, wirePath, wireStart } from "../wires";
+import { canTake, isLinkStyle, snapPort, sourceSpan, wireEnds, wirePath, wireStart } from "../wires";
 
 // A panel's canvasY is its vertical centre; a Konva node's is its top.
 const panel = (canvasX: number, canvasY: number, w = 200, h = 100) => ({ canvasX, canvasY, w, h });
@@ -67,8 +67,16 @@ describe("snapPort", () => {
     { nodeId: "b", x: 110, y: 100 },
   ];
 
-  it("takes the first port within SNAP_RADIUS", () => {
+  it("takes the nearest port within SNAP_RADIUS (#458)", () => {
+    expect(snapPort(ports, { x: 108, y: 100 }, null)?.nodeId).toBe("b");
+    expect(snapPort(ports, { x: 102, y: 100 }, null)?.nodeId).toBe("a");
+    // A tie goes to the first.
     expect(snapPort(ports, { x: 105, y: 100 }, null)?.nodeId).toBe("a");
+  });
+
+  it("reaches 28px since #458", () => {
+    expect(SNAP_RADIUS).toBe(28);
+    expect(snapPort([ports[0]], { x: 100, y: 127 }, null)?.nodeId).toBe("a");
   });
 
   it("never snaps a wire to its own source", () => {
@@ -78,6 +86,31 @@ describe("snapPort", () => {
   it("is null outside the radius, which is exclusive", () => {
     expect(snapPort(ports, { x: 100, y: 100 + SNAP_RADIUS + 1 }, null)).toBeNull();
     expect(snapPort([ports[0]], { x: 100 + SNAP_RADIUS, y: 100 }, null)).toBeNull();
+  });
+});
+
+describe("canTake (#458)", () => {
+  const wires = [
+    { id: "w1", fromNodeId: "a", fromNodeType: "panel" as const, toNodeId: "b" },
+    { id: "w2", fromNodeId: "k", fromNodeType: "konva" as const, toNodeId: "c" },
+  ];
+  const fromA = { fromNodeId: "a", fromNodeType: "panel" as const };
+
+  it("takes a node not yet wired from the source", () => {
+    expect(canTake("c", fromA, wires)).toBe(true);
+  });
+
+  it("never takes the wire's own source", () => {
+    expect(canTake("a", fromA, wires)).toBe(false);
+  });
+
+  it("refuses a node already wired from the same source, not from another", () => {
+    expect(canTake("b", fromA, wires)).toBe(false);
+    expect(canTake("b", { fromNodeId: "k", fromNodeType: "konva" }, wires)).toBe(true);
+  });
+
+  it("lets a moved wire go back where it came from", () => {
+    expect(canTake("b", { ...fromA, movingId: "w1" }, wires)).toBe(true);
   });
 });
 

@@ -24,7 +24,8 @@ interface HoverState {
 
 export const useHover = create<HoverState>(() => ({ hoveredId: null }));
 
-function candidates(): HoverCandidate[] {
+/** Every node on the board as a hover candidate; also where a dragged wire is dropped (#458). */
+export function boardCandidates(): HoverCandidate[] {
   const panels = useNodePanel.getState().panels;
   const nodes = Object.values(useKonvaNodes.getState().nodes);
   const frames = Object.values(useFrames.getState().frames);
@@ -38,7 +39,7 @@ function candidates(): HoverCandidate[] {
 function onMove(e: PointerEvent) {
   const { x, y, scale } = useViewport.getState();
   const point = { x: (e.clientX - x) / scale, y: (e.clientY - y) / scale };
-  const id = hoverTargetAt(point, candidates(), scale, useLayerOrder.getState().topLayer);
+  const id = hoverTargetAt(point, boardCandidates(), scale, useLayerOrder.getState().topLayer);
   if (id !== useHover.getState().hoveredId) useHover.setState({ hoveredId: id });
 }
 
