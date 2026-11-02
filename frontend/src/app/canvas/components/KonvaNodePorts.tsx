@@ -34,6 +34,8 @@ export default function KonvaNodePorts() {
   // A port with a wire on it is drawn filled (#456).
   const connections = useConnectionStore((s) => s.connections);
   const wired = new Set(connections.map((c) => c.fromNodeId));
+  // A wire dragged onto this output can't land there (#460).
+  const blocked = useConnectionStore((s) => (s.drag?.blocked?.port === "output" ? s.drag.blocked.nodeId : null));
   const blockers = toBlockers(all, panels);
 
   return (
@@ -58,7 +60,7 @@ export default function KonvaNodePorts() {
             }}
             // No text selection from the press that starts a wire (#184).
             onMouseDown={(e) => e.preventDefault()}
-            className={wired.has(n.id) ? "board-port is-connected" : "board-port"}
+            className={["board-port", wired.has(n.id) && "is-connected", blocked === n.id && "is-blocked"].filter(Boolean).join(" ")}
             style={{ left: pt.x, top: pt.y, zIndex: Z_INDEX.ports }}
           >
             <div className="board-port-dot" />

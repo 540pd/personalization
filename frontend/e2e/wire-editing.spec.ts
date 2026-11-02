@@ -79,9 +79,11 @@ test.describe("easier wiring (#458)", () => {
 
       await press(page, output(na));
       await moveTo(page, body(nb));
-      // Every node but the source lights up; the one under the pointer is outlined.
+      // Every node but the source lights up; the input of the one under the
+      // pointer is the landing port. No node is outlined since #460.
       await expect(page.locator(".board-port.is-target")).toHaveCount(2);
-      await expect(page.locator("rect.board-wire-target")).toHaveCount(1);
+      await expect(page.locator(".board-port.is-landing")).toHaveCount(1);
+      await expect(page.locator("rect.board-wire-target")).toHaveCount(0);
       await release(page);
 
       await expect(wires(page)).toHaveCount(1);
@@ -179,7 +181,7 @@ test.describe("easier wiring (#458)", () => {
     await press(page, input(b));
     await moveTo(page, body(c));
     // C already has a wire from A, so it isn't a target.
-    await expect(page.locator("rect.board-wire-target")).toHaveCount(0);
+    await expect(page.locator(".board-port.is-landing")).toHaveCount(0);
     await moveTo(page, input(c));
     await release(page);
     await expect(wires(page)).toHaveCount(1);

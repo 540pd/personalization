@@ -5,7 +5,7 @@ import { useConnectionStore } from "@/store/connection.store";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen, type Viewport } from "@/lib/canvas/coords";
-import { canTake } from "@/lib/canvas/wires";
+import { wireBlock } from "@/lib/canvas/wires";
 import "../Connections.scss";
 
 interface NodePortsProps {
@@ -24,8 +24,22 @@ export default function NodePorts({ instance, vp, showInput, showOutput }: NodeP
   const inWired  = useConnectionStore((s) => s.connections.some((c) => c.toNodeId === instance.id && c.id !== s.drag?.movingId));
   const outWired = useConnectionStore((s) => s.connections.some((c) => c.fromNodeId === instance.id));
   // Lit up while a dragged wire could land here (#458).
-  const isTarget = useConnectionStore((s) => !!s.drag && canTake(instance.id, s.drag, s.connections));
-  const inClass = ["board-port is-input", inWired && "is-connected", isTarget && "is-target"].filter(Boolean).join(" ");
+  const isTarget = useConnectionStore((s) => !!s.drag && wireBlock(instance.id, s.drag, s.connections, true) === null);
+  // Red, on the port only, while this is the node under the pointer and
+  // can't take the wire (#460).
+  const blockedPort = useConnectionStore((s) => (s.drag?.blocked?.nodeId === instance.id ? s.drag.blocked.port : null));
+  // The one the wire would land on if let go now stands out (#460).
+  const isLanding = useConnectionStore((s) => s.drag?.landingId === instance.id);
+  const inClass = [
+    "board-port is-input",
+    inWired && "is-connected",
+    isTarget && "is-target",
+    isLanding && "is-landing",
+    blockedPort === "input" && "is-blocked",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const outClass = ["board-port", outWired && "is-connected", blockedPort === "output" && "is-blocked"].filter(Boolean).join(" ");
   return (
     <>
       {showInput && (
@@ -56,7 +70,7 @@ export default function NodePorts({ instance, vp, showInput, showOutput }: NodeP
       {showOutput && (
         <div
           title="Output"
-          className={outWired ? "board-port is-connected" : "board-port"}
+          className={outClass}
           onPointerDown={(e) => {
             e.stopPropagation();
             useConnectionStore.getState().startDrag(instance.id, "panel", e.clientX, e.clientY);
