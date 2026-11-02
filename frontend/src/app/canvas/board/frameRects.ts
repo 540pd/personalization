@@ -4,6 +4,7 @@ import Konva from "konva";
 import { useFrames, type FrameRecord } from "@/store/frame.store";
 import { selectOnly } from "@/lib/canvas/selection";
 import { canvasHistory } from "@/lib/canvas/history";
+import { listen } from "@/lib/dom/listen";
 import { announceGesture } from "@/lib/canvas/gesture";
 import { boundsOf } from "@/lib/canvas/bounds";
 import { COLORS, FRAME_CORNER_RADIUS } from "@/constants/canvas.constants";
@@ -21,6 +22,7 @@ export function createFrameRects(layer: Konva.Layer, transformer?: Konva.Transfo
   // dropped halfway through just because the frame swept over it.
   let move: FrameMove | null = null;
   let dragFrom = { x: 0, y: 0 };
+  let offBlur: (() => void) | null = null;
   // One object per resize gesture, shared by every frame it resizes, so the
   // gesture commits a single undo step however many frames it touched.
   let resizeKey: object | null = null;
@@ -51,6 +53,11 @@ export function createFrameRects(layer: Konva.Layer, transformer?: Konva.Transfo
     rect.on("dragstart", () => {
       move = beginFrameMove(f);
       dragFrom = { x: rect.x(), y: rect.y() };
+      // Konva listens for mouseup, but a release outside the window after
+      // Alt+Tab never reaches it. stopDrag fires our dragend handler, which
+      // saves the last position and removes Konva's global drag state.
+      offBlur?.();
+      offBlur = listen(window, "blur", () => rect.stopDrag());
     });
 
     // The name keeps up too, instead of arriving when the drag ends.
@@ -58,6 +65,8 @@ export function createFrameRects(layer: Konva.Layer, transformer?: Konva.Transfo
     rect.on("dragmove", moveTo);
 
     rect.on("dragend", () => {
+      offBlur?.();
+      offBlur = null;
       moveTo();
       move?.end();
       move = null;
@@ -118,6 +127,11 @@ export function createFrameRects(layer: Konva.Layer, transformer?: Konva.Transfo
    * writes only happen on dragend/transformend, so this never runs mid-gesture.
    */
   const render = (frames: Record<string, FrameRecord>) => {
+    // A rebuild can destroy an active rect (delete/undo). Do not leave its
+    // blur listener bound to a destroyed node or commit the deleted frame.
+    offBlur?.();
+    offBlur = null;
+    move = null;
     // Delete / undo / redo mid-resize: drop the resize without saving it (#183).
     if (transformer?.isTransforming()) {
       transformer.nodes([]);
@@ -135,7 +149,7 @@ export function createFrameRects(layer: Konva.Layer, transformer?: Konva.Transfo
     layer.batchDraw();
   };
 
-  return { render };
+  return { render, dispose: () => { offBlur?.(); offBlur = null; } };
 }
 
 /**

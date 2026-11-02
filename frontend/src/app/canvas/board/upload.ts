@@ -10,7 +10,11 @@ import { useViewport } from "@/store/viewport.store";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { useUpload } from "@/store/upload.store";
-import { COLORS, DEFAULT_NODE_MAX_EDGE, NODE_CORNER_RADIUS } from "@/constants/canvas.constants";
+import {
+  COLORS,
+  DEFAULT_NODE_MAX_EDGE,
+  NODE_CORNER_RADIUS,
+} from "@/constants/canvas.constants";
 import { toCanvas, viewportCentre, type Point } from "@/lib/canvas/coords";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { canvasArea } from "../canvasArea";
@@ -50,13 +54,16 @@ export function stripExtension(fileName: string): string {
 export function fitToBox(
   naturalWidth: number,
   naturalHeight: number,
-  edge: number = DEFAULT_NODE_MAX_EDGE
+  edge: number = DEFAULT_NODE_MAX_EDGE,
 ): { w: number; h: number } {
   const ratio = Math.min(1, edge / naturalWidth, edge / naturalHeight);
   return { w: naturalWidth * ratio, h: naturalHeight * ratio };
 }
 
-export type UploadDeps = Pick<BoardLayerDeps, "layer" | "applyDraggability" | "syncAllNodeGeometry" | "saveSnapshot">;
+export type UploadDeps = Pick<
+  BoardLayerDeps,
+  "layer" | "applyDraggability" | "syncAllNodeGeometry" | "saveSnapshot"
+>;
 
 /** Shared by both branches: register, attach, redraw, and make it undoable. */
 function placeNode(
@@ -108,7 +115,12 @@ function addImage(
     const y = cy - h / 2 + off;
 
     const node = new Konva.Image({
-      id, image: img, x, y, width: w, height: h,
+      id,
+      image: img,
+      x,
+      y,
+      width: w,
+      height: h,
       name: "selectable",
       cornerRadius: NODE_CORNER_RADIUS,
       // A light hairline, matching the Create Image placeholder. Without an
@@ -146,11 +158,20 @@ function addImage(
       // only its ability to survive a future frame reload is affected.
       console.warn("[frames] Could not save uploaded image for reload.", err);
     }
-    placeNode(deps, node, {
-      id, canvasX: x, canvasY: y, canvasW: w, canvasH: h,
-      imageUrl,
-      label: uniqueLabel(stripExtension(file.name), takenLabels()),
-    }, droppedAt);
+    placeNode(
+      deps,
+      node,
+      {
+        id,
+        canvasX: x,
+        canvasY: y,
+        canvasW: w,
+        canvasH: h,
+        imageUrl,
+        label: uniqueLabel(stripExtension(file.name), takenLabels()),
+      },
+      droppedAt,
+    );
     URL.revokeObjectURL(url);
     onSettled();
     // On the board already, with its local copy; now into the user's
@@ -169,8 +190,180 @@ function addImage(
   img.src = url;
 }
 
+function addVideo(
+  deps: UploadDeps,
+  file: File,
+  cx: number,
+  cy: number,
+  off: number,
+  onSettled: () => void,
+) {
+  const objectUrl = URL.createObjectURL(file);
+  const video = document.createElement("video");
+
+  video.src = objectUrl;
+  video.preload = "metadata";
+  video.playsInline = true;
+  video.controls = false;
+  video.muted = true;
+
+  video.onloadedmetadata = () => {
+    const naturalWidth = video.videoWidth;
+    const naturalHeight = video.videoHeight;
+
+    if (!naturalWidth || !naturalHeight) {
+      cleanup();
+      onSettled();
+      return;
+    }
+
+    const { w, h } = fitToBox(naturalWidth, naturalHeight);
+    const id = crypto.randomUUID();
+    const x = cx - w / 2 + off;
+    const y = cy - h / 2 + off;
+
+    const node = new Konva.Image({
+      id,
+      image: video,
+      x,
+      y,
+      width: w,
+      height: h,
+      name: "selectable video-node",
+      cornerRadius: NODE_CORNER_RADIUS,
+      stroke: "rgba(255,255,255,0.95)",
+      strokeWidth: 1.5,
+      strokeScaleEnabled: false,
+
+      // Make the complete video rectangle interactive.
+      hitFunc(ctx: Konva.Context, shape: Konva.Shape) {
+        ctx.beginPath();
+        ctx.rect(0, 0, shape.width(), shape.height());
+        ctx.closePath();
+        ctx.fillStrokeShape(shape);
+      },
+    });
+
+    // Konva does not automatically redraw when an HTMLVideoElement advances.
+    const animation = new Konva.Animation(() => {
+      // The animation causes the layer to redraw while the video is playing.
+    }, deps.layer);
+
+    const startAnimation = () => animation.start();
+    const stopAnimation = () => {
+      animation.stop();
+      deps.layer.batchDraw();
+    };
+
+    video.addEventListener("play", startAnimation);
+    video.addEventListener("pause", stopAnimation);
+    video.addEventListener("ended", stopAnimation);
+
+    /*
+     * Keep media resources attached to the node so deletion and hydration
+     * logic can find and dispose them.
+     *
+     * Konva attrs can hold runtime-only values, but these values must not be
+     * included in serialized snapshots.
+     */
+    node.setAttr("mediaType", "video");
+    node.setAttr("mediaElement", video);
+    node.setAttr("mediaObjectUrl", objectUrl);
+    node.setAttr("mediaAnimation", animation);
+    node.setAttr("fileName", file.name);
+    node.setAttr("mimeType", file.type);
+    node.on("dblclick dbltap", () => {
+  if (video.paused) {
+    void video.play().catch((error) => {
+      console.warn("[video] Playback could not start.", error);
+    });
+  } else {
+    video.pause();
+  }
+});
+
+    placeNode(deps, node, {
+      id,
+      canvasX: x,
+      canvasY: y,
+      canvasW: w,
+      canvasH: h,
+      label: uniqueLabel(stripExtension(file.name), takenLabels()),
+
+      // Add these fields to your node record type if they do not exist.
+      mediaType: "video",
+      mimeType: file.type,
+      fileName: file.name,
+    });
+
+    /*
+     * Seek to the first usable frame. Some MP4 files initially display a
+     * black frame at time 0, so a small offset is generally more reliable.
+     */
+    const renderFirstFrame = () => {
+      const previewTime =
+        Number.isFinite(video.duration) && video.duration > 0
+          ? Math.min(0.1, video.duration / 10)
+          : 0;
+
+      try {
+        video.currentTime = previewTime;
+      } catch {
+        deps.layer.batchDraw();
+      }
+    };
+
+    video.addEventListener(
+      "loadeddata",
+      () => {
+        renderFirstFrame();
+        deps.layer.batchDraw();
+      },
+      { once: true },
+    );
+
+    video.addEventListener(
+      "seeked",
+      () => {
+        deps.layer.batchDraw();
+      },
+      { once: true },
+    );
+
+    /*
+     * Do not revoke objectUrl here. The HTMLVideoElement still needs it for
+     * playback. Revoke it only when the node is deleted or the board unmounts.
+     */
+    onSettled();
+  };
+
+  video.onerror = () => {
+    cleanup();
+    onSettled();
+  };
+
+  function cleanup() {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+    URL.revokeObjectURL(objectUrl);
+  }
+
+  /*
+   * Explicit load is more dependable than relying only on assigning src.
+   */
+  video.load();
+}
+
 /** Video and audio land as a placeholder rect until media nodes exist. */
-function addMediaPlaceholder(deps: UploadDeps, file: File, cx: number, cy: number, off: number, droppedAt?: Point) {
+function addMediaPlaceholder(
+  deps: UploadDeps,
+  file: File,
+  cx: number,
+  cy: number,
+  off: number,
+  droppedAt?: Point,
+) {
   const w = 240;
   const h = file.type.startsWith("video/") ? 135 : 64;
   const id = crypto.randomUUID();
@@ -178,7 +371,11 @@ function addMediaPlaceholder(deps: UploadDeps, file: File, cx: number, cy: numbe
   const y = cy - h / 2 + off;
 
   const node = new Konva.Rect({
-    id, x, y, width: w, height: h,
+    id,
+    x,
+    y,
+    width: w,
+    height: h,
     fill: COLORS.mediaFill,
     stroke: COLORS.mediaStroke,
     strokeWidth: 1.5,
@@ -186,13 +383,17 @@ function addMediaPlaceholder(deps: UploadDeps, file: File, cx: number, cy: numbe
     name: "selectable",
   });
 
-  placeNode(deps, node, { id, canvasX: x, canvasY: y, canvasW: w, canvasH: h }, droppedAt);
+  placeNode(
+    deps,
+    node,
+    { id, canvasX: x, canvasY: y, canvasW: w, canvasH: h },
+    droppedAt,
+  );
 }
 
 /** Handler for uploadEvent. */
 export function createUploadHandler(deps: UploadDeps) {
   return ({ files, at }: UploadDetail) => {
-
     // Return to pointer so the new node can be moved straight away. Without
     // this an upload under a link/shape tool lands a node that cannot be
     // dragged, and the press pans the board instead.
@@ -206,7 +407,9 @@ export function createUploadHandler(deps: UploadDeps) {
     // of and goes to the centre. canvasArea, not the window: the sidebar
     // covers the left edge, so centring on the window drops the image partly
     // behind it.
-    const { x: cx, y: cy } = at ? toCanvas(at, vp) : viewportCentre(vp, canvasArea());
+    const { x: cx, y: cy } = at
+      ? toCanvas(at, vp)
+      : viewportCentre(vp, canvasArea());
     // Only a drop has a point to join an auto layout row at (#228).
     const droppedAt = at ? { x: cx, y: cy } : undefined;
 
@@ -220,13 +423,27 @@ export function createUploadHandler(deps: UploadDeps) {
     };
 
     files.forEach((file, i) => {
-      const off = i * 24;   // cascade, so a multi-file drop does not stack
+      const off = i * 24;
+
       if (file.type.startsWith("image/")) {
-        addImage(deps, file, cx, cy, off, settle, droppedAt);
-      } else {
-        addMediaPlaceholder(deps, file, cx, cy, off, droppedAt);
-        settle();   // synchronous: already on the canvas
+        addImage(deps, file, cx, cy, off, settle);
+        return;
       }
+
+      if (file.type.startsWith("video/")) {
+        addVideo(deps, file, cx, cy, off, settle);
+        return;
+      }
+
+      if (file.type.startsWith("audio/")) {
+        addMediaPlaceholder(deps, file, cx, cy, off);
+        settle();
+        return;
+      }
+
+      // Defensive fallback if createUploadHandler is invoked from somewhere
+      // other than the validated picker or drag-and-drop flow.
+      settle();
     });
   };
 }
