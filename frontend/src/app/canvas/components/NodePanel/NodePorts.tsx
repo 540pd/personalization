@@ -5,6 +5,7 @@ import { useConnectionStore } from "@/store/connection.store";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import { inputPoint, outputPoint } from "@/lib/canvas/ports";
 import { toScreen, type Viewport } from "@/lib/canvas/coords";
+import { canTake } from "@/lib/canvas/wires";
 import "../Connections.scss";
 
 interface NodePortsProps {
@@ -19,14 +20,31 @@ export default function NodePorts({ instance, vp, showInput, showOutput }: NodeP
   const inPt  = toScreen(inputPoint(instance), vp);
   const outPt = toScreen(outputPoint(instance), vp);
   // A port with a wire on it is drawn filled (#456).
-  const inWired  = useConnectionStore((s) => s.connections.some((c) => c.toNodeId === instance.id));
+  // A wire picked up by this end doesn't count while it's in the air (#458).
+  const inWired  = useConnectionStore((s) => s.connections.some((c) => c.toNodeId === instance.id && c.id !== s.drag?.movingId));
   const outWired = useConnectionStore((s) => s.connections.some((c) => c.fromNodeId === instance.id));
+  // Lit up while a dragged wire could land here (#458).
+  const isTarget = useConnectionStore((s) => !!s.drag && canTake(instance.id, s.drag, s.connections));
+  const inClass = ["board-port is-input", inWired && "is-connected", isTarget && "is-target"].filter(Boolean).join(" ");
   return (
     <>
       {showInput && (
         <div
           title="Input"
-          className={inWired ? "board-port is-input is-connected" : "board-port is-input"}
+          className={inClass}
+          // Pressing a wired input picks up its last wire by that end, to
+          // move it or, dropped on nothing, remove it (#458).
+          onPointerDown={(e) => {
+            const { connections } = useConnectionStore.getState();
+            const last = connections.findLast((c) => c.toNodeId === instance.id);
+            if (!last) return;
+            e.stopPropagation();
+            useConnectionStore.getState().startMove(last.id, e.clientX, e.clientY);
+          }}
+          // As for the output: no text selection from the press (#184).
+          onMouseDown={(e) => {
+            if (inWired) e.preventDefault();
+          }}
           style={{ left: inPt.x, top: inPt.y, zIndex: Z_INDEX.ports }}
         >
           <div className="board-port-dot" />

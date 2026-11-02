@@ -226,4 +226,4 @@ export const SELECTION = {
 // circle, which is where occlusion probes for a cover.
 export const PORT_WIDTH    = 6;
 export const PORT_FRACTION = 0.3; // vertical position from the node's top edge
-export const SNAP_RADIUS   = 16;
+export const SNAP_RADIUS   = 28; // screen px; was 16 before drop targets lit up (#458)
