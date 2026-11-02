@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { PORT_FRACTION, SNAP_RADIUS } from "@/constants/canvas.constants";
-import { canTake, isLinkStyle, snapPort, sourceSpan, wireEnds, wirePath, wireStart } from "../wires";
+import { OUTPUT_HIT_RADIUS, PORT_FRACTION, SNAP_RADIUS } from "@/constants/canvas.constants";
+import { WIRE_BLOCK_REASONS, isLinkStyle, wireBlock, snapPort, sourceSpan, wireEnds, wirePath, wireStart } from "../wires";
 
 // A panel's canvasY is its vertical centre; a Konva node's is its top.
 const panel = (canvasX: number, canvasY: number, w = 200, h = 100) => ({ canvasX, canvasY, w, h });
@@ -87,30 +87,73 @@ describe("snapPort", () => {
     expect(snapPort(ports, { x: 100, y: 100 + SNAP_RADIUS + 1 }, null)).toBeNull();
     expect(snapPort([ports[0]], { x: 100 + SNAP_RADIUS, y: 100 }, null)).toBeNull();
   });
+  it("takes a smaller radius for an output port hit (#460)", () => {
+    expect(OUTPUT_HIT_RADIUS).toBe(16);
+    expect(snapPort([ports[0]], { x: 100, y: 115 }, null, OUTPUT_HIT_RADIUS)?.nodeId).toBe("a");
+    expect(snapPort([ports[0]], { x: 100, y: 120 }, null, OUTPUT_HIT_RADIUS)).toBeNull();
+  });
 });
 
-describe("canTake (#458)", () => {
-  const wires = [
-    { id: "w1", fromNodeId: "a", fromNodeType: "panel" as const, toNodeId: "b" },
-    { id: "w2", fromNodeId: "k", fromNodeType: "konva" as const, toNodeId: "c" },
-  ];
+describe("wireBlock (#458, #460)", () => {
+  const edge = (id: string, from: string, to: string, fromNodeType: "panel" | "konva" = "panel") =>
+    ({ id, fromNodeId: from, fromNodeType, toNodeId: to });
+  const wires = [edge("w1", "a", "b"), edge("w2", "k", "c", "konva")];
   const fromA = { fromNodeId: "a", fromNodeType: "panel" as const };
 
   it("takes a node not yet wired from the source", () => {
-    expect(canTake("c", fromA, wires)).toBe(true);
+    expect(wireBlock("c", fromA, wires, true)).toBeNull();
   });
 
   it("never takes the wire's own source", () => {
-    expect(canTake("a", fromA, wires)).toBe(false);
+    expect(wireBlock("a", fromA, wires, true)).toBe("self");
   });
 
   it("refuses a node already wired from the same source, not from another", () => {
-    expect(canTake("b", fromA, wires)).toBe(false);
-    expect(canTake("b", { fromNodeId: "k", fromNodeType: "konva" }, wires)).toBe(true);
+    expect(wireBlock("b", fromA, wires, true)).toBe("connected");
+    expect(wireBlock("b", { fromNodeId: "k", fromNodeType: "konva" }, wires, true)).toBeNull();
   });
 
-  it("lets a moved wire go back where it came from", () => {
-    expect(canTake("b", { ...fromA, movingId: "w1" }, wires)).toBe(true);
+  it("refuses a node without an input", () => {
+    expect(wireBlock("c", fromA, wires, false)).toBe("no-input");
+  });
+
+  it("refuses a wire that closes a loop of two", () => {
+    expect(wireBlock("a", { fromNodeId: "b", fromNodeType: "panel" }, wires, true)).toBe("loop");
+  });
+
+  it("refuses a wire that closes a longer loop, and allows one that doesn't", () => {
+    const chain = [edge("w1", "a", "b"), edge("w2", "b", "c"), edge("w3", "c", "d")];
+    const fromD = { fromNodeId: "d", fromNodeType: "panel" as const };
+    expect(wireBlock("a", fromD, chain, true)).toBe("loop");
+    expect(wireBlock("b", fromD, chain, true)).toBe("loop");
+    // a → c only adds a shortcut; nothing comes back to a.
+    expect(wireBlock("c", fromA, chain, true)).toBeNull();
+  });
+
+  it("isn't thrown by a loop already on the board", () => {
+    const looped = [edge("w1", "a", "b"), edge("w2", "b", "a")];
+    expect(wireBlock("x", fromA, looped, true)).toBeNull();
+    expect(wireBlock("a", { fromNodeId: "x", fromNodeType: "panel" }, looped, true)).toBeNull();
+  });
+
+  it("checks the rules in order: self, connected, no input, loop", () => {
+    expect(wireBlock("a", fromA, wires, false)).toBe("self");
+    expect(wireBlock("b", fromA, wires, false)).toBe("connected");
+    expect(wireBlock("a", { fromNodeId: "b", fromNodeType: "panel" }, wires, false)).toBe("no-input");
+  });
+
+  it("doesn't count a moved wire against itself", () => {
+    // Back where it came from.
+    expect(wireBlock("b", { ...fromA, movingId: "w1" }, wires, true)).toBeNull();
+    // b → c moved onto a: the loop would have run through the wire being moved.
+    const chain = [edge("w1", "a", "b"), edge("w2", "b", "c")];
+    expect(wireBlock("a", { fromNodeId: "b", fromNodeType: "panel", movingId: "w2" }, chain, true)).toBe("loop");
+    expect(wireBlock("a", { fromNodeId: "c", fromNodeType: "panel" }, chain, true)).toBe("loop");
+    expect(wireBlock("a", { fromNodeId: "c", fromNodeType: "panel", movingId: "w1" }, chain, true)).toBeNull();
+  });
+
+  it("has a reason for every block", () => {
+    expect(Object.keys(WIRE_BLOCK_REASONS).sort()).toEqual(["connected", "loop", "no-input", "output", "self"]);
   });
 });
 

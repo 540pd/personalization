@@ -31,6 +31,14 @@ describe("connection store: drawing a wire", () => {
     expect(store().drag).toBeNull();
   });
 
+  it("doesn't make a wire that would close a loop (#460)", () => {
+    given(wire("w1", "a", "b"), wire("w2", "b", "c"));
+    store().startDrag("c", "panel", 0, 0);
+    store().commitConnection("a");
+    expect(ends()).toEqual(["w1:a>b", "w2:b>c"]);
+    expect(store().drag).toBeNull();
+  });
+
   it("drops a new wire let go over nothing", () => {
     given(wire("w1", "a", "b"));
     store().startDrag("a", "panel", 0, 0);
@@ -84,6 +92,15 @@ describe("connection store: moving a wire by its input end (#458)", () => {
     store().startMove("w1", 0, 0);
     store().commitConnection("a");
     expect(ends()).toEqual([]);
+  });
+
+  it("removes it rather than close a loop (#460)", () => {
+    // b → c moved onto a would make a → b → a.
+    given(wire("w1", "a", "b"), wire("w2", "b", "c"));
+    store().startMove("w2", 0, 0);
+    store().commitConnection("a");
+    expect(ends()).toEqual(["w1:a>b"]);
+    expect(store().selectedIds).toEqual([]);
   });
 
   it("puts nothing back and changes nothing on Escape", () => {

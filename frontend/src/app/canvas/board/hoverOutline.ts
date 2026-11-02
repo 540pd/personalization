@@ -1,5 +1,6 @@
 import type Konva from "konva";
 import { useToolStore } from "@/store/tool.store";
+import { useConnectionStore } from "@/store/connection.store";
 import { createOutlineRect, traceShape } from "./outline";
 
 export interface HoverOutline {
@@ -36,9 +37,11 @@ export function createHoverOutline(
   const show = (shape: Konva.Shape) => {
     // A selected node already draws the transformer border -- showing this on
     // top would double it, so hover stays the unselected-only affordance.
+    // Nor while a wire is dragged: its ports are the only highlight (#460).
     if (
       useToolStore.getState().activeTool !== "pointer" ||
-      transformer.nodes().includes(shape)
+      transformer.nodes().includes(shape) ||
+      useConnectionStore.getState().drag
     ) {
       hide();
       return;

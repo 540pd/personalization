@@ -18,6 +18,7 @@ import { useSkills } from "@/store/skills.store";
 import { useAgents } from "@/store/agents.store";
 import { useSettings } from "@/store/settings.store";
 import { useHoveredNode } from "@/store/hover.store";
+import { useConnectionStore } from "@/store/connection.store";
 import { labelFromInstruction, takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { useCanvasArea } from "../../canvasArea";
 import NodeLabel from "../NodeLabel";
@@ -85,6 +86,8 @@ function SinglePanel({
   const anchorHandlers = usePanelResize(instance, scale, onSetCanvasPos);
 
   const [hovered,     setHovered]     = useState(false);
+  // No hover outline while a wire is dragged: only its ports highlight (#460).
+  const wireDragging = useConnectionStore((s) => !!s.drag);
   // Names off (#215): this node's name shows only while hovered or selected.
   // The board-wide hover, not `hovered`: that one ends at the placeholder,
   // and the pointer has to be able to travel up onto the name.
@@ -153,7 +156,7 @@ function SinglePanel({
   return (
     <>
       {/* Suppressed while active, since the selection box below already draws a border. */}
-      {hovered && !isActive && (
+      {hovered && !isActive && !wireDragging && (
         <HoverOutline left={placeholderLeft} top={placeholderTop} width={sw} height={sh} />
       )}
 
