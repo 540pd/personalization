@@ -101,7 +101,7 @@ function addImage(
   const url = URL.createObjectURL(file);
   const img = new window.Image() as HTMLImageElement;
 
-  img.onload = async () => {
+  img.onload = () => {
     const { w, h } = fitToBox(img.naturalWidth, img.naturalHeight);
     const id = crypto.randomUUID();
     const x = cx - w / 2 + off;
@@ -135,17 +135,10 @@ function addImage(
     canvas.height = h;
     canvas.getContext("2d")?.drawImage(img, 0, 0, w, h);
 
+    const imageUrl = canvas.toDataURL("image/png");
     // Read taken labels here rather than at drop time: onload fires per file
     // and placeNode registers each one synchronously, so uploading two
     // cat.png gives "cat" then "cat (2)" instead of two "cat"s.
-    const imageUrl = canvas.toDataURL("image/png");
-    try {
-      await saveFrameBitmap(id, imageUrl);
-    } catch (err) {
-      // Storage can be disabled or full. The current upload still works;
-      // only its ability to survive a future frame reload is affected.
-      console.warn("[frames] Could not save uploaded image for reload.", err);
-    }
     placeNode(deps, node, {
       id, canvasX: x, canvasY: y, canvasW: w, canvasH: h,
       imageUrl,
@@ -153,6 +146,12 @@ function addImage(
     }, droppedAt);
     URL.revokeObjectURL(url);
     onSettled();
+    // The image must land even when IndexedDB is slow, blocked or disabled.
+    // Storage serializes writes/deletes per id so a delete during this write
+    // cannot leave an orphan bitmap behind.
+    void saveFrameBitmap(id, imageUrl).catch((err) => {
+      console.warn("[frames] Could not save uploaded image for reload.", err);
+    });
     // On the board already, with its local copy; now into the user's
     // stored assets, the original rather than the downscaled copy (#323).
     void uploadNodeFile(id, file);

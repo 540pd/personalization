@@ -37,14 +37,24 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-// Complete before placing the image on the board: a user who immediately
-// frames it and refreshes cannot race a still-pending bitmap write.
-export async function saveFrameBitmap(id: string, url: string): Promise<void> {
+// Serialize operations per id: a delete (or undo) while an upload's write is
+// pending must win in the order the user performed it.
+const pending = new Map<string, Promise<void>>();
+function enqueue(id: string, task: () => Promise<void>): Promise<void> {
+  const previous = pending.get(id) ?? Promise.resolve();
+  const next = previous.catch(() => {}).then(task);
+  pending.set(id, next);
+  void next.finally(() => { if (pending.get(id) === next) pending.delete(id); }).catch(() => {});
+  return next;
+}
+
+async function writeBitmap(id: string, url?: string): Promise<void> {
   const db = await openDB();
   try {
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).put(url, id);
+      if (url === undefined) tx.objectStore(STORE).delete(id);
+      else tx.objectStore(STORE).put(url, id);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
@@ -54,11 +64,37 @@ export async function saveFrameBitmap(id: string, url: string): Promise<void> {
   }
 }
 
+export function saveFrameBitmap(id: string, url: string): Promise<void> {
+  return enqueue(id, () => writeBitmap(id, url));
+}
+
+export function deleteFrameBitmap(id: string): Promise<void> {
+  return enqueue(id, () => writeBitmap(id));
+}
+
 function readBitmap(db: IDBDatabase, id: string): Promise<string | undefined> {
   return new Promise((resolve, reject) => {
     const request = db.transaction(STORE, "readonly").objectStore(STORE).get(id);
     request.onsuccess = () => resolve(typeof request.result === "string" ? request.result : undefined);
     request.onerror = () => reject(request.error);
+  });
+}
+
+/** Old versions saved every upload but never removed it. Prune orphan keys on reload. */
+async function pruneBitmaps(db: IDBDatabase, keep: Set<string>): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const store = tx.objectStore(STORE);
+    const request = store.openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      if (!keep.has(String(cursor.key))) cursor.delete();
+      cursor.continue();
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
   });
 }
 
@@ -81,11 +117,16 @@ export async function restoreFrameImages(layer: Konva.Layer): Promise<void> {
   } catch {
     return;
   }
-  if (!images.length) return;
   let db: IDBDatabase;
   try { db = await openDB(); }
   catch (err) { console.warn("[frames] Could not open saved images.", err); return; }
   try {
+    // Drop bitmaps for images deleted in a previous session or never framed.
+    // A write started this session might still be pending. Preserve its key
+    // without waiting: a blocked IndexedDB request must not block hydration.
+    const keep = new Set([...images.map((rec) => rec.id), ...pending.keys()]);
+    try { await pruneBitmaps(db, keep); }
+    catch (err) { console.warn("[frames] Could not prune old bitmaps.", err); }
     for (const rec of images) {
       if (!rec || typeof rec.id !== "string" || layer.findOne(`#${rec.id}`)) continue;
       try {

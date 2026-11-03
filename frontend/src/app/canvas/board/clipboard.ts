@@ -16,6 +16,7 @@ import { BoardShape, type BoardShapeConfig } from "./shapes";
 import { isPageKey } from "@/lib/dom/keys";
 import { nodeEntry, type NodeEntry } from "./nodeEntry";
 import { nodeBox } from "./geometry";
+import { deleteFrameBitmap, saveFrameBitmap } from "./frameImageStorage";
 import type { BoardLayerDeps } from "./boardContext";
 
 /** Everything one Ctrl+C captured. */
@@ -103,6 +104,8 @@ export function pasteNodes(
         imageUrl: entry.imageUrl,
         label,
       });
+      if (entry.imageUrl) void saveFrameBitmap(id, entry.imageUrl).catch((err) =>
+        console.warn("[frames] Could not save pasted image for reload.", err));
     }
 
     return node;
@@ -119,6 +122,10 @@ export function pasteNodes(
 export function deleteNodes(selected: Konva.Shape[]): void {
   selected.forEach((n) => {
     const id = n.id();
+    if (id && useKonvaNodes.getState().nodes[id]?.imageUrl) {
+      void deleteFrameBitmap(id).catch((err) =>
+        console.warn("[frames] Could not delete saved image.", err));
+    }
     if (id) useKonvaNodes.getState().remove(id);
     n.remove();
   });
