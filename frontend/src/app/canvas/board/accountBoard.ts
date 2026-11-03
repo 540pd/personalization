@@ -43,7 +43,7 @@ export function bindAccountBoard(board: BoardScene, owner: string, place: (file:
     owner,
     fetchCurrent: fetchCurrentBoard,
     save: saveCurrentBoard,
-    serialize: () => serializeBoard(board.layer),
+    serialize: () => serializeBoard(board.root),
     parse: (content) => {
       const parsed = parseBoardFile(JSON.stringify(content));
       return parsed.ok ? parsed.file : null;
@@ -58,7 +58,7 @@ export function bindAccountBoard(board: BoardScene, owner: string, place: (file:
     // The browser's board becoming the account's first: kept as it was,
     // then its pictures moved into stored assets.
     beforeFirstSave: async () => {
-      const local = serializeBoard(board.layer);
+      const local = serializeBoard(board.root);
       if (!local.nodes.length && !local.panels.length) return;
       backupBoard(local);
       await moveImagesToAssets();

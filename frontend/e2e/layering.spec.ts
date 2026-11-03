@@ -19,10 +19,11 @@ import { openBoard, uploadImage, imageBox, addPanel, collapsePanels, panelBoxes 
  */
 async function frontLayer(page: Page): Promise<"canvas" | "dom"> {
   return page.evaluate(() => {
-    let host = document.querySelector("canvas")?.parentElement as HTMLElement | null;
-    while (host && getComputedStyle(host).zIndex === "auto") host = host.parentElement;
+    // The images-and-text canvas: each of the stage's canvases has its own
+    // z-index since shapes got one of their own (#430).
+    const canvas = document.querySelector('canvas[data-board-layer="main"]') as HTMLElement | null;
     const panel = document.querySelector("button.node-panel-placeholder") as HTMLElement | null;
-    const cz = Number(getComputedStyle(host!).zIndex);
+    const cz = Number(getComputedStyle(canvas!).zIndex);
     // With no panel on the board there is nothing to be in front of; report
     // the canvas rather than throwing on a null element.
     if (!panel) return "canvas";
@@ -108,13 +109,12 @@ test.describe("layering between uploaded images and node panels", () => {
     expect(ports).toBeGreaterThan(0);
     const z = await page.evaluate(() => {
       const port = document.querySelector('div[title="Output"]') as HTMLElement | null;
-      // Konva nests its own div inside our container, so walk up until a
-      // z-index is actually set.
-      let host = document.querySelector("canvas")?.parentElement as HTMLElement | null;
-      while (host && getComputedStyle(host).zIndex === "auto") host = host.parentElement;
+      // Each of the stage's canvases has its own z-index (#430); the
+      // selection chrome's is the highest.
+      const canvases = [...document.querySelectorAll("canvas[data-board-layer]")];
       return {
         port: Number(getComputedStyle(port!).zIndex),
-        canvas: Number(getComputedStyle(host!).zIndex),
+        canvas: Math.max(...canvases.map((c) => Number(getComputedStyle(c).zIndex))),
       };
     });
     expect(z.port).toBeGreaterThan(z.canvas);
