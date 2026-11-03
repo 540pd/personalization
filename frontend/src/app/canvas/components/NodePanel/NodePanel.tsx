@@ -23,7 +23,7 @@ import { labelFromInstruction, takenLabels, uniqueLabel } from "@/lib/canvas/lab
 import { useCanvasArea } from "../../canvasArea";
 import NodeLabel from "../NodeLabel";
 import GenerateForm, { type GenerateDraft } from "./GenerateForm";
-import { kindSpec, panelOutput } from "./kinds";
+import { isSource, kindSpec, panelOutput, takesInput } from "./kinds";
 import { chromeCovered } from "./chromeCovered";
 import { panelPlacement } from "./panelPlacement";
 import { useNodeSettings } from "./hooks/useNodeSettings";
@@ -193,8 +193,8 @@ function SinglePanel({
       <NodePorts
         instance={instance}
         vp={{ x: stageX, y: stageY, scale }}
-        showInput={spec.acceptsInput !== false && !hideInputPort}
-        showOutput={spec.isSource !== false && !hideOutputPort}
+        showInput={takesInput(instance.kind) && !hideInputPort}
+        showOutput={isSource(instance.kind) && !hideOutputPort}
       />
 
       <Placeholder
