@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@/lib/dom/listen";
-import { uploadPageAsset } from "@/api/brandAssets.api";
+import { deleteAsset, uploadPageAsset } from "@/api/brandAssets.api";
 import {
   addUploading,
   isDuplicate,
@@ -62,6 +62,46 @@ export function useAssetUploads(draft: AssetsDraft | null, edit: Edit) {
   // The latest draft, for checks made between awaits.
   const latest = useRef(draft);
   latest.current = draft;
+  // False once the page has gone (Discard, or another section): an upload
+  // landing after that is not shown anywhere (#463).
+  const mounted = useRef(true);
+
+  /** Drops what the page keeps for `id`, releasing its local preview. */
+  const forget = (id: string) => {
+    const preview = previews.current.get(id);
+    if (preview) URL.revokeObjectURL(preview);
+    previews.current.delete(id);
+    files.current.delete(id);
+    hashes.current.delete(id);
+  };
+
+  // An image the draft showed and no longer does -- removed, or gone with
+  // Cancel -- is forgotten (#463). One rule for every way out, so none can
+  // leave a preview or a stale entry behind. Only ids it has shown: this
+  // effect can run after the next file is already tracked but before the
+  // render that shows it, and that file must not be dropped.
+  const seen = useRef(new Set<string>());
+  useEffect(() => {
+    if (!draft) return;
+    const shown = new Set(draft.images.map((i) => i.asset.id));
+    for (const id of shown) seen.current.add(id);
+    for (const id of seen.current) {
+      if (shown.has(id)) continue;
+      seen.current.delete(id);
+      forget(id);
+    }
+  }, [draft]);
+
+  // Leaving the page releases every preview it still holds.
+  useEffect(() => {
+    mounted.current = true;
+    const held = previews.current;
+    return () => {
+      mounted.current = false;
+      for (const preview of held.values()) URL.revokeObjectURL(preview);
+      held.clear();
+    };
+  }, []);
 
   /** Starts showing `file` under a new temporary id. */
   const track = (file: File, kind: ImageKind, hash: string) => {
@@ -87,6 +127,14 @@ export function useAssetUploads(draft: AssetsDraft | null, edit: Edit) {
     if (!pending) return;
     try {
       const asset = await uploadPageAsset(pending.file, pending.kind);
+      // Its tile went while it was on its way (Cancel, Remove, or the page
+      // left): stored after the clean-up, so nothing else would delete it
+      // until the page is next opened (#463).
+      if (!mounted.current || !latest.current?.images.some((i) => i.asset.id === tempId)) {
+        forget(tempId);
+        void deleteAsset(asset.id);
+        return;
+      }
       files.current.delete(tempId);
       const preview = previews.current.get(tempId);
       previews.current.delete(tempId);
@@ -154,11 +202,8 @@ export function useAssetUploads(draft: AssetsDraft | null, edit: Edit) {
     void send(tempId);
   };
 
-  /** After Cancel: no refusal shown, and no upload to retry. */
-  const reset = () => {
-    setAddError(null);
-    files.current.clear();
-  };
+  /** After Cancel: no refusal shown. The uploads it drops are forgotten with their tiles. */
+  const reset = () => setAddError(null);
 
   // Paste an image from the clipboard (#415). Images only: pasted text is
   // the field's own business. It joins the group that has focus (#416), else

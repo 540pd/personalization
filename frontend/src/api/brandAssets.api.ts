@@ -93,6 +93,11 @@ export async function deletePendingUploads(): Promise<void> {
   await apiFetch("brand-assets/pending", { method: "DELETE" }).catch(() => {});
 }
 
+/** Removes one stored asset (#463: an upload that landed after its tile went). Never throws: it is clean-up. */
+export async function deleteAsset(id: string): Promise<void> {
+  await apiFetch(`assets/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+}
+
 /** One line about a stored image, written by the text model (#448); throws when it cannot be had. */
 export async function describeAsset(id: string): Promise<string> {
   const res = await apiFetch(`assets/${encodeURIComponent(id)}/describe`, { method: "POST" });
