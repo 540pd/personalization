@@ -7,12 +7,12 @@
 // Analyze has a backend. When it does, it is meant to fill in the fields
 // above it.
 
-import { useEffect, useId, useRef, useState } from "react";
-import { useSection, setLeaveGuard } from "@/store/section.store";
+import { useEffect, useId, useState } from "react";
+import { useSection } from "@/store/section.store";
 import { useBrand, type BrandSettings, type CampaignBrief as Brief } from "@/store/brand.store";
 import { useToast } from "@/components/Toast/useToast";
 import LibraryPage from "../Library/LibraryPage";
-import { DiscardChanges } from "../Library/LibraryDialog";
+import { useLeaveGuard } from "../Library/useLeaveGuard";
 import CampaignBrief from "./CampaignBrief";
 import "./Brand.scss";
 
@@ -68,29 +68,11 @@ function Editor() {
   // Set by any edit rather than worked out by comparing, as it always has
   // been: an edit typed and then undone by hand still counts.
   const [dirty, setDirty] = useState(false);
-  // The move a Discard would make, while the confirm is up.
-  const [pending, setPending] = useState<(() => void) | null>(null);
   const [toast, showToast] = useToast();
   const [saveState, setSaveState] = useState<"idle" | "saving" | "failed" | "conflict">("idle");
 
   const fieldId = useId();
-  // Where focus was when the confirm opened, for Keep editing.
-  const beforeConfirm = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (!dirty) return;
-    setLeaveGuard((proceed) => {
-      beforeConfirm.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      setPending(() => proceed);
-      return true;
-    });
-    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => {
-      setLeaveGuard(null);
-      window.removeEventListener("beforeunload", onBeforeUnload);
-    };
-  }, [dirty]);
+  const leaveConfirm = useLeaveGuard(dirty, { name: "the brand" });
 
   const edit = (update: (d: BrandSettings) => BrandSettings) => {
     setDraft(update);
@@ -114,19 +96,6 @@ function Editor() {
     setDraft(saved);
     setDirty(false);
     setSaveState("idle");
-  };
-
-  const keepEditing = () => {
-    setPending(null);
-    requestAnimationFrame(() => beforeConfirm.current?.focus());
-  };
-
-  const discard = () => {
-    const proceed = pending;
-    setPending(null);
-    // Unguarded first, so the move is not asked about a second time.
-    setLeaveGuard(null);
-    proceed?.();
   };
 
   return (
@@ -208,7 +177,7 @@ function Editor() {
         </button>
       </div>
 
-      {pending && <DiscardChanges name="the brand" onKeepEditing={keepEditing} onDiscard={discard} />}
+      {leaveConfirm}
       {toast}
     </LibraryPage>
   );
