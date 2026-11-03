@@ -33,6 +33,11 @@ import { canvasHistory } from "@/lib/canvas/history";
 import { pickFile } from "@/lib/dom/pickFile";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast/useToast";
+import SupportDialog from "@/support/components/SupportDialog";
+import { useSupport } from "@/support/useSupport";
+import { supportContext } from "@/support/supportContext";
+import type { SupportContext } from "@/support/support.api";
+import { SIDEBAR_ITEMS } from "./items";
 import "./Sidebar.scss";
 
 /** The confirm in front of a board action, if one is up. */
@@ -58,6 +63,34 @@ export default function Sidebar() {
   // for it: the board may have changed while the picker was open.
   const itemCountRef = useRef(itemCount);
   itemCountRef.current = itemCount;
+
+  // Support (#428): a dialog over whatever is on screen. A send carries on
+  // if it is closed, and then says how it went in a toast.
+  const [supportOpen, setSupportOpen] = useState(false);
+  const supportOpenRef = useRef(false);
+  supportOpenRef.current = supportOpen;
+  const supportTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const openSupport = () => {
+    setSupportOpen(true);
+  };
+  const closeSupport = () => {
+    setSupportOpen(false);
+    useSupport.getState().startOver();
+    supportTriggerRef.current?.focus();
+  };
+  const sendSupport = async (context: SupportContext, website: string) => {
+    const reply = await useSupport.getState().submit(context, website);
+    if (reply && !supportOpenRef.current) {
+      if (reply.ok) {
+        useSupport.getState().startOver();
+        showToast("Message sent. We'll reply by email.");
+      } else {
+        showToast("Your support message wasn't sent.", true, openSupport, "Open it");
+      }
+    }
+    return reply;
+  };
 
   const saveBoard = () => {
     if (saveBoardToFile()) showToast("Board saved to file");
@@ -124,6 +157,10 @@ export default function Sidebar() {
       />
       <SidebarFooter
         user={user}
+        onSupport={(trigger) => {
+          supportTriggerRef.current = trigger;
+          openSupport();
+        }}
         // A page over the board, like Settings (#219). It was a popup (#72),
         // but one that had grown to nearly the whole window.
         onBrand={() => setActive("brand")}
@@ -166,6 +203,13 @@ export default function Sidebar() {
         >
           Opening {confirm.name} will replace the {itemsPhrase(itemCount)} on the board.
         </ConfirmDialog>
+      )}
+      {supportOpen && (
+        <SupportDialog
+          onClose={closeSupport}
+          context={() => supportContext(SIDEBAR_ITEMS.find((i) => i.id === active)?.label ?? active)}
+          send={sendSupport}
+        />
       )}
       {toast}
     </aside>

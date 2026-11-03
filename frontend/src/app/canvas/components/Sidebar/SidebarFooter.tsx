@@ -16,12 +16,15 @@ import type { Identity } from "@/auth/useIdentity";
  */
 export default function SidebarFooter({
   user,
+  onSupport,
   onBrand,
   onSettings,
   onSignOut,
 }: {
   /** null while nobody is signed in. */
   user: Identity | null;
+  /** Opens the support form (#428); the button is handed over so focus can come back to it. */
+  onSupport: (trigger: HTMLButtonElement) => void;
   onBrand: () => void;
   onSettings: () => void;
   onSignOut: () => void;
@@ -32,7 +35,7 @@ export default function SidebarFooter({
   return (
     <div className="sidebar-footer">
       <RailTip content="Support">
-        <button type="button" className="sidebar-support">
+        <button type="button" className="sidebar-support" onClick={(e) => onSupport(e.currentTarget)}>
           <HelpCircle className="sidebar-item-icon" aria-hidden />
           <span className="sidebar-item-label">Support</span>
         </button>
