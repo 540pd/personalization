@@ -19,6 +19,7 @@ import { useViewport } from "@/store/viewport.store";
 import { useSettings } from "@/store/settings.store";
 import { useHoveredNode } from "@/store/hover.store";
 import { isCovered, labelProbe, type Blocker } from "@/lib/canvas/occlusion";
+import { toScreen } from "@/lib/canvas/coords";
 import NodeLabel from "./NodeLabel";
 import { LABEL_GAP, LABEL_MIN_NODE_W } from "@/constants/canvas.constants";
 
@@ -36,7 +37,8 @@ export default function KonvaNodeLabels() {
   const panels = useNodePanel((s) => s.panels);
   const selectedIds = useKonvaSelection((s) => s.selectedIds);
   const topLayer = useLayerOrder((s) => s.topLayer);
-  const { x: stageX, y: stageY, scale } = useViewport();
+  const vp = useViewport();
+  const { scale } = vp;
   // Names off (#215): shown only on the hovered or a selected node.
   const alwaysNames = useSettings((s) => s.settings.showNodeNames);
   const hoveredId = useHoveredNode(!alwaysNames);
@@ -54,13 +56,14 @@ export default function KonvaNodeLabels() {
         const self: Blocker = { id: n.id, box: n, layer: "canvas", z: n.z };
         const selected = selectedIds.includes(n.id);
         if (!selected && isCovered(labelProbe(n, scale), self, blockers, topLayer)) return null;
+        const topLeft = toScreen({ x: n.canvasX, y: n.canvasY }, vp);
 
         return (
           <NodeLabel
             key={n.id}
             value={n.label}
-            left={stageX + n.canvasX * scale}
-            bottom={stageY + n.canvasY * scale - LABEL_GAP}
+            left={topLeft.x}
+            bottom={topLeft.y - LABEL_GAP}
             maxWidth={screenW}
             onCommit={(next) => useKonvaNodes.getState().upsert({ ...n, label: next })}
             hidden={!alwaysNames && !selected && hoveredId !== n.id}
