@@ -1,9 +1,10 @@
-// Delete for Konva nodes, and copy and paste for everything on the canvas.
+// Deleting Konva nodes, and copy and paste for everything on the canvas.
 //
-// Delete stays Konva-only: panels and wires each run their own Delete handler
-// on the same keypress. Copy and paste cannot be split that way, because a
-// pasted wire has to point at the pasted copies of its nodes, so one handler
-// owns the clipboard for uploaded images, generated nodes and wires alike.
+// Delete is the board's one handler (#472, lib/canvas/boardDelete); the Konva
+// nodes register konvaDeletable with it. Copy and paste cannot be split by
+// kind, because a pasted wire has to point at the pasted copies of its nodes,
+// so one handler owns the clipboard for uploaded images, generated nodes and
+// wires alike.
 
 import Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
@@ -14,6 +15,7 @@ import { useLayerOrder } from "@/store/layerOrder.store";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { BoardShape, type BoardShapeConfig } from "./shapes";
 import { isPageKey } from "@/lib/dom/keys";
+import type { Deletable } from "@/lib/canvas/boardDelete";
 import { nodeEntry, type NodeEntry } from "./nodeEntry";
 import { nodeBox } from "./geometry";
 import type { BoardLayerDeps } from "./boardContext";
@@ -133,7 +135,22 @@ export function selectNodes(transformer: Konva.Transformer, nodes: Konva.Shape[]
   nodes.slice(1).forEach((n) => sel.addToSelection(n.id()));
 }
 
-/** Keydown handler for Delete, Ctrl+C and Ctrl+V. */
+/** The Konva nodes' part of the board's Delete (#472): the selected images, shapes and text. */
+export function konvaDeletable(deps: BoardLayerDeps): Deletable {
+  return {
+    hasSelection: () => deps.transformer.nodes().length > 0,
+    deleteSelected: () => {
+      const selected = deps.transformer.nodes() as Konva.Shape[];
+      deps.transformer.nodes([]);
+      deps.updateSelectionChrome();
+      deleteNodes(selected);
+      deps.syncAllNodeGeometry();
+      useKonvaSelection.getState().clearSelection();
+    },
+  };
+}
+
+/** Keydown handler for Ctrl+C and Ctrl+V. */
 export function createEditKeysHandler(deps: BoardLayerDeps) {
   let clipboard: Clipboard = EMPTY_CLIPBOARD;
 
@@ -142,18 +159,6 @@ export function createEditKeysHandler(deps: BoardLayerDeps) {
     if (!isPageKey(e)) return;
     const mod = e.ctrlKey || e.metaKey;
     const selected = deps.transformer.nodes() as Konva.Shape[];
-
-    if (e.code === "Delete" || e.code === "Backspace") {
-      if (!selected.length) return;
-      e.preventDefault();
-      deps.transformer.nodes([]);
-      deps.updateSelectionChrome();
-      deleteNodes(selected);
-      deps.syncAllNodeGeometry();
-      useKonvaSelection.getState().clearSelection();
-      deps.saveSnapshot(e);
-      return;
-    }
 
     if (mod && e.code === "KeyC") {
       const next = copySelection(selected);

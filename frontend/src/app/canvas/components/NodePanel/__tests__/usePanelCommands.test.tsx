@@ -4,9 +4,12 @@ import { cleanup, renderHook } from "@testing-library/react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useSection } from "@/store/section.store";
 import { canvasHistory } from "@/lib/canvas/history";
+import { deleteSelection } from "@/lib/canvas/boardDelete";
+import { listen } from "@/lib/dom/listen";
 import { usePanelCommands } from "../hooks/usePanelCommands";
 
-// Delete, Escape and undo for the Create nodes (#468).
+// Delete, Escape and undo for the Create nodes (#468). Delete goes through
+// the board's one handler (#472), installed here as Board installs it.
 
 const panel = (id: string): PanelInstance =>
   ({ id, kind: "image", canvasX: 0, canvasY: 90, w: 320, h: 180 }) as PanelInstance;
@@ -18,12 +21,16 @@ const press = (code: string, target: EventTarget = window) => {
 };
 const ids = () => useNodePanel.getState().panels.map((p) => p.id);
 
+let offDelete: () => void;
+
 beforeEach(() => {
+  offDelete = listen(window, "keydown", (e) => void deleteSelection(e, (k) => canvasHistory.commit(k)));
   canvasHistory.clear();
   useSection.setState({ section: "playspace" });
   useNodePanel.setState({ panels: [panel("a"), panel("b"), panel("c")], selectedIds: ["a", "b"], openId: "a" });
 });
 afterEach(() => {
+  offDelete();
   cleanup();
   vi.restoreAllMocks();
 });

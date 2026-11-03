@@ -1,14 +1,15 @@
 "use client";
 
 // What the Create nodes add to the board's commands (#468, moved out of
-// NodePanel): their slice of the undo timeline, and Delete and Escape for
-// the selected ones. Mirrors Connections/useWireCommands (#466).
+// NodePanel): their slice of the undo timeline, their part of the board's
+// Delete (#472), and Escape. Mirrors Connections/useWireCommands (#466).
 
 import { useEffect } from "react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { canvasHistory } from "@/lib/canvas/history";
 import { boardKeyAllowed } from "@/lib/canvas/boardKeys";
 import { listen } from "@/lib/dom/listen";
+import { registerDeletable } from "@/lib/canvas/boardDelete";
 import { kindSpec } from "../kinds";
 
 export function usePanelCommands() {
@@ -23,6 +24,18 @@ export function usePanelCommands() {
     });
   }, []);
 
+  // Delete / Backspace removes every selected placeholder, after Ctrl+A that
+  // is many: as the panels' part of the board's one Delete (#472), which
+  // commits once with the wires and images deleted by the same keypress.
+  useEffect(
+    () =>
+      registerDeletable("panels", {
+        hasSelection: () => useNodePanel.getState().selectedIds.length > 0,
+        deleteSelected: () => useNodePanel.getState().removeSelected(),
+      }),
+    [],
+  );
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // Not while another page covers the board (#206), nor from a field.
@@ -36,16 +49,6 @@ export function usePanelCommands() {
       // stopImmediatePropagation its way to priority, which is what made
       // Ctrl+Z non-chronological across node kinds.
 
-      // Delete / Backspace — remove every selected placeholder; after Ctrl+A
-      // that is many.
-      if ((e.code === "Delete" || e.code === "Backspace") && store.selectedIds.length) {
-        e.preventDefault();
-        store.removeSelected();
-        // Keyed on the event: wires and images deleted by the same keypress
-        // land in this one undo step.
-        canvasHistory.commit(e);
-        return;
-      }
       // Escape — collapse all panels, keep placeholders.
       if (e.code === "Escape") store.clearSelection();
     };
