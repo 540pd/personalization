@@ -1,5 +1,8 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
-import { openBoard, panelBoxes, dragFrom, portCount, reloadBoard , setZoom} from "./helpers";
+import { openBoard, panelBoxes, dragFrom, portCount, reloadBoard , setZoom, showEveryMenuItem } from "./helpers";
+
+// Draws items #404 hides by default, so offer them all.
+test.beforeEach(({ page }) => showEveryMenuItem(page));
 
 // node > compose (#181): a box the user writes in. No panel, an output port
 // and no input, and its text feeds a downstream node as a text reference.

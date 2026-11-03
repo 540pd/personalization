@@ -7,8 +7,30 @@
   @apply flex flex-col gap-2 max-w-[720px];
 }
 
+.settings-group-header {
+  @apply flex items-baseline justify-between gap-3;
+}
+
 .settings-group-title {
   @apply m-0 text-xs font-semibold uppercase tracking-wide text-neutral-500;
+}
+
+.settings-group-count {
+  @apply text-xs text-neutral-500;
+}
+
+.settings-group-help {
+  @apply m-0 text-[13px] text-neutral-500;
+}
+
+// Shown in a card while every switch in it is off (#404).
+.settings-notice {
+  @apply flex items-center gap-2.5 rounded-t-xl border-b border-neutral-200 bg-neutral-50 px-5 py-3;
+  @apply text-[13px] text-neutral-700;
+
+  svg {
+    @apply shrink-0 text-neutral-600;
+  }
 }
 
 .settings-card {
@@ -20,6 +42,27 @@
 
   & + & {
     @apply border-t border-neutral-100;
+  }
+}
+
+// A menu item's row (#404): icon, label and switch, no help.
+.settings-row.is-compact {
+  @apply gap-x-3 py-3;
+}
+
+.settings-row-icon {
+  @apply flex shrink-0 text-neutral-600;
+
+  svg {
+    @apply h-[18px] w-[18px];
+  }
+}
+
+// A hidden item reads as hidden at a glance; neutral-500 still passes 4.5:1.
+.settings-row.is-off {
+  .settings-row-icon,
+  .settings-row-label {
+    @apply text-neutral-500;
   }
 }
 

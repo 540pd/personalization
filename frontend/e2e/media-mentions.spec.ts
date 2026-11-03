@@ -1,5 +1,8 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
-import { openBoard } from "./helpers";
+import { openBoard, showEveryMenuItem } from "./helpers";
+
+// Creates Video nodes, which #404 hides by default, so offer them all.
+test.beforeEach(({ page }) => showEveryMenuItem(page));
 
 // @ in Image and Video panels (#240): skills only. Their bodies travel with
 // the prompt; an agent is a Prompt-panel setup and is sent as text.
