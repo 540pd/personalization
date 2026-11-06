@@ -8,7 +8,7 @@
 // functions usable by the occlusion tests, which work in canvas units.
 
 import { SNAP_RADIUS } from "@/constants/canvas.constants";
-import type { NodeBox } from "./bounds";
+import { boundsOf, type NodeBox } from "./bounds";
 import { toScreen, type Point, type Viewport } from "./coords";
 import { inputPoint, outputPoint } from "./ports";
 
@@ -25,6 +25,21 @@ export interface WireSource {
   fromNodeType: "panel" | "konva";
 }
 
+/** A node's top and bottom on screen: what a wire that doubles back runs around (#456). */
+export interface Span {
+  top: number;
+  bottom: number;
+}
+
+function spanOf(node: NodeBox, vp: Viewport): Span {
+  const b = boundsOf(node);
+  return { top: toScreen({ x: b.x, y: b.y }, vp).y, bottom: toScreen({ x: b.x, y: b.y + b.h }, vp).y };
+}
+
+function sourceNode(src: WireSource, panels: ReadonlyMap<string, NodeBox>, konvaNodes: Record<string, NodeBox>) {
+  return src.fromNodeType === "konva" ? konvaNodes[src.fromNodeId] : panels.get(src.fromNodeId);
+}
+
 /** Where a wire leaves its source, in screen px; null if the source is gone. */
 export function wireStart(
   src: WireSource,
@@ -32,22 +47,37 @@ export function wireStart(
   konvaNodes: Record<string, NodeBox>,
   vp: Viewport,
 ): Point | null {
-  const node = src.fromNodeType === "konva" ? konvaNodes[src.fromNodeId] : panels.get(src.fromNodeId);
+  const node = sourceNode(src, panels, konvaNodes);
   return node ? toScreen(outputPoint(node), vp) : null;
 }
 
-/** Both ends of a committed wire in screen px; null if either node is gone. */
+/** The source's span on screen, for routing the drag preview; null if it is gone. */
+export function sourceSpan(
+  src: WireSource,
+  panels: ReadonlyMap<string, NodeBox>,
+  konvaNodes: Record<string, NodeBox>,
+  vp: Viewport,
+): Span | null {
+  const node = sourceNode(src, panels, konvaNodes);
+  return node ? spanOf(node, vp) : null;
+}
+
+/** Both ends of a committed wire in screen px, and the nodes they sit on; null if either node is gone. */
 export function wireEnds(
   conn: WireSource & { toNodeId: string },
   panels: ReadonlyMap<string, NodeBox>,
   konvaNodes: Record<string, NodeBox>,
   vp: Viewport,
-): { from: Point; to: Point } | null {
-  const from = wireStart(conn, panels, konvaNodes, vp);
+): { from: Point; to: Point; around: Around } | null {
+  const fromNode = sourceNode(conn, panels, konvaNodes);
   // Only panels have input ports
   const toPanel = panels.get(conn.toNodeId);
-  if (!from || !toPanel) return null;
-  return { from, to: toScreen(inputPoint(toPanel), vp) };
+  if (!fromNode || !toPanel) return null;
+  return {
+    from: toScreen(outputPoint(fromNode), vp),
+    to: toScreen(inputPoint(toPanel), vp),
+    around: { from: spanOf(fromNode, vp), to: spanOf(toPanel, vp) },
+  };
 }
 
 /**
@@ -64,16 +94,88 @@ export function snapPort<P extends Point & { nodeId: string }>(
   ) ?? null;
 }
 
-/** The SVG path of a wire from `a` to `b`, drawn in `style`. */
-export function wirePath(a: Point, b: Point, style: LinkStyle): string {
+/** The nodes at either end of a wire; the drag preview's far end is the pointer, so it has none. */
+export interface Around {
+  from?: Span;
+  to?: Span;
+}
+
+// How far a wire that doubles back runs out of a port before it turns, and
+// how far its run clears the nodes it goes around (#456).
+const ELBOW_STUB = 24;
+const CURVE_STUB = 40;
+const LANE_GAP = 24;
+const ELBOW_RADIUS = 8;
+
+/**
+ * The height a wire that doubles back crosses at: through the gap between
+ * its two nodes when there is room, else above or below both, whichever is
+ * the shorter way round.
+ */
+function laneY(a: Point, b: Point, around: Around): number {
+  const from = around.from ?? { top: a.y, bottom: a.y };
+  const to = around.to ?? { top: b.y, bottom: b.y };
+  if (to.top - from.bottom >= LANE_GAP) return (from.bottom + to.top) / 2;
+  if (from.top - to.bottom >= LANE_GAP) return (to.bottom + from.top) / 2;
+  const above = Math.min(from.top, to.top) - LANE_GAP;
+  const below = Math.max(from.bottom, to.bottom) + LANE_GAP;
+  const cost = (y: number) => Math.abs(a.y - y) + Math.abs(b.y - y);
+  return cost(above) < cost(below) ? above : below;
+}
+
+const num = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * A polyline with its corners rounded to `radius`. A corner may use all of a
+ * segment that ends at a port but only half of one it shares with the next
+ * corner, so two corners never overlap.
+ */
+function roundedPath(pts: Point[], radius: number): string {
+  const last = pts.length - 1;
+  let d = `M ${num(pts[0].x)} ${num(pts[0].y)}`;
+  for (let i = 1; i < last; i++) {
+    const [p, c, n] = [pts[i - 1], pts[i], pts[i + 1]];
+    const inLen = Math.hypot(c.x - p.x, c.y - p.y);
+    const outLen = Math.hypot(n.x - c.x, n.y - c.y);
+    const r = Math.min(radius, i === 1 ? inLen : inLen / 2, i === last - 1 ? outLen : outLen / 2);
+    if (r <= 0) {
+      d += ` L ${num(c.x)} ${num(c.y)}`;
+      continue;
+    }
+    const sx = c.x + ((p.x - c.x) / inLen) * r;
+    const sy = c.y + ((p.y - c.y) / inLen) * r;
+    const ex = c.x + ((n.x - c.x) / outLen) * r;
+    const ey = c.y + ((n.y - c.y) / outLen) * r;
+    d += ` L ${num(sx)} ${num(sy)} Q ${num(c.x)} ${num(c.y)} ${num(ex)} ${num(ey)}`;
+  }
+  return `${d} L ${num(pts[last].x)} ${num(pts[last].y)}`;
+}
+
+/** Out of the output, round the nodes at `lane`, and into the input from its left. */
+function doubledBack(a: Point, b: Point, lane: number, stub: number): Point[] {
+  return [a, { x: a.x + stub, y: a.y }, { x: a.x + stub, y: lane }, { x: b.x - stub, y: lane }, { x: b.x - stub, y: b.y }, b];
+}
+
+/**
+ * The SVG path of a wire from `a` to `b`, drawn in `style`. A curve or elbow
+ * whose input is left of its output doubles back round the nodes in
+ * `around` rather than across them (#456).
+ */
+export function wirePath(a: Point, b: Point, style: LinkStyle, around: Around = {}): string {
   if (style === "link-straight") {
     return `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
   }
+  const back = b.x < a.x;
   if (style === "link-elbow") {
+    if (back) return roundedPath(doubledBack(a, b, laneY(a, b, around), ELBOW_STUB), ELBOW_RADIUS);
     const mx = (a.x + b.x) / 2;
-    return `M ${a.x} ${a.y} L ${mx} ${a.y} L ${mx} ${b.y} L ${b.x} ${b.y}`;
+    return roundedPath([a, { x: mx, y: a.y }, { x: mx, y: b.y }, b], ELBOW_RADIUS);
   }
-  // Cubic Bezier (default — link-curve)
-  const bend = Math.max(Math.abs(b.x - a.x) * 0.5, 40);
+  // Cubic Bezier (default — link-curve). Rounded corners as wide as the stub
+  // turn the doubled-back route into one smooth S.
+  if (back) return roundedPath(doubledBack(a, b, laneY(a, b, around), CURVE_STUB), CURVE_STUB);
+  // The bend grows with the drop as well as the run, so a short, steep wire
+  // leaves and enters level instead of kinking at its ends.
+  const bend = Math.max(Math.abs(b.x - a.x) * 0.5, Math.min(Math.abs(b.y - a.y) / 3, 100), 40);
   return `M ${a.x} ${a.y} C ${a.x + bend} ${a.y} ${b.x - bend} ${b.y} ${b.x} ${b.y}`;
 }
