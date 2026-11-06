@@ -14,6 +14,8 @@ export interface DragState {
   fromNodeType: "panel" | "konva";
   cursorX: number;
   cursorY: number;
+  /** Set when an existing wire was picked up by its input end to move (#458). */
+  movingId?:    string;
 }
 
 interface ConnectionState extends SelectionSlice {
@@ -21,7 +23,17 @@ interface ConnectionState extends SelectionSlice {
   drag:                  DragState | null;
   startDrag:             (fromNodeId: string, fromNodeType: "panel" | "konva", x: number, y: number) => void;
   updateDrag:            (x: number, y: number) => void;
+  /** Pick up a wire by its input end; it keeps its source and follows the pointer (#458). */
+  startMove:             (connectionId: string, x: number, y: number) => void;
+  /**
+   * End the drag on a node's input. A new wire is added; a moved one goes
+   * there. Self-links and duplicates are refused: a new one is dropped, and a
+   * moved one is removed rather than doubled.
+   */
   commitConnection:      (toNodeId: string) => void;
+  /** End the drag over nothing: a new wire is dropped, a moved one removed. */
+  dropNowhere:           () => void;
+  /** Escape or a lost pointer: as if the drag never started. */
   cancelDrag:            () => void;
   selectAll:             () => void;
   removeConnection:      (id: string) => void;
@@ -45,8 +57,32 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
   updateDrag: (x, y) =>
     set((s) => s.drag ? { drag: { ...s.drag, cursorX: x, cursorY: y } } : s),
 
+  startMove: (connectionId, x, y) => {
+    const conn = get().connections.find((c) => c.id === connectionId);
+    if (!conn) return;
+    set({
+      drag: { fromNodeId: conn.fromNodeId, fromNodeType: conn.fromNodeType, cursorX: x, cursorY: y, movingId: conn.id },
+      selectedIds: [],
+    });
+  },
+
   commitConnection: (toNodeId) => {
     const { drag, connections } = get();
+    if (drag?.movingId) {
+      const moving = connections.find((c) => c.id === drag.movingId);
+      if (!moving || moving.toNodeId === toNodeId) { set({ drag: null }); return; }
+      const refused = toNodeId === drag.fromNodeId || connections.some(
+        (c) => c.id !== moving.id && c.fromNodeId === drag.fromNodeId && c.toNodeId === toNodeId
+      );
+      set((s) => ({
+        connections: refused
+          ? s.connections.filter((c) => c.id !== moving.id)
+          : s.connections.map((c) => (c.id === moving.id ? { ...c, toNodeId } : c)),
+        drag: null,
+        selectedIds: refused ? [] : [moving.id],
+      }));
+      return;
+    }
     if (!drag || drag.fromNodeId === toNodeId) { set({ drag: null }); return; }
     const exists = connections.some(
       (c) => c.fromNodeId === drag.fromNodeId && c.toNodeId === toNodeId
@@ -67,6 +103,13 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
     } else {
       set({ drag: null });
     }
+  },
+
+  dropNowhere: () => {
+    const { drag } = get();
+    if (!drag?.movingId) { set({ drag: null }); return; }
+    const id = drag.movingId;
+    set((s) => ({ connections: s.connections.filter((c) => c.id !== id), drag: null }));
   },
 
   cancelDrag: () => set({ drag: null }),

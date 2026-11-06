@@ -81,17 +81,44 @@ export function wireEnds(
 }
 
 /**
- * The input port a wire dropped at `at` snaps to: the first, in the order
- * given, within SNAP_RADIUS, and never the wire's own source.
+ * The input port a wire dropped at `at` snaps to: the nearest within
+ * SNAP_RADIUS (#458), and never the wire's own source.
  */
 export function snapPort<P extends Point & { nodeId: string }>(
   ports: readonly P[],
   at: Point,
   fromId: string | null,
 ): P | null {
-  return ports.find(
-    (p) => p.nodeId !== fromId && Math.hypot(at.x - p.x, at.y - p.y) < SNAP_RADIUS,
-  ) ?? null;
+  let best: P | null = null;
+  let bestDist: number = SNAP_RADIUS;
+  for (const p of ports) {
+    if (p.nodeId === fromId) continue;
+    const dist = Math.hypot(at.x - p.x, at.y - p.y);
+    if (dist < bestDist) {
+      best = p;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+/** A wire being drawn, or one picked up by its input end to move (#458). */
+export interface WireDrag extends WireSource {
+  movingId?: string;
+}
+
+/**
+ * Whether a node's input can take the wire being dragged: not its own source,
+ * and not a node already wired from that source. The wire being moved
+ * doesn't count against itself, so it may go back where it came from.
+ */
+export function canTake(
+  nodeId: string,
+  drag: WireDrag,
+  connections: readonly (WireSource & { id: string; toNodeId: string })[],
+): boolean {
+  if (nodeId === drag.fromNodeId) return false;
+  return !connections.some((c) => c.id !== drag.movingId && c.fromNodeId === drag.fromNodeId && c.toNodeId === nodeId);
 }
 
 /** The nodes at either end of a wire; the drag preview's far end is the pointer, so it has none. */
