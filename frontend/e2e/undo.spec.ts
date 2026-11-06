@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import {
   openBoard, uploadImage, imageBox, addPanel, collapsePanels,
-  panelBoxes, dragFrom, clickEmpty, tagPanels,
+  panelBoxes, dragFrom, clickEmpty, tagPanels, reloadBoard,
 } from "./helpers";
 
 // One undo timeline. Before this there were two bound to the same keystroke,
@@ -24,6 +24,19 @@ async function addPanelAt(page: Page, dx: number) {
   const boxes = await panelBoxes(page);
   const last = boxes[boxes.length - 1];
   await dragFrom(page, last.x + last.w / 2, last.y + last.h / 2, dx);
+}
+
+/**
+ * Holds back the Create nodes' and the wires' code on the next load, so they
+ * register with the undo timeline after Board has taken its baseline: the
+ * order a real browser often loads them in (#469). Left alone, the dev
+ * server's timing decides, and the bug hides.
+ */
+async function loadNodesAfterBoard(page: Page) {
+  await page.route(/components_(NodePanel_NodePanel|Connections_ConnectionOverlay)_tsx\.js/, async (route) => {
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.fallback();
+  });
 }
 
 test.describe("undo", () => {
@@ -99,6 +112,57 @@ test.describe("undo", () => {
 
     await undo(page);
     expect(await panelBoxes(page)).toHaveLength(2);
+  });
+
+  // #469: the baseline was taken before the panels and wires registered, so
+  // the first delete after a reload could not be undone.
+  test("undoes deleting a Create Image node as the first change after a reload", async ({ page }) => {
+    await openBoard(page);
+    await addPanelAt(page, -300);
+    await addPanelAt(page, 300);
+    await loadNodesAfterBoard(page);
+    await reloadBoard(page, { panels: 2 });
+
+    const [first] = (await panelBoxes(page)).sort((a, b) => a.x - b.x);
+    await page.mouse.click(first.x + 12, first.y + 12);
+    await page.waitForTimeout(300);
+    await page.keyboard.press("Delete");
+    await page.waitForTimeout(400);
+    expect(await panelBoxes(page)).toHaveLength(1);
+
+    await undo(page);
+    expect(await panelBoxes(page)).toHaveLength(2);
+    await redo(page);
+    expect(await panelBoxes(page)).toHaveLength(1);
+  });
+
+  test("undoes deleting a wire as the first change after a reload", async ({ page }) => {
+    await openBoard(page);
+    await addPanelAt(page, -300);
+    await addPanelAt(page, 300);
+    const [a, b] = (await panelBoxes(page)).sort((p, q) => p.x - q.x);
+    await page.mouse.move(a.x + a.w, a.y + a.h * 0.3);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.w / 2, b.y + b.h * 0.7, { steps: 20 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const wires = page.locator('svg g > path[stroke-width="12"]');
+    await expect(wires).toHaveCount(1);
+
+    await loadNodesAfterBoard(page);
+    await reloadBoard(page, { panels: 2 });
+    await expect(wires).toHaveCount(1);
+    const mid = await wires.first().evaluate((p: SVGPathElement) => {
+      const pt = p.getPointAtLength(p.getTotalLength() / 2);
+      return { x: pt.x, y: pt.y };
+    });
+    await page.mouse.click(mid.x, mid.y);
+    await page.waitForTimeout(200);
+    await page.keyboard.press("Delete");
+    await expect(wires).toHaveCount(0);
+
+    await undo(page);
+    await expect(wires).toHaveCount(1);
   });
 
   test("undoes creating a Create Image node", async ({ page }) => {
