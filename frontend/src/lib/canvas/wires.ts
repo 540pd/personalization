@@ -31,7 +31,8 @@ export interface Span {
   bottom: number;
 }
 
-function spanOf(node: NodeBox, vp: Viewport): Span {
+/** A node's top and bottom on screen. */
+export function spanOf(node: NodeBox, vp: Viewport): Span {
   const b = boundsOf(node);
   return { top: toScreen({ x: b.x, y: b.y }, vp).y, bottom: toScreen({ x: b.x, y: b.y + b.h }, vp).y };
 }
@@ -123,7 +124,8 @@ export const WIRE_BLOCK_REASONS: Record<WireBlock, string> = {
   "loop":      "This would make a loop",
 };
 
-type WireEdge = WireSource & { id: string; toNodeId: string };
+/** A committed wire, as the rules see it. */
+export type WireEdge = WireSource & { id: string; toNodeId: string };
 
 /**
  * Why a node can't take the wire being dragged, or null when it can. One
