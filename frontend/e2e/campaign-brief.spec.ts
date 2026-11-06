@@ -60,7 +60,7 @@ test.describe("Campaign Brief", () => {
     expect(errors).toEqual([]);
   });
 
-  test("every field keeps its border: darker on hover, black on focus", async ({ page }) => {
+  test("every field keeps its border: darker on hover, the accent on focus", async ({ page }) => {
     await openBoard(page);
     await openBrand(page);
     const name = page.getByLabel("Campaign Name");
@@ -70,8 +70,8 @@ test.describe("Campaign Brief", () => {
     await name.hover();
     await expect.poll(border).not.toBe(rest);
     await name.focus();
-    // neutral-900, however the browser writes it.
-    await expect.poll(border).toMatch(/^(rgb\(23, 23, 23\)|oklch\(0\.205 0 none\))$/);
+    // The accent (#437), #2c6adc.
+    await expect.poll(border).toBe("rgb(44, 106, 220)");
     await name.fill("Monsoon Collection 2027");
     // Filled, unfocused and unhovered: back to the resting border, not hidden.
     await page.mouse.move(5, 5);
