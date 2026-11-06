@@ -45,7 +45,24 @@ export interface AssetStore {
 
 /** What may be stored: images a browser shows safely, and MP4 video. Not
  * SVG -- served from this origin, its scripts would run as the app. */
-export const ASSET_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4"] as const;
+export const ASSET_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "text/markdown"] as const;
+
+/**
+ * Brand guidelines (#450): Markdown, and only they are. Plain text the model
+ * can read as it is; small, as Skills are.
+ */
+export const GUIDELINES_MIME = "text/markdown";
+export const MAX_GUIDELINES_BYTES = 100 * 1024;
+
+/** Whether `data` is UTF-8 text: a Markdown file that is not is refused. */
+export function isUtf8(data: Buffer): boolean {
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(data);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export const MAX_ASSET_BYTES = 25 * 1024 * 1024;
 
