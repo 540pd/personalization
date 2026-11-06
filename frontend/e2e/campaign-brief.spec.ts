@@ -54,9 +54,9 @@ test.describe("Campaign Brief", () => {
     }
     await expect(page.getByText("On: it must be kept or included when creative is generated.")).toBeVisible();
     await expect(page.getByText("Not required for this campaign.")).toHaveCount(1);
-    // Switches only: the product and logo are added on the Assets page.
-    await expect(page.getByText("Shows the product from Assets.")).toBeVisible();
-    await expect(page.getByText("Uses the primary logo from Assets.")).toBeVisible();
+    // Switches only: the product and logo are added on the Assets page, and
+    // shown here from it (#444), each with a way there.
+    await expect(page.getByText(/^(No product on the Assets page yet\.|Loading…)$|SKU|Change on the Assets page/).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Choose image" })).toHaveCount(0);
     await expect(page.getByText("Write as much as you need. Each rule on its own line reads best.")).toBeVisible();
     expect(errors).toEqual([]);

@@ -18,6 +18,8 @@ import {
   type Tone,
 } from "@/store/brand.store";
 import BriefReferences from "./BriefReferences";
+import { BriefLogo, BriefProduct } from "./BriefFromAssets";
+import { useSavedAssets } from "./useSavedAssets";
 
 type Edit = (update: (brief: Brief) => Brief) => void;
 
@@ -29,6 +31,8 @@ export default function CampaignBrief({ value, onChange }: { value: Brief; onCha
   const toggleTone = (tone: Tone) =>
     onChange((b) => ({ ...b, tones: b.tones.includes(tone) ? b.tones.filter((t) => t !== tone) : [...b.tones, tone] }));
   const tonesFull = value.tones.length >= MAX_TONES;
+  // The saved Assets page, once for the product, logo and references (#444).
+  const assets = useSavedAssets();
 
   const text = (key: "name" | "objective" | "audience" | "message" | "offer", placeholder: string, extra = {}) => (
     <input
@@ -126,10 +130,10 @@ export default function CampaignBrief({ value, onChange }: { value: Brief; onCha
 
         <Group title="Mandatory elements" lead="On: it must be kept or included when creative is generated.">
           <Mandatory id={`${id}-m-product`} label="Product" on={value.mandatory.product} onToggle={(on) => setMandatory("product", on)}>
-            <span className="brief-muted">Shows the product from Assets.</span>
+            <BriefProduct load={assets.load} />
           </Mandatory>
           <Mandatory id={`${id}-m-logo`} label="Logo" on={value.mandatory.logo} onToggle={(on) => setMandatory("logo", on)}>
-            <span className="brief-muted">Uses the primary logo from Assets.</span>
+            <BriefLogo load={assets.load} />
           </Mandatory>
           <Mandatory id={`${id}-m-cta`} label="CTA" on={value.mandatory.cta} onToggle={(on) => setMandatory("cta", on)}>
             <input
@@ -152,7 +156,7 @@ export default function CampaignBrief({ value, onChange }: { value: Brief; onCha
         </Group>
 
         <Group title="Creative references" lead="Pick the backgrounds, scenes and mood boards from Assets that this campaign uses." layout="block">
-          <BriefReferences picked={value.referenceIds} onChange={(ids) => set("referenceIds", ids)} />
+          <BriefReferences load={assets.load} onRetry={assets.retry} picked={value.referenceIds} onChange={(ids) => set("referenceIds", ids)} />
         </Group>
 
         <Group title="Guardrails" layout="block">
