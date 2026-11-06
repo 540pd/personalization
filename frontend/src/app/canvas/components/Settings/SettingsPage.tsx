@@ -7,12 +7,14 @@
 // No Save button: a change is in effect at once, and is kept in this browser.
 
 import { useEffect } from "react";
+import { Info } from "lucide-react";
 import { useSection } from "@/store/section.store";
 import { dialogIsOpen, isEditableTarget } from "@/lib/dom/keys";
 import { useSettings } from "@/store/settings.store";
 import { useToast } from "@/components/Toast/useToast";
 import LibraryPage from "../Library/LibraryPage";
-import { isDefault, settingGroups, type SettingSpec } from "../../settings/settings";
+import { dockIcon } from "../FloatingDock/items";
+import { GROUP_INFO, isDefault, settingGroups, type SettingSpec } from "../../settings/settings";
 import "./Settings.scss";
 
 /** ⌘, (Ctrl+, elsewhere): the usual key for an app's settings. */
@@ -62,12 +64,37 @@ function Page() {
     >
       {settingGroups().map(({ group, specs }) => {
         const groupId = `settings-group-${group.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+        const info = GROUP_INFO[group] ?? {};
+        const on = specs.filter((spec) => settings[spec.id] === true).length;
         return (
-          <section key={group} className="settings-group" aria-labelledby={groupId}>
-            <h2 id={groupId} className="settings-group-title">
-              {group}
-            </h2>
+          <section
+            key={group}
+            className="settings-group"
+            aria-labelledby={groupId}
+            aria-describedby={info.help ? `${groupId}-help` : undefined}
+          >
+            <div className="settings-group-header">
+              <h2 id={groupId} className="settings-group-title">
+                {group}
+              </h2>
+              {info.count && (
+                <span className="settings-group-count">
+                  {on + info.count.always} of {specs.length + info.count.always} shown
+                </span>
+              )}
+            </div>
+            {info.help && (
+              <p id={`${groupId}-help`} className="settings-group-help">
+                {info.help}
+              </p>
+            )}
             <div className="settings-card">
+              {info.allOffNotice && on === 0 && (
+                <div role="status" className="settings-notice">
+                  <Info size={16} aria-hidden />
+                  {info.allOffNotice}
+                </div>
+              )}
               {specs.map((spec) => (
                 <SettingRow key={spec.id} spec={spec} value={settings[spec.id]} onChange={(v) => change(spec, v)} />
               ))}
@@ -102,16 +129,30 @@ function SettingRow({
   onChange: (value: string | boolean) => void;
 }) {
   const labelId = `setting-${spec.id}-label`;
-  const helpId = `setting-${spec.id}-help`;
+  const helpId = spec.help ? `setting-${spec.id}-help` : undefined;
+  // A menu item's row (#404): the item's icon, no help, and greyed while hidden.
+  const tool = spec.type === "toggle" ? spec.tool : undefined;
+  const className = [
+    "settings-row",
+    spec.help ? "" : "is-compact",
+    tool && value !== true ? "is-off" : "",
+  ].filter(Boolean).join(" ");
   return (
-    <div className="settings-row" data-setting={spec.id}>
+    <div className={className} data-setting={spec.id}>
+      {tool && (
+        <span className="settings-row-icon" aria-hidden>
+          {dockIcon(tool)}
+        </span>
+      )}
       <div className="settings-row-text">
         <div id={labelId} className="settings-row-label">
           {spec.label}
         </div>
-        <div id={helpId} className="settings-row-help">
-          {spec.help}
-        </div>
+        {spec.help && (
+          <div id={helpId} className="settings-row-help">
+            {spec.help}
+          </div>
+        )}
       </div>
       {spec.type === "choice" ? (
         // Native radios: Tab reaches the group, arrow keys move the choice.

@@ -1,5 +1,8 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
-import { openBoard, collapsePanels, panelBoxes, clickEmpty, dragFrom } from "./helpers";
+import { openBoard, collapsePanels, panelBoxes, clickEmpty, dragFrom, showEveryMenuItem } from "./helpers";
+
+// Creates Video nodes, which #404 hides by default, so offer them all.
+test.beforeEach(({ page }) => showEveryMenuItem(page));
 
 // node > video. The first asynchronous kind: the POST returns a job and the
 // result arrives by polling, because a real generation runs for minutes and
