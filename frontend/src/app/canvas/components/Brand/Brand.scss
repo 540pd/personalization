@@ -4,6 +4,17 @@
 // The Brand page (#219). Its frame is the library page's (.library-page):
 // same left edge, z-index and header as Settings, Skills and Agents.
 
+// A soft-grey page with white cards on it (#437), after Design_Aspect: the
+// surfaces set the sections apart, not extra borders. Scoped by what the
+// page holds, as the frame (.library-page) is shared with Skills and Agents.
+.library-page:has(.brief) {
+  @apply bg-subtle;
+
+  .library-header {
+    @apply bg-subtle;
+  }
+}
+
 // ── page ────────────────────────────────────────────────────────────────
 // Pinned to the bottom of the scrolling page. The negative margins take it
 // to the page's edges, past .library-page's px-10 / pb-8, and -bottom-8
@@ -11,12 +22,11 @@
 // sits it at the bottom when the fields are shorter than the window.
 .brand-save-bar {
   @apply sticky -bottom-8 z-10 mt-auto -mx-10 -mb-8 flex items-center justify-end gap-2;
-  @apply px-10 py-3.5 bg-white border-t border-neutral-200;
-  box-shadow: 0 -6px 16px rgb(0 0 0 / 0.04);
+  @apply px-10 py-3.5 bg-surface border-t border-line;
 }
 
 .brand-save-state {
-  @apply mr-auto flex items-center gap-2 text-[13px] text-amber-800;
+  @apply mr-auto flex items-center gap-2 text-body text-amber-800;
 }
 
 .brand-save-dot {
@@ -25,11 +35,11 @@
 
 // ── fields ──────────────────────────────────────────────────────────────
 .brand-profile {
-  @apply flex flex-col gap-2 pt-5 border-t border-black/[0.08];
+  @apply flex flex-col gap-2 pt-5 border-t border-line;
 }
 
 .brand-section-title {
-  @apply text-lg font-bold mb-1;
+  @apply text-title font-medium mb-1;
 }
 
 .brand-row {
@@ -41,7 +51,7 @@
 }
 
 .brand-field-label {
-  @apply text-sm font-semibold;
+  @apply text-body font-medium text-ink;
 }
 
 .brand-url-row {
@@ -49,9 +59,9 @@
 }
 
 .brand-input {
-  @apply w-full rounded-lg border border-black/10 bg-transparent px-4 text-sm;
-  @apply placeholder:text-neutral-400 transition-colors;
-  @apply focus:outline-none focus:border-neutral-400 focus:bg-white;
+  @apply w-full rounded-control border border-line bg-surface px-4 text-body;
+  @apply placeholder:text-ink-muted/70 transition-colors;
+  @apply focus:outline-none focus:border-accent;
 }
 
 .brand-input {
@@ -60,26 +70,26 @@
 }
 
 .brand-hint {
-  @apply text-xs text-neutral-500;
+  @apply text-meta text-ink-muted;
 }
 
 // ── campaign brief (#409) ───────────────────────────────────────────────
 // One card of groups; each row is a label beside its field. Every field keeps
-// its border, darker on hover and black on focus.
+// its border, darker on hover and the accent on focus.
 .brief {
   @apply flex flex-col gap-3;
 }
 
 .brief-lead {
-  @apply -mt-0.5 text-sm text-neutral-500;
+  @apply -mt-0.5 text-body text-ink-muted;
 }
 
 .brief-card {
-  @apply flex flex-col gap-6 rounded-2xl border border-black/10 px-6 pt-5 pb-6;
+  @apply flex flex-col gap-6 rounded-card border border-line bg-surface px-6 pt-5 pb-6;
 }
 
 .brief-group-title {
-  @apply mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500;
+  @apply mb-2 text-title font-medium text-ink;
 }
 
 .brief-group-lead {
@@ -92,7 +102,7 @@
 }
 
 .brief-label {
-  @apply text-sm text-neutral-600;
+  @apply text-body text-ink-muted;
 
   &.is-top {
     @apply self-start pt-2;
@@ -104,9 +114,9 @@
 }
 
 .brief-input {
-  @apply h-[38px] w-full rounded-lg border border-black/10 bg-white px-3 text-sm;
-  @apply placeholder:text-neutral-400 transition-colors hover:border-black/25;
-  @apply focus:border-neutral-900 focus:outline-none;
+  @apply h-[38px] w-full rounded-control border border-line bg-surface px-3 text-body;
+  @apply placeholder:text-ink-muted/70 transition-colors hover:border-ink-muted/40;
+  @apply focus:border-accent focus:outline-none;
 }
 
 // Grows with its text (CampaignBrief's GrowingTextarea), so no scrollbar or handle.
@@ -115,14 +125,14 @@
 }
 
 .brief-muted {
-  @apply text-[13px] text-neutral-500;
+  @apply text-body text-ink-muted;
 }
 
 .brief-readonly {
-  @apply flex items-center gap-2.5 px-3 text-sm;
+  @apply flex items-center gap-2.5 px-3 text-body;
 
   svg {
-    @apply text-neutral-500;
+    @apply text-ink-muted;
   }
 }
 
@@ -131,12 +141,12 @@
 }
 
 .brief-chip {
-  @apply h-[30px] rounded-full border border-black/10 bg-white px-3 text-[13px] text-neutral-800 transition-colors;
-  @apply hover:border-black/25;
-  @apply disabled:cursor-default disabled:text-neutral-300 disabled:hover:border-black/10;
+  @apply h-[30px] rounded-full border border-line bg-surface px-3 text-body text-ink transition-colors;
+  @apply hover:border-ink-muted/40;
+  @apply disabled:cursor-default disabled:text-ink-muted/40 disabled:hover:border-line;
 
   &[aria-pressed="true"] {
-    @apply border-neutral-900 bg-neutral-900 text-white;
+    @apply border-accent bg-accent-soft text-accent;
   }
 }
 
@@ -149,14 +159,14 @@
 }
 
 .brief-mandatory-name {
-  @apply text-sm font-medium;
+  @apply text-body font-medium;
 }
 
 .brief-switch {
   @apply flex h-[22px] w-9 shrink-0 cursor-pointer rounded-full border-0 bg-neutral-300 p-[3px] transition-colors;
 
   &[aria-checked="true"] {
-    @apply justify-end bg-neutral-900;
+    @apply justify-end bg-accent;
   }
 }
 
@@ -178,15 +188,15 @@
 
 // ── buttons ─────────────────────────────────────────────────────────────
 .brand-pill {
-  @apply h-9 px-4 rounded-full border border-black/10 bg-transparent text-sm;
-  @apply transition-colors hover:bg-black/5;
-  @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent;
+  @apply h-9 px-4 rounded-control border border-line bg-surface text-body font-medium text-ink;
+  @apply transition-colors hover:bg-subtle;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface;
 }
 
 .brand-primary {
-  @apply h-11 px-6 shrink-0 rounded-full bg-black text-sm font-semibold text-white;
-  @apply transition-colors hover:bg-neutral-800;
-  @apply disabled:bg-neutral-400 disabled:cursor-not-allowed;
+  @apply h-11 px-6 shrink-0 rounded-control bg-accent text-body font-semibold text-white;
+  @apply transition-colors hover:bg-accent-hover;
+  @apply disabled:opacity-40 disabled:cursor-not-allowed;
 }
 
 .brand-save-bar .brand-pill,
