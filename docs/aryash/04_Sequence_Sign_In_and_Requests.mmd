@@ -1,0 +1,23 @@
+sequenceDiagram
+  participant B as Browser
+  participant GIS as Google Sign-In
+  participant PX as /api/proxy
+  participant N as Node BFF
+  participant FS as Firestore
+  B->>GIS: Sign in
+  GIS-->>B: ID token (memory only)
+  B->>PX: POST /api/auth/login with ID token
+  PX->>N: Forward with Origin and infra OIDC
+  N->>N: Verify signature, aud, iss, exp, email_verified, hd
+  N->>FS: Transaction - find identity link or create user and link
+  N->>FS: Create login session (SHA-256 of session ID)
+  N-->>B: Set-Cookie opaque session ID, profile
+  B->>B: Discard ID token
+  B->>PX: Any API call with cookie
+  PX->>N: Forward cookie and Origin
+  N->>FS: Resolve session and user status (cached 10 s)
+  alt Expired, revoked or disabled
+    N-->>B: 401 or 403, show sign-in
+  else Valid
+    N-->>B: Response for owner key
+  end

@@ -1,0 +1,12 @@
+flowchart LR
+  P["Run request<br/>node, mode, parents with job IDs"] --> Q["Parents' node summaries<br/>same owner and Playspace, completed"]
+  Q --> R["Union of must_preserve<br/>de-duplicated, max 20"]
+  P --> S["Own last 3 attempts<br/>on re-run"]
+  P --> T{"Mode"}
+  T -->|"Re-run"| U["Inputs: parents' outputs"]
+  T -->|"Refine"| W["Input: own last output"]
+  R --> X["Context block, 16 KB max"]
+  S --> X
+  U --> X
+  W --> X
+  X --> Y["Manifest and handle allowlist"]
