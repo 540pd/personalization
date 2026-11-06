@@ -18,6 +18,7 @@ import { useViewport } from "@/store/viewport.store";
 import { useSettings } from "@/store/settings.store";
 import { useHoveredNode } from "@/store/hover.store";
 import { boundsOf, contains, type NodeBox } from "@/lib/canvas/bounds";
+import { toScreen } from "@/lib/canvas/coords";
 import { labelProbe } from "@/lib/canvas/occlusion";
 import { selectOnly } from "@/lib/canvas/selection";
 import { dragFrameFrom } from "../board/frameDrag";
@@ -42,7 +43,8 @@ export default function FrameLabels() {
   const resize = useFrames((s) => s.resize);
   const nodes = useKonvaNodes((s) => s.nodes);
   const panels = useNodePanel((s) => s.panels);
-  const { x: stageX, y: stageY, scale } = useViewport();
+  const vp = useViewport();
+  const { scale } = vp;
   // Names off (#215) covers frame names too: shown on hover or selection.
   const alwaysNames = useSettings((s) => s.settings.showNodeNames);
   const hoveredId = useHoveredNode(!alwaysNames);
@@ -66,13 +68,14 @@ export default function FrameLabels() {
         // is the handle you are working with.
         const selected = selectedIds.includes(f.id);
         if (!selected && frameNameCovered(labelProbe(live, scale), covers)) return null;
+        const topLeft = toScreen({ x: live.canvasX, y: live.canvasY }, vp);
 
         return (
           <NodeLabel
             key={f.id}
             value={f.label}
-            left={stageX + live.canvasX * scale}
-            bottom={stageY + live.canvasY * scale - LABEL_GAP}
+            left={topLeft.x}
+            bottom={topLeft.y - LABEL_GAP}
             maxWidth={screenW}
             onCommit={(next) => useFrames.getState().upsert({ ...f, label: next })}
             hidden={!alwaysNames && !selected && hoveredId !== f.id}
