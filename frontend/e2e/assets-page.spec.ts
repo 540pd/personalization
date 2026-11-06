@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { makePng, openBoard, setZoom } from "./helpers";
+import { logoNotMandatory, makePng, openBoard, setZoom } from "./helpers";
 
 // The Assets page and its Product section (#414), on the real backend
 // (#412, #413). The page is the user's own and outlives a test, so each test
@@ -43,6 +43,7 @@ test.describe("Assets page", () => {
   test.beforeEach(async ({ page }) => {
     await openBoard(page);
     await resetAssets(page);
+    await logoNotMandatory(page);
   });
 
   test("opens from the rail, with the empty product state", async ({ page }) => {

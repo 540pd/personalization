@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { makePng, openBoard, setZoom } from "./helpers";
+import { logoNotMandatory, makePng, openBoard, setZoom } from "./helpers";
 
 // Creatives to adapt from and style examples on the Assets page (#416): tiles
 // with inline details, named after their file to start with, saved with the
@@ -37,6 +37,7 @@ test.describe("Assets creatives", () => {
   test.beforeEach(async ({ page }) => {
     await openBoard(page);
     await resetAssets(page);
+    await logoNotMandatory(page);
   });
 
   test("both groups start empty, Adapt from last in section 1 and Style examples in section 2", async ({ page }) => {

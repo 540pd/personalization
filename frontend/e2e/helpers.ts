@@ -75,6 +75,17 @@ export async function showEveryMenuItem(page: Page) {
   });
 }
 
+/**
+ * Turns the Campaign Brief's Logo switch off (#409), so the Assets page
+ * saves without a logo (#417). The brief lives in memory: once per page load.
+ */
+export async function logoNotMandatory(page: Page) {
+  await page.locator(".sidebar-identity").click();
+  await page.getByRole("menuitem", { name: "Brand" }).click();
+  await page.getByRole("switch", { name: "Logo" }).click();
+  await page.getByRole("button", { name: "Save brand" }).click();
+}
+
 export async function openBoard(page: Page) {
   await page.goto("/", { waitUntil: "networkidle" });
   // Board mounts via next/dynamic with ssr:false, so wait for the stage, not load.
