@@ -8,7 +8,7 @@
 // context, so it is only ever as high as whatever it is attached to.
 .tooltip {
   @apply absolute left-full top-1/2 -translate-y-1/2 ml-2 z-10;
-  @apply px-2 py-1 rounded-md bg-neutral-900 text-xs font-medium text-white whitespace-nowrap;
+  @apply px-2 py-1 rounded-md bg-ink text-meta font-medium text-white whitespace-nowrap;
   @apply pointer-events-none opacity-0;
   // Hiding is immediate; only showing waits, so sweeping the pointer down a
   // column of icons does not flash a label for each one it crosses.
