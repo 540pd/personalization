@@ -34,7 +34,7 @@ const SCOPES: { value: ReferenceScope; label: string; help: string }[] = [
   {
     value: "picked",
     label: "When a campaign picks it",
-    help: "Chosen in a Campaign Brief. Until briefs can pick, every reference applies.",
+    help: "Chosen in the Campaign Brief on the Brand page.",
   },
 ];
 

@@ -208,3 +208,68 @@
 .library-page :is(.brief, .brand-profile, .brand-save-bar) button:focus-visible {
   @apply focus-ring;
 }
+
+// ── creative references (#442) ──────────────────────────────────────────
+// The references saved on Assets, as toggles: picked ones in the accent,
+// Always ones with the indigo badge Assets gives them.
+.brief-refs {
+  @apply flex flex-col items-start gap-3;
+}
+
+.brief-refs-summary {
+  @apply m-0 text-body text-ink-muted;
+}
+
+.brief-refs-grid {
+  @apply m-0 grid w-full max-w-[844px] list-none grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-3 p-0;
+}
+
+.brief-ref {
+  @apply flex w-full flex-col gap-1 rounded-card border-2 border-line bg-surface p-1.5 pb-2 text-left transition-colors;
+  @apply hover:border-ink-muted/40;
+
+  &[aria-pressed="true"] {
+    @apply border-accent;
+  }
+
+  // In use whatever the brief says: no hover invitation to change it.
+  &[aria-disabled="true"] {
+    @apply cursor-default border-line hover:border-line;
+  }
+}
+
+.brief-ref-image {
+  @apply relative block;
+
+  img {
+    @apply block h-[96px] w-full rounded-media bg-subtle object-cover;
+  }
+}
+
+.brief-ref-check {
+  @apply absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-accent text-white;
+}
+
+.brief-ref-always {
+  @apply absolute left-2 top-2 flex h-5 items-center rounded-full bg-indigo px-2 text-meta font-medium text-white;
+}
+
+.brief-ref-name {
+  @apply block truncate px-0.5 text-body font-medium text-ink;
+}
+
+.brief-ref-meta {
+  @apply block truncate px-0.5 text-meta text-ink-muted;
+}
+
+.brief-refs-empty {
+  @apply flex flex-wrap items-center gap-3;
+}
+
+.brief-refs-problem {
+  @apply m-0 flex items-center gap-2 text-body text-red-700;
+}
+
+.brief-link {
+  @apply text-body font-medium text-accent underline underline-offset-2;
+}

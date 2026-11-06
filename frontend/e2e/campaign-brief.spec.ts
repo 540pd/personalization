@@ -26,7 +26,9 @@ test.describe("Campaign Brief", () => {
     expect(await y("Campaign Brief")).toBeGreaterThan(industryY);
     expect(await y("Brand Profile")).toBeGreaterThan(await y("Campaign Brief"));
     await expect(page.getByText("Define the campaign details that will guide creative generation.")).toBeVisible();
-    await expect(page.locator(".brief-group-title")).toHaveText(["Basics", "Audience", "Message", "Offer", "Mandatory elements", "Guardrails"]);
+    await expect(page.locator(".brief-group-title")).toHaveText([
+      "Basics", "Audience", "Message", "Offer", "Mandatory elements", "Creative references", "Guardrails",
+    ]);
 
     for (const [label, placeholder] of [
       ["Campaign Name", "Urban Running 2026"],
