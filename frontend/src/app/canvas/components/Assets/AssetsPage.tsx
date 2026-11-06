@@ -32,6 +32,7 @@ import {
   isUploading,
   imagesOf,
   isImageKind,
+  master,
   readiness,
   recordOf,
   replaceImage,
@@ -50,6 +51,7 @@ import BrandColours from "./BrandColours";
 import LogoGroup from "./LogoGroup";
 import ReferencesSection from "./ReferencesSection";
 import ReadinessStrip from "./ReadinessStrip";
+import { stripExtension, uploadEvent } from "../../board/upload";
 import type { LogoReading } from "../../assets/logoAnalysis";
 import CreativeGroup, { type CreativeKind } from "./CreativeGroup";
 import type { ImageSize } from "./AssetTiles";
@@ -384,6 +386,7 @@ function Page() {
             addError={addError?.kind === "productImage" ? addError.message : null}
             missingMaster={tried && !!problems?.missingMaster}
             missingName={tried && !!problems?.missingName}
+            place={placeMaster(draft, dirty)}
           >
             {creativeGroup("adaptFrom")}
           </ProductSection>
@@ -460,4 +463,31 @@ function Page() {
 async function contentHash(file: File): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Place on the board (#446): the master into Playspace, by its stored URL.
+ * Saved masters only, and with nothing unsaved: Cancel deletes an unsaved
+ * upload, which would leave the board pointing at nothing.
+ */
+function placeMaster(draft: AssetsDraft, dirty: boolean): { blocked: string | null; onPlace: () => void } {
+  const hero = master(draft);
+  const blocked = !hero || hero.upload
+    ? "Wait until the master image has uploaded."
+    : dirty
+      ? "Save your changes first to place it on the board."
+      : null;
+  return {
+    blocked,
+    onPlace: () => {
+      if (!hero || blocked) return;
+      // Nothing unsaved, so no leave guard holds this back: the board is on
+      // screen before the image lands on it.
+      useSection.getState().setSection("playspace");
+      uploadEvent.emit({
+        files: [],
+        stored: [{ url: hero.asset.url, name: draft.productName.trim() || stripExtension(hero.asset.name) }],
+      });
+    },
+  };
 }
