@@ -27,10 +27,11 @@ test.describe("Brand page", () => {
     await expect(saveBrand(page)).toBeDisabled();
     expect(await page.evaluate(() => (window as any).Konva.stages.length)).toBeGreaterThan(0);
 
-    // Esc does not leave a page.
+    // Esc leaves it, back to the board it was opened from (#405).
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("heading", { name: "Brand", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Brand", level: 1 })).toHaveCount(0);
 
+    await openBrand(page);
     await page.locator(".sidebar-item", { hasText: "Playspace" }).click();
     await expect(page.getByRole("heading", { name: "Brand", level: 1 })).toHaveCount(0);
   });
@@ -85,6 +86,9 @@ test.describe("Brand page", () => {
       await p.getByRole("menuitem", { name: /Settings/ }).click();
     }],
     ["⌘,", (p: Page) => p.keyboard.press("Meta+Comma")],
+    // The page's own ways out (#405) ask the same.
+    ["the close button", (p: Page) => p.getByRole("button", { name: "Close Brand" }).click()],
+    ["Esc", (p: Page) => p.keyboard.press("Escape")],
   ] as const) {
     test(`leaving with edits by ${how} asks first`, async ({ page }) => {
       await openBoard(page);

@@ -20,20 +20,41 @@
 }
 
 // ── header ──────────────────────────────────────────────────────────────
+// Pinned to the top of the scrolling page (#405), edge to edge over the
+// page's padding, so the title, its action and the close button stay in
+// reach. The subtitle below it scrolls away; a divider marks content under it.
+// `top` is minus the page's top padding: the browser pins inside that padding,
+// which left a strip of scrolling content above the bar and the bar over the
+// subtitle.
 .library-header {
-  @apply flex items-end gap-4;
+  @apply sticky -top-8 z-10 flex items-center gap-4 bg-white;
+  @apply -mx-10 -mt-8 px-10 pt-6 pb-2;
+  @apply border-b border-transparent transition-colors;
+
+  &.is-scrolled {
+    @apply border-neutral-200;
+  }
 }
 
-.library-header-text {
-  @apply flex-1 min-w-0;
+.library-close {
+  @apply flex size-8 items-center justify-center rounded-full text-neutral-500 transition-colors;
+  @apply hover:bg-black/5 hover:text-neutral-800;
+  @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900;
+}
+
+// Below the button, right-aligned: the label tooltip's usual place, to its
+// right, is off the page.
+.library-close-tip {
+  @apply left-auto right-0 top-full ml-0 mt-1.5 translate-y-0;
 }
 
 .library-title {
-  @apply text-[22px] font-semibold leading-tight;
+  @apply m-0 flex-1 min-w-0 text-[22px] font-semibold leading-tight;
 }
 
+// Close under the title, against the page's gap: it was in the header.
 .library-subtitle {
-  @apply mt-1 text-sm text-neutral-500;
+  @apply m-0 -mt-4 text-sm text-neutral-500;
 }
 
 .library-action-button {
