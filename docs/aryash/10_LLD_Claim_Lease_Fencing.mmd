@@ -1,0 +1,10 @@
+flowchart TB
+  A["Cloud Tasks delivers job ID"] --> B{"Playspace map<br/>lease state"}
+  B -->|"Free or expired"| C["Transaction: attempt + 1,<br/>lease 60 s"]
+  B -->|"Valid lease held"| D["Respond retry-later (429)"]
+  B -->|"Job terminal"| E["Respond success, task ends"]
+  C --> F["Heartbeat every 15 s"]
+  F --> G{"Before each model<br/>call and write"}
+  G -->|"Lease current, before deadline"| H["Proceed; paths and rows<br/>carry attempt number"]
+  G -->|"Lost lease or deadline"| I["Stop without calling the model"]
+  H --> J["Terminal row and lock release"]

@@ -59,9 +59,16 @@ export const Z_INDEX = {
   // their own below canvasBelow rather than riding on the main stage, whose
   // container moves between 10 and 30 as one unit.
   frames:       5,
+  // Drawn shapes, on a canvas of their own (#430): always behind the Create
+  // nodes, images and text, and over the frames they sit in.
+  shapes:       7,
   canvasBelow: 10,
   nodes:       20,
   canvasAbove: 30,
+  // The transformer and selection outlines (#430): over the Create nodes, so
+  // a shape's handles still show where a node covers it. Under the wires,
+  // ports and labels, as the board's content was.
+  selectionChrome: 31,
   wires:       40,
   ports:       50,
   labels:      60,

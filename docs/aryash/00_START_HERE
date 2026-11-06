@@ -1,0 +1,39 @@
+# GCOS Personalization — Claude Code development task pack
+
+**Status:** Ready-to-develop task prompts for the **explicitly finalized** Application BFF and FastAPI Direct Sync API scope only. The design is finalized for the items below; this pack **does not claim that the code is already implemented**.
+
+**Architecture baseline:** Latest user-supplied architecture image (November 2026) plus the `GCOS_Diagrams.zip` HLD/LLD/sequence diagrams. Use the files in `Architecture_References/` to understand dependencies. If the repository contradicts the diagrams, describe the conflict instead of silently adopting an old pattern.
+
+## How to use
+1. Put this whole folder alongside the Node.js and Python repositories, or supply Claude Code with the target task Markdown file plus `01_FROZEN_ARCHITECTURE_RULES.md` and `02_SHARED_CONTRACTS.md`.
+2. Start Claude Code **inside the appropriate repository**. Give it **one** task file at a time, e.g., `Node_BFF/NJS-01_Verify_Google_ID_Token.md`.
+3. Ask Claude Code to inspect existing code, implement the scoped change, run tests, and report actual edits. Do not run every task concurrently against the same files.
+4. Use the dependency order in `03_IMPLEMENTATION_ORDER.md`. All other architecture work is out of scope pending separate approval (see `04_PENDING_SENIOR_APPROVAL.md`).
+
+## Ready-to-develop task index
+
+| File | Component | Purpose |
+|---|---|---|
+| NJS-01 | Node BFF | Verify Google ID token and hosted domain |
+| NJS-02 | Node BFF | Immutable owner key and identity linking |
+| NJS-03 | Node BFF | Opaque session cookie; timeout, logout, disable |
+| NJS-04 | Node BFF | CSRF Origin guard for cookie-based endpoints |
+| NJS-05 | Node BFF | Per-Run-click idempotency |
+| NJS-06 | Node BFF | One-active-run-per-Playspace lock |
+| NJS-07 | Node BFF | Ownership, asset and DAG lineage admission checks |
+| NJS-08 | Node BFF | Google-signed service client to private FastAPI |
+| PY-01 | FastAPI | Logical Skills CRUD, Registry as source of truth |
+| PY-02 | FastAPI | Idempotent publish and immutable revision pinning |
+| PY-03 | FastAPI | Approved MCP/tool catalog validator |
+| PY-04 | FastAPI | AI-assisted SKILL.md draft creation (no auto-publish) |
+
+**Important:** Some protocol details (such as existing endpoint paths, exact schema names, SDK methods, and operational limits not specified by the reference) must be discovered in the repositories or raised for review; the task prompts distinguish **approved behavior** from **suggested implementation details**.
+
+## Definition of completion for any task
+- Functional change **and** focused unit/integration tests delivered.
+- No user Google ID token travels to FastAPI; internal calls use service identity.
+- Ownership is derived from the verified session, never a browser-supplied `owner_key`.
+- No duplicate Skill revisions in GCS; Agent Registry remains canonical.
+- Failure paths, retries, redaction, and least-privilege behavior are covered.
+- Claude Code reports filenames, changes, tests run, test failures, and unresolved review decisions.
+- Do **not** deploy, mutate production data/IAM, or commit/push unless specifically asked.

@@ -1,0 +1,19 @@
+gs://gcos-private/
+├── inputs/{owner_key}/{asset_id}            uploaded, create-only, decoded on upload
+├── manifests/{job_id}.json                  immutable snapshot, written by dispatcher
+└── outputs/{owner_key}/{job_id}/{attempt}/{node_id}/{slot_id}
+                                             create-only (ifGenerationMatch=0), lifecycle cleans unaccepted
+
+Firestore
+├── users/{owner_key}
+├── identity_links/{hmac(iss, sub)}
+├── login_sessions/{sha256(session_id)}      TTL on expire_at, expiry checked on read
+├── idempotency/{owner_key}:{key}
+├── assets/{asset_id}                         uploading → ready → failed
+└── owners/{owner_key}/playspaces/{playspace_id}
+        in_flight_job_id, attempt, lease_expires_at
+        adk_session_id, previous_adk_session_ids, mapping_revision
+
+BigQuery  gcos_ops.job_state                  partitioned by date, clustered by owner_key, job_id
+        job_id, owner_key, playspace_id, node_id, slot_id, event_type,
+        slot_status, gcs_object_uri, attempt, seq, event_id, payload

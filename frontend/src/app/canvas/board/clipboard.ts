@@ -16,6 +16,7 @@ import { BoardShape, type BoardShapeConfig } from "./shapes";
 import { isPageKey } from "@/lib/dom/keys";
 import { nodeEntry, type NodeEntry } from "./nodeEntry";
 import { nodeBox } from "./geometry";
+import { onShapesLayer } from "./boardLayers";
 import type { BoardLayerDeps } from "./boardContext";
 
 /** Everything one Ctrl+C captured. */
@@ -64,9 +65,9 @@ export function createNode(className: string, attrs: Record<string, unknown>): K
         : new Konva.Rect(attrs as Konva.RectConfig);
 }
 
-/** Re-creates copied nodes on `layer`, offset, and returns them. */
+/** Re-creates copied nodes, each on the layer `layerFor` gives it, offset, and returns them. */
 export function pasteNodes(
-  layer: Konva.Layer,
+  layerFor: (n: Konva.Node) => Konva.Container,
   clipboard: NodeEntry[]
 ): Konva.Shape[] {
   // Seeded once from the board, then grown as this batch is placed: pasting a
@@ -89,7 +90,7 @@ export function pasteNodes(
 
     const node = createNode(entry.className, attrs);
 
-    layer.add(node);
+    layerFor(node).add(node);
 
     const label = entry.label ? uniqueLabel(entry.label, taken) : undefined;
     if (label) taken.push(label);
@@ -166,7 +167,7 @@ export function createEditKeysHandler(deps: BoardLayerDeps) {
     if (mod && e.code === "KeyV") {
       if (!clipboard.konva.length && !clipboard.panels.length) return;
       e.preventDefault();
-      const pasted = pasteNodes(deps.layer, clipboard.konva);
+      const pasted = pasteNodes(deps.layerFor, clipboard.konva);
       // The copies become the selection, so everything else lets go first.
       deps.transformer.nodes([]);
       useKonvaSelection.getState().clearSelection();
@@ -197,10 +198,12 @@ export function createEditKeysHandler(deps: BoardLayerDeps) {
       useConnectionStore.getState().pasteConnections(clipboard.connections, idMap);
       // A paste is a create, and a newly created node comes to the front.
       // A mixed paste leaves the order alone: one layer has to stay underneath.
+      // Shapes alone change nothing: their layer is always underneath (#430).
       if (!pasted.length) useLayerOrder.getState().raiseDom();
-      else if (!clipboard.panels.length) useLayerOrder.getState().raiseCanvas();
+      else if (!clipboard.panels.length && !pasted.every(onShapesLayer)) useLayerOrder.getState().raiseCanvas();
       deps.updateSelectionChrome();
       deps.layer.batchDraw();
+      deps.shapes.batchDraw();
       // One entry for nodes and wires alike, so one Ctrl+Z takes the paste back.
       deps.saveSnapshot();
     }

@@ -1,0 +1,46 @@
+sequenceDiagram
+  autonumber
+  participant FE as Next.js
+  participant BFF as Node BFF
+  participant FS as Firestore
+  participant API as FastAPI dispatcher
+  participant G as Cloud Storage
+  participant BQ as BigQuery
+  participant T as Cloud Tasks
+  participant AE as Agent runtime
+  participant S as Session service
+  participant V as Vertex AI
+  FE->>BFF: Run node (Playspace ID, mode, parents, idempotency key)
+  BFF->>BFF: Session cookie to owner key, ownership, lineage, cost limits
+  BFF->>FS: Transaction - idempotency record and Playspace lock
+  BFF->>API: Create job (owner key) with service ID token
+  API->>API: Resolve DAG, assemble context
+  API->>G: Write immutable manifest
+  API->>BQ: QUEUED and RESERVED rows
+  API->>T: Enqueue job ID
+  API-->>BFF: Job ID
+  BFF-->>FE: Accepted, job ID
+  Note over FE,BFF: Frontend polls from here, refresh-safe
+  T->>AE: OAuth2 trigger with job ID
+  AE->>FS: Claim - attempt n, 60 s lease
+  AE->>G: Read manifest
+  AE->>S: Get, create or recreate session
+  AE->>FS: CAS bind session mapping
+  AE->>S: Project context into state
+  AE->>V: Plan (one LLM call)
+  AE->>BQ: PLANNED with plan
+  loop Each slot
+    AE->>FS: Pre-flight lease and deadline
+    AE->>V: Generate one image
+    AE->>G: Create-only write via artifact function
+    AE->>AE: Decode and verify
+    AE->>BQ: SLOT_SAVED with object URI
+  end
+  AE->>BQ: COMPLETED with node summary
+  AE->>FS: Release Playspace lock
+  FE->>BFF: Poll status
+  BFF->>BQ: Owner-scoped latest state (cached 1-2 s)
+  BFF-->>FE: Slot states
+  FE->>BFF: Get image
+  BFF->>G: Owner and path check, stream bytes
+  BFF-->>FE: Image (private, immutable)
