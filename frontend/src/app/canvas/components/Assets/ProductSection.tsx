@@ -36,6 +36,7 @@ export default function ProductSection({
   addError,
   missingMaster,
   missingName,
+  place,
   children,
 }: {
   draft: AssetsDraft;
@@ -51,6 +52,11 @@ export default function ProductSection({
   addError: string | null;
   missingMaster: boolean;
   missingName: boolean;
+  /**
+   * Place on the board (#446): why it cannot be done now, or null when it
+   * can; and doing it.
+   */
+  place: { blocked: string | null; onPlace: () => void };
   children?: ReactNode;
 }) {
   const id = useId();
@@ -141,16 +147,32 @@ export default function ProductSection({
             </div>
             <LowResWarning size={sizes[hero.asset.id]} />
             <ImageDetails image={hero} onChange={onChange} />
-            <button
-              type="button"
-              className="assets-danger"
-              onClick={() => {
-                onChange((d) => removeImage(d, hero.asset.id));
-                onSelect(null);
-              }}
-            >
-              Remove master image
-            </button>
+            <div className="assets-master-actions">
+              <button
+                type="button"
+                className="assets-pill"
+                disabled={!!place.blocked}
+                aria-describedby={place.blocked ? `${id}-place-blocked` : undefined}
+                onClick={place.onPlace}
+              >
+                Place on the board
+              </button>
+              <button
+                type="button"
+                className="assets-danger"
+                onClick={() => {
+                  onChange((d) => removeImage(d, hero.asset.id));
+                  onSelect(null);
+                }}
+              >
+                Remove master image
+              </button>
+            </div>
+            {place.blocked && (
+              <span id={`${id}-place-blocked`} className="assets-hint">
+                {place.blocked}
+              </span>
+            )}
           </div>
 
           <div className={viewsDrop.active ? "assets-views is-dropping" : "assets-views"} {...viewsDrop.handlers}>

@@ -536,3 +536,12 @@ select.assets-input {
 .assets-save-error {
   @apply mr-auto text-body text-red-700;
 }
+
+// Place on the board (#446) beside Remove master image.
+.assets-master-actions {
+  @apply flex flex-wrap items-center gap-3;
+
+  .assets-danger {
+    @apply self-center;
+  }
+}
