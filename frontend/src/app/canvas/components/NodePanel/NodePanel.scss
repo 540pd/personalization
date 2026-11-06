@@ -405,3 +405,33 @@
 .node-panel-model-from {
   @apply text-ink-muted;
 }
+
+/* Use brand (#452): the switch, and what it will send. */
+
+.node-panel-brand {
+  @apply flex flex-col gap-1;
+}
+
+.node-panel-brand-row {
+  @apply flex items-center justify-between;
+}
+
+.node-panel-brand-label {
+  @apply mb-0;
+}
+
+.node-panel-brand-summary {
+  @apply m-0 text-meta text-ink-muted;
+}
+
+.node-panel-brand-link {
+  @apply font-medium text-accent underline underline-offset-2;
+}
+
+.node-panel-notice {
+  @apply -mt-1 text-center text-meta text-amber-800;
+}
+
+.node-panel-brand :is(button):focus-visible {
+  @apply focus-ring;
+}

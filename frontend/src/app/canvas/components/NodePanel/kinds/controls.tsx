@@ -7,6 +7,8 @@ import type { ReactNode } from "react";
 import { DEFAULT_NODE_MAX_EDGE } from "@/constants/canvas.constants";
 import type { Reference } from "@/types/canvas.types";
 import type { MentionContext } from "../../../mentions/mentions";
+import { useBrand as useBrandStore } from "@/store/brand.store";
+import type { NodeSettings } from "../nodeKinds";
 
 // A text node is a reading surface, not a picture: a squat landscape box wastes
 // the width on short lines, so it defaults taller than it is wide. A Prompt
@@ -122,6 +124,16 @@ export function TextOutput({ value }: { value: string }) {
  * The fields every generate request carries: the references, omitted when
  * there are none, and the prompt's @skills (#240).
  */
+/**
+ * The brand for a request (#452): the Campaign Brief as the Brand page holds
+ * it, for the backend to add to with the saved Assets; false when the node's
+ * Use brand is off. Absent from the settings is on.
+ */
+export function brandRequest(settings: NodeSettings): { brief: object } | false {
+  if ((settings as { useBrand?: boolean }).useBrand === false) return false;
+  return { brief: useBrandStore.getState().brand.campaign };
+}
+
 export function baseRequest(references: Reference[], context?: MentionContext) {
   return {
     references: references.length ? references : undefined,

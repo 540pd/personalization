@@ -29,6 +29,9 @@ export function useGeneration(
 ) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Not an error: made, but without the brand it was asked to use (#452).
+  const [notice, setNotice] = useState<string | null>(null);
+  const brandFailed = () => setNotice("Made without brand: couldn't load it.");
   // While the nodes wired into this one are generated first (#11).
   const [waiting, setWaiting] = useState(false);
   // This node's own progress when a downstream node is generating it.
@@ -71,6 +74,7 @@ export function useGeneration(
     setBusy(true);
     setWaiting(true);
     setError(null);
+    setNotice(null);
     useGenerationProgress.getState().setProgress(instance.id, null);
     try {
       // Resolve missing predecessors before taking their references. Each
@@ -102,6 +106,7 @@ export function useGeneration(
             settings,
             references,
             context,
+            onBrandFailed: brandFailed,
             signal: controller.signal,
           },
           count
@@ -168,6 +173,7 @@ export function useGeneration(
         // Persisted the moment the backend hands it back, so a reload during
         // a multi-minute video generation resumes rather than loses it.
         onJobStarted: (jobId) => useNodePanel.getState().setJob(instance.id, jobId),
+        onBrandFailed: brandFailed,
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
@@ -233,6 +239,7 @@ export function useGeneration(
     waiting,
     busyLabel,
     error: error ?? upstream?.error ?? null,
+    notice,
     /** This node failed while a downstream node was generating it. */
     upstreamError: upstream?.status === "error" ? upstream.error : undefined,
     generate,

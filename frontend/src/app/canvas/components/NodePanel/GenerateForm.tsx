@@ -12,6 +12,7 @@ import { X, ChevronDown, Check, Loader2 } from "lucide-react";
 import { COLORS, Z_INDEX } from "@/constants/canvas.constants";
 import type { NodeKindSpec, NodeSettings } from "./nodeKinds";
 import MentionInput from "./MentionInput";
+import BrandSwitch from "./BrandSwitch";
 import { mentionNotes, resolveMentions, type Mentionables } from "../../mentions/mentions";
 
 const NO_MENTIONABLES: Mentionables = { skills: [], agents: [] };
@@ -38,6 +39,8 @@ export interface GenerateFormProps {
   /** Replaces "Creating…" while busy, for a batch that needs saying so. */
   busyLabel?: string;
   error: string | null;
+  /** Said after a Create that worked but not as asked: made without the brand (#452). */
+  notice?: string | null;
   /** Screen position of the panel's left edge and vertical centre. */
   left: number;
   top: number;
@@ -52,7 +55,7 @@ export interface GenerateFormProps {
 }
 
 export default function GenerateForm({
-  spec, draft, onDraftChange, settings, onSettingsChange, busy, busyLabel, error,
+  spec, draft, onDraftChange, settings, onSettingsChange, busy, busyLabel, error, notice,
   left, top, onClose, onInstructionBlur, onSubmit, mentionables = NO_MENTIONABLES, onOpenLibrary,
 }: GenerateFormProps) {
   // Only chrome state lives here; resetting it on reopen is harmless.
@@ -176,6 +179,8 @@ export default function GenerateForm({
           )}
         </div>
 
+        {spec.brand && <BrandSwitch settings={settings} onChange={onSettingsChange} />}
+
         {showAdvanced && Advanced && (
           <div>
             <button
@@ -196,6 +201,7 @@ export default function GenerateForm({
         {Options && <Options value={settings} onChange={onSettingsChange} supports={supports} />}
 
         {error && <p className="node-panel-error">{error}</p>}
+        {!error && notice && <p className="node-panel-notice" role="status">{notice}</p>}
 
         <button
           onClick={onSubmit}
