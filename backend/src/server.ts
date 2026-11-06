@@ -8,6 +8,7 @@ import { sessionRouter } from "./routes/session.js";
 import { boardsRouter } from "./routes/boards.js";
 import { generateRouter } from "./routes/generate.js";
 import { assetsRouter } from "./routes/assets.js";
+import { supportRouter } from "./routes/support.js";
 import { isFirestoreMode, getFirestoreClient } from "./lib/firestore.js";
 import { isGcsMode, getBucket } from "./lib/gcs.js";
 import { assertDeployable, describeServiceModes, serviceModes } from "./lib/serviceModes.js";
@@ -122,6 +123,8 @@ export function createApp(): express.Express {
   });
 
   app.use("/api", authConfigRouter);
+  // Open to anyone, signed in or not (#428).
+  app.use("/api", supportRouter());
   app.use("/api", sessionRouter);
   app.use("/api", boardsRouter);
   app.use("/api", generateRouter);
