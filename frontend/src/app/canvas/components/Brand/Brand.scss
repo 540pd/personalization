@@ -273,3 +273,34 @@
 .brief-link {
   @apply text-body font-medium text-accent underline underline-offset-2;
 }
+
+// ── product and logo from Assets (#444) ─────────────────────────────────
+.brief-asset {
+  @apply flex min-w-0 flex-wrap items-center gap-3;
+}
+
+.brief-asset-thumb {
+  @apply h-10 w-14 shrink-0 rounded-media bg-subtle object-cover;
+}
+
+// A logo is a transparent PNG: a light chequer behind it, as on Assets.
+.brief-asset-logo {
+  @apply flex h-10 w-14 shrink-0 items-center justify-center overflow-hidden rounded-media border border-line px-1;
+  background: repeating-conic-gradient(#efefef 0% 25%, #ffffff 0% 50%) 50% / 10px 10px;
+
+  img {
+    @apply max-h-8 max-w-full object-contain;
+  }
+}
+
+.brief-asset-text {
+  @apply flex min-w-0 flex-col;
+}
+
+.brief-asset-name {
+  @apply truncate text-body font-medium text-ink;
+}
+
+.brief-asset-missing {
+  @apply text-body text-amber-800;
+}
