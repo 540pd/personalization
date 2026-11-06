@@ -17,6 +17,7 @@ import type { TopLayer } from "@/store/layerOrder.store";
 import { boundsOf } from "@/lib/canvas/bounds";
 import { frameStage } from "@/lib/canvas/frameStage";
 import { listen } from "@/lib/dom/listen";
+import { chromeTakesPointer, type BoardLayers } from "../board/boardLayers";
 
 // Placeholders are the only DOM under a raised canvas: wires, ports,
 // labels and an open form all paint above it. A small margin takes in
@@ -44,13 +45,15 @@ export function overPlaceholder(
 export function useCanvasPassThrough(
   containerRef: RefObject<HTMLDivElement | null>,
   stageRef: RefObject<Konva.Stage | null>,
+  layersRef: RefObject<BoardLayers | null>,
   topLayer: TopLayer,
   activeTool: Tool,
 ): void {
   useEffect(() => {
     const stage = stageRef.current;
     const container = containerRef.current;
-    if (!stage || !container) return;
+    const layers = layersRef.current;
+    if (!stage || !container || !layers) return;
 
     // Frame and shape tools draw by dragging from empty space, which is exactly
     // what the pass-through below makes unreachable: it only turns the
@@ -68,6 +71,11 @@ export function useCanvasPassThrough(
       const r = container.getBoundingClientRect();
       const pt = { x: e.clientX - r.left, y: e.clientY - r.top };
       const hit = stage.getIntersection(pt);
+      // The selection handles' canvas is over the Create nodes (#430): it
+      // takes the pointer only on a handle, so a shape can be resized from a
+      // corner a node covers, and everywhere else stays the node's.
+      const handle = !!layers.chrome.getIntersection(pt);
+      chromeTakesPointer(layers.chrome, handle);
       const overFrame = !!frameStage.current?.getIntersection(pt);
       // Two reasons to let a click through, and only where none of our own
       // shapes is under the cursor:
@@ -81,10 +89,13 @@ export function useCanvasPassThrough(
       // it is after every upload -- so a click on empty board reached the page
       // instead, and an uploaded image stayed selected (#105). The wheel went
       // the same way, so zoom stopped working too.
+      // Over a placeholder only an image, text or handle keeps the click: a
+      // shape there is behind the node (#430), so the node gets it.
       const overPanel =
         topLayer === "canvas" &&
         overPlaceholder(useNodePanel.getState().panels, useViewport.getState(), e.clientX, e.clientY);
-      const passThrough = !hit && (overPanel || overFrame);
+      const passThrough =
+        (overPanel && !layers.main.getIntersection(pt) && !handle) || (overFrame && !hit);
       container.style.pointerEvents = passThrough ? "none" : "auto";
     };
 
@@ -96,6 +107,7 @@ export function useCanvasPassThrough(
     return () => {
       stop();
       container.style.pointerEvents = "auto";
+      chromeTakesPointer(layers.chrome, false);
     };
-  }, [containerRef, stageRef, topLayer, activeTool]);
+  }, [containerRef, stageRef, layersRef, topLayer, activeTool]);
 }

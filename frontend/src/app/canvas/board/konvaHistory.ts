@@ -32,7 +32,7 @@ type HistoryDeps = Omit<BoardLayerDeps, "saveSnapshot"> & { hover: HoverOutline 
  * Takes the container as a Layer or a Group so a test can pass a bare
  * Konva.Group: a Stage cannot be constructed under jsdom.
  */
-export function captureLayer(layer: Konva.Layer | Konva.Group): Snapshot {
+export function captureLayer(layer: Konva.Container): Snapshot {
   const records = useKonvaNodes.getState().nodes;
   return (layer.find(".selectable") as Konva.Shape[]).map((n) => ({
     node: n,
@@ -43,7 +43,7 @@ export function captureLayer(layer: Konva.Layer | Konva.Group): Snapshot {
 }
 
 export function restoreSnapshot(snap: Snapshot, deps: HistoryDeps): void {
-  const { layer, transformer } = deps;
+  const { root, layerFor, transformer } = deps;
   transformer.nodes([]);
   // The store as well, or anything drawn from it -- a line's end
   // handles -- would outlive the selection the transformer just dropped.
@@ -52,18 +52,19 @@ export function restoreSnapshot(snap: Snapshot, deps: HistoryDeps): void {
   // Remove nodes absent from this snapshot, and their konvaNodes record
   // with them: labels and ports render from the record, so leaving it
   // behind shows the name and port of a node that is no longer there.
-  (layer.find(".selectable") as Konva.Shape[]).forEach((n) => {
+  (root.find(".selectable") as Konva.Shape[]).forEach((n) => {
     if (snapSet.has(n)) return;
     if (n.id()) useKonvaNodes.getState().remove(n.id());
     n.remove();
   });
   // Restore attrs; re-add nodes that were previously removed.
   snap.forEach(({ node, attrs }) => {
-    if (!node.getParent()) layer.add(node);
+    if (!node.getParent()) layerFor(node).add(node);
     node.setAttrs(attrs);
   });
-  // Restore stacking. layer.find() returns ascending z, so the snapshot
-  // array already encodes the order — raising each in turn replays it.
+  // Restore stacking. find() returns ascending z, layer by layer, so the
+  // snapshot array already encodes the order — raising each in turn replays
+  // it within its own layer.
   // Without this, a drag that reordered nodes could not be undone.
   snap.forEach(({ node }) => node.moveToTop());
   deps.syncAllNodeGeometry();
@@ -82,13 +83,14 @@ export function restoreSnapshot(snap: Snapshot, deps: HistoryDeps): void {
   deps.applyDraggability();
   deps.hover.hide(); // the hovered node may no longer exist in this snapshot
   deps.updateSelectionChrome();
-  layer.batchDraw();
+  deps.layer.batchDraw();
+  deps.shapes.batchDraw();
 }
 
 /** Joins the shared timeline. Returns what leaves it. */
 export function registerKonvaHistory(deps: HistoryDeps): () => void {
   return canvasHistory.register("konva", {
-    capture: () => captureLayer(deps.layer),
+    capture: () => captureLayer(deps.root),
     restore: (snap) => restoreSnapshot(snap as Snapshot, deps),
   });
 }
