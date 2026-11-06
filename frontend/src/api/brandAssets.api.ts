@@ -90,3 +90,10 @@ export async function updateAssetInfo(id: string, info: { description?: string; 
 export async function deletePendingUploads(): Promise<void> {
   await apiFetch("brand-assets/pending", { method: "DELETE" }).catch(() => {});
 }
+
+/** One line about a stored image, written by the text model (#448); throws when it cannot be had. */
+export async function describeAsset(id: string): Promise<string> {
+  const res = await apiFetch(`assets/${encodeURIComponent(id)}/describe`, { method: "POST" });
+  if (!res.ok) throw await failure(res, "Couldn't describe it.");
+  return ((await res.json()) as { description: string }).description;
+}

@@ -20,6 +20,7 @@ import {
   type AssetsDraft,
   type DraftImage,
 } from "../../assets/assetsDraft";
+import DescriptionField from "./DescriptionField";
 import { AddTile, ImageTile, LowResWarning, UploadOverlay, measured, useDropZone, type ImageSize } from "./AssetTiles";
 
 type Edit = (update: (d: AssetsDraft) => AssetsDraft) => void;
@@ -246,22 +247,13 @@ function ImageDetails({ image, onChange }: { image: DraftImage; onChange: Edit }
   const set = (details: Record<string, string>) => onChange((d) => editImage(d, image.asset.id, { details }));
   return (
     <div className="assets-image-fields">
-      <div className="assets-field">
-        <label htmlFor={`${id}-desc`} className="assets-label">
-          Description
-        </label>
-        <textarea
-          id={`${id}-desc`}
-          className="assets-input assets-textarea"
-          rows={2}
-          placeholder="White trail shoe, side view, on a plain light background"
-          value={image.description}
-          onChange={(e) => {
-            const description = e.target.value;
-            onChange((d) => editImage(d, image.asset.id, { description }));
-          }}
-        />
-      </div>
+      <DescriptionField
+        id={`${id}-desc`}
+        image={image}
+        labelClassName="assets-label"
+        placeholder="White trail shoe, side view, on a plain light background"
+        onChange={(description) => onChange((d) => editImage(d, image.asset.id, { description }))}
+      />
       <div className="assets-row3">
         <div className="assets-field">
           <label htmlFor={`${id}-type`} className="assets-label-sm">

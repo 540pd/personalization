@@ -545,3 +545,15 @@ select.assets-input {
     @apply self-center;
   }
 }
+
+// ── Describe it (#448) ──────────────────────────────────────────────────
+// Beside the Description label: a quiet text button in the accent.
+.assets-field-head {
+  @apply flex items-baseline justify-between gap-3;
+}
+
+.assets-describe {
+  @apply rounded-sm text-meta font-medium text-accent transition-colors hover:text-accent-hover;
+  @apply disabled:cursor-default disabled:text-ink-muted/60;
+  @apply focus-visible:focus-ring;
+}
