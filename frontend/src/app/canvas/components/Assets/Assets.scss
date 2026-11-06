@@ -179,6 +179,112 @@ select.assets-input {
   @apply border-t border-neutral-200 pt-5;
 }
 
+// ── logo (#417) ─────────────────────────────────────────────────────────
+.assets-logo-rule {
+  @apply font-semibold text-neutral-700;
+}
+
+.assets-logo-empty {
+  @apply flex items-center gap-3.5 rounded-2xl border-[1.5px] border-dashed border-neutral-300 bg-neutral-50 px-[18px] py-4 text-sm;
+
+  &.is-missing {
+    @apply border-red-600;
+  }
+}
+
+.assets-logo-empty-text {
+  @apply flex flex-1 flex-col gap-0.5;
+}
+
+// The logo on light and on dark, its details beside it.
+.assets-logo {
+  @apply grid grid-cols-[300px_minmax(0,1fr)] items-start gap-5;
+}
+
+.assets-logo-preview {
+  @apply flex flex-col gap-2;
+}
+
+.assets-logo-panes {
+  @apply relative grid grid-cols-2 overflow-hidden rounded-xl border border-neutral-200;
+}
+
+.assets-logo-pane {
+  @apply flex h-[110px] flex-col items-center justify-center gap-1.5 px-3;
+
+  img {
+    @apply max-h-[56px] max-w-full object-contain;
+  }
+
+  span {
+    @apply text-[11px];
+  }
+
+  &.is-light {
+    @apply bg-white text-neutral-500;
+  }
+
+  &.is-dark {
+    @apply bg-neutral-900 text-neutral-400;
+  }
+}
+
+.assets-alternate {
+  @apply h-[30px] self-start border-dashed bg-neutral-50 px-3 text-[13px];
+}
+
+.assets-row2 {
+  @apply grid grid-cols-2 gap-2.5;
+}
+
+// ── brand colours (#417) ────────────────────────────────────────────────
+.assets-suggestions {
+  @apply flex flex-wrap items-center gap-2 text-[13px] text-neutral-600;
+}
+
+.assets-chip {
+  @apply inline-flex h-[30px] items-center gap-1.5 rounded-full border border-neutral-200 bg-white pl-1 pr-2.5 font-mono text-xs text-neutral-900;
+  @apply transition-colors hover:border-neutral-400 hover:bg-neutral-50;
+  @apply disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-neutral-200 disabled:hover:bg-white;
+  @apply focus-visible:focus-ring;
+}
+
+.assets-chip-swatch {
+  @apply size-[22px] rounded-full border border-black/10;
+}
+
+.assets-colours {
+  @apply grid grid-cols-[repeat(3,minmax(0,220px))] gap-4;
+}
+
+.assets-colour {
+  @apply flex h-10 items-center gap-2 rounded-lg border border-black/10 bg-white px-1.5 transition-colors hover:border-black/25;
+  @apply focus-within:border-neutral-900;
+
+  &.is-missing {
+    @apply border-red-600;
+  }
+}
+
+// The swatch shows the colour; the browser's picker sits over it, unseen.
+.assets-swatch {
+  @apply relative size-[26px] flex-none rounded-md border border-black/10;
+  background: repeating-conic-gradient(#e5e5e5 0% 25%, #ffffff 0% 50%) 50% / 10px 10px;
+
+  &:has(input:focus-visible) {
+    @apply focus-ring;
+  }
+
+  input {
+    @apply absolute inset-0 size-full cursor-pointer opacity-0;
+  }
+}
+
+.assets-colour-input {
+  @apply h-[30px] min-w-0 flex-1 border-0 bg-transparent font-mono text-[13px] uppercase text-neutral-900;
+  @apply placeholder:text-neutral-400 focus:outline-none;
+}
+
 // ── uploads (#415) ──────────────────────────────────────────────────────
 // A drop target lights up while files are dragged over it.
 .assets-empty.is-dropping,
@@ -252,6 +358,10 @@ select.assets-input {
 
 .assets-details-actions {
   @apply flex items-center gap-2.5;
+
+  .assets-danger {
+    @apply self-center;
+  }
 }
 
 // ── buttons ─────────────────────────────────────────────────────────────

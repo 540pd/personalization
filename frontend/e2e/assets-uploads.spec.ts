@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { makePng, openBoard, setZoom } from "./helpers";
+import { logoNotMandatory, makePng, openBoard, setZoom } from "./helpers";
 
 // Adding images to the Assets page the quick way (#415): drop, paste and
 // several at once, each shown while it uploads, with Retry when one fails
@@ -62,6 +62,7 @@ test.describe("Assets uploads", () => {
   test.beforeEach(async ({ page }) => {
     await openBoard(page);
     await resetAssets(page);
+    await logoNotMandatory(page);
   });
 
   test("files dropped on the empty state become the master and a view, with a drop highlight", async ({ page }) => {
