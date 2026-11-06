@@ -6,11 +6,12 @@
 import type { AssetView, BrandAssetsRecord, BrandAssetsView, BrandColours } from "@/api/brandAssets.api";
 
 /**
- * The kinds the page edits as images with details: product images (#414),
- * creatives to adapt from and style examples (#416), logos (#417) and
- * creative references (#418). Any other kind is kept as it was.
+ * The kinds the page edits as items with details: product images (#414),
+ * creatives to adapt from and style examples (#416), logos (#417), creative
+ * references (#418), and brand guidelines (#450), Markdown files that upload,
+ * retry and save the same way. Any other kind is kept as it was.
  */
-export const IMAGE_KINDS = ["productImage", "adaptFrom", "styleExample", "logo", "reference"] as const;
+export const IMAGE_KINDS = ["productImage", "adaptFrom", "styleExample", "logo", "reference", "guidelines"] as const;
 export type ImageKind = (typeof IMAGE_KINDS)[number];
 export const isImageKind = (kind: unknown): kind is ImageKind => (IMAGE_KINDS as readonly unknown[]).includes(kind);
 
@@ -70,6 +71,24 @@ export function setReferenceType(draft: AssetsDraft, id: string, type: string): 
   return editImage(draft, id, { details: { referenceType: type, use: type ? defaultUse(type) : "" } });
 }
 
+export const GUIDELINES_DOC_TYPES = [
+  "Brand Guidelines", "Visual Identity Guide", "Logo Guidelines", "Typography Guide", "Campaign Guideline", "Other",
+] as const;
+/** As for Skills: guidelines are text, read whole by the model. */
+export const MAX_GUIDELINES_BYTES = 100 * 1024;
+
+/**
+ * Why a file cannot be brand guidelines (#450), or null when it can. Whether
+ * it is UTF-8 is known only once read, so it comes in as `isText`.
+ */
+export function guidelinesProblem(file: { name: string; size: number }, isText = true): string | null {
+  if (!/\.md$/i.test(file.name)) return `${file.name}: only Markdown (.md) files.`;
+  if (file.size === 0) return `${file.name}: this file is empty.`;
+  if (file.size > MAX_GUIDELINES_BYTES) return `${file.name}: too large, up to 100 KB.`;
+  if (!isText) return `${file.name}: this file isn't plain text.`;
+  return null;
+}
+
 export const STYLE_EXAMPLE_TYPES = [
   "Social creative", "Campaign creative", "Product creative", "Layout reference", "Typography reference", "Logo usage", "Other",
 ] as const;
@@ -105,6 +124,7 @@ function startingDetails(draft: AssetsDraft, kind: ImageKind, fileName: string):
   if (kind === "adaptFrom" || kind === "styleExample") return { name: fileName.replace(/\.[^.]+$/, "") };
   if (kind === "logo") return imagesOf(draft, "logo").length ? { logoType: "Secondary logo" } : { logoType: "Primary logo", usage: "By default" };
   if (kind === "reference") return { referenceType: "Scene / environment", use: "inspiration", scope: "picked" };
+  if (kind === "guidelines") return { title: fileName.replace(/\.md$/i, ""), docType: "Brand Guidelines" };
   return {};
 }
 

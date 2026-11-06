@@ -4,8 +4,9 @@ import { ASSET_KINDS, DETAIL_FIELDS, cleanFileName, detailsError, isAssetKind } 
 // The kinds and details the Assets page stores with a file (#412).
 
 describe("asset details", () => {
-  it("knows the five kinds", () => {
-    expect(ASSET_KINDS).toEqual(["productImage", "logo", "adaptFrom", "styleExample", "reference"]);
+  it("knows the six kinds", () => {
+    // Brand guidelines (#450) are the one kind that is not an image.
+    expect(ASSET_KINDS).toEqual(["productImage", "logo", "adaptFrom", "styleExample", "reference", "guidelines"]);
     expect(isAssetKind("logo")).toBe(true);
     expect(isAssetKind("font")).toBe(false);
     expect(isAssetKind(3)).toBe(false);

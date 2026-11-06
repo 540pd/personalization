@@ -13,8 +13,11 @@ const RULES =
   "Answer with one line of at most 25 words, for a creative team. " +
   "Plain words, no quotes, no lead-in such as \"This image shows\".";
 
-/** What to say about each kind of asset: what generation needs to know of it. */
-const PROMPTS: Record<AssetKind | "other", string> = {
+/**
+ * What to say about each kind of image: what generation needs to know of it.
+ * Brand guidelines (#450) are text and never get here.
+ */
+const PROMPTS: Partial<Record<AssetKind, string>> & { other: string } = {
   productImage: "Describe this product image: the product, its colour or material, the view, and the background.",
   adaptFrom: "Describe this campaign creative: its layout, its style, and what it shows.",
   styleExample: "Describe this example creative: its layout, its style, and what it shows.",
@@ -56,7 +59,7 @@ export async function describeAsset(id: string, userId: string): Promise<Describ
 
   const result = await getTextCapability().generateText({
     modelId: DESCRIBE_MODEL,
-    instruction: `${PROMPTS[asset.kind ?? "other"]} ${RULES}`,
+    instruction: `${(asset.kind && PROMPTS[asset.kind]) || PROMPTS.other} ${RULES}`,
     userId,
     temperature: 0.2,
     references: [{ kind: "image", url, name }],
