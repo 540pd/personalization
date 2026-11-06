@@ -2,6 +2,7 @@ import express, { Router, type ErrorRequestHandler } from "express";
 import { requireIdentity } from "../middleware/requireIdentity.js";
 import { deleteAsset, getAsset, listAssets, openAsset, saveUpload, updateAsset } from "../services/assetService.js";
 import { sendValidationError } from "../common/errors.js";
+import { describeAsset } from "../services/describeService.js";
 import {
   ASSET_KINDS,
   ASSET_MIME_TYPES,
@@ -150,6 +151,26 @@ assetsRouter.get("/assets/:id/content", requireIdentity(), async (req, res, next
       else next(err);
     });
     stream.pipe(res);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/assets/:id/describe — one line about the image, written by the
+// text model (#448): { description }. Not saved: the Assets page puts it in
+// its draft, kept with Save like a typed one. 415 for a video.
+assetsRouter.post("/assets/:id/describe", requireIdentity(), async (req, res, next) => {
+  try {
+    const result = await describeAsset(req.params.id as string, req.identity.email);
+    if ("description" in result) {
+      res.json(result);
+      return;
+    }
+    if (result.error === "not_found") {
+      res.status(404).json({ error: "not_found", message: "Asset not found." });
+      return;
+    }
+    res.status(415).json({ error: "unsupported_type", message: "Only images can be described." });
   } catch (err) {
     next(err);
   }
