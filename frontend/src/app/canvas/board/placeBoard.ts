@@ -28,7 +28,7 @@ export interface BoardScene extends BoardContext {
 function emptyLayer(board: BoardScene): void {
   board.endGestures();
   board.transformer.nodes([]);
-  deleteNodes(board.layer.find(".selectable") as Konva.Shape[]);
+  deleteNodes(board.root.find(".selectable") as Konva.Shape[]);
   useKonvaSelection.getState().clearSelection();
 }
 
@@ -38,6 +38,7 @@ function settle(board: BoardScene): void {
   board.syncAllNodeGeometry();
   board.updateSelectionChrome();
   board.layer.batchDraw();
+  board.shapes.batchDraw();
 }
 
 // Clear board (#197). Everything goes, then one commit, so a single Ctrl+Z
@@ -74,7 +75,9 @@ export function placeBoard(board: BoardScene, file: BoardFile, { panels }: { pan
       attrs.hitFunc = imageHitFunc;
     }
     const node = createNode(entry.className, attrs);
-    layer.add(node);
+    // A file keeps no layer: a shape goes behind with the others (#430),
+    // so a board saved before that loads the same way.
+    board.layerFor(node).add(node);
     if (entry.imageUrl || entry.label) {
       useKonvaNodes.getState().upsert({
         id: node.id(),
@@ -122,7 +125,7 @@ export function bindBoardFile(board: BoardScene): () => void {
     canvasHistory.clear();
     board.saveSnapshot();
   }
-  off.push(startCanvasPersistence(() => board.layer));
+  off.push(startCanvasPersistence(() => board.root));
   // Then the account's copy, which may replace this one (#324).
   if (owner) off.push(bindAccountBoard(board, owner, (file) => placeBoard(board, file, { panels: true })));
   return () => disposeAll(off);

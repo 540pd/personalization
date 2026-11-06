@@ -1,6 +1,6 @@
 import type { PanelInstance } from "@/store/nodePanel.store";
 import type { KonvaNodeRecord } from "@/store/konvaNodes.store";
-import { isCovered, labelProbe, portProbe, type Blocker, type TopLayer } from "@/lib/canvas/occlusion";
+import { isCovered, konvaBlocker, labelProbe, portProbe, type Blocker, type TopLayer } from "@/lib/canvas/occlusion";
 
 // Occlusion lives in lib/canvas/occlusion. Panels share one z-index, so array
 // order IS paint order: only panels later in the array can cover this one.
@@ -19,8 +19,9 @@ export function chromeCovered(
   const self: Blocker = { id: p.id, box: p, layer: "dom" };
   const blockers: Blocker[] = [
     ...above.map((q): Blocker => ({ id: q.id, box: q, layer: "dom" })),
-    // Uploaded images only block when the canvas is the front layer.
-    ...konvaNodes.map((n): Blocker => ({ id: n.id, box: n, layer: "canvas", z: n.z })),
+    // Uploaded images only block when the canvas is the front layer; drawn
+    // shapes never do (#430).
+    ...konvaNodes.map(konvaBlocker),
   ];
   return {
     input:  isCovered(portProbe(p, "input", scale), self, blockers, topLayer),

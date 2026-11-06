@@ -1,0 +1,214 @@
+@reference "../../app/globals.css";
+
+// The support form (#428), its dialog over the board and its signed-out page.
+
+.support {
+  @apply flex w-[480px] max-w-full flex-col gap-5 rounded-2xl border border-neutral-200 bg-white p-6 text-neutral-900;
+}
+
+.support-dialog .support {
+  @apply max-h-[calc(100vh-32px)] overflow-y-auto shadow-2xl;
+}
+
+.support-head {
+  @apply flex items-start justify-between gap-4;
+}
+
+.support-head-text {
+  @apply flex flex-col gap-1;
+}
+
+.support-title {
+  @apply m-0 text-lg font-semibold;
+}
+
+.support-intro {
+  @apply m-0 text-sm text-neutral-600;
+}
+
+.support-close {
+  @apply -mr-2 -mt-1 flex size-8 flex-none cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900;
+
+  &:focus-visible {
+    @apply focus-ring;
+  }
+}
+
+.support-form {
+  @apply m-0 flex flex-col gap-[18px];
+}
+
+.support-field {
+  @apply flex flex-col gap-1.5;
+}
+
+.support-fieldset {
+  @apply m-0 min-w-0 border-0 p-0;
+
+  legend {
+    @apply mb-2 p-0;
+  }
+}
+
+.support-label {
+  @apply text-[13px] font-medium;
+}
+
+.support-input {
+  @apply h-10 rounded-[10px] border border-neutral-300 bg-white px-3 text-sm text-neutral-900 outline-none;
+  font: inherit;
+  font-size: 14px;
+
+  &:focus {
+    @apply border-neutral-900 ring-[3px] ring-neutral-900/10;
+  }
+
+  &[aria-invalid="true"] {
+    @apply border-red-600;
+
+    &:focus {
+      @apply ring-red-600/20;
+    }
+  }
+
+  &:disabled {
+    @apply bg-neutral-50 text-neutral-600;
+  }
+}
+
+.support-textarea {
+  @apply h-auto min-h-[120px] resize-y py-2.5 leading-5;
+  field-sizing: content;
+  max-height: 320px;
+}
+
+.support-hint,
+.support-fine {
+  @apply text-[13px] text-neutral-500;
+}
+
+.support-fine {
+  @apply max-w-[220px] text-xs;
+}
+
+.support-error {
+  @apply text-[13px] text-red-700;
+}
+
+.support-choices {
+  @apply flex gap-2;
+}
+
+.support-choices.is-invalid .support-choice {
+  @apply border-red-600;
+}
+
+.support-choice {
+  @apply flex h-10 cursor-pointer items-center gap-2 rounded-full border border-neutral-300 bg-white px-4 text-sm hover:border-neutral-500;
+
+  input {
+    @apply m-0 accent-neutral-900;
+  }
+
+  &.is-chosen {
+    @apply border-neutral-900 bg-neutral-100;
+  }
+
+  &:has(input:focus-visible) {
+    @apply focus-ring;
+  }
+
+  &:has(input:disabled) {
+    @apply cursor-default opacity-70;
+  }
+}
+
+// Off screen rather than display: none, which some bots skip.
+.support-trap {
+  @apply absolute -left-[9999px] size-px overflow-hidden opacity-0;
+}
+
+.support-alert {
+  @apply flex items-start gap-2.5 rounded-[10px] border border-red-200 bg-red-50 p-3 text-[13px] text-red-800;
+
+  svg {
+    @apply mt-px flex-none;
+  }
+}
+
+.support-foot {
+  @apply flex items-center justify-between gap-4 pt-1;
+}
+
+.support-submit {
+  @apply flex h-10 flex-none cursor-pointer items-center gap-2 rounded-full border-0 bg-neutral-900 px-5 text-sm font-medium text-white hover:bg-neutral-700 disabled:cursor-default disabled:bg-neutral-500;
+
+  &:focus-visible {
+    @apply focus-ring;
+  }
+}
+
+.support-spin {
+  @apply animate-spin;
+}
+
+.support-sent {
+  @apply flex flex-col items-center gap-3 px-2 pb-2 pt-4 text-center;
+}
+
+.support-sent-icon {
+  @apply flex size-12 items-center justify-center rounded-full bg-green-50 text-green-700;
+}
+
+.support-sent-title {
+  @apply m-0 text-base font-semibold;
+}
+
+.support-sent-text {
+  @apply m-0 text-sm text-neutral-600;
+
+  strong {
+    @apply font-medium text-neutral-900;
+  }
+}
+
+.support-secondary {
+  @apply mt-2 h-10 cursor-pointer rounded-full border border-neutral-300 bg-white px-5 text-sm font-medium text-neutral-900 hover:bg-neutral-50;
+
+  &:focus-visible {
+    @apply focus-ring;
+  }
+}
+
+.support-link {
+  @apply mt-2 text-sm font-medium text-neutral-900 underline;
+
+  &:focus-visible {
+    @apply focus-ring;
+  }
+}
+
+// The signed-out page: /support.
+.support-page {
+  @apply flex min-h-screen flex-col bg-neutral-50 text-neutral-900;
+}
+
+.support-page-bar {
+  @apply flex h-16 items-center justify-between border-b border-neutral-200 bg-white px-8;
+}
+
+.support-page-name {
+  @apply text-[15px] font-semibold;
+}
+
+.support-page-back {
+  @apply flex items-center gap-1.5 text-sm font-medium text-neutral-900 no-underline hover:underline;
+
+  &:focus-visible {
+    @apply focus-ring;
+  }
+}
+
+.support-page-main {
+  @apply flex justify-center px-4 py-16;
+}

@@ -57,7 +57,7 @@ describe("pasteNodes", () => {
 
   it("offsets the copy so it does not land on the original", () => {
     const l = layer();
-    const [node] = pasteNodes(l, [entry()]);
+    const [node] = pasteNodes(() => l, [entry()]);
     expect(node.x()).toBe(30);
     expect(node.y()).toBe(40);
   });
@@ -66,26 +66,26 @@ describe("pasteNodes", () => {
     // syncNodeGeometry skips id-less nodes, and a duplicate id would collide
     // in konvaNodes -- either way the paste would end up with no port.
     const l = layer();
-    const [node] = pasteNodes(l, [entry()]);
+    const [node] = pasteNodes(() => l, [entry()]);
     expect(node.id()).toBeTruthy();
     expect(node.id()).not.toBe("original");
   });
 
   it("gives every node of a multi-paste a distinct id", () => {
     const l = layer();
-    const nodes = pasteNodes(l, [entry(), entry(), entry()]);
+    const nodes = pasteNodes(() => l, [entry(), entry(), entry()]);
     expect(new Set(nodes.map((n) => n.id())).size).toBe(3);
   });
 
   it("adds the copies to the layer and keeps them selectable", () => {
     const l = layer();
-    pasteNodes(l, [entry(), entry()]);
+    pasteNodes(() => l, [entry(), entry()]);
     expect(l.find(".selectable")).toHaveLength(2);
   });
 
   it("registers an image paste in the geometry store with its imageUrl", () => {
     const l = layer();
-    const [node] = pasteNodes(l, [entry({ imageUrl: "data:image/png;base64,BBB" })]);
+    const [node] = pasteNodes(() => l, [entry({ imageUrl: "data:image/png;base64,BBB" })]);
     const rec = useKonvaNodes.getState().nodes[node.id()];
     expect(rec?.imageUrl).toBe("data:image/png;base64,BBB");
     expect(rec?.canvasX).toBe(30);
@@ -93,7 +93,7 @@ describe("pasteNodes", () => {
 
   it("does not register a node that carries no image and no label", () => {
     const l = layer();
-    const [node] = pasteNodes(l, [entry()]);
+    const [node] = pasteNodes(() => l, [entry()]);
     expect(useKonvaNodes.getState().nodes[node.id()]).toBeUndefined();
   });
 
@@ -101,7 +101,7 @@ describe("pasteNodes", () => {
   // for a record with no label.
   it("carries the label onto the copy", () => {
     const l = layer();
-    const [node] = pasteNodes(l, [entry({ label: "cat" })]);
+    const [node] = pasteNodes(() => l, [entry({ label: "cat" })]);
     expect(useKonvaNodes.getState().nodes[node.id()]?.label).toBe("cat");
   });
 
@@ -110,7 +110,7 @@ describe("pasteNodes", () => {
       id: "original", canvasX: 0, canvasY: 0, canvasW: 1, canvasH: 1, label: "cat",
     });
     const l = layer();
-    const [node] = pasteNodes(l, [entry({ label: "cat" })]);
+    const [node] = pasteNodes(() => l, [entry({ label: "cat" })]);
     expect(useKonvaNodes.getState().nodes[node.id()]?.label).toBe("cat (2)");
   });
 
@@ -121,14 +121,14 @@ describe("pasteNodes", () => {
       id: "original", canvasX: 0, canvasY: 0, canvasW: 1, canvasH: 1, label: "cat",
     });
     const l = layer();
-    const nodes = pasteNodes(l, [entry({ label: "cat" }), entry({ label: "cat" })]);
+    const nodes = pasteNodes(() => l, [entry({ label: "cat" }), entry({ label: "cat" })]);
     const labels = nodes.map((n) => useKonvaNodes.getState().nodes[n.id()]?.label);
     expect(labels).toEqual(["cat (2)", "cat (3)"]);
   });
 
   it("registers a labelled node even when it carries no image", () => {
     const l = layer();
-    const [node] = pasteNodes(l, [entry({ label: "cat" })]);
+    const [node] = pasteNodes(() => l, [entry({ label: "cat" })]);
     expect(useKonvaNodes.getState().nodes[node.id()]).toBeDefined();
   });
 });

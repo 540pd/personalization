@@ -92,7 +92,9 @@ test.describe("frame tool", () => {
       const canvases = Array.from(document.querySelectorAll("canvas"));
       const panel = document.querySelector("button.node-panel-placeholder") as HTMLElement | null;
       return {
-        canvasZs: canvases.map((c) => zOf(c.closest("div") as HTMLElement)),
+        // A board canvas carries its own z-index (#430); the frames stage's
+        // is on its container.
+        canvasZs: canvases.map((c) => zOf(c)),
         panelZ: zOf(panel),
       };
     });

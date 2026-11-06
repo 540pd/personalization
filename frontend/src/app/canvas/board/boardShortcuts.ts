@@ -77,7 +77,7 @@ export function bindBoardShortcuts(board: BoardContext, deps: ShortcutDeps): () 
     if (useToolStore.getState().activeTool !== "pointer") {
       useToolStore.getState().setTool("pointer");
     }
-    const nodes = layer.find(".selectable") as Konva.Shape[];
+    const nodes = board.root.find(".selectable") as Konva.Shape[];
     selectNodes(transformer, nodes);
     if (!nodes.length) useKonvaSelection.getState().clearSelection();
     useNodePanel.getState().selectAll();

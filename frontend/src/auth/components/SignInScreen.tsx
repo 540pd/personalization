@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { GOOGLE_CLIENT_ID } from "../googleIdentity";
 import { checkSession } from "../session";
 import { useIdentityStore } from "../useIdentity";
@@ -41,6 +42,13 @@ export default function SignInScreen() {
             )}
           </>
         )}
+        {/* Open to anyone, signed in or not (#428). */}
+        <p className="auth-help">
+          Trouble signing in or a question?{" "}
+          <Link href="/support" className="auth-help-link">
+            Contact us
+          </Link>
+        </p>
       </div>
     </main>
   );

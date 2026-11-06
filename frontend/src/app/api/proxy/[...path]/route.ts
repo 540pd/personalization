@@ -117,6 +117,13 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
     }
   }
 
+  // The browser's address, for the support form's limit per address (#428):
+  // otherwise the backend sees only this proxy's. The last X-Forwarded-For
+  // entry is the one Cloud Run's front end adds; earlier ones the browser
+  // can write itself.
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",").pop()?.trim();
+  if (clientIp) forwardHeaders.set("X-Client-IP", clientIp);
+
   const cookie = sessionCookie(req.headers.get("cookie"));
   if (cookie) forwardHeaders.set("cookie", cookie);
 

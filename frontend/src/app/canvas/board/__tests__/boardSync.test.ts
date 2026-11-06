@@ -100,6 +100,27 @@ describe("on load", () => {
     expect(h.meta()).toEqual({ owner: "ana@accenture.com", revision: 6, pending: false });
   });
 
+  it("a new browser loads the account's board, though the board said it changed while starting (#432)", async () => {
+    const h = harness({ server: { revision: 2, content: file("server") } });
+    // The board's own start-up commit: nothing on it changed.
+    h.sync.markDirty();
+    expect(h.meta()).toBeNull();
+    await h.sync.start();
+    expect(h.board().savedAt).toBe("server");
+    expect(state()).toBe("saved");
+    await vi.runAllTimersAsync();
+    expect(h.saves).toEqual([]);
+  });
+
+  it("a real edit made while the account's copy loads is still a conflict (#432)", async () => {
+    const h = harness({ server: { revision: 2, content: file("server") } });
+    h.edit("typed while loading");
+    await h.sync.start();
+    expect(state()).toBe("conflict");
+    expect(h.board().savedAt).toBe("typed while loading");
+    expect(h.saves).toEqual([]);
+  });
+
   it("calls changes made on top of an older copy a conflict, and overwrites nothing", async () => {
     const h = harness({ meta: { owner: "ana@accenture.com", revision: 4, pending: true }, server: { revision: 5, content: file("server") } });
     await h.sync.start();

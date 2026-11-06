@@ -14,9 +14,12 @@ import { Z_INDEX } from "@/constants/canvas.constants";
  */
 describe("Z_INDEX", () => {
   const canvasTiers = [
+    Z_INDEX.frames,
+    Z_INDEX.shapes,
     Z_INDEX.canvasBelow,
     Z_INDEX.nodes,
     Z_INDEX.canvasAbove,
+    Z_INDEX.selectionChrome,
     Z_INDEX.wires,
     Z_INDEX.ports,
     Z_INDEX.labels,

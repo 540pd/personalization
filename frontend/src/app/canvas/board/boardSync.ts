@@ -73,6 +73,12 @@ export function createBoardSync(deps: BoardSyncDeps): BoardSync {
   const mine = meta?.owner === deps.owner ? meta : null;
   let revision = mine?.revision ?? 0;
   let pending = mine?.pending ?? false;
+  // The board as it stood when this began, before the account's copy
+  // arrived. Until that first load, a change that leaves the board as it
+  // was -- the board's own start-up commits -- is not an edit: counted as
+  // one, a new browser's empty board read as unsaved, and the account's
+  // board as a conflict instead of being loaded (#432).
+  const atStart = deps.serialize();
 
   let started = false;
   let disposed = false;
@@ -212,6 +218,7 @@ export function createBoardSync(deps: BoardSyncDeps): BoardSync {
     },
     markDirty: () => {
       if (adopting || disposed) return;
+      if (!started && !pending && sameBoard(atStart, deps.serialize())) return;
       if (!pending) {
         pending = true;
         remember();
