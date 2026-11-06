@@ -14,7 +14,7 @@ import type { FrameRecord } from "@/store/frame.store";
 import {
   LABEL_FONT_SIZE, LABEL_GAP, LABEL_LINE_HEIGHT, LABEL_MIN_NODE_W,
 } from "@/constants/canvas.constants";
-import { toScreen } from "./coords";
+import { toScreen, type Viewport } from "./coords";
 import type { TopAnchoredBox } from "./bounds";
 
 /** Screen px kept between the bar and a name on every side. */
@@ -26,8 +26,6 @@ export interface ScreenBox {
   top: number;
   bottom: number;
 }
-
-type Viewport = { x: number; y: number; scale: number };
 
 /**
  * A Frame's name on screen, or null when the name isn't drawn (a Frame too
@@ -41,9 +39,9 @@ export function frameNameBox(
 ): ScreenBox | null {
   const screenW = frame.canvasW * vp.scale;
   if (screenW < LABEL_MIN_NODE_W) return null;
-  const left = vp.x + frame.canvasX * vp.scale;
+  const { x: left, y: top } = toScreen({ x: frame.canvasX, y: frame.canvasY }, vp);
   // NodeLabel sits the glyphs, not the line box, LABEL_GAP above the edge.
-  const bottom = vp.y + frame.canvasY * vp.scale - LABEL_GAP + (LABEL_LINE_HEIGHT - LABEL_FONT_SIZE) / 2;
+  const bottom = top - LABEL_GAP + (LABEL_LINE_HEIGHT - LABEL_FONT_SIZE) / 2;
   return { left, right: left + Math.min(textWidth, screenW), top: bottom - LABEL_LINE_HEIGHT, bottom };
 }
 

@@ -8,6 +8,7 @@
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useNodeUploads } from "@/store/nodeUploads.store";
 import { useViewport } from "@/store/viewport.store";
+import { toScreen } from "@/lib/canvas/coords";
 import { retryNodeUpload } from "../board/uploadAsset";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import "./UploadBadges.scss";
@@ -20,15 +21,17 @@ const MIN_NODE_W = 120;
 export default function UploadBadges() {
   const uploads = useNodeUploads((s) => s.uploads);
   const nodes = useKonvaNodes((s) => s.nodes);
-  const { x: stageX, y: stageY, scale } = useViewport();
+  const vp = useViewport();
 
   return (
     <>
       {Object.entries(uploads).map(([id, upload]) => {
         const n = nodes[id];
-        if (!n || n.canvasW * scale < MIN_NODE_W) return null;
-        const left = stageX + n.canvasX * scale + INSET;
-        const bottom = stageY + (n.canvasY + n.canvasH) * scale - INSET;
+        if (!n || n.canvasW * vp.scale < MIN_NODE_W) return null;
+        // The node's bottom-left corner on screen, inset onto the image.
+        const corner = toScreen({ x: n.canvasX, y: n.canvasY + n.canvasH }, vp);
+        const left = corner.x + INSET;
+        const bottom = corner.y - INSET;
         return (
           <div
             key={id}
