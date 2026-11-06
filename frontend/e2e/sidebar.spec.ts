@@ -96,16 +96,15 @@ test.describe("sidebar", () => {
     await expect(page.locator(".sidebar-item-active")).toContainText("Playspace");
   });
 
-  test("only Playspace, Skills and Agents are clickable; the rest are placeholders", async ({ page }) => {
+  test("Playspace, Assets, Skills and Agents are clickable; Usage is a placeholder", async ({ page }) => {
     await openBoard(page);
-    for (const label of ["Playspace", "Skills", "Agents"]) {
+    // Assets became a page in #414.
+    for (const label of ["Playspace", "Assets", "Skills", "Agents"]) {
       await expect(page.locator(".sidebar-item", { hasText: label })).toBeEnabled();
     }
 
-    for (const label of ["Assets", "Usage"]) {
-      await expect(page.locator(".sidebar-item", { hasText: label })).toBeDisabled();
-    }
-    await expect(page.locator(".sidebar-item-unavailable")).toHaveCount(2);
+    await expect(page.locator(".sidebar-item", { hasText: "Usage" })).toBeDisabled();
+    await expect(page.locator(".sidebar-item-unavailable")).toHaveCount(1);
   });
 
   test("a placeholder cannot steal the active state", async ({ page }) => {
@@ -113,7 +112,7 @@ test.describe("sidebar", () => {
     // though it is disabled -- otherwise the test passes because Playwright
     // declined to click, not because the app refused.
     await openBoard(page);
-    await page.locator(".sidebar-item", { hasText: "Assets" }).click({ force: true });
+    await page.locator(".sidebar-item", { hasText: "Usage" }).click({ force: true });
     await expect(page.locator(".sidebar-item-active")).toContainText("Playspace");
   });
 
@@ -125,8 +124,8 @@ test.describe("sidebar", () => {
           (b) => !b.disabled
         ).length
     );
-    // Playspace, Skills (#206) and Agents (#208).
-    expect(focusable).toBe(3);
+    // Playspace, Assets (#414), Skills (#206) and Agents (#208).
+    expect(focusable).toBe(4);
   });
 
   test("minimizes to an icon rail instead of disappearing, and expands again", async ({ page }) => {
@@ -164,10 +163,8 @@ test.describe("sidebar", () => {
       await minimize(page);
       await expect(page.locator(".sidebar-item-active")).toHaveCount(1);
       await expect(page.locator(".sidebar-item-active")).toHaveAccessibleName("Playspace");
-      for (const label of ["Assets", "Usage"]) {
-        await expect(page.getByRole("button", { name: label })).toBeDisabled();
-      }
-      await page.getByRole("button", { name: "Assets" }).click({ force: true });
+      await expect(page.getByRole("button", { name: "Usage" })).toBeDisabled();
+      await page.getByRole("button", { name: "Usage" }).click({ force: true });
       await expect(page.locator(".sidebar-item-active")).toHaveAccessibleName("Playspace");
     });
 
@@ -195,9 +192,9 @@ test.describe("sidebar", () => {
       // mouse events it relies on.
       await openBoard(page);
       await minimize(page);
-      await page.getByRole("button", { name: "Assets" }).hover({ force: true });
-      await expect.poll(() => tipOpacity(page, "Assets")).toBe(1);
-      await expect(tipFor(page, "Assets")).toHaveText("Assets · Coming soon");
+      await page.getByRole("button", { name: "Usage" }).hover({ force: true });
+      await expect.poll(() => tipOpacity(page, "Usage")).toBe(1);
+      await expect(tipFor(page, "Usage")).toHaveText("Usage · Coming soon");
     });
 
     test("labels the focused icon for keyboard users, and Escape hides it", async ({ page }) => {
