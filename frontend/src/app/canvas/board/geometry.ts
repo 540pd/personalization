@@ -53,6 +53,6 @@ export function syncNodeGeometry(n: Konva.Shape): void {
  * Takes a Group as well as a Layer so a test can pass a bare Konva.Group:
  * a Stage cannot be constructed under jsdom.
  */
-export function syncAllNodeGeometry(container: Konva.Layer | Konva.Group): void {
+export function syncAllNodeGeometry(container: Konva.Container): void {
   (container.find(".selectable") as Konva.Shape[]).forEach(syncNodeGeometry);
 }

@@ -7,7 +7,7 @@ import { useKonvaNodes, type KonvaNodeRecord } from "@/store/konvaNodes.store";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useViewport } from "@/store/viewport.store";
 import { useConnectionStore } from "@/store/connection.store";
-import { isCovered, portProbe, type Blocker } from "@/lib/canvas/occlusion";
+import { isCovered, konvaBlocker, portProbe, type Blocker } from "@/lib/canvas/occlusion";
 import { useLayerOrder } from "@/store/layerOrder.store";
 import { outputPoint } from "@/lib/canvas/ports";
 import { toScreen } from "@/lib/canvas/coords";
@@ -24,7 +24,7 @@ import {
 // stacking rules once; this just describes who can block whom.
 function toBlockers(nodes: KonvaNodeRecord[], panels: PanelInstance[]): Blocker[] {
   return [
-    ...nodes.map((n): Blocker => ({ id: n.id, box: n, layer: "canvas", z: n.z })),
+    ...nodes.map(konvaBlocker),
     ...panels.map((p): Blocker => ({ id: p.id, box: p, layer: "dom" })),
   ];
 }
@@ -43,7 +43,7 @@ export default function KonvaNodePorts() {
         // A drawn shape is not a source, but it still covers the ports of
         // whatever is under it, so it stays in `blockers`.
         if (n.shape || n.text) return null;
-        const self: Blocker = { id: n.id, box: n, layer: "canvas", z: n.z };
+        const self = konvaBlocker(n);
         // Konva nodes are source-only: a right-edge output port, no input.
         if (isCovered(portProbe(n, "output", scale), self, blockers, topLayer)) return null;
         // Port position is shared geometry; this only places the hit target

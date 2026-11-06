@@ -26,9 +26,9 @@ import { bindBoardShortcuts } from "../board/boardShortcuts";
 import { createDrawTools } from "../board/drawTools";
 import { bindBoardFile } from "../board/placeBoard";
 import { restoreFrameImages } from "../board/frameImageStorage";
+import { stackLayers, chromeTakesPointer, type BoardLayers } from "../board/boardLayers";
 import DropOverlay from "./DropOverlay";
 import { useCanvasPassThrough } from "./useCanvasPassThrough";
-import { Z_INDEX } from "@/constants/canvas.constants";
 
 /** A canvas area no point is inside, for while another page covers the board. */
 const NO_AREA = { left: 0, top: 0, width: -1, height: -1 };
@@ -37,6 +37,8 @@ export default function Board() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const layerRef = useRef<Konva.Layer | null>(null);
+  // All three of the stage's canvases (#430): shapes, main and chrome.
+  const layersRef = useRef<BoardLayers | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
   const hoverRef = useRef<HoverOutline | null>(null);
   const isSpacePanning = useRef(false);
@@ -46,10 +48,10 @@ export default function Board() {
   // Bound to the refs here so the effects below can call it with no
   // arguments; the drawing itself lives in board/selectionChrome.
   const updateSelectionChrome = useCallback(() => {
-    const layer = layerRef.current;
+    const chrome = layersRef.current?.chrome;
     const transformer = transformerRef.current;
-    if (!layer || !transformer) return;
-    applySelectionChrome(layer, transformer);
+    if (!chrome || !transformer) return;
+    applySelectionChrome(chrome, transformer);
   }, []);
 
   const { x, y, scale } = useViewport();
@@ -69,8 +71,17 @@ export default function Board() {
     });
 
     boardStage.current = stage;
+    // Back to front: drawn shapes, then images and text, then the selection
+    // chrome. Konva hit-tests them in that order whichever way their canvases
+    // are stacked against the Create nodes (boardLayers.ts).
+    const shapes = new Konva.Layer();
     const layer = new Konva.Layer();
-    stage.add(layer);
+    const chrome = new Konva.Layer();
+    stage.add(shapes, layer, chrome);
+    const layers: BoardLayers = { shapes, main: layer, chrome };
+    layersRef.current = layers;
+    stackLayers(layers, useLayerOrder.getState().topLayer);
+    chromeTakesPointer(chrome, false);
 
     const transformer = createSelectionTransformer({
       // Boxes arrive in absolute (post-zoom) coords, so divide by the stage
@@ -78,7 +89,7 @@ export default function Board() {
       minEdge: () => minResizeEdge(transformer.nodes()),
       zoom: () => stage.scaleX(),
     });
-    layer.add(transformer);
+    chrome.add(transformer);
     const hover = createHoverOutline(layer, transformer);
 
     stageRef.current = stage;
@@ -87,7 +98,7 @@ export default function Board() {
     hoverRef.current = hover;
     window.dispatchEvent(new Event("canvas:board-ready"));
 
-    const board = createBoardContext({ stage, layer, transformer, hover, updateSelectionChrome });
+    const board = createBoardContext({ stage, layer, shapes, transformer, hover, updateSelectionChrome });
     // Every listener below, removed together on unmount.
     const off: Array<() => void> = [];
 
@@ -147,6 +158,7 @@ export default function Board() {
       stage.destroy();
       stageRef.current = null;
       layerRef.current = null;
+      layersRef.current = null;
       transformerRef.current = null;
       hoverRef.current = null;
     };
@@ -165,15 +177,26 @@ export default function Board() {
   // also clear the Konva transformer so the selection ring disappears.
   useEffect(() => {
     return useKonvaSelection.subscribe((s) => {
-      if (!s.selectedIds.length && transformerRef.current && layerRef.current) {
+      if (!s.selectedIds.length && transformerRef.current && layersRef.current) {
         transformerRef.current.nodes([]);
         updateSelectionChrome();
-        layerRef.current.batchDraw();
+        layersRef.current.chrome.batchDraw();
       }
     });
   }, [updateSelectionChrome]);
 
-  useCanvasPassThrough(containerRef, stageRef, topLayer, activeTool);
+  // Which canvas is in front of the Create nodes. While a drawing tool is
+  // armed the main canvas must be the top surface: a draw that crossed a
+  // Create placeholder used to be lost, because the placeholder is a DOM
+  // element above the canvas whenever the canvas is the lower layer, and the
+  // browser retargets the rest of the gesture to it. Shapes stay behind
+  // either way (#430).
+  useEffect(() => {
+    const layers = layersRef.current;
+    if (layers) stackLayers(layers, drawingTool(activeTool) ? "canvas" : topLayer);
+  }, [topLayer, activeTool]);
+
+  useCanvasPassThrough(containerRef, stageRef, layersRef, topLayer, activeTool);
 
   // Switch between pointer (select) mode and pan mode.
   useEffect(() => {
@@ -185,7 +208,7 @@ export default function Board() {
     if (activeTool === "pointer") {
       stage.draggable(false);
       stage.container().style.cursor = "default";
-      applyDraggability(layer);
+      applyDraggability(stage);
     } else {
       // Frame draws on drag, so the stage must not pan underneath it. Every
       // other non-pointer tool still pans.
@@ -202,7 +225,7 @@ export default function Board() {
       transformer.nodes([]);
       updateSelectionChrome();
       hoverRef.current?.hide();
-      applyDraggability(layer);
+      applyDraggability(stage);
       layer.batchDraw();
     }
   }, [activeTool, updateSelectionChrome]);
@@ -212,22 +235,14 @@ export default function Board() {
       <div
         ref={containerRef}
         style={{
-          position: "fixed",
+          // No z-index, and not fixed: either would make this a stacking
+          // context, and the stage's three canvases could then only move
+          // together. Each takes its own z-index instead (#430): shapes
+          // behind the Create nodes, images and text flipping above or below
+          // them, the selection chrome over them. See boardLayers.ts.
+          position: "absolute",
           inset: 0,
           overflow: "hidden",
-          // The whole canvas moves above or below the node placeholders; it
-          // cannot interleave with them. See layerOrder.store.
-          // While a drawing tool is armed the canvas must be the top surface:
-          // a draw that crossed a Create placeholder used to be lost, because
-          // the placeholder is a DOM element above the canvas whenever the
-          // canvas is the lower layer, and the browser retargets the rest of
-          // the gesture to it.
-          zIndex:
-            drawingTool(activeTool)
-              ? Z_INDEX.canvasAbove
-              : topLayer === "canvas"
-                ? Z_INDEX.canvasAbove
-                : Z_INDEX.canvasBelow,
         }}
       />
       {dropActive && <DropOverlay />}

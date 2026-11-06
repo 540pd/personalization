@@ -368,12 +368,16 @@ test.describe("image variants", () => {
     await addPanel(page);
     const z = await page.evaluate(() => {
       const form = document.querySelector(".node-panel-create") as HTMLElement | null;
-      const zs = [...document.querySelectorAll("div")]
-        .filter((d) => d.querySelector(":scope > .konvajs-content"))
-        .map((d) => Number(getComputedStyle(d).zIndex) || 0);
+      // Each canvas carries its own z-index (#430); the frames stage's container its.
+      const zs = [
+        ...[...document.querySelectorAll("canvas")].map((c) => Number(getComputedStyle(c).zIndex) || 0),
+        ...[...document.querySelectorAll("div")]
+          .filter((d) => d.querySelector(":scope > .konvajs-content"))
+          .map((d) => Number(getComputedStyle(d).zIndex) || 0),
+      ];
       return { form: Number(form ? getComputedStyle(form).zIndex : -1), canvases: zs };
     });
-    // canvasAbove is the highest a canvas container ever goes.
+    // The selection chrome's canvas is the highest a canvas ever goes.
     expect(z.form).toBeGreaterThan(30);
     z.canvases.forEach((c) => expect(z.form).toBeGreaterThan(c));
   });
