@@ -17,6 +17,7 @@ import {
   type MandatoryElements,
   type Tone,
 } from "@/store/brand.store";
+import BriefReferences from "./BriefReferences";
 
 type Edit = (update: (brief: Brief) => Brief) => void;
 
@@ -148,6 +149,10 @@ export default function CampaignBrief({ value, onChange }: { value: Brief; onCha
               onChange={(v) => set("legalText", v)}
             />
           </Mandatory>
+        </Group>
+
+        <Group title="Creative references" lead="Pick the backgrounds, scenes and mood boards from Assets that this campaign uses." layout="block">
+          <BriefReferences picked={value.referenceIds} onChange={(ids) => set("referenceIds", ids)} />
         </Group>
 
         <Group title="Guardrails" layout="block">
