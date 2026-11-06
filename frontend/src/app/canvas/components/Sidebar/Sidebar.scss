@@ -10,7 +10,7 @@
 // scale those are numbered on.
 .sidebar {
   @apply fixed top-0 left-0 bottom-0 flex flex-col;
-  @apply bg-white border-r border-black/[0.08];
+  @apply bg-surface border-r border-line;
   // The rail eases between its two widths. The canvas inset does not: it
   // switches at once, so nothing is placed against a width in transit.
   transition: width 150ms ease-out;
@@ -31,22 +31,22 @@
 }
 
 .sidebar-product {
-  @apply flex-1 text-sm font-semibold text-neutral-900 truncate;
+  @apply flex-1 text-body font-semibold text-ink truncate;
 }
 
 .sidebar-product-sep {
-  @apply font-normal text-neutral-400;
+  @apply font-normal text-ink-muted/60;
 }
 
 // Hierarchy by weight and tone, not hue: a coloured app name is the only
 // saturated thing in the rail, and it pulls the eye away from the canvas.
 .sidebar-product-app {
-  @apply font-medium text-neutral-500;
+  @apply font-medium text-ink-muted;
 }
 
 .sidebar-collapse-button {
-  @apply w-6 h-6 flex items-center justify-center rounded-lg text-gray-400;
-  @apply transition-colors hover:bg-black/5 hover:text-gray-600;
+  @apply w-6 h-6 flex items-center justify-center rounded-control text-ink-muted;
+  @apply transition-colors hover:bg-subtle hover:text-ink;
 }
 
 // ── nav ─────────────────────────────────────────────────────────────────
@@ -61,24 +61,24 @@
 }
 
 .sidebar-item {
-  @apply w-full flex items-center gap-2.5 px-3 h-9 rounded-full;
-  @apply text-sm text-neutral-500 transition-colors;
-  @apply hover:bg-black/[0.03] hover:text-neutral-700;
+  @apply w-full flex items-center gap-2.5 px-3 h-9 rounded-control;
+  @apply text-body text-ink-muted transition-colors;
+  @apply hover:bg-subtle hover:text-ink;
 }
 
-// Light fill plus a weight and tone shift. The fill alone would sit too
-// close to hover to read as a state, so the text carries half the signal.
+// The pale accent plus accent text and weight (#436): the accent is what
+// marks where you are, and the fill alone would sit too close to hover.
 .sidebar-item-active {
-  @apply bg-neutral-100 font-medium text-neutral-900;
-  @apply hover:bg-neutral-100 hover:text-neutral-900;
+  @apply bg-accent-soft font-medium text-accent;
+  @apply hover:bg-accent-soft hover:text-accent;
 }
 
 // Placeholders. Dimmed and inert, but still listed -- the rail is a map of
 // what this product will be, and hiding them would make it look smaller
 // than it is. No hover response, so nothing invites the click.
 .sidebar-item-unavailable {
-  @apply text-neutral-300 cursor-default;
-  @apply hover:bg-transparent hover:text-neutral-300;
+  @apply text-ink-muted/40 cursor-default;
+  @apply hover:bg-transparent hover:text-ink-muted/40;
 }
 
 .sidebar-item-icon {
@@ -91,7 +91,7 @@
 
 // A menu row's key, at the far end (#214: Settings ⌘,).
 .sidebar-item-shortcut {
-  @apply ml-auto pl-3 font-sans text-xs text-neutral-400;
+  @apply ml-auto pl-3 font-sans text-meta text-ink-muted;
 }
 
 // ── Playspace options (#197) ──────────────────────────────────────────────
@@ -109,12 +109,12 @@
 
 .sidebar-options-button {
   @apply absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center;
-  @apply rounded-full text-neutral-500 transition-colors;
-  @apply hover:bg-black/[0.06] hover:text-neutral-900;
+  @apply rounded-control text-ink-muted transition-colors;
+  @apply hover:bg-black/[0.06] hover:text-ink;
 }
 
 .sidebar-options-button-open {
-  @apply bg-black/[0.08] text-neutral-900;
+  @apply bg-black/[0.08] text-ink;
 }
 
 .sidebar-options-button:focus-visible,
@@ -126,7 +126,7 @@
 // icon would read as a notification.
 .sidebar-options-dot {
   @apply absolute -top-0.5 -right-1 w-4 h-4 flex items-center justify-center;
-  @apply rounded-full border-2 border-white bg-neutral-900 text-white;
+  @apply rounded-full border-2 border-surface bg-ink text-white;
   @apply pointer-events-none opacity-0;
   transition: opacity 100ms ease-out;
 }
@@ -138,7 +138,7 @@
 
 .sidebar-item-menu-open,
 .sidebar-item-menu-open:hover {
-  @apply bg-neutral-200;
+  @apply bg-black/[0.06];
 }
 
 // The user menu's surface (sidebar-user-menu), and its rows are rail rows:
@@ -147,19 +147,19 @@
 // "Save to file" (#198) is the widest to come, so the menu does not change
 // width when it lands. Fixed: it is portaled out of the rail.
 .playspace-menu {
-  @apply fixed w-max min-w-[176px] p-1 rounded-xl shadow-md;
-  @apply bg-white border border-black/[0.08] outline-none;
+  @apply fixed w-max min-w-[176px] p-1 rounded-card shadow-menu;
+  @apply bg-surface border border-line outline-none;
 }
 
 // Only what a menu row needs beyond a rail row. Disabled matches the rail's
 // "Coming soon" items.
 .playspace-menu-item {
   @apply text-left whitespace-nowrap;
-  @apply disabled:text-neutral-300 disabled:cursor-default disabled:hover:bg-transparent;
+  @apply disabled:text-ink-muted/40 disabled:cursor-default disabled:hover:bg-transparent;
 }
 
 .playspace-menu-divider {
-  @apply h-px my-1 mx-2 bg-black/[0.08];
+  @apply h-px my-1 mx-2 bg-line;
 }
 
 // Brand's discard prompt (brand-confirm), on a backdrop of its own: that
@@ -169,15 +169,15 @@
 }
 
 .board-confirm {
-  @apply w-[360px] max-w-full rounded-2xl bg-white p-6 shadow-2xl text-neutral-900;
+  @apply w-[360px] max-w-full rounded-card bg-surface p-6 shadow-float text-ink;
 }
 
 .board-confirm-title {
-  @apply text-base font-semibold;
+  @apply text-title font-medium;
 }
 
 .board-confirm-text {
-  @apply mt-1 text-sm text-neutral-500;
+  @apply mt-1 text-body text-ink-muted;
 }
 
 .board-confirm-actions {
@@ -187,25 +187,25 @@
 // Pushes Cancel and Clear to the right; the way out of losing the board
 // sits apart from the two buttons that decide.
 .board-confirm-save {
-  @apply mr-auto text-sm text-neutral-700 underline underline-offset-[3px];
-  @apply transition-colors hover:text-neutral-900;
+  @apply mr-auto text-body text-ink-muted underline underline-offset-[3px];
+  @apply transition-colors hover:text-ink;
 }
 
 .board-confirm-cancel {
-  @apply h-9 px-4 rounded-full border border-black/10 bg-transparent text-sm;
-  @apply transition-colors hover:bg-black/5;
+  @apply h-9 px-4 rounded-control border border-line bg-surface text-body font-medium text-ink;
+  @apply transition-colors hover:bg-subtle;
 }
 
 .board-confirm-danger {
-  @apply h-9 px-4 rounded-full bg-red-600 text-sm font-semibold text-white;
+  @apply h-9 px-4 rounded-control bg-red-600 text-body font-semibold text-white;
   @apply transition-colors hover:bg-red-700;
 }
 
-// Brand's primary button (brand-primary) at the confirm's height. Black, not
-// red: what it replaces comes back with Undo.
+// Brand's primary button (brand-primary) at the confirm's height. The accent,
+// not red: what it replaces comes back with Undo.
 .board-confirm-primary {
-  @apply h-9 px-4 rounded-full bg-black text-sm font-semibold text-white;
-  @apply transition-colors hover:bg-neutral-800;
+  @apply h-9 px-4 rounded-control bg-accent text-body font-semibold text-white;
+  @apply transition-colors hover:bg-accent-hover;
 }
 
 .board-confirm button:focus-visible {
@@ -215,7 +215,7 @@
 // Brand's saved toast (brand-toast), plus an action.
 .board-toast {
   @apply fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2;
-  @apply h-10 px-4 rounded-full bg-neutral-900 text-sm font-medium text-white shadow-lg;
+  @apply h-10 px-4 rounded-full bg-ink text-body font-medium text-white shadow-float;
 }
 
 .board-toast-error-icon {
@@ -240,22 +240,22 @@
 }
 
 .sidebar-support {
-  @apply w-full flex items-center gap-2.5 px-3 h-9 rounded-full;
-  @apply text-sm text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-600;
+  @apply w-full flex items-center gap-2.5 px-3 h-9 rounded-control;
+  @apply text-body text-ink-muted transition-colors hover:bg-subtle hover:text-ink;
 }
 
 .sidebar-footer-divider {
-  @apply h-px my-2 mx-1 bg-black/[0.08];
+  @apply h-px my-2 mx-1 bg-line;
 }
 
 .sidebar-identity {
-  @apply w-full flex items-center gap-2.5 px-2 h-9 rounded-full;
-  @apply text-sm font-medium text-neutral-900 transition-colors hover:bg-black/5;
+  @apply w-full flex items-center gap-2.5 px-2 h-9 rounded-control;
+  @apply text-body font-medium text-ink transition-colors hover:bg-subtle;
 }
 
 // A button now (#214): it opens a menu holding Settings.
 .sidebar-identity-anonymous {
-  @apply text-neutral-500;
+  @apply text-ink-muted;
 }
 
 .sidebar-identity-name {
@@ -264,7 +264,7 @@
 
 .sidebar-avatar {
   @apply w-6 h-6 shrink-0 flex items-center justify-center rounded-full;
-  @apply bg-amber-100 text-xs font-semibold text-neutral-700;
+  @apply bg-accent-soft text-meta font-semibold text-accent;
 }
 
 // ── user menu ───────────────────────────────────────────────────────────
@@ -281,7 +281,7 @@
 }
 
 .sidebar-user-email {
-  @apply px-3 pt-1.5 pb-1 text-xs text-neutral-500 truncate;
+  @apply px-3 pt-1.5 pb-1 text-meta text-ink-muted truncate;
 }
 
 // ── minimized ───────────────────────────────────────────────────────────
@@ -339,7 +339,7 @@
   .sidebar-nav .sidebar-item,
   .sidebar-support,
   .sidebar-identity {
-    @apply w-9 px-0 gap-0 justify-center rounded-xl;
+    @apply w-9 px-0 gap-0 justify-center rounded-control;
   }
 
   .sidebar-footer {

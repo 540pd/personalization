@@ -142,7 +142,7 @@
 /* Create Image panel */
 
 .node-panel-create {
-  @apply flex w-80 flex-col rounded-2xl bg-white shadow-xl;
+  @apply flex w-80 flex-col rounded-card border border-line bg-surface shadow-float;
 }
 
 .node-panel-header {
@@ -150,7 +150,7 @@
 }
 
 .node-panel-title {
-  @apply text-base font-semibold text-neutral-900;
+  @apply text-title font-medium text-ink;
 }
 
 .node-panel-model-wrapper {
@@ -158,7 +158,7 @@
 }
 
 .node-panel-model-trigger {
-  @apply flex items-center gap-1 text-sm text-neutral-400 transition-colors hover:text-neutral-600;
+  @apply flex items-center gap-1 text-body text-ink-muted transition-colors hover:text-ink;
 }
 
 .node-panel-chevron {
@@ -170,27 +170,27 @@
 }
 
 .node-panel-model-dropdown {
-  @apply absolute left-0 top-full z-10 mt-1.5 w-48 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-lg;
+  @apply absolute left-0 top-full z-10 mt-1.5 w-48 overflow-hidden rounded-card border border-line bg-surface shadow-menu;
 }
 
 .node-panel-model-option {
-  @apply flex w-full items-center justify-between px-3 py-2 text-sm transition-colors;
+  @apply flex w-full items-center justify-between px-3 py-2 text-body transition-colors;
 }
 
 .node-panel-model-option-active {
-  @apply bg-neutral-50 font-medium text-neutral-900;
+  @apply bg-accent-soft font-medium text-accent;
 }
 
 .node-panel-model-option-inactive {
-  @apply text-neutral-600 hover:bg-black/5;
+  @apply text-ink hover:bg-subtle;
 }
 
 .node-panel-model-check {
-  @apply shrink-0 text-neutral-700;
+  @apply shrink-0 text-accent;
 }
 
 .node-panel-close-button {
-  @apply mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-700;
+  @apply mt-0.5 flex h-7 w-7 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-subtle hover:text-ink;
 }
 
 /* Body */
@@ -200,11 +200,11 @@
 }
 
 .node-panel-section-label {
-  @apply mb-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-400;
+  @apply mb-1.5 text-meta font-medium text-ink-muted;
 }
 
 .node-panel-instruction {
-  @apply w-full resize-none rounded-xl bg-neutral-100 px-3.5 py-2.5 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-black/10;
+  @apply w-full resize-none rounded-control bg-subtle px-3.5 py-2.5 text-body text-ink outline-none placeholder:text-ink-muted/70 focus:ring-2 focus:ring-accent/30;
 }
 
 /* @ mentions (#239): the textarea over a mirror of its text that tints handles */
@@ -227,8 +227,8 @@
 
 // No padding: it would move the text after it. The shadow widens the tint.
 .mention-known {
-  @apply rounded-[3px] bg-blue-100 text-transparent;
-  box-shadow: 0 0 0 1px var(--color-blue-100);
+  @apply rounded-[3px] bg-accent-soft text-transparent;
+  box-shadow: 0 0 0 1px var(--color-accent-soft);
 }
 
 .mention-notes {
@@ -236,49 +236,49 @@
 }
 
 .mention-note {
-  @apply text-xs leading-4 text-amber-700;
+  @apply text-meta text-amber-700;
 }
 
 .mention-menu {
-  @apply fixed flex w-64 flex-col rounded-xl border border-neutral-200 bg-white p-1.5 text-[13px] shadow-xl;
+  @apply fixed flex w-64 flex-col rounded-card border border-line bg-surface p-1.5 text-body shadow-menu;
 }
 
 .mention-menu-group {
-  @apply px-2 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400;
+  @apply px-2 pb-1 pt-1.5 text-meta font-medium text-ink-muted;
 }
 
 .mention-menu-item {
-  @apply flex cursor-pointer flex-col rounded-lg px-2 py-1.5;
+  @apply flex cursor-pointer flex-col rounded-control px-2 py-1.5;
 }
 
 .mention-menu-item-active {
-  @apply bg-neutral-100;
+  @apply bg-accent-soft;
 }
 
 .mention-menu-name {
-  @apply font-medium text-neutral-900;
+  @apply font-medium text-ink;
 }
 
 .mention-menu-description {
-  @apply mt-px truncate text-xs text-neutral-500;
+  @apply mt-px truncate text-meta text-ink-muted;
 }
 
 .mention-menu-empty {
-  @apply px-2 py-1.5 text-neutral-500;
+  @apply px-2 py-1.5 text-ink-muted;
 }
 
 .mention-menu-link {
-  @apply font-medium text-neutral-900 underline underline-offset-2;
+  @apply font-medium text-accent underline underline-offset-2;
 }
 
 .mention-menu-foot {
-  @apply mt-1 border-t border-neutral-100 px-2 pb-0.5 pt-1.5 text-[11px] text-neutral-400;
+  @apply mt-1 border-t border-line px-2 pb-0.5 pt-1.5 text-meta text-ink-muted;
 }
 
 /* Advanced */
 
 .node-panel-advanced-trigger {
-  @apply flex items-center gap-1.5 text-sm font-medium text-neutral-700;
+  @apply flex items-center gap-1.5 text-body font-medium text-ink;
 }
 
 .node-panel-advanced-content {
@@ -290,7 +290,7 @@
 }
 
 .node-panel-setting {
-  @apply flex-1 rounded-xl bg-neutral-100 px-3 py-2.5;
+  @apply flex-1 rounded-control bg-subtle px-3 py-2.5;
 }
 
 .node-panel-grounding {
@@ -298,11 +298,11 @@
 }
 
 .node-panel-setting-label {
-  @apply mb-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-400;
+  @apply mb-1 text-meta font-medium text-ink-muted;
 }
 
 .node-panel-select {
-  @apply w-full cursor-pointer bg-transparent text-sm text-neutral-700 outline-none;
+  @apply w-full cursor-pointer bg-transparent text-body text-ink outline-none;
 }
 
 /* Grounding toggle */
@@ -316,7 +316,7 @@
 }
 
 .node-panel-toggle-on {
-  @apply bg-neutral-900;
+  @apply bg-accent;
 }
 
 .node-panel-toggle-off {
@@ -338,7 +338,7 @@
 /* Temperature */
 
 .node-panel-temperature {
-  @apply rounded-xl bg-neutral-100 px-3 py-2.5;
+  @apply rounded-control bg-subtle px-3 py-2.5;
 }
 
 .node-panel-temperature-header {
@@ -350,7 +350,7 @@
 }
 
 .node-panel-temperature-value {
-  @apply tabular-nums text-xs text-neutral-500;
+  @apply tabular-nums text-meta text-ink-muted;
 }
 
 .node-panel-temperature-slider {
@@ -358,11 +358,11 @@
 }
 
 .node-panel-range-label {
-  @apply text-[10px] text-neutral-400;
+  @apply text-meta text-ink-muted;
 }
 
 .node-panel-range {
-  @apply flex-1 accent-neutral-900;
+  @apply flex-1 accent-accent;
 }
 
 /* Aspect ratio / quality */
@@ -372,36 +372,36 @@
 }
 
 .node-panel-option {
-  @apply flex items-center gap-1.5 rounded-lg bg-neutral-100 px-2.5 py-1.5;
+  @apply flex items-center gap-1.5 rounded-control bg-subtle px-2.5 py-1.5;
 }
 
 .node-panel-option-select {
-  @apply cursor-pointer bg-transparent text-xs text-neutral-700 outline-none;
+  @apply cursor-pointer bg-transparent text-body text-ink outline-none;
 }
 
 /* Error */
 
 .node-panel-error {
-  @apply -mt-1 text-center text-xs leading-snug text-red-500;
+  @apply -mt-1 text-center text-meta text-red-600;
 }
 
 /* Create button */
 
 .node-panel-create-button {
-  @apply flex w-full select-none items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-white transition-opacity;
+  @apply flex w-full select-none items-center justify-center gap-2 rounded-control py-3 text-body font-semibold text-white transition;
 }
 
 .node-panel-create-button-disabled {
-  @apply cursor-not-allowed bg-neutral-900 opacity-40;
+  @apply cursor-not-allowed bg-accent opacity-40;
 }
 
 .node-panel-create-button-enabled {
-  @apply cursor-pointer bg-neutral-900 hover:opacity-90 active:opacity-80;
+  @apply cursor-pointer bg-accent hover:bg-accent-hover active:opacity-90;
 }
 
 .node-panel-loader {
   @apply shrink-0 animate-spin;
 }
 .node-panel-model-from {
-  @apply text-neutral-500;
+  @apply text-ink-muted;
 }
