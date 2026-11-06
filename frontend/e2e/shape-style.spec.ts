@@ -1,5 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, uploadImage, collapsePanels, setZoom } from "./helpers";
+import { openBoard, uploadImage, collapsePanels, setZoom, showEveryMenuItem } from "./helpers";
+
+// Draws items #404 hides by default, so offer them all.
+test.beforeEach(({ page }) => showEveryMenuItem(page));
 
 // Issue #161. The bar above a selected shape: Color, Fill and Stroke.
 

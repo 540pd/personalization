@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SETTINGS_STORAGE_KEY, loadSettings, saveSettings } from "../settings.store";
-import { DEFAULT_SETTINGS, isDefault, readSettings, settingGroups, validValue, SETTINGS } from "@/app/canvas/settings/settings";
+import {
+  DEFAULT_SETTINGS, GROUP_INFO, isDefault, readSettings, settingGroups, toolShown, validValue, SETTINGS,
+} from "@/app/canvas/settings/settings";
 
 function memoryStorage(failWrites = false): Storage & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -22,12 +24,40 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("settings list", () => {
   it("has Connection style and node names in Canvas, defaulting to today's behaviour", () => {
-    expect(settingGroups().map((g) => [g.group, g.specs.map((s) => s.id)])).toEqual([
-      ["Canvas", ["linkStyle", "showNodeNames"]],
-    ]);
+    expect(settingGroups()[0].group).toBe("Canvas");
+    expect(settingGroups()[0].specs.map((s) => s.id)).toEqual(["linkStyle", "showNodeNames"]);
     expect(SETTINGS[0]).toMatchObject({ id: "linkStyle", type: "choice" });
     expect(SETTINGS[1]).toMatchObject({ id: "showNodeNames", type: "toggle" });
-    expect(DEFAULT_SETTINGS).toEqual({ linkStyle: "link-curve", showNodeNames: true });
+    expect(DEFAULT_SETTINGS).toMatchObject({ linkStyle: "link-curve", showNodeNames: true });
+  });
+
+  it("lists the Create and Shapes menu switches in menu order, with the requested defaults (#404)", () => {
+    const groups = settingGroups().slice(1).map((g) => [g.group, g.specs.map((s) => [s.label, DEFAULT_SETTINGS[s.id]])]);
+    expect(groups).toEqual([
+      ["Create menu", [["Video", false], ["Prompt", true], ["Compose", true]]],
+      [
+        "Shapes menu",
+        [
+          ["Rectangle", true], ["Arrow", true], ["Line", false], ["Ellipse", false],
+          ["Triangle", false], ["Block Arrow", false], ["Diamond", true],
+        ],
+      ],
+    ]);
+    // Image has no switch, and every menu switch names its dock item.
+    expect(SETTINGS.some((s) => s.label === "Image")).toBe(false);
+    expect(settingGroups().slice(1).flatMap((g) => g.specs).every((s) => s.type === "toggle" && s.tool)).toBe(true);
+    expect(GROUP_INFO["Create menu"].count).toEqual({ always: 1 });
+    expect(GROUP_INFO["Shapes menu"].allOffNotice).toMatch(/Shapes button is hidden/);
+  });
+
+  it("shows a tool only while its switch is on; one without a switch always (#404)", () => {
+    expect(toolShown(DEFAULT_SETTINGS, "generate-video")).toBe(false);
+    expect(toolShown({ ...DEFAULT_SETTINGS, showVideo: true }, "generate-video")).toBe(true);
+    expect(toolShown(DEFAULT_SETTINGS, "shape-rect")).toBe(true);
+    expect(toolShown({ ...DEFAULT_SETTINGS, showRect: false }, "shape-rect")).toBe(false);
+    expect(toolShown(DEFAULT_SETTINGS, "generate-image")).toBe(true);
+    expect(toolShown(DEFAULT_SETTINGS, "pointer")).toBe(true);
+    expect(toolShown(DEFAULT_SETTINGS, "frame")).toBe(true);
   });
 
   it("accepts only a boolean for a toggle", () => {
@@ -52,10 +82,13 @@ describe("settings list", () => {
   });
 
   it("keeps valid values, defaults the rest and drops unknown keys", () => {
-    expect(readSettings({ linkStyle: "link-straight", showNodeNames: false, other: 1 })).toEqual({
+    expect(readSettings({ linkStyle: "link-straight", showNodeNames: false, showLine: true, other: 1 })).toEqual({
+      ...DEFAULT_SETTINGS,
       linkStyle: "link-straight",
       showNodeNames: false,
+      showLine: true,
     });
+    expect(readSettings({ showVideo: "yes" })).toEqual(DEFAULT_SETTINGS);
     expect(readSettings({ showNodeNames: "no" })).toEqual(DEFAULT_SETTINGS);
     expect(readSettings({ linkStyle: "nope" })).toEqual(DEFAULT_SETTINGS);
     expect(readSettings(null)).toEqual(DEFAULT_SETTINGS);
@@ -66,6 +99,7 @@ describe("settings list", () => {
     expect(isDefault(DEFAULT_SETTINGS)).toBe(true);
     expect(isDefault({ ...DEFAULT_SETTINGS, linkStyle: "link-elbow" })).toBe(false);
     expect(isDefault({ ...DEFAULT_SETTINGS, showNodeNames: false })).toBe(false);
+    expect(isDefault({ ...DEFAULT_SETTINGS, showVideo: true })).toBe(false);
   });
 });
 
