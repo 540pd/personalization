@@ -3,7 +3,16 @@
 // master, details per image, what Save checks and sends) are tested apart
 // from the page.
 
-import type { AssetView, BrandAssetsRecord, BrandAssetsView, BrandColours } from "@/api/brandAssets.api";
+import type { AssetKind, AssetView, BrandAssetsRecord, BrandAssetsView, BrandColours } from "@/api/brandAssets.api";
+
+/**
+ * The kinds the page edits as images with details: product images (#414),
+ * and creatives to adapt from and style examples (#416). Others are kept
+ * as they were until their sections exist.
+ */
+export const IMAGE_KINDS = ["productImage", "adaptFrom", "styleExample"] as const;
+export type ImageKind = (typeof IMAGE_KINDS)[number];
+const isImageKind = (kind: AssetKind | null): kind is ImageKind => (IMAGE_KINDS as readonly (AssetKind | null)[]).includes(kind);
 
 /** An image on the page, with its details as edited (saved with the page). */
 export interface DraftImage {
@@ -23,7 +32,7 @@ export interface AssetsDraft {
   sku: string;
   masterId: string;
   colours: BrandColours;
-  /** Product images, in the order the page shows them. */
+  /** Images of every kind the page edits, in the order it shows them. */
   images: DraftImage[];
   /** Assets of the other kinds, kept as they were until their sections exist. */
   others: AssetView[];
@@ -37,34 +46,61 @@ export const PRODUCT_VIEWS = ["Front", "Side", "Back", "Top", "3/4 angle", "Clos
 /** Product images take PNG or JPG. */
 export const PRODUCT_IMAGE_TYPES_ACCEPTED = ["image/png", "image/jpeg"];
 
+export const ADAPT_CREATIVE_TYPES = ["Campaign key visual", "Hero creative", "Social creative", "Display creative", "Other"] as const;
+export const ASPECT_RATIOS = ["1:1", "4:5", "9:16", "16:9", "Other"] as const;
+export const STYLE_EXAMPLE_TYPES = [
+  "Social creative", "Campaign creative", "Product creative", "Layout reference", "Typography reference", "Logo usage", "Other",
+] as const;
+
 const asImage = (asset: AssetView): DraftImage => ({ asset, description: asset.description, details: { ...asset.details } });
 
 export function draftFrom(view: BrandAssetsView): AssetsDraft {
-  const images = view.assets.filter((a) => a.kind === "productImage").map(asImage);
+  const images = view.assets.filter((a) => isImageKind(a.kind)).map(asImage);
+  const products = images.filter(isProduct);
   return {
     productName: view.record.productName,
     sku: view.record.sku,
-    // A master that has gone (deleted elsewhere) falls back to the first image.
-    masterId: images.some((i) => i.asset.id === view.record.masterId) ? view.record.masterId : (images[0]?.asset.id ?? ""),
+    // A master that has gone (deleted elsewhere) falls back to the first product image.
+    masterId: products.some((i) => i.asset.id === view.record.masterId) ? view.record.masterId : (products[0]?.asset.id ?? ""),
     colours: { ...view.record.colours },
     images,
-    others: view.assets.filter((a) => a.kind !== "productImage"),
+    others: view.assets.filter((a) => !isImageKind(a.kind)),
   };
 }
 
-/** Adds a just-uploaded image; the first one becomes the master. */
+const isProduct = (image: DraftImage) => image.asset.kind === "productImage";
+
+export const imagesOf = (draft: AssetsDraft, kind: ImageKind): DraftImage[] => draft.images.filter((i) => i.asset.kind === kind);
+
+/** Adds a just-uploaded image; the first product image becomes the master. */
 export function addImage(draft: AssetsDraft, asset: AssetView): AssetsDraft {
-  return { ...draft, images: [...draft.images, asImage(asset)], masterId: draft.masterId || asset.id };
+  const masterId = draft.masterId || (asset.kind === "productImage" ? asset.id : "");
+  return { ...draft, images: [...draft.images, asImage(asset)], masterId };
 }
 
-/** Adds an image that is still uploading, shown from `preview` (a local copy) under `tempId`. */
-export function addUploading(draft: AssetsDraft, tempId: string, file: { name: string; type: string; size: number }, preview: string): AssetsDraft {
+/**
+ * Adds an image that is still uploading, shown from `preview` (a local copy)
+ * under `tempId`. A creative or style example is named after its file to
+ * start with (#416).
+ */
+export function addUploading(
+  draft: AssetsDraft,
+  tempId: string,
+  file: { name: string; type: string; size: number },
+  preview: string,
+  kind: ImageKind = "productImage",
+): AssetsDraft {
   const asset: AssetView = {
     id: tempId, url: preview, mimeType: file.type, bytes: file.size, source: "upload", createdAt: "",
-    kind: "productImage", name: file.name, description: "", details: {},
+    kind, name: file.name, description: "", details: {},
   };
-  const image: DraftImage = { ...asImage(asset), upload: { state: "uploading" } };
-  return { ...draft, images: [...draft.images, image], masterId: draft.masterId || tempId };
+  const image: DraftImage = {
+    ...asImage(asset),
+    details: kind === "productImage" ? {} : { name: file.name.replace(/\.[^.]+$/, "") },
+    upload: { state: "uploading" },
+  };
+  const masterId = draft.masterId || (kind === "productImage" ? tempId : "");
+  return { ...draft, images: [...draft.images, image], masterId };
 }
 
 /** The upload under `tempId` landed: the stored asset takes its place, with what was typed meanwhile. */
@@ -89,14 +125,15 @@ export const isUploading = (draft: AssetsDraft): boolean => draft.images.some((i
 /** Stored images only: one still uploading or failed has no asset to save. */
 const stored = (draft: AssetsDraft) => draft.images.filter((i) => !i.upload);
 
-/** Takes an image off the page; the master's badge moves to the next image. */
+/** Takes an image off the page; the master's badge moves to the next product image. */
 export function removeImage(draft: AssetsDraft, id: string): AssetsDraft {
   const images = draft.images.filter((i) => i.asset.id !== id);
-  return { ...draft, images, masterId: draft.masterId === id ? (images[0]?.asset.id ?? "") : draft.masterId };
+  const masterId = draft.masterId === id ? (images.find(isProduct)?.asset.id ?? "") : draft.masterId;
+  return { ...draft, images, masterId };
 }
 
 export function makeMaster(draft: AssetsDraft, id: string): AssetsDraft {
-  return draft.images.some((i) => i.asset.id === id) ? { ...draft, masterId: id } : draft;
+  return draft.images.some((i) => i.asset.id === id && isProduct(i)) ? { ...draft, masterId: id } : draft;
 }
 
 export function editImage(draft: AssetsDraft, id: string, change: { description?: string; details?: Record<string, string> }): AssetsDraft {
@@ -115,7 +152,7 @@ export function editImage(draft: AssetsDraft, id: string, change: { description?
 }
 
 export const master = (draft: AssetsDraft): DraftImage | null => draft.images.find((i) => i.asset.id === draft.masterId) ?? null;
-export const otherViews = (draft: AssetsDraft): DraftImage[] => draft.images.filter((i) => i.asset.id !== draft.masterId);
+export const otherViews = (draft: AssetsDraft): DraftImage[] => draft.images.filter((i) => isProduct(i) && i.asset.id !== draft.masterId);
 
 export interface SaveProblems {
   /** The doc's message, for the banner; null when Save may go ahead. */
@@ -170,10 +207,19 @@ export function isLowRes(size: { width: number; height: number } | undefined): b
 }
 
 /**
- * Whether `file` is already on the page. Exact for files added this visit
- * (by content hash); for stored ones, whose bytes the page never fetched,
- * the same name and size.
+ * Whether `file` is already among the page's images of `kind` (the same
+ * image may well be both a product image and a style example). Exact for
+ * files added this visit (by content hash); for stored ones, whose bytes the
+ * page never fetched, the same name and size.
  */
-export function isDuplicate(draft: AssetsDraft, file: { name: string; size: number }, hash: string, hashes: Map<string, string>): boolean {
-  return draft.images.some((i) => hashes.get(i.asset.id) === hash || (i.asset.name === file.name && i.asset.bytes === file.size));
+export function isDuplicate(
+  draft: AssetsDraft,
+  file: { name: string; size: number },
+  hash: string,
+  hashes: Map<string, string>,
+  kind: ImageKind = "productImage",
+): boolean {
+  return imagesOf(draft, kind).some(
+    (i) => hashes.get(i.asset.id) === hash || (i.asset.name === file.name && i.asset.bytes === file.size),
+  );
 }
