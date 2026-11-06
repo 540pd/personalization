@@ -1,24 +1,19 @@
 "use client";
 
 // GCOS reference: docs/sidebar/gcos_user_click_brand.png, _2.png, _3.png
-// Spec: #72 (the fields), #219 (a page over the board, like Settings).
+// Spec: #72 (the fields), #219 (a page over the board, like Settings),
+// #409 (the Campaign Brief in place of the Art-direction components).
 // Brand Profile sits at the end, as in the mockup, and is locked until
 // Analyze has a backend. When it does, it is meant to fill in the fields
 // above it.
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useSection, setLeaveGuard } from "@/store/section.store";
-import {
-  ART_DIRECTION_COMPONENTS,
-  useBrand,
-  type ArtDirection,
-  type ArtDirectionId,
-  type BrandSettings,
-} from "@/store/brand.store";
+import { useBrand, type BrandSettings, type CampaignBrief as Brief } from "@/store/brand.store";
 import { useToast } from "@/components/Toast/useToast";
 import LibraryPage from "../Library/LibraryPage";
 import { DiscardChanges } from "../Library/LibraryDialog";
-import ArtDirectionCard from "./ArtDirectionCard";
+import CampaignBrief from "./CampaignBrief";
 import "./Brand.scss";
 
 export default function BrandPage() {
@@ -39,8 +34,8 @@ function Page() {
   const saved = useBrand((s) => s.brand);
   const save = useBrand((s) => s.save);
   const [draft, setDraft] = useState<BrandSettings>(saved);
-  // Set by any edit rather than worked out by comparing: the draft holds
-  // reference images as data URLs, too big to serialise on every keystroke.
+  // Set by any edit rather than worked out by comparing, as it always has
+  // been: an edit typed and then undone by hand still counts.
   const [dirty, setDirty] = useState(false);
   // The move a Discard would make, while the confirm is up.
   const [pending, setPending] = useState<(() => void) | null>(null);
@@ -70,8 +65,7 @@ function Page() {
     setDirty(true);
   };
 
-  const updateComponent = (id: ArtDirectionId, update: (prev: ArtDirection) => ArtDirection) =>
-    edit((d) => ({ ...d, components: { ...d.components, [id]: update(d.components[id]) } }));
+  const editCampaign = (update: (brief: Brief) => Brief) => edit((d) => ({ ...d, campaign: update(d.campaign) }));
 
   const onSave = () => {
     save(draft);
@@ -98,7 +92,7 @@ function Page() {
   };
 
   return (
-    <LibraryPage title="Brand" subtitle="What every generation knows about this client. Edits apply once you save.">
+    <LibraryPage closable title="Brand" subtitle="What every generation knows about this client. Edits apply once you save.">
       <div className="brand-row">
         <div className="brand-field">
           <label className="brand-field-label" htmlFor={`${fieldId}-industry`}>
@@ -117,21 +111,7 @@ function Page() {
         </div>
       </div>
 
-      <section className="brand-section" aria-labelledby={`${fieldId}-components`}>
-        <h2 id={`${fieldId}-components`} className="brand-subheading">
-          Art-direction components
-        </h2>
-        <div className="brand-cards">
-          {ART_DIRECTION_COMPONENTS.map(({ id, label }) => (
-            <ArtDirectionCard
-              key={id}
-              label={label}
-              value={draft.components[id]}
-              onChange={(update) => updateComponent(id, update)}
-            />
-          ))}
-        </div>
-      </section>
+      <CampaignBrief value={draft.campaign} onChange={editCampaign} />
 
       {/* Locked until Analyze has a backend; shown so the client knows it is coming. */}
       <section className="brand-profile" aria-labelledby={`${fieldId}-profile`}>

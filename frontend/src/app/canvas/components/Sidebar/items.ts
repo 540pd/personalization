@@ -42,7 +42,8 @@ export const SIDEBAR_ITEMS: SidebarItemSpec[] = [
     id: "assets",
     label: "Assets",
     icon: Image,
-    available: false,
+    // #414: the product and brand assets generation works from.
+    available: true,
   },
   {
     id: "skills",

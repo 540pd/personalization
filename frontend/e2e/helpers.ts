@@ -58,6 +58,34 @@ export function makePng(w: number, h: number, rgb: [number, number, number] = [1
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+/**
+ * Offers every Create and Shapes menu item, as the menus did before #404 hid
+ * some by default. For specs about drawing or styling those items, not about
+ * the menus: call before the page loads. A choice saved later wins.
+ */
+export async function showEveryMenuItem(page: Page) {
+  await page.addInitScript(() => {
+    if (localStorage.getItem("gcos-settings")) return;
+    const settings = {
+      showVideo: true, showPrompt: true, showCompose: true,
+      showRect: true, showArrow: true, showLine: true, showEllipse: true,
+      showTriangle: true, showBlockArrow: true, showDiamond: true,
+    };
+    localStorage.setItem("gcos-settings", JSON.stringify({ version: 1, settings }));
+  });
+}
+
+/**
+ * Turns the Campaign Brief's Logo switch off (#409), so the Assets page
+ * saves without a logo (#417). The brief lives in memory: once per page load.
+ */
+export async function logoNotMandatory(page: Page) {
+  await page.locator(".sidebar-identity").click();
+  await page.getByRole("menuitem", { name: "Brand" }).click();
+  await page.getByRole("switch", { name: "Logo" }).click();
+  await page.getByRole("button", { name: "Save brand" }).click();
+}
+
 export async function openBoard(page: Page) {
   await page.goto("/", { waitUntil: "networkidle" });
   // Board mounts via next/dynamic with ssr:false, so wait for the stage, not load.

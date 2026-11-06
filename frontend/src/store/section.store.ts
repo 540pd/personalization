@@ -14,9 +14,20 @@ import { DEFAULT_SECTION, type SectionId } from "@/app/canvas/components/Sidebar
  */
 interface SectionState {
   section: SectionId;
+  /** The page on screen before this one, for closing a page (#405). */
+  previous: SectionId | null;
   /** Goes to `section`, unless the page on screen holds it back (see setLeaveGuard). */
   setSection: (section: SectionId) => void;
+  /**
+   * Leaves a page opened from the user menu (#405): back to where it was
+   * opened from, or the board when that was another such page or nothing.
+   * Through setSection, so Brand's unsaved edits are still asked about.
+   */
+  closePage: () => void;
 }
+
+/** Pages opened from the user menu rather than the rail: they close (#405). */
+const CLOSABLE: readonly SectionId[] = ["settings", "brand"];
 
 /**
  * Asked before the page on screen is left (#219: Brand with unsaved edits).
@@ -37,11 +48,17 @@ export function setLeaveGuard(guard: LeaveGuard | null) {
 
 export const useSection = create<SectionState>((set, get) => ({
   section: DEFAULT_SECTION,
+  previous: null,
   setSection: (section) => {
-    if (section === get().section) return;
-    const go = () => set({ section });
+    const from = get().section;
+    if (section === from) return;
+    const go = () => set({ section, previous: from });
     if (leaveGuard?.(go)) return;
     go();
+  },
+  closePage: () => {
+    const { previous } = get();
+    get().setSection(previous && !CLOSABLE.includes(previous) ? previous : "playspace");
   },
 }));
 

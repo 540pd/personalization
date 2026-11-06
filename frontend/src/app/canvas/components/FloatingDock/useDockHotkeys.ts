@@ -2,14 +2,22 @@
 
 // Keyboard: V → pointer, F → frame, R/A/L/O → rectangle/arrow/line/ellipse,
 // S → last-used shape, T → text, ⌘U/Ctrl+U → upload,
-// Esc → pointer + close all submenus.
+// Esc → pointer + close all submenus. A shape hidden in Settings has no key
+// (#404).
 
 import { useEffect } from "react";
 import hotkeys from "hotkeys-js";
-import { useToolStore, shapeTool } from "@/store/tool.store";
+import { useToolStore, shapeTool, type ShapeKind } from "@/store/tool.store";
 import { useNodePanel } from "@/store/nodePanel.store";
+import { useSettings } from "@/store/settings.store";
 import { boardKeyAllowed } from "@/lib/canvas/boardKeys";
+import { toolShown } from "../../settings/settings";
 import { SHAPE_ITEMS } from "./items";
+
+/** Read at the keypress, so a change in Settings needs no rebinding. */
+function shapeShown(kind: ShapeKind): boolean {
+  return toolShown(useSettings.getState().settings, shapeTool(kind));
+}
 
 /**
  * Binds the dock's tool keys while the dock is mounted. `closeMenus` and
@@ -50,11 +58,16 @@ export function useDockHotkeys(closeMenus: () => void, openFilePicker: () => voi
     SHAPE_ITEMS.forEach(({ kind, shortcut }) => {
       if (!shortcut) return;
       hotkeys(shortcut.toLowerCase(), (e) => {
-        if (bare(e)) setTool(shapeTool(kind));
+        if (bare(e) && shapeShown(kind)) setTool(shapeTool(kind));
       });
     });
     hotkeys("s", (e) => {
-      if (bare(e)) setTool(shapeTool(useToolStore.getState().lastShape));
+      if (!bare(e)) return;
+      // The last shape if it is still offered, else the menu's first; none
+      // shown and S does nothing, as there is no Shapes button either.
+      const last = useToolStore.getState().lastShape;
+      const kind = shapeShown(last) ? last : SHAPE_ITEMS.find((item) => shapeShown(item.kind))?.kind;
+      if (kind) setTool(shapeTool(kind));
     });
 
     hotkeys("command+u,ctrl+u", (e) => {

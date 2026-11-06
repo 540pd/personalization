@@ -1,5 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, setZoom, zoom, portCount, uploadImage, imageBox, collapsePanels } from "./helpers";
+import { openBoard, setZoom, zoom, portCount, uploadImage, imageBox, collapsePanels, showEveryMenuItem } from "./helpers";
+
+// Draws items #404 hides by default, so offer them all.
+test.beforeEach(({ page }) => showEveryMenuItem(page));
 
 // Shapes v1, part 1: the Shapes menu and Rectangle. A shape is an ordinary
 // selectable node on Board's layer, so most of these check that it really
