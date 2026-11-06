@@ -18,7 +18,38 @@ import "./Brand.scss";
 
 export default function BrandPage() {
   const shown = useSection((s) => s.section === "brand");
+  // Always mounted, so the saved brand loads when the app opens (#454): the
+  // Assets page's logo rule and the panels' Use brand line read it too.
+  useEffect(() => {
+    void useBrand.getState().load();
+  }, []);
   return shown ? <Page /> : null;
+}
+
+/**
+ * The page while the saved brand loads, or after it failed to: nothing is
+ * editable until it is here, so an empty form can never be saved over it.
+ * Once loaded, the editor is keyed by the load, so Load the latest after a
+ * conflict starts it again from what was saved; its own Save does not.
+ */
+function Page() {
+  const status = useBrand((s) => s.status);
+  const loads = useBrand((s) => s.loads);
+  if (status === "ready") return <Editor key={loads} />;
+  return (
+    <LibraryPage closable title="Brand" subtitle="What every generation knows about this client. Edits apply once you save.">
+      {status === "failed" ? (
+        <p className="brand-load-problem" role="alert">
+          Couldn&apos;t load the brand.
+          <button type="button" className="brief-link" onClick={() => void useBrand.getState().reload()}>
+            Retry
+          </button>
+        </p>
+      ) : (
+        <p className="brief-muted">Loading the brand…</p>
+      )}
+    </LibraryPage>
+  );
 }
 
 /**
@@ -30,7 +61,7 @@ export default function BrandPage() {
  * store's leave guard, so unsaved edits are asked about before they go, and
  * a reload or closed tab gets the browser's own prompt.
  */
-function Page() {
+function Editor() {
   const saved = useBrand((s) => s.brand);
   const save = useBrand((s) => s.save);
   const [draft, setDraft] = useState<BrandSettings>(saved);
@@ -40,6 +71,7 @@ function Page() {
   // The move a Discard would make, while the confirm is up.
   const [pending, setPending] = useState<(() => void) | null>(null);
   const [toast, showToast] = useToast();
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "failed" | "conflict">("idle");
 
   const fieldId = useId();
   // Where focus was when the confirm opened, for Keep editing.
@@ -67,15 +99,21 @@ function Page() {
 
   const editCampaign = (update: (brief: Brief) => Brief) => edit((d) => ({ ...d, campaign: update(d.campaign) }));
 
-  const onSave = () => {
-    save(draft);
-    setDirty(false);
-    showToast("Brand saved");
+  // To the account (#454): kept only once the backend has it.
+  const onSave = async () => {
+    setSaveState("saving");
+    const result = await save(draft);
+    if (result === "saved") {
+      setSaveState("idle");
+      setDirty(false);
+      showToast("Brand saved");
+    } else setSaveState(result);
   };
 
   const onCancel = () => {
     setDraft(saved);
     setDirty(false);
+    setSaveState("idle");
   };
 
   const keepEditing = () => {
@@ -111,6 +149,15 @@ function Page() {
         </div>
       </div>
 
+      {saveState === "conflict" && (
+        <p className="brand-load-problem" role="alert">
+          The brand was saved somewhere else since you opened it.
+          <button type="button" className="brief-link" onClick={() => void useBrand.getState().reload()}>
+            Load the latest
+          </button>
+        </p>
+      )}
+
       <CampaignBrief value={draft.campaign} onChange={editCampaign} />
 
       {/* Locked until Analyze has a backend; shown so the client knows it is coming. */}
@@ -142,7 +189,12 @@ function Page() {
 
       {/* Pinned to the bottom of the page while the fields scroll under it. */}
       <div className="brand-save-bar" role="region" aria-label="Save brand">
-        {dirty && (
+        {saveState === "failed" && (
+          <span className="brand-save-error" role="alert">
+            Couldn&apos;t save the brand. Try again.
+          </span>
+        )}
+        {dirty && saveState !== "failed" && (
           <span className="brand-save-state">
             <span className="brand-save-dot" aria-hidden />
             Unsaved changes
@@ -151,8 +203,8 @@ function Page() {
         <button type="button" className="brand-pill" onClick={onCancel} disabled={!dirty}>
           Cancel
         </button>
-        <button type="button" className="brand-primary" onClick={onSave} disabled={!dirty}>
-          Save brand
+        <button type="button" className="brand-primary" onClick={() => void onSave()} disabled={!dirty || saveState === "saving"}>
+          {saveState === "saving" ? "Saving…" : "Save brand"}
         </button>
       </div>
 

@@ -1,7 +1,15 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// The store is the cache in front of /api/brand (#454): its API, stubbed.
+const api = vi.hoisted(() => ({ fetchBrand: vi.fn(), saveBrandPage: vi.fn() }));
+vi.mock("@/api/brand.api", () => api);
+
 import { LANGUAGE, MARKET, MAX_TONES, OBJECTIVES, TONES, emptyBrand, useBrand } from "../brand.store";
 
-afterEach(() => useBrand.setState({ brand: emptyBrand() }));
+afterEach(() => {
+  useBrand.setState({ brand: emptyBrand(), revision: 0, status: "idle", loads: 0 });
+  vi.clearAllMocks();
+});
 
 describe("brand store (#409)", () => {
   it("starts with an empty brief and the requested mandatory defaults", () => {
@@ -31,10 +39,40 @@ describe("brand store (#409)", () => {
     expect(`${MARKET} · ${LANGUAGE}`).toBe("Europe · English");
   });
 
-  it("saves the whole brand, brief included", () => {
+  it("loads the saved brand once, filling in what it does not say from a new brief", async () => {
+    api.fetchBrand.mockResolvedValue({ revision: 3, updatedAt: "x", brand: { homepageUrl: "", industry: "Sportswear", campaign: { name: "Urban", mandatory: { logo: false } } } });
+    await useBrand.getState().load();
+    await useBrand.getState().load();
+    expect(api.fetchBrand).toHaveBeenCalledTimes(1);
+    const { brand, revision, status } = useBrand.getState();
+    expect([status, revision, brand.industry, brand.campaign.name]).toEqual(["ready", 3, "Sportswear", "Urban"]);
+    expect(brand.campaign.tones).toEqual([]);
+    expect(brand.campaign.mandatory).toEqual({ product: true, logo: false, cta: true, legal: false });
+  });
+
+  it("says when loading failed, and loads again after", async () => {
+    api.fetchBrand.mockRejectedValueOnce(new Error("down"));
+    await useBrand.getState().load();
+    expect(useBrand.getState().status).toBe("failed");
+    api.fetchBrand.mockResolvedValue({ revision: 0, updatedAt: null, brand: { homepageUrl: "", industry: "", campaign: {} } });
+    await useBrand.getState().load();
+    expect(useBrand.getState().status).toBe("ready");
+  });
+
+  it("saves the whole brand against its revision; a conflict or a failure keeps what was saved", async () => {
+    useBrand.setState({ revision: 2, status: "ready" });
     const next = emptyBrand();
     next.campaign.name = "Monsoon Collection 2027";
-    useBrand.getState().save(next);
-    expect(useBrand.getState().brand.campaign.name).toBe("Monsoon Collection 2027");
+
+    api.saveBrandPage.mockResolvedValueOnce({ ok: false, conflict: true, revision: 3 });
+    expect(await useBrand.getState().save(next)).toBe("conflict");
+    api.saveBrandPage.mockRejectedValueOnce(new Error("down"));
+    expect(await useBrand.getState().save(next)).toBe("failed");
+    expect(useBrand.getState().brand.campaign.name).toBe("");
+
+    api.saveBrandPage.mockResolvedValueOnce({ ok: true, revision: 3 });
+    expect(await useBrand.getState().save(next)).toBe("saved");
+    expect(api.saveBrandPage).toHaveBeenLastCalledWith(2, next);
+    expect([useBrand.getState().brand.campaign.name, useBrand.getState().revision]).toEqual(["Monsoon Collection 2027", 3]);
   });
 });

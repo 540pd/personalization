@@ -58,6 +58,13 @@ async function setUpBrand(a: Express, guidelines = "# Rules\n\nLogo on light bac
   return { master, logo, street, sand, rules };
 }
 
+/** Saves the Brand page with `brief` as its campaign (#454): generation reads the saved one. */
+async function saveBrief(a: Express, brief: Record<string, unknown>) {
+  const current = await request(a).get("/api/brand").set("Cookie", ANA);
+  const res = await request(a).put("/api/brand").set("Cookie", ANA).send({ revision: current.body.revision, brand: { industry: "", homepageUrl: "", campaign: brief } });
+  expect(res.status).toBe(200);
+}
+
 const text = (a: Express, body: Record<string, unknown>) =>
   request(a).post("/api/generate/text").set("Cookie", ANA).send({ modelId: "gemini-3.5-flash-lite", instruction: "Three taglines", ...body });
 
@@ -74,19 +81,12 @@ afterEach(() => {
 });
 
 describe("readBrandRequest", () => {
-  it("is off for false or nothing, on for { brief }", () => {
-    expect(readBrandRequest(undefined)).toEqual({ ok: true, brief: null });
-    expect(readBrandRequest(false)).toEqual({ ok: true, brief: null });
-    expect(readBrandRequest({})).toEqual({ ok: true, brief: {} });
-    expect(readBrandRequest({ brief: { name: "X", tones: ["Bold"], mandatory: { product: true } } })).toEqual({
-      ok: true, brief: { name: "X", tones: ["Bold"], mandatory: { product: true, logo: false, cta: false, legal: false } },
-    });
-  });
-
-  it("refuses what is not a brief", () => {
-    for (const bad of ["yes", [1], { brief: 3 }, { brief: { name: 5 } }, { brief: { tones: "Bold" } }, { brief: { mandatory: { product: "on" } } }, { brief: { referenceIds: [1] } }, { brief: { dos: "x".repeat(4001) } }]) {
-      expect(readBrandRequest(bad).ok, JSON.stringify(bad).slice(0, 60)).toBe(false);
-    }
+  it("is on for true, off for false or nothing; a brief from an older client reads as on", () => {
+    expect(readBrandRequest(undefined)).toEqual({ ok: true, on: false });
+    expect(readBrandRequest(false)).toEqual({ ok: true, on: false });
+    expect(readBrandRequest(true)).toEqual({ ok: true, on: true });
+    expect(readBrandRequest({ brief: { name: "X" } })).toEqual({ ok: true, on: true });
+    expect(readBrandRequest("yes").ok).toBe(false);
   });
 });
 
@@ -134,6 +134,11 @@ describe("buildBrandContext", () => {
     expect(off.block).not.toContain("Must include");
     expect(off.block).not.toContain("Campaign brief");
 
+    // Never saved: product and logo mandatory, as the page starts.
+    const fresh = await buildBrandContext(EMAIL, {});
+    if (fresh.failed) throw new Error("failed");
+    expect(fresh.references.map((r) => r.name)).toEqual(["Product: Trail shoe", "Brand logo", "Reference: Warm sand"]);
+
     await savePage(a, { assetIds: [] });
     const none = await buildBrandContext(EMAIL, {});
     expect(none).toEqual({ failed: false, block: undefined, references: [], used: [] });
@@ -158,7 +163,8 @@ describe("POST /api/generate/text with the brand", () => {
   it("sends the brand: the mock names what it got, and the reply says what was used", async () => {
     const a = await app();
     await setUpBrand(a);
-    const res = await text(a, { brand: { brief: BRIEF } });
+    await saveBrief(a, BRIEF);
+    const res = await text(a, { brand: true });
     expect(res.status).toBe(200);
     expect(res.body.brand).toEqual({ used: ["brief", "Trail shoe", "logo", "1 reference", "1 guidelines file"] });
     expect(res.body.text).toContain("(with 3 references: Product: Trail shoe, Brand logo, Reference: Warm sand)");
@@ -175,9 +181,17 @@ describe("POST /api/generate/text with the brand", () => {
     }
   });
 
-  it("refuses a brand that is not a brief", async () => {
+  it("refuses a brand that is neither on nor off", async () => {
     const a = await app();
-    expect((await text(a, { brand: { brief: { tones: "Bold" } } })).status).toBe(400);
+    expect((await text(a, { brand: "yes" })).status).toBe(400);
+  });
+
+  it("uses the saved brief, not one sent by an older client", async () => {
+    const a = await app();
+    await setUpBrand(a);
+    await saveBrief(a, { mandatory: { product: false, logo: false } });
+    const res = await text(a, { brand: { brief: BRIEF } });
+    expect(res.body.brand).toEqual({ used: ["1 reference", "1 guidelines file"] });
   });
 
   it("generates without the brand when Assets cannot be read, and says so", async () => {
@@ -188,7 +202,7 @@ describe("POST /api/generate/text with the brand", () => {
       },
     }));
     const a = await app();
-    const res = await text(a, { brand: { brief: BRIEF } });
+    const res = await text(a, { brand: true });
     expect(res.status).toBe(200);
     expect(res.body.text).toBe("[mock] Three taglines");
     expect(res.body.brand).toEqual({ failed: true });
@@ -199,8 +213,9 @@ describe("POST /api/generate/image with the brand", () => {
   it("says what it used", async () => {
     const a = await app();
     await setUpBrand(a);
+    await saveBrief(a, BRIEF);
     const res = await request(a).post("/api/generate/image").set("Cookie", ANA)
-      .send({ modelId: "gemini-3.1-flash-image", instruction: "A hero shot", aspectRatio: "1:1", brand: { brief: BRIEF } });
+      .send({ modelId: "gemini-3.1-flash-image", instruction: "A hero shot", aspectRatio: "1:1", brand: true });
     expect(res.status).toBe(200);
     expect(res.body.brand).toEqual({ used: ["brief", "Trail shoe", "logo", "1 reference", "1 guidelines file"] });
   });
