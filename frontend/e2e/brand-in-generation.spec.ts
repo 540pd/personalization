@@ -34,12 +34,13 @@ async function setUpAssets(page: Page) {
   await savePage(page, { productName: "Trail shoe", masterId: master, assetIds: [master, logo, sand, rules] });
 }
 
-/** The brief lives in the browser: written on the Brand page, as a marketer would. */
+/** The brief, written and saved on the Brand page, as a marketer would. */
 async function writeBrief(page: Page, name: string) {
   await page.locator(".sidebar-identity").click();
   await page.getByRole("menuitem", { name: "Brand" }).click();
   await page.getByLabel("Campaign Name").fill(name);
   await page.getByRole("button", { name: "Save brand" }).click();
+  await expect(page.getByRole("button", { name: "Save brand" })).toBeDisabled();
   await page.getByRole("button", { name: "Close Brand" }).click();
 }
 
@@ -85,7 +86,8 @@ test.describe("Use brand", () => {
     const sent = page.waitForRequest((r) => r.url().endsWith("/generate/image") && r.method() === "POST");
     const answered = page.waitForResponse((r) => r.url().endsWith("/generate/image"));
     await create(page, "A hero shot on a city street");
-    expect((await sent).postDataJSON().brand.brief.name).toBe("Urban Running 2026");
+    // On: the backend reads the saved brief itself (#454).
+    expect((await sent).postDataJSON().brand).toBe(true);
     expect((await (await answered).json()).brand).toEqual({ used: ["brief", "Trail shoe", "logo", "1 reference", "1 guidelines file"] });
 
     await useBrand(page).click();

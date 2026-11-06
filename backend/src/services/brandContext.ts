@@ -9,77 +9,29 @@
 
 import type { Reference } from "../capabilities/types.js";
 import { getBrandAssets } from "./brandAssetsService.js";
+import { TEXT_FIELDS, type BriefInput } from "./brandService.js";
+export type { BriefInput } from "./brandService.js";
 import { openAsset, type AssetView } from "./assetService.js";
+
+/** A brief with no switches set yet: as a new brief starts on the Brand page (#409). */
+const DEFAULT_MANDATORY = { product: true, logo: true, cta: true, legal: false };
 
 /** Brand images per request: the master, the logo, then references. */
 export const MAX_BRAND_REFERENCES = 4;
 /** Brand text per request; guidelines are cut to fit. Image models do worse with very long prompts. */
 export const MAX_BRAND_TEXT = 30_000;
 
-const MAX_FIELD = 4000;
-const MAX_TONES = 10;
-const MAX_PICKED = 100;
-
-/** The brief as the Brand page holds it (#409, #442): every field optional. */
-export interface BriefInput {
-  name?: string;
-  objective?: string;
-  audience?: string;
-  insight?: string;
-  message?: string;
-  tones?: string[];
-  offer?: string;
-  mandatory?: { product?: boolean; logo?: boolean; cta?: boolean; legal?: boolean };
-  ctaText?: string;
-  legalText?: string;
-  dos?: string;
-  donts?: string;
-  referenceIds?: string[];
-}
-
-const TEXT_FIELDS = ["name", "objective", "audience", "insight", "message", "offer", "ctaText", "legalText", "dos", "donts"] as const;
-
-export type BrandRequest = { ok: true; brief: BriefInput | null } | { ok: false; message: string };
-
 /**
- * `brand` from a generate request: false or absent is off (a client not yet
- * redeployed sends nothing, and gets what it got before); `{ brief }` is on.
- * Validated inline, no Zod (CLAUDE.md).
+ * `brand` from a generate request: true is on, false or absent is off (a
+ * client not yet redeployed sends nothing, and gets what it got before). The
+ * brief itself is the saved one (#454); `{ brief }` from a client before that
+ * is read as on, its brief ignored: generation uses what was saved.
  */
-export function readBrandRequest(raw: unknown): BrandRequest {
-  if (raw === undefined || raw === null || raw === false) return { ok: true, brief: null };
-  if (typeof raw !== "object" || Array.isArray(raw)) return { ok: false, message: "brand must be { brief } or false." };
-  const brief = (raw as { brief?: unknown }).brief ?? {};
-  if (typeof brief !== "object" || brief === null || Array.isArray(brief)) return { ok: false, message: "brand.brief must be an object." };
-  const b = brief as Record<string, unknown>;
-
-  const out: BriefInput = {};
-  for (const key of TEXT_FIELDS) {
-    const value = b[key];
-    if (value === undefined) continue;
-    if (typeof value !== "string" || value.length > MAX_FIELD) return { ok: false, message: `brand.brief.${key} must be text, up to ${MAX_FIELD} characters.` };
-    out[key] = value;
-  }
-  if (b.tones !== undefined) {
-    if (!Array.isArray(b.tones) || b.tones.length > MAX_TONES || !b.tones.every((t) => typeof t === "string" && t.length <= 40)) {
-      return { ok: false, message: `brand.brief.tones must be up to ${MAX_TONES} short words.` };
-    }
-    out.tones = b.tones as string[];
-  }
-  if (b.mandatory !== undefined) {
-    const m = b.mandatory as Record<string, unknown>;
-    if (typeof m !== "object" || m === null || Array.isArray(m) || !Object.values(m).every((v) => typeof v === "boolean")) {
-      return { ok: false, message: "brand.brief.mandatory must be on/off switches." };
-    }
-    out.mandatory = { product: m.product === true, logo: m.logo === true, cta: m.cta === true, legal: m.legal === true };
-  }
-  if (b.referenceIds !== undefined) {
-    if (!Array.isArray(b.referenceIds) || b.referenceIds.length > MAX_PICKED || !b.referenceIds.every((id) => typeof id === "string")) {
-      return { ok: false, message: "brand.brief.referenceIds must be a list of asset ids." };
-    }
-    out.referenceIds = b.referenceIds as string[];
-  }
-  return { ok: true, brief: out };
+export function readBrandRequest(raw: unknown): { ok: true; on: boolean } | { ok: false; message: string } {
+  if (raw === undefined || raw === null || raw === false) return { ok: true, on: false };
+  if (raw === true) return { ok: true, on: true };
+  if (typeof raw === "object" && !Array.isArray(raw)) return { ok: true, on: true };
+  return { ok: false, message: "brand must be true or false." };
 }
 
 export type BrandContext =
@@ -123,7 +75,8 @@ export async function buildBrandContext(userId: string, brief: BriefInput): Prom
   try {
     const view = await getBrandAssets(userId);
     const of = (kind: string) => view.assets.filter((a) => a.kind === kind);
-    const mandatory = brief.mandatory ?? {};
+    // Never saved: the page's own defaults (#409), so what it shows is what goes.
+    const mandatory = brief.mandatory ?? DEFAULT_MANDATORY;
     const used: string[] = [];
     const references: Reference[] = [];
 
