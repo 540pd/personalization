@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { AssetView, BrandAssetsView } from "@/api/brandAssets.api";
 import {
-  addImage, changedImages, draftFrom, editImage, isDirty, makeMaster, master, otherViews, recordOf, removeImage, saveProblems,
+  addImage, addUploading, changedImages, draftFrom, editImage, isDirty, isDuplicate, isLowRes, isUploading, makeMaster, master,
+  otherViews, recordOf, removeImage, saveProblems, uploadFailed, uploadRetried, uploaded,
 } from "../assetsDraft";
 
 // The Assets page's editing rules (#414).
@@ -80,5 +81,51 @@ describe("assets draft (#414)", () => {
   it("trims the record it saves", () => {
     const d = addImage({ ...draftFrom(view()), productName: "  Shoe ", sku: " X1 " }, asset("a"));
     expect(recordOf(d)).toMatchObject({ productName: "Shoe", sku: "X1", masterId: "a", assetIds: ["a"] });
+  });
+
+  describe("uploads in progress (#415)", () => {
+    const file = { name: "side.png", type: "image/png", size: 10 };
+
+    it("shows an upload at once, editable, and keeps what was typed when it lands", () => {
+      let d = addUploading(draftFrom(view()), "tmp-1", file, "blob:local");
+      expect(d.masterId).toBe("tmp-1");
+      expect(master(d)?.asset.url).toBe("blob:local");
+      expect(isUploading(d)).toBe(true);
+      d = editImage(d, "tmp-1", { description: "Side view", details: { view: "Side" } });
+      d = uploaded(d, "tmp-1", asset("a1", { name: "side.png" }));
+      expect(isUploading(d)).toBe(false);
+      expect(d.masterId).toBe("a1");
+      expect(d.images[0]).toMatchObject({ asset: { id: "a1" }, description: "Side view", details: { view: "Side" } });
+      expect(d.images[0].upload).toBeUndefined();
+      // Typed while uploading: saved as the image's details.
+      expect(changedImages(d).map((i) => i.asset.id)).toEqual(["a1"]);
+    });
+
+    it("never saves an image that has not landed, nor counts it as the master", () => {
+      let d = addUploading({ ...draftFrom(view()), productName: "Shoe" }, "tmp-1", file, "blob:x");
+      expect(recordOf(d)).toMatchObject({ masterId: "", assetIds: [] });
+      expect(saveProblems(d).missingMaster).toBe(true);
+      expect(isDirty(d, draftFrom(view()))).toBe(true);
+      d = uploadFailed(d, "tmp-1", "Too large to upload (25 MB at most).");
+      expect(d.images[0].upload).toEqual({ state: "failed", error: "Too large to upload (25 MB at most)." });
+      expect(isUploading(d)).toBe(false);
+      d = uploadRetried(d, "tmp-1");
+      expect(d.images[0].upload).toEqual({ state: "uploading" });
+    });
+
+    it("flags an image under 1500 px on its longest side", () => {
+      expect(isLowRes({ width: 640, height: 480 })).toBe(true);
+      expect(isLowRes({ width: 1200, height: 1600 })).toBe(false);
+      expect(isLowRes({ width: 1500, height: 900 })).toBe(false);
+      expect(isLowRes(undefined)).toBe(false);
+    });
+
+    it("spots a duplicate by content this visit, or by name and size for a stored one", () => {
+      const d = draftFrom(view({}, [asset("a1", { name: "side.png", bytes: 10 })]));
+      const hashes = new Map([["a1", "h1"]]);
+      expect(isDuplicate(d, { name: "other.png", size: 99 }, "h1", hashes)).toBe(true);
+      expect(isDuplicate(d, { name: "side.png", size: 10 }, "h2", new Map())).toBe(true);
+      expect(isDuplicate(d, { name: "side.png", size: 11 }, "h2", new Map())).toBe(false);
+    });
   });
 });
