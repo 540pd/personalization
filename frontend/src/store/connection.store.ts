@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createSelection, type SelectionSlice } from "./selectionSlice";
+import { wireBlock, type WireBlock } from "@/lib/canvas/wires";
 
 export interface Connection {
   id: string;
@@ -16,6 +17,13 @@ export interface DragState {
   cursorY: number;
   /** Set when an existing wire was picked up by its input end to move (#458). */
   movingId?:    string;
+  /**
+   * The node under the pointer that can't take the wire, why, and which of
+   * its ports shows it: the output the pointer is on, else its input (#460).
+   */
+  blocked?:     { nodeId: string; block: WireBlock; port: "input" | "output" };
+  /** The node whose input the wire would land on if let go now (#460). */
+  landingId?:   string;
 }
 
 interface ConnectionState extends SelectionSlice {
@@ -23,12 +31,16 @@ interface ConnectionState extends SelectionSlice {
   drag:                  DragState | null;
   startDrag:             (fromNodeId: string, fromNodeType: "panel" | "konva", x: number, y: number) => void;
   updateDrag:            (x: number, y: number) => void;
+  /** Mark the node under the pointer that can't take the wire, or clear it (#460). */
+  setBlocked:            (blocked: DragState["blocked"]) => void;
+  /** Mark the node whose input the wire would land on, or clear it (#460). */
+  setLanding:            (landingId: string | undefined) => void;
   /** Pick up a wire by its input end; it keeps its source and follows the pointer (#458). */
   startMove:             (connectionId: string, x: number, y: number) => void;
   /**
    * End the drag on a node's input. A new wire is added; a moved one goes
-   * there. Self-links and duplicates are refused: a new one is dropped, and a
-   * moved one is removed rather than doubled.
+   * there. Whatever wireBlock refuses (self-links, duplicates, loops: #460)
+   * is not made: a new one is dropped, and a moved one is removed.
    */
   commitConnection:      (toNodeId: string) => void;
   /** End the drag over nothing: a new wire is dropped, a moved one removed. */
@@ -57,6 +69,17 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
   updateDrag: (x, y) =>
     set((s) => s.drag ? { drag: { ...s.drag, cursorX: x, cursorY: y } } : s),
 
+  setBlocked: (blocked) =>
+    set((s) => {
+      if (!s.drag) return s;
+      const was = s.drag.blocked;
+      if (was?.nodeId === blocked?.nodeId && was?.block === blocked?.block && was?.port === blocked?.port) return s;
+      return { drag: { ...s.drag, blocked } };
+    }),
+
+  setLanding: (landingId) =>
+    set((s) => (s.drag && s.drag.landingId !== landingId ? { drag: { ...s.drag, landingId } } : s)),
+
   startMove: (connectionId, x, y) => {
     const conn = get().connections.find((c) => c.id === connectionId);
     if (!conn) return;
@@ -71,9 +94,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
     if (drag?.movingId) {
       const moving = connections.find((c) => c.id === drag.movingId);
       if (!moving || moving.toNodeId === toNodeId) { set({ drag: null }); return; }
-      const refused = toNodeId === drag.fromNodeId || connections.some(
-        (c) => c.id !== moving.id && c.fromNodeId === drag.fromNodeId && c.toNodeId === toNodeId
-      );
+      const refused = wireBlock(toNodeId, drag, connections, true) !== null;
       set((s) => ({
         connections: refused
           ? s.connections.filter((c) => c.id !== moving.id)
@@ -83,11 +104,8 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
       }));
       return;
     }
-    if (!drag || drag.fromNodeId === toNodeId) { set({ drag: null }); return; }
-    const exists = connections.some(
-      (c) => c.fromNodeId === drag.fromNodeId && c.toNodeId === toNodeId
-    );
-    if (!exists) {
+    if (!drag) return;
+    if (wireBlock(toNodeId, drag, connections, true) === null) {
       const newId = crypto.randomUUID();
       set((s) => ({
         connections: [...s.connections, {

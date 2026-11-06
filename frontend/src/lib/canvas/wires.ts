@@ -81,16 +81,17 @@ export function wireEnds(
 }
 
 /**
- * The input port a wire dropped at `at` snaps to: the nearest within
- * SNAP_RADIUS (#458), and never the wire's own source.
+ * The port a wire dropped at `at` snaps to: the nearest within `radius`
+ * (SNAP_RADIUS for inputs, #458), and never the wire's own source.
  */
 export function snapPort<P extends Point & { nodeId: string }>(
   ports: readonly P[],
   at: Point,
   fromId: string | null,
+  radius: number = SNAP_RADIUS,
 ): P | null {
   let best: P | null = null;
-  let bestDist: number = SNAP_RADIUS;
+  let bestDist = radius;
   for (const p of ports) {
     if (p.nodeId === fromId) continue;
     const dist = Math.hypot(at.x - p.x, at.y - p.y);
@@ -108,17 +109,56 @@ export interface WireDrag extends WireSource {
 }
 
 /**
- * Whether a node's input can take the wire being dragged: not its own source,
- * and not a node already wired from that source. The wire being moved
- * doesn't count against itself, so it may go back where it came from.
+ * Why a node can't take the dragged wire (#460). "output" is the pointer on
+ * another node's output port; the rest are wireBlock's, in its order.
  */
-export function canTake(
+export type WireBlock = "output" | "self" | "connected" | "no-input" | "loop";
+
+/** What the label by the pointer says for each (#460). */
+export const WIRE_BLOCK_REASONS: Record<WireBlock, string> = {
+  "output":    "An output can't connect to another output",
+  "self":      "Can't connect a node to itself",
+  "connected": "Already connected",
+  "no-input":  "This node doesn't take inputs",
+  "loop":      "This would make a loop",
+};
+
+type WireEdge = WireSource & { id: string; toNodeId: string };
+
+/**
+ * Why a node can't take the wire being dragged, or null when it can. One
+ * function for both the blue targets (#458) and the red node (#460), so they
+ * always agree. The wire being moved doesn't count against itself, so it may
+ * go back where it came from.
+ */
+export function wireBlock(
   nodeId: string,
   drag: WireDrag,
-  connections: readonly (WireSource & { id: string; toNodeId: string })[],
-): boolean {
-  if (nodeId === drag.fromNodeId) return false;
-  return !connections.some((c) => c.id !== drag.movingId && c.fromNodeId === drag.fromNodeId && c.toNodeId === nodeId);
+  connections: readonly WireEdge[],
+  takesInput: boolean,
+): Exclude<WireBlock, "output"> | null {
+  if (nodeId === drag.fromNodeId) return "self";
+  const others = connections.filter((c) => c.id !== drag.movingId);
+  if (others.some((c) => c.fromNodeId === drag.fromNodeId && c.toNodeId === nodeId)) return "connected";
+  if (!takesInput) return "no-input";
+  if (reaches(nodeId, drag.fromNodeId, others)) return "loop";
+  return null;
+}
+
+/** Whether `to` can be reached from `from` by following wires downstream. */
+function reaches(from: string, to: string, connections: readonly WireEdge[]): boolean {
+  const seen = new Set([from]);
+  const queue = [from];
+  while (queue.length) {
+    const at = queue.shift()!;
+    for (const c of connections) {
+      if (c.fromNodeId !== at || seen.has(c.toNodeId)) continue;
+      if (c.toNodeId === to) return true;
+      seen.add(c.toNodeId);
+      queue.push(c.toNodeId);
+    }
+  }
+  return false;
 }
 
 /** The nodes at either end of a wire; the drag preview's far end is the pointer, so it has none. */

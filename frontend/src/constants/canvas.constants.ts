@@ -234,3 +234,6 @@ export const SELECTION = {
 export const PORT_WIDTH    = 6;
 export const PORT_FRACTION = 0.3; // vertical position from the node's top edge
 export const SNAP_RADIUS   = 28; // screen px; was 16 before drop targets lit up (#458)
+// A dragged wire is "on" an output port within this many screen px of its
+// centre: the port's 24 px grab area, plus a little (#460).
+export const OUTPUT_HIT_RADIUS = 16;

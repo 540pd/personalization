@@ -7,6 +7,7 @@ import { useToolStore, panningTool, cursorFor, drawingTool } from "@/store/tool.
 import { useNodePanel } from "@/store/nodePanel.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
 import { useLayerOrder } from "@/store/layerOrder.store";
+import { useConnectionStore } from "@/store/connection.store";
 import { boardIsShown } from "@/store/section.store";
 import { canvasHistory } from "@/lib/canvas/history";
 import { boardStage } from "@/lib/canvas/boardStage";
@@ -103,6 +104,9 @@ export default function Board() {
     const off: Array<() => void> = [];
 
     off.push(registerKonvaHistory(board));
+    // A wire drag starts on a node the pointer is already over: its outline
+    // goes, as only the wire's ports highlight while it's dragged (#460).
+    off.push(useConnectionStore.subscribe((s, prev) => { if (s.drag && !prev.drag) hover.hide(); }));
     off.push(bindNodeChrome(board));
 
     // Snapshot initial state (demo node). A plain commit: saveSnapshot would
