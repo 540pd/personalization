@@ -7,6 +7,7 @@
 import { getAuthMode } from "../middleware/requireIdentity.js";
 import { isEphemeralSessionSecret } from "./sessionToken.js";
 import { cloudTasksConfig } from "./jobs/cloudTasks.js";
+import { supportMailConfig } from "./support/mailer.js";
 import { describeStorageModes, isCloud, isDeployed, storageModes, type StorageModes } from "./storageMode.js";
 
 export interface ServiceModes {
@@ -15,6 +16,8 @@ export interface ServiceModes {
   ai: "vertex" | "placeholder";
   /** Who runs video jobs (#325): Cloud Tasks, or this process. */
   jobs: "cloud-tasks" | "in-process";
+  /** Where support messages go (#428): emailed, or only kept and logged. */
+  supportEmail: "smtp" | "placeholder";
 }
 
 export function serviceModes(): ServiceModes {
@@ -23,6 +26,7 @@ export function serviceModes(): ServiceModes {
     storage: storageModes(),
     ai: process.env.VERTEX_PROJECT_ID?.trim() ? "vertex" : "placeholder",
     jobs: cloudTasksConfig() ? "cloud-tasks" : "in-process",
+    supportEmail: supportMailConfig() ? "smtp" : "placeholder",
   };
 }
 
@@ -42,6 +46,7 @@ export function describeServiceModes(modes: ServiceModes = serviceModes()): stri
     `storage: ${describeStorageModes(modes.storage)}${cloud ? "" : " -- to switch: FIRESTORE_PROJECT_ID, GCS_BUCKET_NAME"}`,
     `AI:      ${modes.ai === "vertex" ? "Vertex AI" : "offline placeholders -- to switch: VERTEX_PROJECT_ID"}`,
     `jobs:    ${modes.jobs === "cloud-tasks" ? "Cloud Tasks" : "in process (placeholder) -- to switch: CLOUD_TASKS_QUEUE, CLOUD_TASKS_SERVICE_ACCOUNT, JOBS_WORKER_URL"}`,
+    `support: ${modes.supportEmail === "smtp" ? "emailed over SMTP" : "kept and logged, not emailed (placeholder) -- to switch: SUPPORT_EMAIL_TO, SUPPORT_EMAIL_FROM, SMTP_HOST"}`,
   ];
   return lines.map((l) => `  ${l}`).join("\n") + "\n  (docs/switching-to-gcp.md)";
 }
@@ -71,5 +76,8 @@ export function assertDeployable(modes: ServiceModes = serviceModes()): void {
   }
   if (modes.ai === "placeholder") {
     console.warn("[startup] Deployed with placeholder AI images: set VERTEX_PROJECT_ID for Vertex AI.");
+  }
+  if (modes.supportEmail === "placeholder") {
+    console.warn("[startup] Deployed without support email: messages are kept, not emailed. Set SUPPORT_EMAIL_TO, SUPPORT_EMAIL_FROM and SMTP_HOST.");
   }
 }
