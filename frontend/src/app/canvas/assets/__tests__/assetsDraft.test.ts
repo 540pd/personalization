@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AssetView, BrandAssetsView } from "@/api/brandAssets.api";
 import {
   addImage, addUploading, changedImages, draftFrom, editImage, imagesOf, isDirty, isDuplicate, isLowRes, isUploading, makeMaster,
-  master, otherViews, recordOf, removeImage, replaceImage, saveProblems, uploadFailed, uploadRetried, uploaded, cleanColour, isColour,
+  master, otherViews, recordOf, removeImage, replaceImage, saveProblems, setReferenceType, defaultUse, uploadFailed, uploadRetried, uploaded, cleanColour, isColour,
 } from "../assetsDraft";
 
 // The Assets page's editing rules (#414).
@@ -18,7 +18,7 @@ const view = (over: Partial<BrandAssetsView["record"]> = {}, assets: AssetView[]
 
 describe("assets draft (#414)", () => {
   it("loads the saved page, keeping assets of other kinds aside", async () => {
-    const logo = asset("logo", { kind: "reference" });
+    const logo = asset("logo", { kind: null });
     const d = draftFrom(view({ productName: "Shoe", masterId: "b" }, [asset("a"), asset("b"), logo]));
     expect(d.images.map((i) => i.asset.id)).toEqual(["a", "b"]);
     expect(master(d)?.asset.id).toBe("b");
@@ -227,5 +227,29 @@ describe("logos and colours (#417)", () => {
     expect(saveProblems(d).badColours).toEqual(["secondary"]);
     expect(saveProblems(d).message).toBe("Use hex values like #1A2B3C for the brand colours.");
     expect(recordOf({ ...d, colours: { ...d.colours, secondary: "" } }).colours).toEqual({ primary: "#1A2B3C", secondary: "", accent: "" });
+  });
+});
+
+describe("creative references (#418)", () => {
+  const png = { name: "street.png", type: "image/png", size: 10 };
+
+  it("starts a new reference as a scene, for inspiration, used when a campaign picks it", () => {
+    const d = addUploading(draftFrom(view()), "t1", png, "blob:1", "reference");
+    expect(imagesOf(d, "reference")[0].details).toEqual({ referenceType: "Scene / environment", use: "inspiration", scope: "picked" });
+    expect(d.masterId).toBe("");
+  });
+
+  it("sets How to use it to the type's default when the type changes; a later choice is kept", () => {
+    expect(defaultUse("Background")).toBe("asIs");
+    expect(defaultUse("Texture / pattern")).toBe("asIs");
+    expect(defaultUse("Mood board")).toBe("inspiration");
+    let d = draftFrom(view({}, [asset("r", { kind: "reference", details: { referenceType: "Scene / environment", use: "inspiration", scope: "always" } })]));
+    d = setReferenceType(d, "r", "Background");
+    expect(d.images[0].details).toEqual({ referenceType: "Background", use: "asIs", scope: "always" });
+    d = editImage(d, "r", { details: { use: "inspiration" } });
+    expect(d.images[0].details.use).toBe("inspiration");
+    d = setReferenceType(d, "r", "Lighting");
+    expect(d.images[0].details.use).toBe("inspiration");
+    expect(setReferenceType(d, "r", "").images[0].details).toMatchObject({ referenceType: "", use: "" });
   });
 });
