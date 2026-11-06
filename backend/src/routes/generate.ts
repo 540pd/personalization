@@ -11,8 +11,23 @@ import { createId } from "../utils/id.js";
 import { readGenerateRequest } from "./generateRequest.js";
 import { readReferences } from "./references.js";
 import { resolveAssetReferences } from "../services/generatedAssets.js";
+import { buildBrandContext, readBrandRequest, withBrand, type BrandContext } from "../services/brandContext.js";
 
 export const generateRouter = Router();
+
+/**
+ * The brand for a request (#452): null when off; never an error once the
+ * body is valid, since a brand that cannot be read is generated without.
+ */
+async function brandFor(raw: unknown, userId: string): Promise<{ ok: true; brand: BrandContext | null } | { ok: false; message: string }> {
+  const request = readBrandRequest(raw);
+  if (!request.ok) return request;
+  return { ok: true, brand: request.brief ? await buildBrandContext(userId, request.brief) : null };
+}
+
+/** What the response says of the brand: what it used, or that it could not be read. */
+const brandReply = (brand: BrandContext | null) =>
+  !brand ? {} : brand.failed ? { brand: { failed: true } } : { brand: { used: brand.used } };
 
 // POST /api/generate/image
 // Nano Banana image generation. Accepts { modelId, instruction, aspectRatio,
@@ -73,9 +88,20 @@ generateRouter.post("/generate/image", requireIdentity(), async (req, res, next)
       ? aspectRatio
       : "1:1";
 
+    const branded = await brandFor((req.body as { brand?: unknown }).brand, req.identity.email);
+    if (!branded.ok) {
+      sendValidationError(res, branded.message);
+      return;
+    }
+    const brand = branded.brand && !branded.brand.failed ? branded.brand : null;
+    const upstream = referenceImages === undefined || referenceImages === null
+      ? request.references
+      : readReferences(referenceImages);
+
     const generationParams = {
       modelId: request.modelId,
-      instruction: withSkills(request.instruction, request.context.skills),
+      // The brand ahead of the skills and the prompt (#452).
+      instruction: withBrand(withSkills(request.instruction, request.context.skills), brand?.block),
       aspectRatio: ratio,
       userId: req.identity.email,
       // Passed through rather than squashed: imageSize takes "1K" | "2K" |
@@ -85,10 +111,9 @@ generateRouter.post("/generate/image", requireIdentity(), async (req, res, next)
       thinking: isOneOf(thinking, ["None", "Minimal", "Full"]) ? thinking : undefined,
       temperature: typeof temperature === "number" ? temperature : undefined,
       grounding: typeof grounding === "boolean" ? grounding : undefined,
-      // referenceImages is this route's older name for references.
-      references: referenceImages === undefined || referenceImages === null
-        ? request.references
-        : readReferences(referenceImages),
+      // referenceImages is this route's older name for references. The
+      // brand's images come first, each named (#452).
+      references: brand?.references.length ? [...brand.references, ...(upstream ?? [])] : upstream,
     };
 
     // Stored references (#323) read back into bytes before anything is billed.
@@ -108,6 +133,7 @@ generateRouter.post("/generate/image", requireIdentity(), async (req, res, next)
         status: "done",
         imageUrl: result.imageUrl,
         modelUsed: result.modelUsed,
+        ...brandReply(branded.brand),
       });
       return;
     }
@@ -127,6 +153,7 @@ generateRouter.post("/generate/image", requireIdentity(), async (req, res, next)
       imageUrls: images.map((image) => image.imageUrl),
       modelUsed: images[0].modelUsed,
       ...(errors.length ? { errors } : {}),
+      ...brandReply(branded.brand),
     });
   } catch (err) {
     next(err);
@@ -149,7 +176,16 @@ generateRouter.post("/generate/text", requireIdentity(), async (req, res, next) 
       return;
     }
 
-    const references = await resolveAssetReferences(request.references, req.identity.email);
+    const branded = await brandFor((req.body as { brand?: unknown }).brand, req.identity.email);
+    if (!branded.ok) {
+      sendValidationError(res, branded.message);
+      return;
+    }
+    const brand = branded.brand && !branded.brand.failed ? branded.brand : null;
+
+    // The brand's images first, each named (#452), then the prompt's own.
+    const withBrandRefs = brand?.references.length ? [...brand.references, ...(request.references ?? [])] : request.references;
+    const references = await resolveAssetReferences(withBrandRefs, req.identity.email);
     if (!references.ok) {
       sendValidationError(res, references.message);
       return;
@@ -163,6 +199,8 @@ generateRouter.post("/generate/text", requireIdentity(), async (req, res, next) 
       references: references.references,
       agent: request.context.agent,
       skills: request.context.skills,
+      brand: brand?.block,
+      brandUsed: brand?.used,
     });
 
     res.json({
@@ -170,6 +208,7 @@ generateRouter.post("/generate/text", requireIdentity(), async (req, res, next) 
       status: "done",
       text: result.text,
       modelUsed: result.modelUsed,
+      ...brandReply(branded.brand),
     });
   } catch (err) {
     next(err);
