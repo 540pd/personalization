@@ -32,6 +32,7 @@ import {
   isUploading,
   imagesOf,
   isImageKind,
+  readiness,
   recordOf,
   replaceImage,
   saveProblems,
@@ -48,6 +49,7 @@ import BrandSection from "./BrandSection";
 import BrandColours from "./BrandColours";
 import LogoGroup from "./LogoGroup";
 import ReferencesSection from "./ReferencesSection";
+import ReadinessStrip from "./ReadinessStrip";
 import type { LogoReading } from "../../assets/logoAnalysis";
 import CreativeGroup, { type CreativeKind } from "./CreativeGroup";
 import type { ImageSize } from "./AssetTiles";
@@ -356,6 +358,7 @@ function Page() {
       )}
       {load.kind === "ready" && draft && (
         <>
+          <ReadinessStrip items={readiness(draft, { logoRequired })} />
           {showProblems && (
             <div className="assets-alert" role="alert">
               {problems!.message}

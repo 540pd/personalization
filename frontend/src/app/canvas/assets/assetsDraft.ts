@@ -246,6 +246,34 @@ export function saveProblems(draft: AssetsDraft, opts: { logoRequired?: boolean 
   return { message: messages.length ? messages.join(" ") : null, missingMaster, missingName, missingLogo, badColours };
 }
 
+export type ReadyState = "done" | "missing" | "optional";
+export interface ReadyItem {
+  key: "master" | "name" | "logo" | "colours";
+  label: string;
+  state: ReadyState;
+}
+
+/**
+ * Whether the page is ready for generation (#419), item by item, as it is
+ * now rather than as saved: the same rules Save checks, said before Save.
+ * Colours are never required; any one set counts.
+ */
+export function readiness(draft: AssetsDraft, opts: { logoRequired?: boolean } = {}): ReadyItem[] {
+  const problems = saveProblems(draft, opts);
+  const hasLogo = imagesOf(draft, "logo").some((i) => !i.upload);
+  const colours = Object.values(draft.colours).filter((c) => c.trim() && isColour(c)).length;
+  return [
+    { key: "master", label: "Master image", state: problems.missingMaster ? "missing" : "done" },
+    { key: "name", label: "Product name", state: problems.missingName ? "missing" : "done" },
+    {
+      key: "logo",
+      label: opts.logoRequired ? "Logo (required by the brief)" : "Logo (optional)",
+      state: hasLogo ? "done" : opts.logoRequired ? "missing" : "optional",
+    },
+    { key: "colours", label: `Colours ${colours} of 3`, state: colours ? "done" : "optional" },
+  ];
+}
+
 export function recordOf(draft: AssetsDraft): BrandAssetsRecord {
   return {
     productName: draft.productName.trim(),
