@@ -12,6 +12,7 @@ import { localDataDir } from "../storageMode.js";
 import type { AssetStore } from "./types.js";
 
 export * from "./types.js";
+export * from "./details.js";
 
 let _store: AssetStore | null = null;
 
