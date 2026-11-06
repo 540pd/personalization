@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AssetView, BrandAssetsView } from "@/api/brandAssets.api";
 import {
   addImage, addUploading, changedImages, draftFrom, editImage, imagesOf, isDirty, isDuplicate, isLowRes, isUploading, makeMaster,
-  master, otherViews, recordOf, removeImage, replaceImage, saveProblems, setReferenceType, defaultUse, uploadFailed, uploadRetried, uploaded, cleanColour, isColour,
+  master, otherViews, recordOf, removeImage, replaceImage, readiness, saveProblems, setReferenceType, defaultUse, uploadFailed, uploadRetried, uploaded, cleanColour, isColour,
 } from "../assetsDraft";
 
 // The Assets page's editing rules (#414).
@@ -251,5 +251,35 @@ describe("creative references (#418)", () => {
     d = setReferenceType(d, "r", "Lighting");
     expect(d.images[0].details.use).toBe("inspiration");
     expect(setReferenceType(d, "r", "").images[0].details).toMatchObject({ referenceType: "", use: "" });
+  });
+});
+
+describe("readiness (#419)", () => {
+  const states = (d: Parameters<typeof readiness>[0], logoRequired = false) =>
+    readiness(d, { logoRequired }).map((i) => [i.label, i.state]);
+
+  it("says what is missing, what is optional, and what is done, as the page is now", () => {
+    const empty = draftFrom(view());
+    expect(states(empty, true)).toEqual([
+      ["Master image", "missing"],
+      ["Product name", "missing"],
+      ["Logo (required by the brief)", "missing"],
+      ["Colours 0 of 3", "optional"],
+    ]);
+    expect(states(empty)[2]).toEqual(["Logo (optional)", "optional"]);
+
+    let d = addImage({ ...empty, productName: "Shoe", colours: { primary: "#1A2B3C", secondary: "nope", accent: "" } }, asset("a"));
+    d = addImage(d, asset("l", { kind: "logo" }));
+    expect(states(d, true)).toEqual([
+      ["Master image", "done"],
+      ["Product name", "done"],
+      ["Logo (required by the brief)", "done"],
+      ["Colours 1 of 3", "done"],
+    ]);
+  });
+
+  it("doesn't count an image still uploading", () => {
+    const d = addUploading(draftFrom(view()), "t1", { name: "a.png", type: "image/png", size: 1 }, "blob:1");
+    expect(readiness(d)[0].state).toBe("missing");
   });
 });

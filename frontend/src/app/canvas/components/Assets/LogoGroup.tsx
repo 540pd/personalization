@@ -59,6 +59,7 @@ export default function LogoGroup({
       role="group"
       aria-labelledby={`${id}-title`}
       data-asset-kind="logo"
+      id="assets-logo"
       {...drop.handlers}
     >
       <div>
