@@ -18,16 +18,16 @@
 }
 
 .minimap-zoom-menu {
-  @apply absolute bottom-[calc(100%+8px)] left-0 w-[220px] rounded-xl shadow-xl overflow-hidden;
-  @apply bg-white border border-black/[0.08];
+  @apply absolute bottom-[calc(100%+8px)] left-0 w-[220px] rounded-card shadow-menu overflow-hidden;
+  @apply bg-surface border border-line;
 }
 
 .minimap-zoom-menu-item {
-  @apply w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors;
+  @apply w-full flex items-center justify-between px-4 py-2.5 text-body transition-colors motion-reduce:transition-none;
 }
 
 .minimap-zoom-menu-item-enabled {
-  @apply hover:bg-black/5;
+  @apply hover:bg-subtle;
 }
 
 .minimap-zoom-menu-item-disabled {
@@ -35,19 +35,20 @@
 }
 
 .minimap-zoom-menu-label {
-  @apply text-gray-700;
+  @apply text-ink;
 }
 
 .minimap-zoom-menu-item-disabled .minimap-zoom-menu-label {
-  @apply text-gray-400;
+  @apply text-ink-muted/60;
 }
 
 .minimap-zoom-menu-shortcut {
-  @apply text-gray-400 text-[11px];
+  @apply text-ink-muted text-meta;
 }
 
 .minimap-panel {
-  @apply rounded-xl overflow-hidden shadow-lg bg-neutral-200;
+  // A ring rather than a border, so the panel keeps its size.
+  @apply rounded-card overflow-hidden shadow-float ring-1 ring-line bg-surface;
 }
 
 .minimap-zoom-bar {
@@ -55,11 +56,11 @@
 }
 
 .minimap-zoom-button {
-  @apply w-7 h-7 flex items-center justify-center rounded-lg text-lg font-light leading-none transition-colors hover:bg-black/10 text-gray-500;
+  @apply w-7 h-7 flex items-center justify-center rounded-control text-lg font-light leading-none transition-colors hover:bg-subtle text-ink-muted;
 }
 
 .minimap-zoom-percentage {
-  @apply h-7 rounded-lg text-xs font-semibold tabular-nums transition-colors hover:bg-black/10 text-gray-700;
+  @apply h-7 rounded-control text-xs font-medium tabular-nums transition-colors hover:bg-subtle text-ink;
 }
 
 .minimap-zoom-percentage-expanded {
@@ -71,28 +72,27 @@
 }
 
 .minimap-divider {
-  @apply w-px h-4 mx-0.5 bg-black/[0.12];
+  @apply w-px h-4 mx-0.5 bg-line;
 }
 
 .minimap-toggle-button {
-  @apply w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:bg-black/10 text-gray-500;
+  @apply w-7 h-7 flex items-center justify-center rounded-control transition-colors hover:bg-subtle text-ink-muted;
 }
 
 // The map is one <svg> with a viewBox; `block` stops the inline-element
 // baseline gap leaving a sliver of panel below it.
 .minimap-canvas {
-  @apply block cursor-crosshair bg-neutral-300;
+  @apply block cursor-crosshair bg-subtle;
 }
 
 // Objects read as solid blocks, matching the Luma reference — the point is
 // where things are, not what they are.
 .minimap-object {
-  @apply fill-neutral-500;
+  @apply fill-neutral-300;
 }
 
 .minimap-viewport-indicator {
   @apply cursor-grab active:cursor-grabbing;
-  fill: rgb(59 130 246 / 0.25);
-  stroke: rgb(59 130 246);
+  @apply fill-accent/15 stroke-accent;
   stroke-width: 1.5;
 }
