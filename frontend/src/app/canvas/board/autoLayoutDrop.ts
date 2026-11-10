@@ -12,11 +12,14 @@
 // the drag's own undo commit, so the drop and the new layout are one step.
 //
 // The pointer decides, not the item's box: over the Frame means in it. A
-// large panel half over the edge would otherwise be anyone's guess.
+// large panel half over the edge would otherwise be anyone's guess. With the
+// pointer off every such Frame, an item still over one joins it (#348): the
+// same rule that keeps an item in, where only one dropped clear leaves
+// (planReflow). Otherwise it sat on top of the row, overlapping a child.
 
 import { useFrames, type FrameRecord } from "@/store/frame.store";
 import { useLayoutDrop, type DropLine } from "@/store/layoutDrop.store";
-import { boundsOf, byArea, containsBox, contains, type Bounds } from "@/lib/canvas/bounds";
+import { boundsOf, byArea, containsBox, contains, overlaps, type Bounds } from "@/lib/canvas/bounds";
 import type { Point } from "@/lib/canvas/coords";
 import { FRAME_LAYOUT_GAP, FRAME_LAYOUT_NAME_BAND, FRAME_LAYOUT_PADDING } from "@/constants/canvas.constants";
 import { childBoxes, childrenOf, layoutColumns, withoutIds, type ChildBox } from "./autoLayout";
@@ -27,6 +30,31 @@ export function layoutFrameAt(pt: Point): FrameRecord | null {
   return Object.values(useFrames.getState().frames)
     .filter((f) => f.layout && contains(boundsOf(f), pt))
     .sort(byArea)[0] ?? null;
+}
+
+/** Where `a` and `b` overlap. Only for boxes that do. */
+const overlapOf = (a: Bounds, b: Bounds): Bounds => {
+  const x = Math.max(a.x, b.x);
+  const y = Math.max(a.y, b.y);
+  return { x, y, w: Math.min(a.x + a.w, b.x + b.w) - x, h: Math.min(a.y + a.h, b.y + b.h) - y };
+};
+
+/**
+ * The Frame with auto layout `id` lands in, dropped at `pt`, and the point
+ * there that decides its place. The Frame under the pointer, at the pointer;
+ * else the one the item's box overlaps most, at the middle of the overlap
+ * (#348).
+ */
+function dropSpot(id: string, pt: Point): { frame: FrameRecord; at: Point } | null {
+  const under = layoutFrameAt(pt);
+  if (under) return { frame: under, at: pt };
+  const box = childBoxes([id])[0];
+  if (!box) return null;
+  const best = Object.values(useFrames.getState().frames)
+    .filter((f) => f.layout && overlaps(boundsOf(f), box))
+    .map((frame) => ({ frame, part: overlapOf(boundsOf(frame), box) }))
+    .sort((a, b) => b.part.w * b.part.h - a.part.w * a.part.h)[0];
+  return best ? { frame: best.frame, at: { x: best.part.x + best.part.w / 2, y: best.part.y + best.part.h / 2 } } : null;
 }
 
 /** The Frame whose layout `id` is in, if any. */
@@ -161,13 +189,13 @@ function overOwnPlace(frame: FrameRecord, id: string, pt: Point): boolean {
 
 /** Show, move or hide the line for `id` dragged to `pt`. */
 export function trackLayoutDrag(id: string, pt: Point): void {
-  const frame = layoutFrameAt(pt);
-  if (!frame?.layout || overOwnPlace(frame, id, pt)) {
+  const spot = dropSpot(id, pt);
+  if (!spot?.frame.layout || overOwnPlace(spot.frame, id, spot.at)) {
     useLayoutDrop.getState().setLine(null);
     return;
   }
-  const columns = withoutIds(frame.layout.columns, new Set([id]));
-  useLayoutDrop.getState().setLine(dropTarget(boundsOf(frame), columns, pt).line);
+  const columns = withoutIds(spot.frame.layout.columns, new Set([id]));
+  useLayoutDrop.getState().setLine(dropTarget(boundsOf(spot.frame), columns, spot.at).line);
 }
 
 /** The drag is over without a drop to make: hide the line. */
@@ -185,22 +213,22 @@ export function dropIntoLayout(id: string, pt: Point): boolean {
   clearLayoutDrag();
   const { upsert } = useFrames.getState();
   const source = layoutOf(id);
-  const target = layoutFrameAt(pt);
+  const spot = dropSpot(id, pt);
   let changed = false;
 
-  if (source?.layout && source.id !== target?.id) {
-    // Left it: dropped outside it, or into another. (Over its own Frame,
-    // layoutFrameAt would have found it.) If that empties it, the re-layout
+  if (source?.layout && source.id !== spot?.frame.id) {
+    // Left it: dropped clear of it, or into another. (Over its own Frame,
+    // dropSpot would have found it.) If that empties it, the re-layout
     // turns its auto layout off.
     upsert({ ...source, layout: { columns: withoutIds(source.layout.columns, new Set([id])) } });
     changed = true;
   }
-  if (!target?.layout) return changed;
+  if (!spot?.frame.layout) return changed;
 
-  const current = useFrames.getState().frames[target.id];
-  if (overOwnPlace(current, id, pt)) return changed;
+  const current = useFrames.getState().frames[spot.frame.id];
+  if (overOwnPlace(current, id, spot.at)) return changed;
   const columns = withoutIds(current.layout!.columns, new Set([id]));
-  const next = placeInto(columns, id, dropTarget(boundsOf(current), columns, pt).placement);
+  const next = placeInto(columns, id, dropTarget(boundsOf(current), columns, spot.at).placement);
   if (!same(next, current.layout!.columns)) {
     upsert({ ...current, layout: { columns: next } });
     changed = true;
