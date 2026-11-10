@@ -59,15 +59,17 @@ export function startVideo(params: GenerateVideoParams, signal?: AbortSignal): P
 }
 
 /**
- * Polls a job. A 404 is a real answer, not an error: the backend's job store
- * is in-memory, so a restart loses jobs and the client must stop waiting
- * rather than hang.
+ * Polls a job. A 404 is a real answer, not an error: the job is gone (in
+ * memory, a restart loses jobs), so the client must stop waiting rather than
+ * hang. Any other failure throws: it says nothing about the job, so the
+ * caller keeps it and may ask again (#71).
  */
 export async function getJob(jobId: string): Promise<JobState> {
   const res = await apiFetch(`generate/job/${encodeURIComponent(jobId)}`, { method: "GET" });
   const body = await res.json().catch(() => ({})) as JobState & { message?: string };
-  if (!res.ok) {
-    return { status: "failed", message: body?.message ?? `Job lookup failed (${res.status})` };
+  if (res.status === 404) {
+    return { status: "failed", message: body?.message ?? "Job not found." };
   }
+  if (!res.ok) throw new Error(`Job lookup failed (${res.status})`);
   return body;
 }

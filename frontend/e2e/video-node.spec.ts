@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
-import { openBoard, collapsePanels, panelBoxes, clickEmpty, dragFrom, showEveryMenuItem } from "./helpers";
+import { openBoard, collapsePanels, panelBoxes, clickEmpty, dragFrom, reloadBoard, showEveryMenuItem } from "./helpers";
 
 // Creates Video nodes, which #404 hides by default, so offer them all.
 test.beforeEach(({ page }) => showEveryMenuItem(page));
@@ -20,12 +20,15 @@ interface StubOptions {
   fail?: string;
   /** Answer every poll with 404, as a restarted backend would. */
   lost?: boolean;
+  /** Answer this many polls with 502 first, as a backend restarting would. */
+  badGatewayPolls?: number;
 }
 
 async function stubVideo(page: Page, opts: StubOptions = {}) {
   const calls: string[] = [];
   let polls = 0;
   const pendingPolls = opts.pendingPolls ?? 1;
+  let badGateways = opts.badGatewayPolls ?? 0;
 
   await page.route("**/api/proxy/**", async (route: Route) => {
     const req = route.request();
@@ -47,6 +50,10 @@ async function stubVideo(page: Page, opts: StubOptions = {}) {
           contentType: "application/json",
           body: JSON.stringify({ status: "failed", message: "Job not found." }),
         });
+      }
+      if (badGateways > 0) {
+        badGateways -= 1;
+        return route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ message: "Bad gateway" }) });
       }
       polls += 1;
       if (polls <= pendingPolls) {
@@ -176,6 +183,41 @@ test.describe("node > video", () => {
     await expect(page.locator(".node-panel-error")).toContainText("Job not found", {
       timeout: 15_000,
     });
+  });
+
+  test("a reload while generating picks the job back up and shows the video (#71)", async ({ page }) => {
+    await stubVideo(page, { pendingPolls: 3 });
+    await openBoard(page);
+    await addVideoNode(page);
+    await submit(page, "a harbour at dusk");
+    await expect(page.getByText("Generating…")).toHaveCount(1);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("gcos-node-panels")?.includes("job-1"))).toBe(true);
+
+    await reloadBoard(page, { panels: 1 });
+
+    await expect(page.locator("video.node-panel-video")).toHaveAttribute("src", FAKE_VIDEO, { timeout: 20_000 });
+    await expect(page.getByText("Generating…")).toHaveCount(0);
+  });
+
+  test("a failed lookup does not lose the job (#71)", async ({ page }) => {
+    await stubVideo(page, { badGatewayPolls: 2 });
+    await openBoard(page);
+    await addVideoNode(page);
+    await submit(page, "a harbour at dusk");
+
+    await expect(page.locator("video.node-panel-video")).toHaveAttribute("src", FAKE_VIDEO, { timeout: 20_000 });
+    await expect(page.locator(".node-panel-error")).toHaveCount(0);
+  });
+
+  test("Create polls once per interval, not twice (#71)", async ({ page }) => {
+    const calls = await stubVideo(page, { pendingPolls: 100 });
+    await openBoard(page);
+    await addVideoNode(page);
+    await submit(page, "a harbour at dusk");
+    await page.waitForTimeout(5000);
+
+    // Polls at 0, 2 and 4 s. Two pollers would make it six.
+    expect(calls.filter((c) => c.includes("/generate/job/")).length).toBeLessThanOrEqual(4);
   });
 
   test("deleting a node mid-job stops it cleanly", async ({ page }) => {
