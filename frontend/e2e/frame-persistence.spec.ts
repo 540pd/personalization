@@ -24,6 +24,14 @@ async function frameCanvasBox(page: Page): Promise<Box> {
   });
 }
 
+async function imageCanvasBox(page: Page): Promise<Box> {
+  return page.evaluate(() => {
+    type Image = { x(): number; y(): number; width(): number; height(): number };
+    const image = (window as unknown as { Konva: { stages: { find(q: string): Image[] }[] } }).Konva.stages[0].find('Image')[0];
+    return { x: image.x(), y: image.y(), w: image.width(), h: image.height() };
+  });
+}
+
 async function drawAround(page: Page, b: Box, pad = 80) {
   await frameBtn(page).click();
   await page.mouse.move(b.x - pad, b.y - pad);
@@ -53,6 +61,23 @@ async function reloadBoard(page: Page) {
   });
 }
 
+async function bitmapCount(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('gcos-frame-media', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      return await new Promise<number>((resolve, reject) => {
+        const request = db.transaction('bitmaps', 'readonly').objectStore('bitmaps').count();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    } finally { db.close(); }
+  });
+}
+
 async function checkReload(page: Page, before: Box) {
   await reloadBoard(page);
   await expect.poll(() => frameCanvasBox(page)).toBeTruthy();
@@ -62,6 +87,57 @@ async function checkReload(page: Page, before: Box) {
 }
 
 test.describe('Frame reload persistence (#180)', () => {
+  test('restored images are the undo baseline and survive the next Frame save (#193)', async ({ page }) => {
+    await openBoard(page);
+    await uploadImage(page, 200, 150);
+    await collapsePanels(page);
+    await drawAround(page, await imageBox(page));
+    await reloadBoard(page);
+    await expect.poll(() => page.evaluate(() =>
+      (window as unknown as { Konva: { stages: { find(q: string): unknown[] }[] } }).Konva.stages[0].find('Image').length)).toBe(1);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect.poll(() => page.evaluate(() =>
+      (window as unknown as { Konva: { stages: { find(q: string): unknown[] }[] } }).Konva.stages[0].find('Image').length)).toBe(1);
+    await moveFrame(page, await frameBox(page));
+    await reloadBoard(page);
+    await expect.poll(() => page.evaluate(() =>
+      (window as unknown as { Konva: { stages: { find(q: string): unknown[] }[] } }).Konva.stages[0].find('Image').length)).toBe(1);
+  });
+
+  test('deleting an image removes its saved bitmap; undo brings it back (#193)', async ({ page }) => {
+    await openBoard(page);
+    await uploadImage(page, 100, 80);
+    await expect.poll(() => bitmapCount(page)).toBe(1);
+    const box = await imageBox(page);
+    await drawAround(page, box);
+    await page.keyboard.press('Escape');
+    await page.mouse.click(box.x + box.w / 2, box.y + box.h / 2);
+    await page.keyboard.press('Delete');
+    await expect.poll(() => bitmapCount(page)).toBe(0);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect.poll(() => bitmapCount(page)).toBe(1);
+    await expect.poll(() => page.evaluate(() =>
+      (window as unknown as { Konva: { stages: { find(q: string): unknown[] }[] } }).Konva.stages[0].find('Image').length)).toBe(1);
+    await reloadBoard(page);
+    await expect.poll(() => page.evaluate(() =>
+      (window as unknown as { Konva: { stages: { find(q: string): unknown[] }[] } }).Konva.stages[0].find('Image').length)).toBe(1);
+  });
+
+  test('a stalled bitmap write does not delay uploading several images (#193)', async ({ page }) => {
+    await openBoard(page);
+    await page.evaluate(() => {
+      // Simulate IndexedDB opening but never finishing; upload placement and
+      // the dock's busy state must not depend on it.
+      indexedDB.open = (() => ({} as IDBOpenDBRequest)) as typeof indexedDB.open;
+    });
+    await page.locator('input[type="file"]').setInputFiles([
+      { name: 'one.png', mimeType: 'image/png', buffer: makePng(90, 60) },
+      { name: 'two.png', mimeType: 'image/png', buffer: makePng(80, 50) },
+    ]);
+    await page.waitForFunction(() =>
+      (window as unknown as { Konva: { stages: { find(q: string): unknown[] }[] } }).Konva.stages[0].find('Image').length === 2);
+    await expect(page.getByRole('button', { name: 'Upload files' })).toHaveAttribute('aria-pressed', 'false');
+  });
   for (const zoom of [0.5, 1, 1.5]) {
     test(`empty Frame at ${zoom * 100}% — move, immediately reload`, async ({ page }) => {
       await openBoard(page);
@@ -74,24 +150,27 @@ test.describe('Frame reload persistence (#180)', () => {
     });
   }
 
-  test('uploaded image moves with Frame and restores in the same relative position', async ({ page }) => {
+  for (const zoom of [0.5, 1, 1.5]) {
+  test(`uploaded image moves with Frame and restores at ${zoom * 100}% zoom`, async ({ page }) => {
     await openBoard(page);
+    await setZoom(page, zoom);
     await uploadImage(page, 200, 150);
     await collapsePanels(page);
     const img = await imageBox(page);
     await drawAround(page, img);
     await moveFrame(page, await frameBox(page));
-    const moved = await frameBox(page);
-    const imageBefore = await imageBox(page);
+    const moved = await frameCanvasBox(page);
+    const imageBefore = await imageCanvasBox(page);
     await reloadBoard(page);
     await expect.poll(async () => page.evaluate(() =>
       (window as unknown as { Konva: { stages: { find(q: string): unknown[] }[] } }).Konva.stages[0].find('Image').length)).toBe(1);
-    const after = await frameBox(page);
-    const imageAfter = await imageBox(page);
+    const after = await frameCanvasBox(page);
+    const imageAfter = await imageCanvasBox(page);
     expect(after.x).toBeCloseTo(moved.x, 0);
     expect(imageAfter.x - after.x).toBeCloseTo(imageBefore.x - moved.x, 0);
     expect(imageAfter.y - after.y).toBeCloseTo(imageBefore.y - moved.y, 0);
   });
+  }
 
   test('Create node moves and restores with its Frame', async ({ page }) => {
     await openBoard(page);

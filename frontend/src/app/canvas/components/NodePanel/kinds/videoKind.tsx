@@ -45,13 +45,16 @@ async function awaitJob(jobId: string, signal?: AbortSignal): Promise<PanelOutpu
   for (;;) {
     if (signal?.aborted) throw new DOMException("cancelled", "AbortError");
 
-    const state = await getJob(jobId);
+    // A lookup that failed says nothing about the job: the backend restarting,
+    // or the page reloading mid-request. Failing here would drop the job id
+    // while the video is still being made, so ask again (#71).
+    const state = await getJob(jobId).catch(() => null);
 
-    if (state.status === "done") {
+    if (state?.status === "done") {
       if (!state.videoUrl) throw new Error("Generation finished but returned no video.");
       return { type: "video", value: state.videoUrl };
     }
-    if (state.status === "failed") {
+    if (state?.status === "failed") {
       throw new Error(state.message ?? "Video generation failed.");
     }
     if (Date.now() > deadline) {

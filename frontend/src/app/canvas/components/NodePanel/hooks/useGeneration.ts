@@ -173,7 +173,11 @@ export function useGeneration(
         context,
         // Persisted the moment the backend hands it back, so a reload during
         // a multi-minute video generation resumes rather than loses it.
-        onJobStarted: (jobId) => useNodePanel.getState().setJob(instance.id, jobId),
+        onJobStarted: (jobId) => {
+          // This generate is already waiting on it; the resume below must not too.
+          resumedJob.current = jobId;
+          useNodePanel.getState().setJob(instance.id, jobId);
+        },
         onBrandFailed: brandFailed,
         signal: controller.signal,
       });
@@ -231,6 +235,9 @@ export function useGeneration(
     return () => {
       cancelled = true;
       controller.abort();
+      // That wait is over. StrictMode runs this effect again straight away,
+      // and it has to start a new one (#71).
+      resumedJob.current = null;
     };
   }, [instance.job, instance.output, instance.id, spec]);
 

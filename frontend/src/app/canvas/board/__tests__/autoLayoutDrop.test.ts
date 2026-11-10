@@ -98,6 +98,34 @@ describe("dropping into a Frame with auto layout", () => {
     expect(cols("f")).toEqual([["a"], ["b"], ["c"]]);
   });
 
+  describe("in a stack, dropped back where it was (#349)", () => {
+    // a stacked over b in the first column: a at 16, b at 16 + 60 + 16 = 92.
+    beforeEach(() => {
+      useFrames.getState().upsert({ ...frame("f", 0, [["a", "b"], ["c"]]), canvasH: 168 });
+      useKonvaNodes.getState().upsert(node("a", 16));
+      useKonvaNodes.getState().upsert(node("b", 16, 92));
+      useKonvaNodes.getState().upsert(node("c", 122));
+    });
+
+    it("the bottom one stays in the stack", () => {
+      // Dragged a few pixels: the pointer is still in b's place.
+      useKonvaNodes.getState().upsert(node("b", 22, 97));
+      expect(dropIntoLayout("b", { x: 70, y: 120 })).toBe(false);
+      expect(cols("f")).toEqual([["a", "b"], ["c"]]);
+    });
+
+    it("the top one stays in the stack", () => {
+      useKonvaNodes.getState().upsert(node("a", 22, 21));
+      expect(dropIntoLayout("a", { x: 70, y: 40 })).toBe(false);
+      expect(cols("f")).toEqual([["a", "b"], ["c"]]);
+    });
+
+    it("shows no line while over its own place", () => {
+      trackLayoutDrag("b", { x: 70, y: 120 });
+      expect(useLayoutDrop.getState().line).toBeNull();
+    });
+  });
+
   it("dropped outside its Frame, it leaves, and its column goes", () => {
     useKonvaNodes.getState().upsert(node("b", 560, 570));
     expect(dropIntoLayout("b", { x: 600, y: 600 })).toBe(true);

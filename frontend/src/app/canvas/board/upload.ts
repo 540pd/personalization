@@ -117,7 +117,7 @@ function addImage(
   const url = file ? URL.createObjectURL(file) : (source as { stored: StoredImage }).stored.url;
   const img = new window.Image() as HTMLImageElement;
 
-  img.onload = async () => {
+  img.onload = async() => {
     const { w, h } = fitToBox(img.naturalWidth, img.naturalHeight);
     const id = crypto.randomUUID();
     const x = cx - w / 2 + off;
@@ -170,6 +170,12 @@ function addImage(
       label: uniqueLabel(file ? stripExtension(file.name) : (source as { stored: StoredImage }).stored.name, takenLabels()),
     }, droppedAt);
     onSettled();
+    // The image must land even when IndexedDB is slow, blocked or disabled.
+    // Storage serializes writes/deletes per id so a delete during this write
+    // cannot leave an orphan bitmap behind.
+    void saveFrameBitmap(id, imageUrl).catch((err) => {
+      console.warn("[frames] Could not save uploaded image for reload.", err);
+    });
     if (!file) return;
     URL.revokeObjectURL(url);
     // On the board already, with its local copy; now into the user's
