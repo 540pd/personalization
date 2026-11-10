@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { StrictMode } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useNodePanel, type PanelInstance, type PanelOutput } from "@/store/nodePanel.store";
@@ -150,5 +151,38 @@ describe("useGeneration", () => {
     const { result } = renderHook(() => useGeneration(panel({ job: "j1" }), s, draft, settings));
     await waitFor(() => expect(result.current.error).toBe("gone"));
     expect(stored().job).toBeUndefined();
+  });
+
+  it("resumes under StrictMode, which runs the effect twice and cancels the first (#71)", async () => {
+    useNodePanel.setState({ panels: [panel({ job: "j1" })] });
+    const resume = vi.fn(async () => ({ type: "video", value: "https://v" }) as PanelOutput);
+    const s = spec({ resume });
+    const { result } = renderHook(() => useGeneration(panel({ job: "j1" }), s, draft, settings), { wrapper: StrictMode });
+    await waitFor(() => expect(stored().output).toEqual({ type: "video", value: "https://v" }));
+    expect(resume).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(result.current.busy).toBe(false));
+  });
+
+  it("does not poll a second time for the job its own Create started (#71)", async () => {
+    let finish!: (output: PanelOutput) => void;
+    const resume = vi.fn(async () => ({ type: "video", value: "https://v" }) as PanelOutput);
+    const generate = vi.fn(({ onJobStarted }: GenerateArgs) => {
+      onJobStarted?.("j1");
+      return new Promise<PanelOutput>((resolve) => { finish = resolve; });
+    });
+    const s = spec({ resume, generate } as unknown as Partial<NodeKindSpec>);
+    const { result, rerender } = renderHook(
+      ({ instance }) => useGeneration(instance, s, draft, settings),
+      { initialProps: { instance: panel() } },
+    );
+    let done!: Promise<void>;
+    act(() => { done = result.current.generate(); });
+    await waitFor(() => expect(generate).toHaveBeenCalled());
+    rerender({ instance: panel({ job: "j1" }) });
+    expect(resume).not.toHaveBeenCalled();
+    await act(async () => {
+      finish({ type: "video", value: "https://v" });
+      await done;
+    });
   });
 });

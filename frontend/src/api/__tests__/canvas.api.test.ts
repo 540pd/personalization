@@ -69,4 +69,9 @@ describe("getJob", () => {
     fetchMock.mockResolvedValueOnce(ok({ message: "not found" }, 404));
     await expect(getJob("j")).resolves.toEqual({ status: "failed", message: "not found" });
   });
+
+  it("throws on any other failure: it says nothing about the job (#71)", async () => {
+    fetchMock.mockResolvedValueOnce(ok({ message: "bad gateway" }, 502));
+    await expect(getJob("j")).rejects.toThrow("502");
+  });
 });
