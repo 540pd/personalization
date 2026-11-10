@@ -93,10 +93,12 @@ export function createFrameStage(container: HTMLDivElement): FrameStage {
   };
 
   frameStage.current = stage;
+  const rects = createFrameRects(layer, transformer);
   return {
     stage, layer, transformer, hover, showDraft,
-    rects: createFrameRects(layer, transformer),
+    rects,
     dispose: () => {
+      rects.dispose();
       observer.disconnect();
       frameStage.current = null;
       stage.destroy();
