@@ -70,6 +70,21 @@ describe("panelStorage", () => {
     // earlier test in this file has already spent it.
   });
 
+  it("keeps durable image and video asset references when inline media exceeds quota", () => {
+    store = quotaStorage(2000);
+    vi.stubGlobal("window", { localStorage: store });
+    const panels: PanelInstance[] = [
+      node("inline", "x".repeat(5000)),
+      node("image", "/api/proxy/assets/image-id/content"),
+      { ...node("video", "/api/proxy/assets/video-id/content"), kind: "video",
+        output: { type: "video", value: "/api/proxy/assets/video-id/content" } },
+    ];
+    panelStorage.setItem("k", value(panels));
+    expect(read("k")?.state.panels.map((p) => p.output?.value)).toEqual([
+      undefined, "/api/proxy/assets/image-id/content", "/api/proxy/assets/video-id/content",
+    ]);
+  });
+
   it("gives up quietly when even the lean save does not fit", () => {
     store = quotaStorage(10);
     vi.stubGlobal("window", { localStorage: store });
