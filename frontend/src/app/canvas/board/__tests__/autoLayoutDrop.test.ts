@@ -99,6 +99,7 @@ describe("dropping into a Frame with auto layout", () => {
   });
 
   it("dropped outside its Frame, it leaves, and its column goes", () => {
+    useKonvaNodes.getState().upsert(node("b", 560, 570));
     expect(dropIntoLayout("b", { x: 600, y: 600 })).toBe(true);
     expect(cols("f")).toEqual([["a"], ["c"]]);
   });
@@ -114,6 +115,41 @@ describe("dropping into a Frame with auto layout", () => {
     expect(cols("f")).toEqual([["e"], ["a"], ["b"], ["c"]]);
   });
 
+  describe("with the pointer off the Frame but the item over it (#348)", () => {
+    // e, 90 wide, dropped half over f's left edge: x -60 to 30, the pointer at -40.
+    beforeEach(() => useKonvaNodes.getState().upsert(node("e", -60, 16)));
+
+    it("it joins, placed by the part over the Frame", () => {
+      expect(dropIntoLayout("e", { x: -40, y: 46 })).toBe(true);
+      expect(cols("f")).toEqual([["e"], ["a"], ["b"], ["c"]]);
+    });
+
+    it("the line shows while it is over", () => {
+      trackLayoutDrag("e", { x: -40, y: 46 });
+      expect(useLayoutDrop.getState().line).toMatchObject({ vertical: true });
+    });
+
+    it("one of its own, dragged half out, stays in its layout", () => {
+      useKonvaNodes.getState().upsert(node("c", 300, 16, 90, 80));
+      expect(dropIntoLayout("c", { x: 360, y: 56 })).toBe(false);
+      expect(cols("f")).toEqual([["a"], ["b"], ["c"]]);
+    });
+
+    it("over two Frames, it goes to the one it covers more of", () => {
+      // 20 over f, 34 over g; the middle of that 34 is on d's left side.
+      useKonvaNodes.getState().upsert(node("e", 314, 16, 720, 60));
+      expect(dropIntoLayout("e", { x: 660, y: 46 })).toBe(true);
+      expect(cols("g")).toEqual([["e"], ["d"]]);
+      expect(cols("f")).toEqual([["a"], ["b"], ["c"]]);
+    });
+
+    it("clear of every Frame, nothing joins", () => {
+      useKonvaNodes.getState().upsert(node("e", 600, 300));
+      expect(dropIntoLayout("e", { x: 640, y: 330 })).toBe(false);
+      expect(cols("f")).toEqual([["a"], ["b"], ["c"]]);
+    });
+  });
+
   it("taken out of a stack and put beside another, the stack shrinks", () => {
     useFrames.getState().upsert({ ...useFrames.getState().frames.f, layout: { columns: [["a", "b"], ["c"]] } });
     useKonvaNodes.getState().upsert(node("b", 16, 92));
@@ -126,6 +162,7 @@ describe("dropping into a Frame with auto layout", () => {
     expect(useLayoutDrop.getState().line).toMatchObject({ vertical: true });
     trackLayoutDrag("a", { x: 167, y: 72 });
     expect(useLayoutDrop.getState().line).toMatchObject({ vertical: false });
+    useKonvaNodes.getState().upsert(node("a", 560, 570));
     trackLayoutDrag("a", { x: 600, y: 600 });
     expect(useLayoutDrop.getState().line).toBeNull();
     trackLayoutDrag("a", { x: 200, y: 46 });

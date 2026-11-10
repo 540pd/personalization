@@ -169,6 +169,26 @@ test.describe("auto layout: reorder and join (#228)", () => {
     expectRow(frame, [outsider, ...order].map((id) => after[id]));
   });
 
+  test("dragged out, then dropped back half over the Frame with the pointer off it, it rejoins (#348)", async ({ page }) => {
+    const order = await setUp(page);
+    let boxes = await shapeBoxes(page);
+    const first = boxes[order[0]];
+    await page.mouse.click(first.x + 10, first.y + 10);
+    await drag(page, first.x + 10, first.y + 10, 1100, 450);
+    boxes = await shapeBoxes(page);
+    expectRow(await frameBox(page), [boxes[order[1]], boxes[order[2]]]);
+
+    // Held 10 in from its left: dropped with its left 60 outside the Frame,
+    // the pointer is off the Frame, the rest of it over the row.
+    const out = boxes[order[0]];
+    const frameBefore = await frameBox(page);
+    await drag(page, out.x + 10, out.y + 10, frameBefore.x - 50, frameBefore.y + 30, async () => {
+      await expect(line(page)).toBeVisible();
+    });
+    const after = await shapeBoxes(page);
+    expectRow(await frameBox(page), order.map((id) => after[id]));
+  });
+
   test("a child moves from one auto layout Frame to another", async ({ page }) => {
     const order = await setUp(page);
     // A second Frame with one rectangle, laid out too.
