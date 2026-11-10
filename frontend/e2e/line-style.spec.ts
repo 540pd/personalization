@@ -1,5 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard } from "./helpers";
+import { openBoard, showEveryMenuItem } from "./helpers";
+
+// Draws items #404 hides by default, so offer them all.
+test.beforeEach(({ page }) => showEveryMenuItem(page));
 
 // Issue #162. The style bar on lines and arrows: Color and Stroke, no Fill.
 

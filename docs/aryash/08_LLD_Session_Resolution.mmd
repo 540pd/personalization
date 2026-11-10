@@ -1,0 +1,15 @@
+flowchart TB
+  A["Manifest: owner key, Playspace ID,<br/>session ID or none, mapping revision"] --> B{"Session ID<br/>present?"}
+  B -->|"No"| C["Create session<br/>user = owner key, TTL 90 days"]
+  B -->|"Yes"| D{"Session<br/>found?"}
+  D -->|"Yes"| E["Reuse"]
+  D -->|"No or expired"| F["Recreate"]
+  C --> G["CAS bind on Playspace map"]
+  F --> G
+  G -->|"Revision matches"| H["Set session ID, keep previous,<br/>revision + 1"]
+  G -->|"Conflict"| I{"Newer mapped<br/>session valid?"}
+  I -->|"Yes"| E
+  I -->|"No"| J["Retryable error"]
+  H --> K["Project manifest context<br/>into session state"]
+  E --> K
+  K --> L["Run agent<br/>include_contents = none"]

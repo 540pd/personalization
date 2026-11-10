@@ -20,8 +20,8 @@ const imageOrder = (page: Page) =>
 /** Which of the canvas and the Create-node layer paints in front. */
 const frontLayer = (page: Page) =>
   page.evaluate(() => {
-    let host = document.querySelector("canvas")?.parentElement as HTMLElement | null;
-    while (host && getComputedStyle(host).zIndex === "auto") host = host.parentElement;
+    // The images-and-text canvas, which flips (#430).
+    const host = document.querySelector('canvas[data-board-layer="main"]') as HTMLElement | null;
     const panel = document.querySelector("button.node-panel-placeholder") as HTMLElement;
     return Number(getComputedStyle(host!).zIndex) > Number(getComputedStyle(panel).zIndex) ? "canvas" : "dom";
   });

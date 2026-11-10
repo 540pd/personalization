@@ -1,0 +1,591 @@
+@reference "../../../globals.css";
+
+// The Assets page (#414). Its frame is the library page's (.library-page):
+// the same edge, pinned title row and look as Skills, Agents and Brand.
+
+// A soft-grey page with white cards on it (#437), after Design_Aspect: the
+// surfaces set the sections apart, not extra borders. Scoped by what the
+// page holds, as the frame (.library-page) is shared with Skills and Agents.
+.library-page:has(.assets-section) {
+  @apply bg-subtle;
+
+  .library-header {
+    @apply bg-subtle;
+  }
+}
+
+.assets-status {
+  @apply text-body text-ink-muted;
+}
+
+.assets-alert {
+  @apply flex max-w-[1080px] flex-wrap items-center gap-x-3 gap-y-1 rounded-card border border-red-200 bg-red-50 px-4 py-3 text-body text-red-800;
+}
+
+.assets-link {
+  @apply font-medium text-accent underline underline-offset-2;
+  @apply focus-visible:focus-ring;
+}
+
+// ── ready for generation (#419) ─────────────────────────────────────────
+.assets-ready {
+  @apply flex max-w-[1080px] flex-wrap items-center gap-2 rounded-card border border-line bg-surface px-3.5 py-3;
+}
+
+.assets-ready-title {
+  @apply mr-1 text-body font-medium text-ink;
+}
+
+.assets-ready-item {
+  @apply inline-flex h-[30px] items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-body text-ink no-underline;
+  @apply transition-colors hover:border-ink-muted/40 hover:bg-subtle;
+  @apply focus-visible:focus-ring;
+
+  &.is-missing {
+    @apply border-amber-300;
+  }
+}
+
+.assets-ready-mark {
+  @apply flex size-4 items-center justify-center rounded-full text-[10px] font-bold text-white;
+
+  // Done in the indigo status colour (#437): blue stays for what you act on.
+  .is-done & {
+    @apply bg-indigo;
+  }
+
+  .is-missing & {
+    @apply bg-amber-700;
+  }
+
+  .is-optional & {
+    @apply bg-ink-muted;
+  }
+}
+
+// ── sections ────────────────────────────────────────────────────────────
+.assets-section {
+  @apply flex max-w-[1080px] flex-col gap-5 rounded-card border border-line bg-surface p-6;
+}
+
+.assets-section-head {
+  @apply flex items-center gap-2.5;
+}
+
+.assets-section-title {
+  @apply m-0 text-title font-medium;
+}
+
+.assets-tag {
+  @apply inline-flex h-[22px] items-center rounded-full bg-subtle px-2 text-meta font-medium text-ink-muted;
+}
+
+.assets-lead {
+  @apply mt-1 text-body text-ink-muted;
+}
+
+// ── fields ──────────────────────────────────────────────────────────────
+.assets-fields {
+  @apply grid max-w-[760px] grid-cols-2 gap-4;
+}
+
+.assets-field {
+  @apply flex min-w-0 flex-col gap-1.5;
+}
+
+.assets-label {
+  @apply text-body font-medium text-ink;
+}
+
+.assets-label-sm {
+  @apply text-body font-medium text-ink;
+}
+
+.assets-required {
+  @apply text-red-700;
+}
+
+.assets-muted {
+  @apply font-normal text-ink-muted;
+}
+
+.assets-hint {
+  @apply text-meta text-ink-muted;
+}
+
+.assets-field-error {
+  @apply text-meta text-red-700;
+}
+
+.assets-input {
+  @apply h-10 w-full rounded-control border border-line bg-surface px-3 text-body;
+  @apply placeholder:text-ink-muted/70 transition-colors hover:border-ink-muted/40;
+  @apply focus:border-accent focus:outline-none;
+
+  &.is-missing {
+    @apply border-red-600;
+  }
+}
+
+select.assets-input {
+  @apply px-2;
+}
+
+.assets-textarea {
+  @apply h-auto min-h-[64px] resize-y py-2 leading-normal;
+}
+
+.assets-row3 {
+  @apply grid grid-cols-3 gap-2.5;
+}
+
+.assets-image-fields {
+  @apply flex flex-col gap-3;
+}
+
+// ── product images ──────────────────────────────────────────────────────
+// The master shown large on the left, the other views beside it (#414).
+.assets-product {
+  @apply grid grid-cols-2 items-start gap-6;
+}
+
+.assets-master,
+.assets-views {
+  @apply flex min-w-0 flex-col gap-3;
+}
+
+.assets-col-head {
+  @apply flex items-baseline justify-between gap-3;
+}
+
+.assets-master-frame {
+  @apply relative flex h-[300px] items-center justify-center overflow-hidden rounded-media bg-subtle;
+
+  img {
+    @apply max-h-full max-w-full object-contain;
+  }
+}
+
+.assets-badge {
+  @apply absolute left-3.5 top-3.5 flex h-[22px] items-center rounded-full bg-indigo px-2;
+  @apply text-meta font-medium text-white;
+}
+
+.assets-grid {
+  @apply grid grid-cols-3 gap-2.5;
+}
+
+.assets-tile {
+  @apply flex flex-col gap-1.5 rounded-card border-2 border-line bg-surface p-1.5 text-left transition-colors;
+  @apply hover:border-ink-muted/40;
+  @apply focus-visible:focus-ring;
+
+  img {
+    @apply h-[84px] w-full rounded-control bg-subtle object-cover;
+  }
+
+  span {
+    @apply block min-w-0 truncate text-meta text-ink;
+  }
+
+  &.is-selected {
+    @apply border-accent;
+  }
+}
+
+.assets-add {
+  @apply flex min-h-[118px] flex-col items-center justify-center gap-1 rounded-card border-[1.5px] border-dashed border-line bg-subtle;
+  @apply text-body text-ink transition-colors hover:border-ink-muted/40;
+  @apply disabled:cursor-default disabled:text-ink-muted/60;
+  @apply focus-visible:focus-ring;
+
+  span {
+    @apply text-xl leading-none;
+  }
+
+  small {
+    @apply text-meta text-ink-muted;
+  }
+}
+
+// ── creatives: adapt from, style examples (#416) ───────────────────────
+// A full-width group under a rule, its tiles the size of product views.
+.assets-group {
+  @apply flex flex-col gap-3;
+
+  .assets-grid {
+    @apply grid-cols-6;
+  }
+
+  .assets-details {
+    @apply max-w-[760px];
+  }
+}
+
+.assets-section > .assets-group {
+  @apply border-t border-line pt-5;
+}
+
+// ── logo (#417) ─────────────────────────────────────────────────────────
+.assets-logo-rule {
+  @apply font-medium text-ink;
+}
+
+.assets-logo-empty {
+  @apply flex items-center gap-3.5 rounded-card border-[1.5px] border-dashed border-line bg-subtle px-[18px] py-4 text-body;
+
+  &.is-missing {
+    @apply border-red-600;
+  }
+}
+
+.assets-logo-empty-text {
+  @apply flex flex-1 flex-col gap-0.5;
+}
+
+// The logo on light and on dark, its details beside it.
+.assets-logo {
+  @apply grid grid-cols-[300px_minmax(0,1fr)] items-start gap-5;
+}
+
+.assets-logo-preview {
+  @apply flex flex-col gap-2;
+}
+
+.assets-logo-panes {
+  @apply relative grid grid-cols-2 overflow-hidden rounded-media border border-line;
+}
+
+.assets-logo-pane {
+  @apply flex h-[110px] flex-col items-center justify-center gap-1.5 px-3;
+
+  img {
+    @apply max-h-[56px] max-w-full object-contain;
+  }
+
+  span {
+    @apply text-meta;
+  }
+
+  &.is-light {
+    @apply bg-surface text-ink-muted;
+  }
+
+  &.is-dark {
+    @apply bg-neutral-900 text-neutral-400;
+  }
+}
+
+.assets-alternate {
+  @apply h-[30px] self-start border-dashed bg-subtle px-3 text-body;
+}
+
+.assets-row2 {
+  @apply grid grid-cols-2 gap-2.5;
+}
+
+// ── brand colours (#417) ────────────────────────────────────────────────
+.assets-suggestions {
+  @apply flex flex-wrap items-center gap-2 text-body text-ink-muted;
+}
+
+.assets-chip {
+  @apply inline-flex h-[30px] items-center gap-1.5 rounded-full border border-line bg-surface pl-1 pr-2.5 font-mono text-meta text-ink;
+  @apply transition-colors hover:border-ink-muted/40 hover:bg-subtle;
+  @apply disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:bg-surface;
+  @apply focus-visible:focus-ring;
+}
+
+.assets-chip-swatch {
+  @apply size-[22px] rounded-full border border-black/10;
+}
+
+.assets-colours {
+  @apply grid grid-cols-[repeat(3,minmax(0,220px))] gap-4;
+}
+
+.assets-colour {
+  @apply flex h-10 items-center gap-2 rounded-control border border-line bg-surface px-1.5 transition-colors hover:border-ink-muted/40;
+  @apply focus-within:border-accent;
+
+  &.is-missing {
+    @apply border-red-600;
+  }
+}
+
+// The swatch shows the colour; the browser's picker sits over it, unseen.
+.assets-swatch {
+  @apply relative size-[26px] flex-none rounded-md border border-black/10;
+  background: repeating-conic-gradient(#e5e5e5 0% 25%, #ffffff 0% 50%) 50% / 10px 10px;
+
+  &:has(input:focus-visible) {
+    @apply focus-ring;
+  }
+
+  input {
+    @apply absolute inset-0 size-full cursor-pointer opacity-0;
+  }
+}
+
+.assets-colour-input {
+  @apply h-[30px] min-w-0 flex-1 border-0 bg-transparent font-mono text-body uppercase text-ink;
+  @apply placeholder:text-ink-muted/70 focus:outline-none;
+}
+
+// ── creative references (#418) ──────────────────────────────────────────
+.assets-filters {
+  @apply flex flex-wrap gap-1.5;
+}
+
+.assets-filter {
+  @apply h-[30px] rounded-full border border-line bg-surface px-3 text-body text-ink transition-colors;
+  @apply hover:border-ink-muted/40;
+  @apply focus-visible:focus-ring;
+
+  &[aria-pressed="true"] {
+    @apply border-accent bg-accent-soft text-accent;
+  }
+}
+
+.assets-references .assets-grid {
+  @apply grid-cols-6;
+}
+
+// A reference tile's type and Always, under its caption.
+.assets-tile .assets-tile-badges {
+  @apply flex flex-wrap gap-1 overflow-visible;
+
+  .assets-chip-tag {
+    @apply inline-flex h-[18px] w-auto items-center rounded-full bg-subtle px-1.5 text-[10px] font-medium text-ink-muted;
+
+    &.is-always {
+      @apply bg-indigo text-white;
+    }
+  }
+}
+
+// Beats .assets-details' column, which comes later in the file.
+.assets-details.assets-reference {
+  @apply grid grid-cols-[200px_minmax(0,1fr)] gap-5 p-[18px];
+}
+
+.assets-reference-preview {
+  @apply flex flex-col gap-2.5;
+
+  img {
+    @apply h-[140px] w-full rounded-media bg-subtle object-cover;
+  }
+}
+
+.assets-reference-row {
+  @apply grid grid-cols-[220px_minmax(0,1fr)] items-start gap-4;
+}
+
+.assets-choices {
+  @apply m-0 flex flex-col gap-1.5 border-0 p-0;
+
+  legend {
+    @apply mb-1.5 p-0;
+  }
+}
+
+.assets-choices-row {
+  @apply flex flex-wrap gap-2;
+}
+
+.assets-choice {
+  @apply inline-flex max-w-[300px] cursor-pointer items-start gap-2 rounded-control border border-line bg-surface px-3 py-2;
+  @apply transition-colors hover:border-ink-muted/40;
+  @apply has-[input:focus-visible]:focus-ring;
+
+  &.is-checked {
+    @apply border-accent bg-accent-soft;
+  }
+
+  input {
+    @apply mt-0.5 accent-accent;
+  }
+}
+
+.assets-choice-text {
+  @apply flex flex-col gap-0.5;
+}
+
+.assets-choice-label {
+  @apply text-body font-medium;
+}
+
+.assets-choice-help {
+  @apply text-meta text-ink-muted;
+}
+
+// ── uploads (#415) ──────────────────────────────────────────────────────
+// A drop target lights up while files are dragged over it.
+.assets-empty.is-dropping,
+.assets-views.is-dropping,
+.assets-group.is-dropping,
+.assets-references.is-dropping {
+  @apply rounded-card bg-accent-soft outline-2 outline-offset-4 outline-dashed outline-accent;
+}
+
+.assets-tile-wrap {
+  @apply relative;
+
+  .assets-tile {
+    @apply w-full;
+  }
+}
+
+.assets-tile.is-failed {
+  @apply border-red-200;
+}
+
+// The low-resolution mark: amber, never a block.
+.assets-tile-flag {
+  @apply pointer-events-none absolute right-2.5 top-2.5 flex size-[18px] items-center justify-center rounded-full;
+  @apply bg-amber-500 text-[11px] font-extrabold text-white;
+}
+
+// Over an image still uploading, or failed. Covers the picture, not the caption.
+.assets-overlay {
+  @apply absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-media bg-surface/75 text-body text-ink;
+
+  &.is-compact {
+    @apply bottom-[26px] left-1.5 right-1.5 top-1.5 rounded-control text-meta;
+  }
+
+  &.is-failed {
+    @apply bg-red-50/95 text-red-800;
+  }
+}
+
+.assets-overlay-reason {
+  @apply max-w-[80%] text-center text-meta;
+}
+
+.assets-overlay-actions {
+  @apply flex items-center gap-2;
+
+  .assets-pill {
+    @apply h-7 px-3 text-meta;
+  }
+}
+
+.assets-spinner {
+  @apply size-6 animate-spin rounded-full border-[2.5px] border-line border-t-accent;
+}
+
+.assets-warning {
+  @apply rounded-card border border-amber-200 bg-amber-50 px-3 py-2.5 text-body text-amber-900;
+}
+
+.assets-empty {
+  @apply flex flex-col items-center gap-2 rounded-card border-[1.5px] border-dashed border-line bg-subtle p-10 text-center text-body;
+
+  &.is-missing {
+    @apply border-red-600;
+  }
+}
+
+.assets-details {
+  @apply flex flex-col gap-3 rounded-card border border-line bg-subtle p-3.5;
+}
+
+.assets-details-actions {
+  @apply flex items-center gap-2.5;
+
+  .assets-danger {
+    @apply self-center;
+  }
+}
+
+// ── buttons ─────────────────────────────────────────────────────────────
+.assets-pill {
+  @apply h-9 rounded-control border border-line bg-surface px-4 text-body font-medium text-ink transition-colors hover:bg-subtle;
+  @apply disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-surface;
+  @apply focus-visible:focus-ring;
+}
+
+.assets-primary {
+  @apply h-10 shrink-0 rounded-control bg-accent px-5 text-body font-semibold text-white transition-colors hover:bg-accent-hover;
+  @apply disabled:cursor-not-allowed disabled:opacity-40;
+  @apply focus-visible:focus-ring;
+}
+
+.assets-danger {
+  @apply self-start rounded-md px-1 text-body text-red-700 hover:underline;
+  @apply focus-visible:focus-ring;
+}
+
+// ── save bar ────────────────────────────────────────────────────────────
+// Pinned to the bottom of the scrolling page, edge to edge, as on Brand:
+// -bottom-8 because a sticky box stops at the page's padding.
+.assets-save-bar {
+  @apply sticky -bottom-8 z-10 mt-auto -mx-10 -mb-8 flex items-center justify-end gap-2;
+  @apply border-t border-line bg-surface px-10 py-3.5;
+}
+
+.assets-save-state {
+  @apply mr-auto flex items-center gap-2 text-body text-amber-800;
+}
+
+.assets-save-dot {
+  @apply h-2 w-2 rounded-full bg-amber-700;
+}
+
+.assets-save-error {
+  @apply mr-auto text-body text-red-700;
+}
+
+// Place on the board (#446) beside Remove master image.
+.assets-master-actions {
+  @apply flex flex-wrap items-center gap-3;
+
+  .assets-danger {
+    @apply self-center;
+  }
+}
+
+// ── Describe it (#448) ──────────────────────────────────────────────────
+// Beside the Description label: a quiet text button in the accent.
+.assets-field-head {
+  @apply flex items-baseline justify-between gap-3;
+}
+
+.assets-describe {
+  @apply rounded-sm text-meta font-medium text-accent transition-colors hover:text-accent-hover;
+  @apply disabled:cursor-default disabled:text-ink-muted/60;
+  @apply focus-visible:focus-ring;
+}
+
+// ── brand guidelines (#450) ─────────────────────────────────────────────
+// A row per Markdown file: no picture, so no tile.
+.assets-docs {
+  @apply m-0 flex max-w-[1080px] list-none flex-col gap-3 p-0;
+}
+
+.assets-doc {
+  @apply flex flex-col gap-2.5 rounded-card border border-line bg-surface p-3.5;
+}
+
+.assets-doc-row {
+  @apply grid items-end gap-3;
+  grid-template-columns: auto minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.4fr);
+}
+
+.assets-doc-icon {
+  @apply mb-1 flex size-8 items-center justify-center rounded-control bg-subtle text-ink-muted;
+}
+
+.assets-doc-meta {
+  @apply flex flex-wrap items-center gap-x-3 gap-y-1 pl-11 text-body;
+}
+
+.assets-doc-preview {
+  @apply m-0 max-h-[320px] overflow-auto whitespace-pre-wrap break-words rounded-control border border-line bg-subtle p-3 font-mono text-meta text-ink;
+  @apply focus-visible:focus-ring;
+}
+
+.assets-docs-add {
+  @apply flex flex-wrap items-center gap-3;
+}

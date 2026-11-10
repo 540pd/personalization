@@ -15,11 +15,10 @@ import { createNodeAtViewportCentre } from "../../board/createNode";
 import { DEFAULT_SWATCH, pickColor } from "../../board/palette";
 import SwatchGrid from "../SwatchGrid";
 import { ColorDot, IconGenerate, IconLinks, IconPointer } from "./icons";
-import {
-  DOCK_ITEM_KIND, GENERATE_IDS, GENERATE_ITEMS, LINK_IDS, LINK_ITEMS, SHAPE_ITEMS, TOOLS_RIGHT, isWritten,
-} from "./items";
+import { DOCK_ITEM_KIND, GENERATE_IDS, LINK_IDS, LINK_ITEMS, TOOLS_RIGHT, isWritten } from "./items";
 import { DockButton, DockMenu, DockMenuItem, btnClass } from "./DockMenu";
 import { useDockHotkeys } from "./useDockHotkeys";
+import { useShownItems } from "./useShownItems";
 import "./FloatingDock.scss";
 
 type DockMenuId = "generate" | "links" | "shapes" | "color";
@@ -32,6 +31,7 @@ export default function FloatingDock() {
   // same reason -- it changes on every pan and zoom frame.
   const clearSelection = useNodePanel((s) => s.clearSelection);
   const color = useToolStore((s) => s.color);
+  const { createItems, shapeItems } = useShownItems();
 
   // One menu open at most: opening one closes whichever was.
   const [openMenu, setOpenMenu] = useState<DockMenuId | null>(null);
@@ -130,9 +130,10 @@ export default function FloatingDock() {
             onToggle={toggleMenu("generate")}
             onClose={closeMenus}
           >
-            {GENERATE_ITEMS.map((item, i) => (
+            {createItems.map((item, i) => (
               <Fragment key={item.id}>
-                {i > 0 && isWritten(item.id) !== isWritten(GENERATE_ITEMS[i - 1].id) && (
+                {/* Between the shown items: Compose alone gets no divider (#404). */}
+                {i > 0 && isWritten(item.id) !== isWritten(createItems[i - 1].id) && (
                   <div role="separator" className="floating-dock-submenu-divider" />
                 )}
                 <DockMenuItem
@@ -171,6 +172,9 @@ export default function FloatingDock() {
           {/* Right-side tools */}
           {TOOLS_RIGHT.map((tool) => {
             if (tool.id === "shapes") {
+              // Every shape hidden in Settings: no button, rather than one
+              // that opens an empty menu (#404).
+              if (!shapeItems.length) return null;
               return (
                 <DockMenu
                   key={tool.id}
@@ -182,7 +186,7 @@ export default function FloatingDock() {
                   onToggle={toggleMenu("shapes")}
                   onClose={closeMenus}
                 >
-                  {SHAPE_ITEMS.map((item) => (
+                  {shapeItems.map((item) => (
                     <DockMenuItem
                       key={item.kind}
                       icon={item.icon}

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { version } from "./package.json";
 
 // `turbopack.root` is pinned to this directory to prevent Next.js from
 // misdetecting the monorepo root. Without it, Next.js walks upward and finds
@@ -12,6 +13,8 @@ const nextConfig: NextConfig = {
     root: import.meta.dirname,
   },
   poweredByHeader: false,
+  // Sent with a support message (#428), so the team knows which build it came from.
+  env: { NEXT_PUBLIC_APP_VERSION: version },
   // The dev-tools button defaults to bottom-left, where it covers the
   // minimised sidebar's user button. Next keeps a moved button's position
   // per checkout in .next/cache, so a fresh checkout or worktree failed

@@ -13,7 +13,7 @@ import { useToolStore } from "@/store/tool.store";
  * Accepts a Group as well as a Layer so a test can pass a bare Konva.Group:
  * a Stage cannot be constructed under jsdom, but a Group needs no canvas.
  */
-export function applyDraggability(container: Konva.Layer | Konva.Group): void {
+export function applyDraggability(container: Konva.Container): void {
   const draggable = useToolStore.getState().activeTool === "pointer";
   (container.find(".selectable") as Konva.Shape[]).forEach((n) => n.draggable(draggable));
 }

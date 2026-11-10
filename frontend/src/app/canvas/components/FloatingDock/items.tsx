@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Video, Image as ImageIcon, Sparkles, PencilLine, Upload, Shapes } from "lucide-react";
-import type { ShapeKind, Tool } from "@/store/tool.store";
+import { shapeTool, type ShapeKind, type Tool } from "@/store/tool.store";
 import type { NodeKind } from "@/store/nodePanel.store";
 import { modShortcut } from "@/lib/dom/keys";
 import { NODE_KINDS } from "@/app/canvas/components/NodePanel/kinds";
@@ -66,6 +66,15 @@ export const SHAPE_ITEMS: { kind: ShapeKind; label: string; shortcut?: string; i
   { kind: "blockArrow", label: "Block Arrow", icon: <IconBlockArrow /> },
   { kind: "diamond", label: "Diamond", icon: <IconDiamond /> },
 ];
+
+/** The icon a Create or Shapes menu item has, for the Settings row that hides it (#404). */
+export function dockIcon(tool: Tool): ReactNode {
+  return (
+    GENERATE_ITEMS.find((item) => item.id === tool)?.icon ??
+    SHAPE_ITEMS.find((item) => shapeTool(item.kind) === tool)?.icon ??
+    null
+  );
+}
 
 export interface ToolDef {
   // "shapes" and "color" are menu buttons, not tools: "shapes" arms its

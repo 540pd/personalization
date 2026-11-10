@@ -25,13 +25,15 @@
     "dotenv": "^16.4.0",
     "express": "^4.21.0",
     "google-auth-library": "^9.15.0",
-    "jsonwebtoken": "^9.0.0"
+    "jsonwebtoken": "^9.0.0",
+    "nodemailer": "^6.9.16"
   },
   "devDependencies": {
     "@types/cors": "^2.8.0",
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.0",
     "@types/node": "^22.0.0",
+    "@types/nodemailer": "^6.4.17",
     "@types/supertest": "^7.2.1",
     "supertest": "^7.3.1",
     "tsx": "^4.19.0",

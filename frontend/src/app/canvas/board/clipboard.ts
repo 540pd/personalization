@@ -1,9 +1,10 @@
-// Delete for Konva nodes, and copy and paste for everything on the canvas.
+// Deleting Konva nodes, and copy and paste for everything on the canvas.
 //
-// Delete stays Konva-only: panels and wires each run their own Delete handler
-// on the same keypress. Copy and paste cannot be split that way, because a
-// pasted wire has to point at the pasted copies of its nodes, so one handler
-// owns the clipboard for uploaded images, generated nodes and wires alike.
+// Delete is the board's one handler (#472, lib/canvas/boardDelete); the Konva
+// nodes register konvaDeletable with it. Copy and paste cannot be split by
+// kind, because a pasted wire has to point at the pasted copies of its nodes,
+// so one handler owns the clipboard for uploaded images, generated nodes and
+// wires alike.
 
 import Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
@@ -14,8 +15,10 @@ import { useLayerOrder } from "@/store/layerOrder.store";
 import { takenLabels, uniqueLabel } from "@/lib/canvas/labels";
 import { BoardShape, type BoardShapeConfig } from "./shapes";
 import { isPageKey } from "@/lib/dom/keys";
+import type { Deletable } from "@/lib/canvas/boardDelete";
 import { nodeEntry, type NodeEntry } from "./nodeEntry";
 import { nodeBox } from "./geometry";
+import { onShapesLayer } from "./boardLayers";
 import type { BoardLayerDeps } from "./boardContext";
 
 /** Everything one Ctrl+C captured. */
@@ -64,9 +67,9 @@ export function createNode(className: string, attrs: Record<string, unknown>): K
         : new Konva.Rect(attrs as Konva.RectConfig);
 }
 
-/** Re-creates copied nodes on `layer`, offset, and returns them. */
+/** Re-creates copied nodes, each on the layer `layerFor` gives it, offset, and returns them. */
 export function pasteNodes(
-  layer: Konva.Layer,
+  layerFor: (n: Konva.Node) => Konva.Container,
   clipboard: NodeEntry[]
 ): Konva.Shape[] {
   // Seeded once from the board, then grown as this batch is placed: pasting a
@@ -89,7 +92,7 @@ export function pasteNodes(
 
     const node = createNode(entry.className, attrs);
 
-    layer.add(node);
+    layerFor(node).add(node);
 
     const label = entry.label ? uniqueLabel(entry.label, taken) : undefined;
     if (label) taken.push(label);
@@ -133,7 +136,22 @@ export function selectNodes(transformer: Konva.Transformer, nodes: Konva.Shape[]
   nodes.slice(1).forEach((n) => sel.addToSelection(n.id()));
 }
 
-/** Keydown handler for Delete, Ctrl+C and Ctrl+V. */
+/** The Konva nodes' part of the board's Delete (#472): the selected images, shapes and text. */
+export function konvaDeletable(deps: BoardLayerDeps): Deletable {
+  return {
+    hasSelection: () => deps.transformer.nodes().length > 0,
+    deleteSelected: () => {
+      const selected = deps.transformer.nodes() as Konva.Shape[];
+      deps.transformer.nodes([]);
+      deps.updateSelectionChrome();
+      deleteNodes(selected);
+      deps.syncAllNodeGeometry();
+      useKonvaSelection.getState().clearSelection();
+    },
+  };
+}
+
+/** Keydown handler for Ctrl+C and Ctrl+V. */
 export function createEditKeysHandler(deps: BoardLayerDeps) {
   let clipboard: Clipboard = EMPTY_CLIPBOARD;
 
@@ -142,18 +160,6 @@ export function createEditKeysHandler(deps: BoardLayerDeps) {
     if (!isPageKey(e)) return;
     const mod = e.ctrlKey || e.metaKey;
     const selected = deps.transformer.nodes() as Konva.Shape[];
-
-    if (e.code === "Delete" || e.code === "Backspace") {
-      if (!selected.length) return;
-      e.preventDefault();
-      deps.transformer.nodes([]);
-      deps.updateSelectionChrome();
-      deleteNodes(selected);
-      deps.syncAllNodeGeometry();
-      useKonvaSelection.getState().clearSelection();
-      deps.saveSnapshot(e);
-      return;
-    }
 
     if (mod && e.code === "KeyC") {
       const next = copySelection(selected);
@@ -166,7 +172,7 @@ export function createEditKeysHandler(deps: BoardLayerDeps) {
     if (mod && e.code === "KeyV") {
       if (!clipboard.konva.length && !clipboard.panels.length) return;
       e.preventDefault();
-      const pasted = pasteNodes(deps.layer, clipboard.konva);
+      const pasted = pasteNodes(deps.layerFor, clipboard.konva);
       // The copies become the selection, so everything else lets go first.
       deps.transformer.nodes([]);
       useKonvaSelection.getState().clearSelection();
@@ -197,10 +203,12 @@ export function createEditKeysHandler(deps: BoardLayerDeps) {
       useConnectionStore.getState().pasteConnections(clipboard.connections, idMap);
       // A paste is a create, and a newly created node comes to the front.
       // A mixed paste leaves the order alone: one layer has to stay underneath.
+      // Shapes alone change nothing: their layer is always underneath (#430).
       if (!pasted.length) useLayerOrder.getState().raiseDom();
-      else if (!clipboard.panels.length) useLayerOrder.getState().raiseCanvas();
+      else if (!clipboard.panels.length && !pasted.every(onShapesLayer)) useLayerOrder.getState().raiseCanvas();
       deps.updateSelectionChrome();
       deps.layer.batchDraw();
+      deps.shapes.batchDraw();
       // One entry for nodes and wires alike, so one Ctrl+Z takes the paste back.
       deps.saveSnapshot();
     }

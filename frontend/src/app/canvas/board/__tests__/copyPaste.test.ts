@@ -71,7 +71,7 @@ function setup() {
     restore: (s) => useConnectionStore.getState().replaceConnections(s as Connection[]),
   });
   const handle = createEditKeysHandler({
-    layer: l, transformer,
+    layer: l, shapes: l, root: l, layerFor: () => l, transformer,
     applyDraggability: () => {},
     syncAllNodeGeometry: () => {},
     updateSelectionChrome: () => {},

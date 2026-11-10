@@ -1,5 +1,5 @@
 // Board's window keyboard shortcuts: Space to pan, undo and redo, select all
-// and Escape, the edit keys, and the Frame keys.
+// and Escape, copy and paste, the Frame keys, and the board's one Delete (#472).
 
 import type Konva from "konva";
 import { useToolStore } from "@/store/tool.store";
@@ -11,7 +11,8 @@ import { selectOnly } from "@/lib/canvas/selection";
 import { canvasHistory } from "@/lib/canvas/history";
 import { boardKeyAllowed } from "@/lib/canvas/boardKeys";
 import { disposeAll, listen } from "@/lib/dom/listen";
-import { createEditKeysHandler, selectNodes } from "./clipboard";
+import { deleteSelection, registerDeletable } from "@/lib/canvas/boardDelete";
+import { createEditKeysHandler, konvaDeletable, selectNodes } from "./clipboard";
 import { createFrameFromSelection, removeSelectedFrame } from "./frameSelection";
 import type { BoardContext } from "./boardContext";
 
@@ -77,7 +78,7 @@ export function bindBoardShortcuts(board: BoardContext, deps: ShortcutDeps): () 
     if (useToolStore.getState().activeTool !== "pointer") {
       useToolStore.getState().setTool("pointer");
     }
-    const nodes = layer.find(".selectable") as Konva.Shape[];
+    const nodes = board.root.find(".selectable") as Konva.Shape[];
     selectNodes(transformer, nodes);
     if (!nodes.length) useKonvaSelection.getState().clearSelection();
     useNodePanel.getState().selectAll();
@@ -107,15 +108,12 @@ export function bindBoardShortcuts(board: BoardContext, deps: ShortcutDeps): () 
       if (done) e.preventDefault();
       return;
     }
-    // Frames keep their own selection, so they need their own Delete. Keyed
-    // on the event, so deleting a frame and a node together is one step.
-    if (e.code === "Delete" || e.code === "Backspace") {
-      const ids = useFrames.getState().selectedIds;
-      if (!ids.length) return;
-      ids.forEach((id) => useFrames.getState().remove(id));
-      saveSnapshot(e);
-    }
   };
+
+  // Delete / Backspace: the board's one handler (#472). Each kind registers
+  // what it deletes; one keypress is one undo step, through saveSnapshot so
+  // the frames' image positions are recorded with it.
+  const handleDelete = (e: KeyboardEvent) => void deleteSelection(e, saveSnapshot);
 
   const off = [
     listen(window, "keydown", handleSpaceDown),
@@ -124,6 +122,13 @@ export function bindBoardShortcuts(board: BoardContext, deps: ShortcutDeps): () 
     listen(window, "keydown", handleSelectAll),
     listen(window, "keydown", handleEditKeys),
     listen(window, "keydown", handleFrameKeys),
+    listen(window, "keydown", handleDelete),
+    registerDeletable("konva", konvaDeletable(board)),
+    // Frames keep their own selection; their items stay when a frame goes.
+    registerDeletable("frames", {
+      hasSelection: () => useFrames.getState().selectedIds.length > 0,
+      deleteSelected: () => useFrames.getState().selectedIds.forEach((id) => useFrames.getState().remove(id)),
+    }),
   ];
   return () => disposeAll(off);
 }

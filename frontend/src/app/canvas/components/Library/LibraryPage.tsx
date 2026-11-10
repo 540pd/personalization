@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { X } from "lucide-react";
 import { useSidebar, sidebarInset } from "@/store/sidebar.store";
+import { useSection } from "@/store/section.store";
 import { Z_INDEX } from "@/constants/canvas.constants";
+import { dialogIsOpen, isPageKey } from "@/lib/dom/keys";
+import { listen } from "@/lib/dom/listen";
+import Tooltip from "@/components/Tooltip";
 import "./Library.scss";
 
 const isFileDrag = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
@@ -17,6 +22,7 @@ export default function LibraryPage({
   subtitle,
   action,
   onFileDrop,
+  closable = false,
   children,
 }: {
   title: string;
@@ -25,10 +31,17 @@ export default function LibraryPage({
   action?: ReactNode;
   /** A file dropped anywhere on the page. Without it, drops do nothing. */
   onFileDrop?: (file: File) => void;
+  /**
+   * A page opened from the user menu, which has no rail item to leave by
+   * (#405): a close button in the header, and Esc.
+   */
+  closable?: boolean;
   children: ReactNode;
 }) {
   const collapsed = useSidebar((s) => s.collapsed);
   const [dropping, setDropping] = useState(false);
+  // Content under the pinned title row: it shows a divider (#405).
+  const [scrolled, setScrolled] = useState(false);
   const dragDepth = useRef(0);
   const pageRef = useRef<HTMLDivElement>(null);
   const titleId = `library-${title.toLowerCase()}-title`;
@@ -39,6 +52,17 @@ export default function LibraryPage({
     pageRef.current?.focus();
   }, []);
 
+  // Esc closes the page, but not from a field (a half-typed Brand value), a
+  // dialog, or an open menu: there it keeps its usual meaning.
+  useEffect(() => {
+    if (!closable) return;
+    return listen(window, "keydown", (e) => {
+      if (e.key !== "Escape" || e.defaultPrevented || !isPageKey(e)) return;
+      if (dialogIsOpen() || document.querySelector('[role="menu"]')) return;
+      useSection.getState().closePage();
+    });
+  }, [closable]);
+
   return (
     <div
       ref={pageRef}
@@ -47,6 +71,7 @@ export default function LibraryPage({
       tabIndex={-1}
       role="region"
       aria-labelledby={titleId}
+      onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)}
       // Own the drag while it is over the page. Board's window handler would
       // otherwise answer dragover with dropEffect "none".
       onDragEnter={(e) => {
@@ -76,15 +101,28 @@ export default function LibraryPage({
         if (dropped && onFileDrop) onFileDrop(dropped);
       }}
     >
-      <header className="library-header">
-        <div className="library-header-text">
-          <h1 id={titleId} className="library-title">
-            {title}
-          </h1>
-          <p className="library-subtitle">{subtitle}</p>
-        </div>
+      {/* The title row stays pinned while the page scrolls, so its action
+          and the close button are always in reach (#405). A direct child
+          of the page: sticky holds only as long as its parent is on screen. */}
+      <header className={scrolled ? "library-header is-scrolled" : "library-header"}>
+        <h1 id={titleId} className="library-title">
+          {title}
+        </h1>
         {action}
+        {closable && (
+          <Tooltip content="Close (Esc)" className="library-close-anchor" bubbleClassName="library-close-tip">
+            <button
+              type="button"
+              className="library-close"
+              aria-label={`Close ${title}`}
+              onClick={() => useSection.getState().closePage()}
+            >
+              <X size={18} aria-hidden />
+            </button>
+          </Tooltip>
+        )}
       </header>
+      <p className="library-subtitle">{subtitle}</p>
       {children}
     </div>
   );

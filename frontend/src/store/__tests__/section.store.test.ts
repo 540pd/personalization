@@ -3,7 +3,7 @@ import { useSection, setLeaveGuard, boardIsShown } from "../section.store";
 
 afterEach(() => {
   setLeaveGuard(null);
-  useSection.setState({ section: "playspace" });
+  useSection.setState({ section: "playspace", previous: null });
 });
 
 describe("section store", () => {
@@ -40,5 +40,39 @@ describe("section store", () => {
     setLeaveGuard(guard);
     useSection.getState().setSection("brand");
     expect(guard).not.toHaveBeenCalled();
+  });
+
+  describe("closePage (#405)", () => {
+    it("goes back to the page Settings was opened from", () => {
+      useSection.getState().setSection("skills");
+      useSection.getState().setSection("settings");
+      useSection.getState().closePage();
+      expect(useSection.getState().section).toBe("skills");
+    });
+
+    it("goes to the board after another closable page, or with nothing before", () => {
+      useSection.getState().setSection("brand");
+      useSection.getState().setSection("settings");
+      useSection.getState().closePage();
+      expect(useSection.getState().section).toBe("playspace");
+
+      useSection.setState({ section: "settings", previous: null });
+      useSection.getState().closePage();
+      expect(useSection.getState().section).toBe("playspace");
+    });
+
+    it("asks Brand's leave guard, and stays while it holds the move", () => {
+      useSection.getState().setSection("agents");
+      useSection.getState().setSection("brand");
+      let proceed: (() => void) | null = null;
+      setLeaveGuard((go) => {
+        proceed = go;
+        return true;
+      });
+      useSection.getState().closePage();
+      expect(useSection.getState().section).toBe("brand");
+      proceed!();
+      expect(useSection.getState().section).toBe("agents");
+    });
   });
 });

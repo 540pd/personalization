@@ -77,6 +77,16 @@ export function createHistory(limit: number = DEFAULT_LIMIT): History {
   return {
     register(key, adapter) {
       adapters.set(key, adapter);
+      // Entries from before it registered have nothing of it, and undoing
+      // back to one would leave it as it is now (#469: Board takes the
+      // baseline in its mount effect, before the panels and wires register,
+      // so a reload's first delete of a Create node could not be undone).
+      // Nothing could change it before it registered, so its state now is
+      // its state then: give those entries that.
+      if (entries.some((e) => !(key in e))) {
+        const now = adapter.capture();
+        for (const e of entries) if (!(key in e)) e[key] = now;
+      }
       return () => {
         adapters.delete(key);
       };

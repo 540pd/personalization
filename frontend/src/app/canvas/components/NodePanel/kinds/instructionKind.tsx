@@ -8,7 +8,7 @@
 
 import { generateText } from "@/api/canvas.api";
 import type { InstructionSettings, NodeKindSpec, SettingsProps } from "../nodeKinds";
-import { baseRequest, KindPlaceholder, TemperatureSlider, TEXT_NODE_SIZE, TextOutput } from "./controls";
+import { baseRequest, brandRequest, KindPlaceholder, TemperatureSlider, TEXT_NODE_SIZE, TextOutput } from "./controls";
 
 // Ids from docs/llm_parameter/, not guessed.
 const MODELS = [
@@ -44,6 +44,7 @@ export const instructionKind: NodeKindSpec = {
   prompt: "What should this node work out?",
   // An agent is a saved Prompt setup, so only here does @ offer agents too.
   mentions: "skills-and-agents",
+  brand: true,
   models: MODELS,
   // Same principle as the other kinds: default to the lite model.
   defaultModel: "gemini-3.5-flash-lite",
@@ -55,7 +56,7 @@ export const instructionKind: NodeKindSpec = {
   Output: TextOutput,
   Advanced,
   // No Options row — a text node has no aspect ratio or quality to choose.
-  async generate({ modelId, instruction, settings, references, context, signal }) {
+  async generate({ modelId, instruction, settings, references, context, onBrandFailed, signal }) {
     const s = settings as InstructionSettings;
     const result = await generateText({
       modelId,
@@ -64,7 +65,9 @@ export const instructionKind: NodeKindSpec = {
       ...baseRequest(references, context),
       // An agent is a saved Prompt setup, so only a text request carries one.
       ...(context?.agent ? { agent: context.agent } : {}),
+      brand: brandRequest(settings),
     }, signal);
+    if (result.brand?.failed) onBrandFailed?.();
     if (!result.text) throw new Error("Generation returned no text.");
     return { type: "text", value: result.text };
   },

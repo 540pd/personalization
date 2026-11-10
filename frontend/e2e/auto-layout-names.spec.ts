@@ -102,7 +102,7 @@ test.describe("auto layout: room for names (#235)", () => {
     const before = await imageBoxes(page);
     await page.locator(".sidebar-identity").click();
     await page.getByRole("menuitem", { name: /Settings/ }).click();
-    await page.getByRole("switch").click();
+    await page.getByRole("switch", { name: "Always show node names" }).click();
     await page.locator(".sidebar-item", { hasText: "Playspace" }).click();
     await page.waitForTimeout(300);
     expect(await imageBoxes(page)).toEqual(before);

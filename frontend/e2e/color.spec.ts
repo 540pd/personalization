@@ -1,5 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, uploadImage, collapsePanels, setZoom } from "./helpers";
+import { openBoard, uploadImage, collapsePanels, setZoom, showEveryMenuItem } from "./helpers";
+
+// Draws items #404 hides by default, so offer them all.
+test.beforeEach(({ page }) => showEveryMenuItem(page));
 
 // Issue #159. The dock's Color card: picking a swatch recolours what is
 // selected and sets the colour the next shape or text is drawn in.

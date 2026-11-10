@@ -1,0 +1,8 @@
+flowchart LR
+  A(["First visit"]) --> P["Mint Playspace ID"]
+  P --> K["Same ID kept on refresh, re-login,<br/>edits, deletes, re-runs"]
+  K -->|"Clear board"| N["New ID, not undoable"]
+  K -->|"Open file"| O["New ID, forked from file ID"]
+  K -->|"Save to file"| S["Board file v2 with Playspace ID"]
+  N --> K
+  O --> K

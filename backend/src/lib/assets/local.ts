@@ -3,7 +3,7 @@ import path from "node:path";
 import { currentIsoDate } from "../../utils/date.js";
 import { createId } from "../../utils/id.js";
 import { inside, readAllJson, readJson, removeFile, writeAtomic } from "../localDisk.js";
-import { byNewest, type Asset, type AssetStore } from "./types.js";
+import { byNewest, withInfo, type Asset, type AssetStore } from "./types.js";
 
 /**
  * Assets as files (`<dir>/assets/<id>.bin`, with `<id>.json` beside it):
@@ -27,13 +27,20 @@ export function localAssetStore(root: string): AssetStore {
   }
 
   return {
-    async put(userId, data, mimeType, source) {
-      const asset: Asset = { id: createId(), userId, mimeType, bytes: data.length, source, createdAt: currentIsoDate() };
+    async put(userId, data, mimeType, source, info) {
+      const asset = withInfo<Asset>({ id: createId(), userId, mimeType, bytes: data.length, source, createdAt: currentIsoDate() }, info);
       await writeAtomic(bytes(asset.id), data);
       await writeAtomic(meta(asset.id), JSON.stringify(asset, null, 2));
       return asset;
     },
     get: owned,
+    async update(id, userId, info) {
+      const asset = await owned(id, userId);
+      if (!asset) return null;
+      const next = withInfo(asset, info);
+      await writeAtomic(meta(id), JSON.stringify(next, null, 2));
+      return next;
+    },
     async open(id, userId) {
       const asset = await owned(id, userId);
       return asset ? { asset, stream: createReadStream(bytes(id)) } : null;

@@ -15,6 +15,7 @@ interface HoverOutlineProps {
 export default function HoverOutline({ left, top, width, height }: HoverOutlineProps) {
   return (
     <div
+      className="node-hover-outline"
       style={{
         position: "fixed",
         left,

@@ -12,11 +12,12 @@ interface ToastState {
   message: string;
   error?: boolean;
   onUndo?: () => void;
+  actionLabel?: string;
   /** So repeating the same action restarts the timer. */
   at: number;
 }
 
-export type ShowToast = (message: string, error?: boolean, onUndo?: () => void) => void;
+export type ShowToast = (message: string, error?: boolean, onUndo?: () => void, actionLabel?: string) => void;
 
 /**
  * One toast at a time, so a new one replaces -- and takes the Undo of -- the
@@ -41,7 +42,8 @@ export function useToast(): [ReactNode, ShowToast] {
             }
           : undefined
       }
+      actionLabel={toast.actionLabel}
     />
   ) : null;
-  return [node, (message, error = false, onUndo) => setToast({ message, error, onUndo, at: Date.now() })];
+  return [node, (message, error = false, onUndo, actionLabel) => setToast({ message, error, onUndo, actionLabel, at: Date.now() })];
 }

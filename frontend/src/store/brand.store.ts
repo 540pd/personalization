@@ -1,62 +1,151 @@
 import { create } from "zustand";
+import { fetchBrand, saveBrandPage } from "@/api/brand.api";
 
 /**
- * The client's brand settings, edited in the Brand popup (#72).
+ * The client's brand settings, edited on the Brand page (#72, #219).
  *
- * In memory only for now: a reload loses them. Persisting is a later issue,
- * and when it lands this store becomes the cache in front of the API rather
- * than the source of truth.
+ * Saved to the account (#454): this store is the cache in front of
+ * /api/brand. It loads once when the app opens (BrandPage's outer component
+ * asks), and Save writes through it by revision, so a second tab is told
+ * rather than overwritten. Generation reads the saved brief on the backend
+ * (#452), so unsaved edits on the page never reach it.
+ *
+ * The Art-direction components (#72) were replaced by one Campaign Brief for
+ * the MVP (#409, docs/sidebar/Brand_Page_MVP_Campaign_Brief_new.md).
+ *
+ * The product and the logo themselves belong to the Assets page
+ * (docs/sidebar/Assets_Page_Details.md): the brief only says whether each
+ * must appear, so neither is described in two places.
  */
 
-export const ART_DIRECTION_COMPONENTS = [
-  { id: "colourPalette", label: "Colour palette" },
-  { id: "visualIdentity", label: "Visual identity" },
-  { id: "productStaging", label: "Product staging" },
-  { id: "lighting", label: "Lighting" },
-  { id: "environment", label: "Environment / scene" },
-  { id: "campaignContext", label: "Campaign context" },
-] as const;
+/** Suggested while typing the Objective, which also takes free text. */
+export const OBJECTIVES = ["Awareness", "Consideration", "Engagement", "Conversion", "Retention"] as const;
 
-export type ArtDirectionId = (typeof ART_DIRECTION_COMPONENTS)[number]["id"];
+export const TONES = ["Bold", "Playful", "Premium", "Warm", "Urgent", "Minimal", "Trustworthy"] as const;
+export type Tone = (typeof TONES)[number];
+export const MAX_TONES = 3;
 
-export interface ReferenceImage {
-  id: string;
-  name: string;
-  /**
-   * A data URL rather than an object URL: these outlive the popup in a
-   * draft that may be discarded, and data URLs need no revoking to avoid
-   * leaking. They are display only, never sent to the model.
-   */
-  src: string;
+/** Fixed for this phase; shown read-only on the page. */
+export const MARKET = "Europe";
+export const LANGUAGE = "English";
+
+export interface MandatoryElements {
+  /** The product from Assets must be shown. */
+  product: boolean;
+  /** The primary logo from Assets must appear. */
+  logo: boolean;
+  cta: boolean;
+  legal: boolean;
 }
 
-export interface ArtDirection {
-  description: string;
-  /** Excluded from generation when true. Its contents are kept. */
-  disabled: boolean;
-  images: ReferenceImage[];
+export interface CampaignBrief {
+  name: string;
+  objective: string;
+  audience: string;
+  insight: string;
+  message: string;
+  tones: Tone[];
+  /** Optional: many campaigns have no deal. */
+  offer: string;
+  mandatory: MandatoryElements;
+  // An element's value is kept while it is switched off, so turning it back
+  // on brings it back.
+  ctaText: string;
+  legalText: string;
+  /** Free multi-line text. */
+  dos: string;
+  donts: string;
+  /**
+   * Creative references from Assets this campaign uses (#442): those set to
+   * "When a campaign picks it". Always ones are used anyway and not listed.
+   */
+  referenceIds: string[];
 }
 
 export interface BrandSettings {
   homepageUrl: string;
   industry: string;
-  components: Record<ArtDirectionId, ArtDirection>;
+  /** One campaign per brand for now. */
+  campaign: CampaignBrief;
+}
+
+export function emptyCampaign(): CampaignBrief {
+  return {
+    name: "",
+    objective: "",
+    audience: "",
+    insight: "",
+    message: "",
+    tones: [],
+    offer: "",
+    // Product, logo and CTA are expected in most creative; legal copy only
+    // when an offer needs it.
+    mandatory: { product: true, logo: true, cta: true, legal: false },
+    ctaText: "",
+    legalText: "",
+    dos: "",
+    donts: "",
+    referenceIds: [],
+  };
 }
 
 export function emptyBrand(): BrandSettings {
-  const components = {} as Record<ArtDirectionId, ArtDirection>;
-  for (const { id } of ART_DIRECTION_COMPONENTS) {
-    components[id] = { description: "", disabled: false, images: [] };
-  }
-  return { homepageUrl: "", industry: "", components };
+  return { homepageUrl: "", industry: "", campaign: emptyCampaign() };
 }
+
+/** The saved brand with what it does not say yet filled in from a new brief's defaults. */
+export function brandFrom(saved: { homepageUrl: string; industry: string; campaign: Partial<CampaignBrief> }): BrandSettings {
+  const empty = emptyCampaign();
+  return {
+    homepageUrl: saved.homepageUrl,
+    industry: saved.industry,
+    campaign: { ...empty, ...saved.campaign, mandatory: { ...empty.mandatory, ...saved.campaign.mandatory } },
+  };
+}
+
+export type BrandStatus = "idle" | "loading" | "ready" | "failed";
+export type BrandSaveResult = "saved" | "conflict" | "failed";
 
 interface BrandState {
   brand: BrandSettings;
-  save: (brand: BrandSettings) => void;
+  /** The saved revision the brand is from; 0 until first saved. */
+  revision: number;
+  status: BrandStatus;
+  /** One more for each load: the Brand page starts its editor again on a new one, not on its own save. */
+  loads: number;
+  /** Loads the saved brand, once: again only after a failure. */
+  load: () => Promise<void>;
+  /** Loads it again whatever the state: Retry, or Load the latest after a conflict. */
+  reload: () => Promise<void>;
+  save: (brand: BrandSettings) => Promise<BrandSaveResult>;
 }
 
-export const useBrand = create<BrandState>((set) => ({
+export const useBrand = create<BrandState>((set, get) => ({
   brand: emptyBrand(),
-  save: (brand) => set({ brand }),
+  revision: 0,
+  status: "idle",
+  loads: 0,
+  load: async () => {
+    if (get().status === "loading" || get().status === "ready") return;
+    await get().reload();
+  },
+  reload: async () => {
+    set({ status: "loading" });
+    try {
+      const view = await fetchBrand<CampaignBrief>();
+      set((s) => ({ brand: brandFrom(view.brand), revision: view.revision, status: "ready", loads: s.loads + 1 }));
+    } catch {
+      set({ status: "failed" });
+    }
+  },
+  save: async (brand) => {
+    try {
+      const reply = await saveBrandPage(get().revision, brand);
+      if (!reply.ok) return "conflict";
+      set({ brand, revision: reply.revision });
+      return "saved";
+    } catch {
+      return "failed";
+    }
+  },
 }));
