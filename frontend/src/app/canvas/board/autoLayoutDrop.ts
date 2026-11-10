@@ -19,7 +19,7 @@ import { useLayoutDrop, type DropLine } from "@/store/layoutDrop.store";
 import { boundsOf, byArea, containsBox, contains, type Bounds } from "@/lib/canvas/bounds";
 import type { Point } from "@/lib/canvas/coords";
 import { FRAME_LAYOUT_GAP, FRAME_LAYOUT_NAME_BAND, FRAME_LAYOUT_PADDING } from "@/constants/canvas.constants";
-import { childBoxes, childrenOf, withoutIds, type ChildBox } from "./autoLayout";
+import { childBoxes, childrenOf, layoutColumns, withoutIds, type ChildBox } from "./autoLayout";
 
 
 /** The smallest Frame with auto layout under `pt`, if any. */
@@ -145,10 +145,24 @@ export function placeInto(columns: string[][], id: string, placement: Placement)
   );
 }
 
+/**
+ * Is `pt` over the place `id` has in `frame`'s layout, where it was before
+ * the drag? Without the item, its place is empty space, and a drop there
+ * would take it out of its stack as a new column (#349).
+ */
+function overOwnPlace(frame: FrameRecord, id: string, pt: Point): boolean {
+  const columns = frame.layout?.columns ?? [];
+  if (!columns.some((col) => col.includes(id))) return false;
+  const boxes = columns.map((col) => childBoxes(col));
+  const box = boxes.flat().find((b) => b.id === id);
+  const at = layoutColumns(boundsOf(frame), boxes).positions[id];
+  return !!box && !!at && contains({ ...at, w: box.w, h: box.h }, pt);
+}
+
 /** Show, move or hide the line for `id` dragged to `pt`. */
 export function trackLayoutDrag(id: string, pt: Point): void {
   const frame = layoutFrameAt(pt);
-  if (!frame?.layout) {
+  if (!frame?.layout || overOwnPlace(frame, id, pt)) {
     useLayoutDrop.getState().setLine(null);
     return;
   }
@@ -184,6 +198,7 @@ export function dropIntoLayout(id: string, pt: Point): boolean {
   if (!target?.layout) return changed;
 
   const current = useFrames.getState().frames[target.id];
+  if (overOwnPlace(current, id, pt)) return changed;
   const columns = withoutIds(current.layout!.columns, new Set([id]));
   const next = placeInto(columns, id, dropTarget(boundsOf(current), columns, pt).placement);
   if (!same(next, current.layout!.columns)) {
