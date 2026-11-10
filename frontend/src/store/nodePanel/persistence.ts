@@ -2,6 +2,7 @@ import type { PersistOptions, PersistStorage, StorageValue } from "zustand/middl
 import { createDeferredFlush, warnOnce, writeWithLeanFallback } from "@/lib/storage";
 import { bumpNextId } from "./ids";
 import { isKnownKind, type NodePanelState, type PanelInstance } from "./types";
+import { persistPanelMedia, restorePanelMedia } from "./mediaPersistence";
 
 type Persisted = { panels: PanelInstance[] };
 
@@ -17,8 +18,8 @@ const warn = warnOnce("[nodePanel]");
  * blew straight past it -- the copies landed, then the throw aborted the
  * handler before their frame was made.
  *
- * So a failed write is retried without the images, which keeps every node's
- * position and inputs for the next load at the cost of its picture. Only if
+ * So a failed write is retried without inline media, which keeps every node's
+ * position, inputs and durable asset URLs for the next load. Only if
  * that fails too is the save given up, with a warning; the board in memory is
  * untouched either way.
  */
@@ -40,11 +41,15 @@ export const panelStorage: PersistStorage<Persisted> = {
       value,
       (): StorageValue<Persisted> => ({
         ...value,
-        state: { panels: value.state.panels.map(({ output: _image, ...rest }) => rest) },
+        state: { panels: value.state.panels.map((panel) =>
+          panel.output && panel.output.type !== "text" &&
+          !panel.output.value.startsWith("/api/proxy/assets/") &&
+          !panel.output.value.startsWith("gcos-panel-media:")
+            ? { ...panel, output: undefined } : panel) },
       }),
       {
         log: warn,
-        lean: "Generated images are too large to keep across a reload; the nodes and their prompts are saved without them.",
+        lean: "Inline generated media is too large to keep across a reload; the nodes and durable assets are saved.",
         failed: "The board could not be saved to localStorage. It is unaffected until the page reloads.",
       },
     );
@@ -113,7 +118,7 @@ export const persistOptions: PersistOptions<NodePanelState, Persisted> = {
   // Only persist canvas data: the selection and the open panel are not
   // saved, so a reload starts with nothing selected. Set-aside nodes go back
   // into the same list, so the saved shape is the same for every build.
-  partialize: (s) => ({ panels: [...s.panels, ...s.parked] }),
+  partialize: (s) => ({ panels: persistPanelMedia([...s.panels, ...s.parked]) }),
   // Split saved nodes into those this build can show and those it cannot.
   merge: (persisted, current) => {
     const saved = (persisted as Partial<Persisted> | undefined)?.panels;
@@ -138,5 +143,6 @@ export const persistOptions: PersistOptions<NodePanelState, Persisted> = {
     // Keep _nextId ahead of all restored IDs to avoid collisions -- set-aside
     // ones too, or a new node could take the id of one that comes back later.
     bumpNextId([...state.panels, ...state.parked]);
+    void restorePanelMedia(state.panels, () => state.panels, (id, output) => state.setOutput(id, output));
   },
 };
