@@ -22,17 +22,27 @@ import type { Point } from "./coords";
 /**
  * Something that can hide a port.
  *
- * `z` is only consulted for canvas-vs-canvas. A DOM blocker always wins:
- * Konva shapes are painted into a single <canvas> and the panels are DOM
- * siblings above it, so no z comparison between the two is meaningful.
+ * `z` is only consulted within one canvas: canvas-vs-canvas, or
+ * shapes-vs-shapes. Across layers there is no per-node answer: each is one
+ * <canvas>, or the panels, and the order between them is fixed or flipped
+ * as a whole.
  */
 export interface Blocker {
   id: string;
   box: NodeBox;
-  /** "canvas" for Konva shapes, "dom" for panel placeholders. */
-  layer: "canvas" | "dom";
-  /** Paint order within the canvas layer. Ignored for DOM blockers. */
+  /**
+   * "canvas" for images and text, "shapes" for drawn shapes -- on a canvas of
+   * their own, always behind everything else (#430) -- "dom" for panel
+   * placeholders.
+   */
+  layer: "canvas" | "shapes" | "dom";
+  /** Paint order within its canvas. Ignored for DOM blockers. */
   z?: number;
+}
+
+/** A Konva node's blocker: on the shapes canvas if it is a drawn shape. */
+export function konvaBlocker(n: NodeBox & { id: string; z?: number; shape?: string }): Blocker {
+  return { id: n.id, box: n, layer: n.shape ? "shapes" : "canvas", z: n.z };
 }
 
 /** Where a port sits, nudged just inside its own node. */
@@ -89,8 +99,11 @@ export type TopLayer = "canvas" | "dom";
  *   dom over dom       — the caller passes only the blockers painted later,
  *                        because panels share one z-index and array order IS
  *                        paint order
- *   across layers      — decided entirely by topLayer. Every Konva shape
- *                        shares one <canvas>, so the whole canvas is above
+ *   shapes             — always underneath: a drawn shape covers only
+ *                        another shape (by z), and everything else covers
+ *                        a shape (#430)
+ *   canvas vs dom      — decided entirely by topLayer. Images and text
+ *                        share one <canvas>, so the whole canvas is above
  *                        the placeholders or below them; there is no
  *                        per-node answer. This used to be hardcoded as
  *                        "dom always wins", which is why a dragged image
@@ -106,9 +119,11 @@ export function isCovered(
     if (b.id === self.id) return false;
 
     if (b.layer !== self.layer) {
+      // Shapes are behind every other layer, whichever way the rest flips.
+      if (b.layer === "shapes") return false;
       // Cross-layer: the blocker only covers if its layer is the front one.
-      if (b.layer !== topLayer) return false;
-    } else if (self.layer === "canvas" && (b.z ?? 0) <= (self.z ?? 0)) {
+      if (self.layer !== "shapes" && b.layer !== topLayer) return false;
+    } else if (self.layer !== "dom" && (b.z ?? 0) <= (self.z ?? 0)) {
       return false;
     }
 

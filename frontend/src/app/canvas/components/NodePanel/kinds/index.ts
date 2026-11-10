@@ -22,6 +22,12 @@ export function kindSpec(kind: NodeKind): NodeKindSpec {
   return spec;
 }
 
+/** Whether a node of `kind` has an input port: Compose doesn't (#181). */
+export const takesInput = (kind: NodeKind): boolean => kindSpec(kind).acceptsInput !== false;
+
+/** Whether a node of `kind` has an output port to wire from: video doesn't. */
+export const isSource = (kind: NodeKind): boolean => kindSpec(kind).isSource !== false;
+
 /**
  * What a node holds to feed downstream: its generated output, or for an
  * authored kind, the text the user wrote. Undefined while there is nothing.

@@ -1,0 +1,18 @@
+sequenceDiagram
+  participant U as Skills Studio
+  participant N as Node BFF
+  participant API as FastAPI sync APIs
+  participant R as Agent Registry
+  U->>N: Upload SKILL.md
+  N->>N: Session, size and quota checks
+  N->>API: Skills CRUD with owner key and skill ID
+  API->>API: Validate against approved tool catalog
+  alt Unknown tool or MCP server
+    API-->>N: 422 with reason
+    N-->>U: Show reason
+  else Valid
+    API->>R: Publish immutable revision (idempotent)
+    R-->>API: Revision reference
+    API-->>N: Published revision
+    N-->>U: Skill available
+  end

@@ -1,5 +1,6 @@
 import type Konva from "konva";
 import { useToolStore } from "@/store/tool.store";
+import { useConnectionStore } from "@/store/connection.store";
 import { createOutlineRect, traceShape } from "./outline";
 
 export interface HoverOutline {
@@ -30,25 +31,31 @@ export function createHoverOutline(
     // Guard the redraw: mouseout fires constantly and batchDraw is not free.
     if (!node.visible()) return;
     node.visible(false);
-    layer.getLayer()?.batchDraw();
+    node.getLayer()?.batchDraw();
   };
 
   const show = (shape: Konva.Shape) => {
     // A selected node already draws the transformer border -- showing this on
     // top would double it, so hover stays the unselected-only affordance.
+    // Nor while a wire is dragged: its ports are the only highlight (#460).
     if (
       useToolStore.getState().activeTool !== "pointer" ||
-      transformer.nodes().includes(shape)
+      transformer.nodes().includes(shape) ||
+      useConnectionStore.getState().drag
     ) {
       hide();
       return;
     }
     traceShape(node, shape);
     node.visible(true);
+    // On the shape's own layer (#430): a shape's outline goes behind the
+    // Create nodes with it, so hovering never draws over a node.
+    const home = shape.getLayer();
+    if (home && node.getParent() !== home) node.moveTo(home);
     // Shapes are added after the layer's chrome, so without this the outline
     // would sit under the node it is tracing.
     node.moveToTop();
-    layer.getLayer()?.batchDraw();
+    node.getLayer()?.batchDraw();
   };
 
   return { node, show, hide };

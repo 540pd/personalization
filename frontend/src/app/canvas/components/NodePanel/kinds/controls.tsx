@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { DEFAULT_NODE_MAX_EDGE } from "@/constants/canvas.constants";
 import type { Reference } from "@/types/canvas.types";
 import type { MentionContext } from "../../../mentions/mentions";
+import type { NodeSettings } from "../nodeKinds";
 
 // A text node is a reading surface, not a picture: a squat landscape box wastes
 // the width on short lines, so it defaults taller than it is wide. A Prompt
@@ -122,6 +123,14 @@ export function TextOutput({ value }: { value: string }) {
  * The fields every generate request carries: the references, omitted when
  * there are none, and the prompt's @skills (#240).
  */
+/**
+ * Whether a request uses the brand (#452): the node's Use brand, absent
+ * being on. The backend reads the saved brief and Assets itself (#454).
+ */
+export function brandRequest(settings: NodeSettings): boolean {
+  return (settings as { useBrand?: boolean }).useBrand !== false;
+}
+
 export function baseRequest(references: Reference[], context?: MentionContext) {
   return {
     references: references.length ? references : undefined,

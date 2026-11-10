@@ -6,6 +6,12 @@ export type Reference =
   | { kind: "image"; url: string; name?: string }
   | { kind: "text"; text: string; name?: string };
 
+/** The generate routes' word on the brand (#452). */
+export interface BrandReply {
+  used?: string[];
+  failed?: boolean;
+}
+
 export interface GenerateTextParams {
   modelId: string;
   instruction: string;
@@ -15,6 +21,8 @@ export interface GenerateTextParams {
   agent?: { name: string; instructions: string };
   /** The prompt's @skills and the agent's own, each once, without front matter (#239). */
   skills?: { name: string; content: string }[];
+  /** Use the brand (#452): the backend adds the saved brief and Assets (#454). */
+  brand?: boolean;
 }
 
 export interface GenerateTextResult {
@@ -22,6 +30,8 @@ export interface GenerateTextResult {
   status: string;
   text: string;
   modelUsed: string;
+  /** What the brand brought (#452), or that it could not be read; absent when off. */
+  brand?: BrandReply;
 }
 
 export interface GenerateVideoParams {
@@ -63,6 +73,8 @@ export interface GenerateImageV2Params {
   variants?: number;
   /** The prompt's @skills, each once, without front matter (#240). */
   skills?: { name: string; content: string }[];
+  /** Use the brand (#452): the backend adds the saved brief and Assets (#454). */
+  brand?: boolean;
 }
 
 /** One variant that failed, by its position in the requested batch. */
@@ -81,4 +93,6 @@ export interface GenerateImageV2Result {
   /** Variants that failed in an otherwise successful batch. */
   errors?: VariantError[];
   modelUsed?: string;
+  /** What the brand brought (#452), or that it could not be read; absent when off. */
+  brand?: BrandReply;
 }

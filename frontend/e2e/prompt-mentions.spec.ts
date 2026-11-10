@@ -81,7 +81,9 @@ test.describe("Prompt panel: @ skills and agents (#239)", () => {
     await seed(page);
     await addNode(page, /^Prompt$/);
     await box(page).click();
-    await box(page).pressSequentially("Three taglines for the spring launch in @");
+    // Sized to the field: the words fit line 1 and the @ does not, in Inter at
+    // 13px (#436). A change to the field's font or width means re-measuring it.
+    await box(page).pressSequentially("Three taglines for the spring launch, via @");
     const field = (await box(page).boundingBox())!;
     const anchor = (await page.locator(".mention-mirror span").first().boundingBox())!;
     const m = (await menu(page).boundingBox())!;
@@ -142,7 +144,8 @@ test.describe("Prompt panel: @ skills and agents (#239)", () => {
     await box(page).fill("plain prompt");
     await page.locator("button.node-panel-create-button").click();
     await expect.poll(() => bodies.length).toBe(1);
-    expect(Object.keys(bodies[0]).sort()).toEqual(["instruction", "modelId", "temperature"]);
+    // No agent or skills; the brand (#452) goes with every request, on or off.
+    expect(Object.keys(bodies[0]).sort()).toEqual(["brand", "instruction", "modelId", "temperature"]);
   });
 
   test("Esc closes the menu, not the panel; undo takes back an insert", async ({ page }) => {

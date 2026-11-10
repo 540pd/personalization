@@ -22,7 +22,8 @@ function mockText(params: TextGenerationParams): string {
     : "";
   const agent = params.agent ? ` (as ${params.agent.name})` : "";
   const skills = params.skills?.length ? ` (with skills: ${params.skills.map((s) => s.name).join(", ")})` : "";
-  return `[mock] ${params.instruction}${refs}${agent}${skills}`;
+  const brand = params.brandUsed?.length ? ` (with brand: ${params.brandUsed.join(", ")})` : "";
+  return `[mock] ${params.instruction}${refs}${agent}${skills}${brand}`;
 }
 
 export class GeminiTextCapability implements TextCapability {
@@ -42,7 +43,7 @@ export class GeminiTextCapability implements TextCapability {
       config["temperature"] = params.temperature;
     }
 
-    const system = buildSystemInstruction(params.agent, params.skills);
+    const system = buildSystemInstruction(params.agent, params.skills, params.brand);
     if (system) config["systemInstruction"] = system;
 
     const parts = buildContentParts(params.instruction, params.references);

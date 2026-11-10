@@ -8,6 +8,9 @@ import { sessionRouter } from "./routes/session.js";
 import { boardsRouter } from "./routes/boards.js";
 import { generateRouter } from "./routes/generate.js";
 import { assetsRouter } from "./routes/assets.js";
+import { brandAssetsRouter } from "./routes/brandAssets.js";
+import { brandRouter } from "./routes/brand.js";
+import { supportRouter } from "./routes/support.js";
 import { isFirestoreMode, getFirestoreClient } from "./lib/firestore.js";
 import { isGcsMode, getBucket } from "./lib/gcs.js";
 import { assertDeployable, describeServiceModes, serviceModes } from "./lib/serviceModes.js";
@@ -122,10 +125,14 @@ export function createApp(): express.Express {
   });
 
   app.use("/api", authConfigRouter);
+  // Open to anyone, signed in or not (#428).
+  app.use("/api", supportRouter());
   app.use("/api", sessionRouter);
   app.use("/api", boardsRouter);
   app.use("/api", generateRouter);
   app.use("/api", assetsRouter);
+  app.use("/api", brandAssetsRouter);
+  app.use("/api", brandRouter);
 
   // Cloud Tasks' worker endpoint (#325), outside /api and only when the
   // queue is set up: in process, nothing calls in.

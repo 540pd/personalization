@@ -1,5 +1,5 @@
 import zlib from "node:zlib";
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 /** Geometry in screen px. */
 export interface Box { x: number; y: number; w: number; h: number }
@@ -58,7 +58,48 @@ export function makePng(w: number, h: number, rgb: [number, number, number] = [1
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+/**
+ * Offers every Create and Shapes menu item, as the menus did before #404 hid
+ * some by default. For specs about drawing or styling those items, not about
+ * the menus: call before the page loads. A choice saved later wins.
+ */
+export async function showEveryMenuItem(page: Page) {
+  await page.addInitScript(() => {
+    if (localStorage.getItem("gcos-settings")) return;
+    const settings = {
+      showVideo: true, showPrompt: true, showCompose: true,
+      showRect: true, showArrow: true, showLine: true, showEllipse: true,
+      showTriangle: true, showBlockArrow: true, showDiamond: true,
+    };
+    localStorage.setItem("gcos-settings", JSON.stringify({ version: 1, settings }));
+  });
+}
+
+/**
+ * Turns the Campaign Brief's Logo switch off (#409), so the Assets page
+ * saves without a logo (#417). Saved to the account (#454) until the next
+ * openBoard resets the brand; waits until the save has landed.
+ */
+export async function logoNotMandatory(page: Page) {
+  await page.locator(".sidebar-identity").click();
+  await page.getByRole("menuitem", { name: "Brand" }).click();
+  await page.getByRole("switch", { name: "Logo" }).click();
+  await page.getByRole("button", { name: "Save brand" }).click();
+  await expect(page.getByRole("button", { name: "Save brand" })).toBeDisabled();
+}
+
+/**
+ * Puts the saved brand back to a new one (#454). The brand is kept in the
+ * account now, so a brief one spec saved would reach the next: each starts
+ * from an empty brief, as each page load did while it lived in memory.
+ */
+export async function resetBrand(page: Page) {
+  const current = await (await page.request.get("/api/proxy/brand")).json();
+  await page.request.put("/api/proxy/brand", { data: { revision: current.revision, brand: { homepageUrl: "", industry: "", campaign: {} } } });
+}
+
 export async function openBoard(page: Page) {
+  await resetBrand(page);
   await page.goto("/", { waitUntil: "networkidle" });
   // Board mounts via next/dynamic with ssr:false, so wait for the stage, not load.
   await page.waitForFunction(() => !!(window as any).Konva?.stages?.length, null, { timeout: 20_000 });

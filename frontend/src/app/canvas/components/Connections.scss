@@ -1,0 +1,186 @@
+@reference "../../globals.css";
+
+/* Wires and ports (#456). Calm at rest, clear on hover and selection. Sizes
+   are screen px: the overlay is drawn in screen space, so none of this
+   scales with zoom. */
+
+/* ── Ports: a circle centred on the node edge, in a larger grab area ── */
+.board-port {
+  /* Callers set left/top (the port centre) and z-index. */
+  @apply fixed flex items-center justify-center;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  cursor: crosshair;
+  pointer-events: auto;
+}
+
+/* An input is only a drop target; a small area keeps it from taking clicks
+   meant for the node's edge. */
+.board-port.is-input {
+  width: 14px;
+  height: 14px;
+}
+
+.board-port-dot {
+  @apply flex shrink-0 items-center justify-center rounded-full bg-white;
+  width: 12px;
+  height: 12px;
+  @apply border-ink-muted;
+  border-width: 1.5px;
+  transition: width 120ms ease, height 120ms ease, border-color 120ms ease;
+}
+
+/* A port with a wire on it is filled: where the wire ends. */
+.board-port.is-connected .board-port-dot::after {
+  @apply rounded-full;
+  content: "";
+  width: 4px;
+  height: 4px;
+  @apply bg-ink-muted;
+}
+
+.board-port:hover .board-port-dot {
+  width: 14px;
+  height: 14px;
+  @apply border-accent;
+}
+
+.board-port:hover.is-connected .board-port-dot::after {
+  @apply bg-accent;
+}
+
+/* A wired input can be picked up by its end (#458). */
+.board-port.is-input.is-connected {
+  cursor: grab;
+}
+
+/* While a wire is dragged: every input that can take it (#458). */
+.board-port.is-target .board-port-dot {
+  @apply border-accent ring-4 ring-accent/20;
+}
+
+/* The input the wire would land on if let go now: bigger and filled, so it
+   stands out from the other lit targets. The node itself isn't outlined
+   (#460). */
+.board-port.is-landing .board-port-dot {
+  @apply border-accent bg-accent ring-4 ring-accent/20;
+  width: 14px;
+  height: 14px;
+}
+
+/* The port of the node under the pointer that can't take the wire: red
+   goes on the connector only, never the whole node (#460). */
+.board-port.is-blocked .board-port-dot {
+  @apply border-red-600 ring-4 ring-red-600/20;
+}
+
+/* ── Wires ── */
+.board-wire-line {
+  fill: none;
+  @apply stroke-ink-muted;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+  transition: stroke 120ms ease;
+}
+
+.board-wire:hover .board-wire-line {
+  @apply stroke-ink;
+  stroke-width: 2px;
+}
+
+/* After hover, so a selected wire stays blue under the pointer. */
+.board-wire.is-selected .board-wire-line {
+  @apply stroke-accent;
+  stroke-width: 2px;
+}
+
+.board-wire-halo {
+  fill: none;
+  @apply stroke-accent;
+  stroke-width: 6px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+/* Into a node that is generating: a slow moving dash. */
+.board-wire.is-flowing .board-wire-line {
+  stroke-dasharray: 6 6;
+  animation: board-wire-flow 1s linear infinite;
+}
+
+@keyframes board-wire-flow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+/* The live wire while dragging from an output. */
+.board-wire-preview {
+  fill: none;
+  @apply stroke-ink-muted;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 5 3;
+}
+
+.board-wire-snap {
+  @apply fill-accent-soft stroke-accent;
+  stroke-width: 1.5px;
+}
+
+/* Why the node under the pointer can't take the wire (#460). Callers set
+   left/top (just below and right of the pointer) and z-index. */
+.board-wire-reason {
+  @apply fixed whitespace-nowrap rounded-md border border-line bg-white px-2 py-1 text-xs text-ink shadow-sm;
+  pointer-events: none;
+}
+
+.board-wire-reason:empty {
+  display: none;
+}
+
+/* While over that node, the pointer says no, whatever it is over (#460). */
+html.wire-blocked,
+html.wire-blocked * {
+  cursor: not-allowed !important;
+}
+
+/* A wire's delete button, at its middle, on hover or selection (#458). */
+.board-wire-delete {
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.board-wire-delete-bg {
+  @apply fill-white stroke-line;
+  stroke-width: 1px;
+}
+
+.board-wire-delete-x {
+  @apply stroke-ink-muted;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+}
+
+.board-wire-delete:hover .board-wire-delete-x {
+  @apply stroke-red-600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-port-dot,
+  .board-wire-line {
+    transition: none;
+  }
+
+  /* The dash still says "generating"; it just doesn't move. */
+  .board-wire.is-flowing .board-wire-line {
+    animation: none;
+  }
+}

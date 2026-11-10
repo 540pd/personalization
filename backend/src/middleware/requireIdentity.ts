@@ -138,6 +138,24 @@ function identifyFromCookie(req: Request, res: Response, next: NextFunction): vo
   next();
 }
 
+/**
+ * The signed-in sender's email, when the request carries a session of ours;
+ * otherwise null, and never a refusal. For routes anyone may call that
+ * still note who sent it (the support form, #428). A Google token is not
+ * checked here: that is a network call this note is not worth.
+ */
+export function signedInEmail(req: Request): string | null {
+  if (AUTH_MODE === "anonymous") return null;
+  const header = IS_DEPLOYED ? req.header("X-User-Identity") : req.header("X-User-Identity") ?? req.header("Authorization");
+  const bearer = header?.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : undefined;
+  for (const token of [bearer, readSessionCookie(req)]) {
+    if (!token) continue;
+    const session = verifySessionToken(token);
+    if (session.ok) return session.email;
+  }
+  return null;
+}
+
 export function requireIdentity(): RequestHandler {
   return async function requireIdentityMiddleware(
     req: Request,

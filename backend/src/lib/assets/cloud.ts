@@ -4,7 +4,7 @@ import { currentIsoDate } from "../../utils/date.js";
 import { createId } from "../../utils/id.js";
 import { getFirestoreClient } from "../firestore.js";
 import { getBucket } from "../gcs.js";
-import { byNewest, type Asset, type AssetStore } from "./types.js";
+import { byNewest, withInfo, type Asset, type AssetStore } from "./types.js";
 
 const ASSETS = "assets";
 
@@ -33,14 +33,24 @@ export function cloudAssetStore(db: Firestore = getFirestoreClient(), bucket: Bu
   }
 
   return {
-    async put(userId, data, mimeType, source) {
+    async put(userId, data, mimeType, source, info) {
       const id = createId();
       await bucket.file(objectName(userId, id)).save(data, { contentType: mimeType, resumable: false });
-      const doc: AssetDoc = { userId, mimeType, bytes: data.length, source, createdAt: currentIsoDate() };
-      await docs.doc(id).create(doc);
-      return { id, ...doc };
+      const asset = withInfo<Asset>({ id, userId, mimeType, bytes: data.length, source, createdAt: currentIsoDate() }, info);
+      const { id: _id, ...doc } = asset;
+      await docs.doc(id).create(doc satisfies AssetDoc);
+      return asset;
     },
     get: owned,
+    async update(id, userId, info) {
+      const asset = await owned(id, userId);
+      if (!asset) return null;
+      const next = withInfo(asset, info);
+      // Only the info fields: the owner, type and size never change.
+      const { kind = null, name = "", description = "", details = {} } = next;
+      await docs.doc(id).update({ kind, name, description, details });
+      return next;
+    },
     async open(id, userId) {
       const asset = await owned(id, userId);
       return asset ? { asset, stream: bucket.file(objectName(userId, id)).createReadStream() } : null;

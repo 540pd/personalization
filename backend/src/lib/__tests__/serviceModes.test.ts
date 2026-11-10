@@ -5,8 +5,8 @@ import { assertDeployable, describeServiceModes, type ServiceModes } from "../se
 
 afterEach(() => vi.unstubAllEnvs());
 
-const placeholders: ServiceModes = { auth: "anonymous", storage: { firestore: "local", storage: "local" }, ai: "placeholder", jobs: "in-process" };
-const gcp: ServiceModes = { auth: "required", storage: { firestore: "gcp", storage: "gcp" }, ai: "vertex", jobs: "cloud-tasks" };
+const placeholders: ServiceModes = { auth: "anonymous", storage: { firestore: "local", storage: "local" }, ai: "placeholder", jobs: "in-process", supportEmail: "placeholder" };
+const gcp: ServiceModes = { auth: "required", storage: { firestore: "gcp", storage: "gcp" }, ai: "vertex", jobs: "cloud-tasks", supportEmail: "smtp" };
 
 describe("describeServiceModes", () => {
   it("names each placeholder and the variables that switch it", () => {
@@ -16,6 +16,7 @@ describe("describeServiceModes", () => {
     expect(text).toContain("local disk at /tmp/gcos-data (placeholder) -- to switch: FIRESTORE_PROJECT_ID, GCS_BUCKET_NAME");
     expect(text).toContain("AI:      offline placeholders -- to switch: VERTEX_PROJECT_ID");
     expect(text).toContain("jobs:    in process (placeholder) -- to switch: CLOUD_TASKS_QUEUE, CLOUD_TASKS_SERVICE_ACCOUNT, JOBS_WORKER_URL");
+    expect(text).toContain("support: kept and logged, not emailed (placeholder) -- to switch: SUPPORT_EMAIL_TO, SUPPORT_EMAIL_FROM, SMTP_HOST");
     expect(text).toContain("docs/switching-to-gcp.md");
   });
 
@@ -49,5 +50,12 @@ describe("assertDeployable", () => {
     expect(warn).not.toHaveBeenCalled();
     assertDeployable({ ...gcp, ai: "placeholder" });
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/VERTEX_PROJECT_ID/));
+  });
+
+  it("starts a deployed backend without support email, warning that messages are only kept", () => {
+    vi.stubEnv("K_SERVICE", "gcos-backend");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(() => assertDeployable({ ...gcp, supportEmail: "placeholder" })).not.toThrow();
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/SUPPORT_EMAIL_TO/));
   });
 });

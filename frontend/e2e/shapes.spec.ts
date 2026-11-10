@@ -1,5 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openBoard, setZoom, zoom, portCount, uploadImage, imageBox, collapsePanels } from "./helpers";
+import { openBoard, setZoom, zoom, portCount, uploadImage, imageBox, collapsePanels, showEveryMenuItem } from "./helpers";
+
+// Draws items #404 hides by default, so offer them all.
+test.beforeEach(({ page }) => showEveryMenuItem(page));
 
 // Shapes v1, part 1: the Shapes menu and Rectangle. A shape is an ordinary
 // selectable node on Board's layer, so most of these check that it really
@@ -286,7 +289,8 @@ test.describe("editing a rectangle", () => {
     expect(near(r.x, 400) && near(r.y, 300)).toBe(true);
   });
 
-  test("dragging it brings it in front of an image", async ({ page }) => {
+  // Shapes sit behind images and Create nodes, on a layer of their own (#430).
+  test("dragging it keeps it behind an image", async ({ page }) => {
     await openBoard(page);
     await drawRect(page, 300, 200, 400, 280);
     await uploadImage(page, 200, 150);        // lands on top, mid-viewport
@@ -298,7 +302,7 @@ test.describe("editing a rectangle", () => {
       });
     expect(await kindOnTop()).toBe("Image");
     await drag(page, 350, 240, 380, 260);
-    expect(await kindOnTop()).toBe("BoardShape");
+    expect(await kindOnTop()).toBe("Image");
   });
 
   test("draw, delete, undo and redo", async ({ page }) => {

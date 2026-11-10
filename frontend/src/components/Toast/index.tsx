@@ -13,10 +13,13 @@ export default function Toast({
   message,
   error = false,
   onUndo,
+  actionLabel = "Undo",
 }: {
   message: string;
   error?: boolean;
   onUndo?: () => void;
+  /** The action's name, when it is not an Undo: the support form's "Open it" (#428). */
+  actionLabel?: string;
 }) {
   return createPortal(
     // alert for a failure, so a screen reader interrupts with it.
@@ -31,7 +34,7 @@ export default function Toast({
         <>
           <span className="board-toast-sep" aria-hidden />
           <button type="button" className="board-toast-action" onClick={onUndo}>
-            Undo
+            {actionLabel}
           </button>
         </>
       )}

@@ -19,6 +19,9 @@ function deps(l: Konva.Layer) {
   const transformer = new Konva.Transformer();
   return {
     layer: l,
+    shapes: l,
+    root: l as Konva.Container,
+    layerFor: () => l,
     transformer,
     hover: createHoverOutline(l, transformer),
     applyDraggability: () => applyDraggability(l),

@@ -29,7 +29,22 @@ import { uploadNodeFile } from "./uploadAsset";
 export interface UploadDetail {
   files: File[];
   at?: Point;
+  /**
+   * Images already in the user's stored assets (#446: the master from
+   * Assets), placed by URL: nothing to upload again, and the node points at
+   * the asset from the start.
+   */
+  stored?: StoredImage[];
 }
+
+export interface StoredImage {
+  url: string;
+  /** The node's name, before uniqueLabel. */
+  name: string;
+}
+
+/** What an image node is made from: a file to upload, or a stored asset. */
+type ImageSource = { file: File } | { stored: StoredImage };
 
 /** Files to place on the board: the dock's picker and desktop drops emit it. */
 export const uploadEvent = canvasEvent<UploadDetail>("canvas:upload");
@@ -91,17 +106,18 @@ export function imageHitFunc(ctx: Konva.Context, shape: Konva.Shape) {
 
 function addImage(
   deps: UploadDeps,
-  file: File,
+  source: ImageSource,
   cx: number,
   cy: number,
   off: number,
   onSettled: () => void,
   droppedAt?: Point,
 ) {
-  const url = URL.createObjectURL(file);
+  const file = "file" in source ? source.file : null;
+  const url = file ? URL.createObjectURL(file) : (source as { stored: StoredImage }).stored.url;
   const img = new window.Image() as HTMLImageElement;
 
-  img.onload = () => {
+  img.onload = async() => {
     const { w, h } = fitToBox(img.naturalWidth, img.naturalHeight);
     const id = crypto.randomUUID();
     const x = cx - w / 2 + off;
@@ -135,16 +151,24 @@ function addImage(
     canvas.height = h;
     canvas.getContext("2d")?.drawImage(img, 0, 0, w, h);
 
-    const imageUrl = canvas.toDataURL("image/png");
     // Read taken labels here rather than at drop time: onload fires per file
     // and placeNode registers each one synchronously, so uploading two
     // cat.png gives "cat" then "cat (2)" instead of two "cat"s.
+    const copy = canvas.toDataURL("image/png");
+    // A stored asset is pointed at from the start, as an upload is once stored.
+    const imageUrl = file ? copy : url;
+    try {
+      await saveFrameBitmap(id, copy);
+    } catch (err) {
+      // Storage can be disabled or full. The current upload still works;
+      // only its ability to survive a future frame reload is affected.
+      console.warn("[frames] Could not save uploaded image for reload.", err);
+    }
     placeNode(deps, node, {
       id, canvasX: x, canvasY: y, canvasW: w, canvasH: h,
       imageUrl,
-      label: uniqueLabel(stripExtension(file.name), takenLabels()),
+      label: uniqueLabel(file ? stripExtension(file.name) : (source as { stored: StoredImage }).stored.name, takenLabels()),
     }, droppedAt);
-    URL.revokeObjectURL(url);
     onSettled();
     // The image must land even when IndexedDB is slow, blocked or disabled.
     // Storage serializes writes/deletes per id so a delete during this write
@@ -152,6 +176,8 @@ function addImage(
     void saveFrameBitmap(id, imageUrl).catch((err) => {
       console.warn("[frames] Could not save uploaded image for reload.", err);
     });
+    if (!file) return;
+    URL.revokeObjectURL(url);
     // On the board already, with its local copy; now into the user's
     // stored assets, the original rather than the downscaled copy (#323).
     void uploadNodeFile(id, file);
@@ -161,7 +187,7 @@ function addImage(
   // waiting on the upload -- the dock's busy state -- waits forever. A broken
   // file drops out silently rather than taking the rest of the pick with it.
   img.onerror = () => {
-    URL.revokeObjectURL(url);
+    if (file) URL.revokeObjectURL(url);
     onSettled();
   };
 
@@ -190,7 +216,7 @@ function addMediaPlaceholder(deps: UploadDeps, file: File, cx: number, cy: numbe
 
 /** Handler for uploadEvent. */
 export function createUploadHandler(deps: UploadDeps) {
-  return ({ files, at }: UploadDetail) => {
+  return ({ files, at, stored = [] }: UploadDetail) => {
 
     // Return to pointer so the new node can be moved straight away. Without
     // this an upload under a link/shape tool lands a node that cannot be
@@ -212,7 +238,7 @@ export function createUploadHandler(deps: UploadDeps) {
     // Images decode asynchronously, so the pick is not done when this
     // function returns. Count them down instead: the dock stays lit until the
     // last file lands, not the first.
-    let pending = files.length;
+    let pending = files.length + stored.length;
     const settle = () => {
       pending -= 1;
       if (pending <= 0) useUpload.getState().setUploading(false);
@@ -221,11 +247,12 @@ export function createUploadHandler(deps: UploadDeps) {
     files.forEach((file, i) => {
       const off = i * 24;   // cascade, so a multi-file drop does not stack
       if (file.type.startsWith("image/")) {
-        addImage(deps, file, cx, cy, off, settle, droppedAt);
+        addImage(deps, { file }, cx, cy, off, settle, droppedAt);
       } else {
         addMediaPlaceholder(deps, file, cx, cy, off, droppedAt);
         settle();   // synchronous: already on the canvas
       }
     });
+    stored.forEach((image, i) => addImage(deps, { stored: image }, cx, cy, (files.length + i) * 24, settle, droppedAt));
   };
 }

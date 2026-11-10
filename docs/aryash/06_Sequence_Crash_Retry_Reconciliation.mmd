@@ -1,0 +1,26 @@
+sequenceDiagram
+  participant T as Cloud Tasks
+  participant A1 as Attempt 1
+  participant A2 as Attempt 2
+  participant FS as Firestore
+  participant G as Cloud Storage
+  participant BQ as BigQuery
+  participant RC as Reconciler
+  T->>A1: Deliver job ID
+  A1->>FS: Claim attempt 1, lease 60 s
+  A1->>G: Slot 1 saved
+  A1->>BQ: SLOT_SAVED slot 1
+  A1--xA1: Crash
+  Note over FS: Heartbeat stops, lease expires
+  T->>A2: Retry delivery
+  A2->>FS: Claim attempt 2 (lease expired)
+  A2->>BQ: Read saved plan and slots
+  A2->>G: Generate only missing slots (max 2 calls each)
+  A2->>BQ: COMPLETED
+  A2->>FS: Release lock
+  Note over A1,FS: A late write from attempt 1 is rejected - stale attempt
+  Note over RC: Every 2 min via Cloud Scheduler
+  RC->>FS: Find expired leases and stuck QUEUED jobs
+  RC->>G: Recovery scan of reserved paths
+  RC->>BQ: Append missing SLOT_SAVED or FAILED interrupted
+  RC->>FS: Release lock when terminal

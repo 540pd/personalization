@@ -20,17 +20,18 @@ test.describe("Brand page", () => {
     await openBrand(page);
     await expect(page.locator(".sidebar-product")).toHaveText(/Studio\s*\/\s*Brand/);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    for (const title of ["Colour palette", "Visual identity", "Product staging", "Lighting", "Environment / scene", "Campaign context"]) {
-      await expect(page.getByRole("heading", { name: title, level: 3 })).toBeVisible();
-    }
+    // The Campaign Brief replaced the Art-direction components (#409).
+    await expect(page.getByRole("heading", { name: "Campaign Brief", level: 2 })).toBeVisible();
+    await expect(page.getByText("Art-direction components")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Analyze" })).toBeDisabled();
     await expect(saveBrand(page)).toBeDisabled();
     expect(await page.evaluate(() => (window as any).Konva.stages.length)).toBeGreaterThan(0);
 
-    // Esc does not leave a page.
+    // Esc leaves it, back to the board it was opened from (#405).
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("heading", { name: "Brand", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Brand", level: 1 })).toHaveCount(0);
 
+    await openBrand(page);
     await page.locator(".sidebar-item", { hasText: "Playspace" }).click();
     await expect(page.getByRole("heading", { name: "Brand", level: 1 })).toHaveCount(0);
   });
@@ -58,10 +59,12 @@ test.describe("Brand page", () => {
     await openBoard(page);
     await openBrand(page);
     await industry(page).fill("Retail");
-    await page.getByRole("checkbox").first().check();
+    const legal = page.getByRole("switch", { name: "Legal Copy" });
+    await legal.click();
+    await expect(legal).toHaveAttribute("aria-checked", "true");
     await bar(page).getByRole("button", { name: "Cancel" }).click();
     await expect(industry(page)).toHaveValue("");
-    await expect(page.getByRole("checkbox").first()).not.toBeChecked();
+    await expect(legal).toHaveAttribute("aria-checked", "false");
     await expect(saveBrand(page)).toBeDisabled();
   });
 
@@ -85,6 +88,9 @@ test.describe("Brand page", () => {
       await p.getByRole("menuitem", { name: /Settings/ }).click();
     }],
     ["⌘,", (p: Page) => p.keyboard.press("Meta+Comma")],
+    // The page's own ways out (#405) ask the same.
+    ["the close button", (p: Page) => p.getByRole("button", { name: "Close Brand" }).click()],
+    ["Esc", (p: Page) => p.keyboard.press("Escape")],
   ] as const) {
     test(`leaving with edits by ${how} asks first`, async ({ page }) => {
       await openBoard(page);
@@ -133,25 +139,5 @@ test.describe("Brand page", () => {
     );
     await page.close({ runBeforeUnload: true });
     expect(await prompt).toBe("beforeunload");
-  });
-
-  test("wide window: two cards per row, never three", async ({ page }) => {
-    await page.setViewportSize({ width: 1800, height: 900 });
-    await openBoard(page);
-    await openBrand(page);
-    const cards = page.locator(".brand-card");
-    const [a, b, c] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox(), await cards.nth(2).boundingBox()];
-    expect(Math.round(b!.y)).toBe(Math.round(a!.y));
-    expect(c!.y).toBeGreaterThan(a!.y + a!.height - 1);
-  });
-
-  test("narrow window: one card per row", async ({ page }) => {
-    await page.setViewportSize({ width: 900, height: 800 });
-    await openBoard(page);
-    await openBrand(page);
-    const cards = page.locator(".brand-card");
-    const a = await cards.nth(0).boundingBox();
-    const b = await cards.nth(1).boundingBox();
-    expect(b!.y).toBeGreaterThan(a!.y + a!.height - 1);
   });
 });

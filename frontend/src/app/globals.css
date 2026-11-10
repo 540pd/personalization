@@ -1,19 +1,74 @@
 @import "tailwindcss";
 
 /*
+ * The design values every surface draws from (#434), after
+ * docs/sidebar/Design_Aspect: a neutral interface, one blue accent for what
+ * is active or primary, and colour otherwise left to the user's content.
+ * Each becomes a utility: `bg-subtle`, `text-ink-muted`, `border-line`,
+ * `text-body`, `rounded-control`, `shadow-float` and so on.
+ */
+@theme {
+  /* Surfaces: white to work on, a soft grey to set areas apart. */
+  --color-surface: #ffffff;
+  --color-subtle: #f5f5f5;
+
+  /* Text, and the light line used where a border is really needed. */
+  --color-ink: #111111;
+  --color-ink-muted: #666666;
+  --color-line: #e7e7e7;
+
+  /* The one accent: primary actions, the active tool, selection, focus. */
+  --color-accent: #2c6adc;
+  --color-accent-hover: #2057c4;
+  --color-accent-soft: #eef3fc;
+
+  /* Small status labels only, never panels or buttons. */
+  --color-indigo: #4d4a9b;
+  --color-cyan: #45a3c4;
+  --color-pink: #d95583;
+
+  /* Four type steps: metadata, body, titles, page titles. */
+  --text-meta: 11px;
+  --text-meta--line-height: 16px;
+  --text-body: 13px;
+  --text-body--line-height: 20px;
+  --text-title: 15px;
+  --text-title--line-height: 22px;
+  --text-page: 22px;
+  --text-page--line-height: 28px;
+
+  /* Corners: controls, cards and panels, images. */
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-media: 10px;
+
+  /* Lift for things floating over the board, and for menus. */
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 24px rgb(0 0 0 / 0.06);
+  --shadow-menu: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.06);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --default-transition-duration: 160ms;
+}
+
+/* Inter, loaded by next/font in layout.tsx, as the sans everywhere. */
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
  * Looks that several components share, defined once and @apply-ed by name
  * from their stylesheets (each starts with `@reference` to this file), so a
  * change to one is a change to all.
  */
 
-/* Keyboard focus on a control: a dark ring just outside it. */
+/* Keyboard focus on a control: an accent ring just outside it. */
 @utility focus-ring {
-  @apply outline-2 outline-offset-2 outline-neutral-900;
+  @apply outline-2 outline-offset-2 outline-accent;
 }
 
 /* The same ring drawn inside, for rows and items that fill their container. */
 @utility focus-ring-inset {
-  @apply outline-2 -outline-offset-2 outline-neutral-900;
+  @apply outline-2 -outline-offset-2 outline-accent;
 }
 
 /* The dimmed full-window layer a modal dialog sits on, centred. */
@@ -23,12 +78,12 @@
 
 /* A white menu or popover resting on the page. */
 @utility menu-surface {
-  @apply rounded-xl bg-white shadow-md border border-black/[0.08];
+  @apply rounded-card bg-surface shadow-menu border border-line;
 }
 
 /* The dock's and the style bar's frosted white, over the board. */
 @utility glass {
-  @apply bg-white/95 border border-black/10 backdrop-blur-sm;
+  @apply bg-surface/95 border border-line shadow-float backdrop-blur-sm;
 }
 
 /* Centred above its positioned parent, with a small gap. */
@@ -39,5 +94,5 @@
 /* The white pill tooltip of the dock and the style bar. */
 @utility pill-tooltip {
   @apply float-above;
-  @apply rounded-full bg-white border border-black/10 shadow-md px-3 py-1 whitespace-nowrap pointer-events-none;
+  @apply rounded-full bg-surface border border-line shadow-float px-3 py-1 whitespace-nowrap pointer-events-none;
 }

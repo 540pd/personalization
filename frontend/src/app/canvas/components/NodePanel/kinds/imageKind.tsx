@@ -9,7 +9,7 @@ import type { AspectRatioV2, Reference } from "@/types/canvas.types";
 import { DEFAULT_ASPECT_RATIO, placeholderSize } from "@/constants/canvas.constants";
 import type { ImageSettings, NodeKindSpec, NodeSettings, SettingsProps } from "../nodeKinds";
 import type { MentionContext } from "../../../mentions/mentions";
-import { baseRequest, KindPlaceholder, SettingSelect, TemperatureSlider } from "./controls";
+import { baseRequest, brandRequest, KindPlaceholder, SettingSelect, TemperatureSlider } from "./controls";
 
 // To add a new model: append an entry with the Vertex AI model ID as `id` and
 // the display name as `label`. The `id` value is sent verbatim to the backend
@@ -131,6 +131,7 @@ export const imageKind: NodeKindSpec = {
   prompt: "Describe the image...",
   // Skills only: an agent is a Prompt-panel setup with a text model (#240).
   mentions: "skills",
+  brand: true,
   models: MODELS,
   // Cheapest model and smallest size by default. A node is usually created to
   // try an idea, and the picker is right there when a draft is worth a better
@@ -149,17 +150,19 @@ export const imageKind: NodeKindSpec = {
   Output,
   Advanced,
   Options,
-  async generate({ modelId, instruction, settings, references, context, signal }) {
+  async generate({ modelId, instruction, settings, references, context, onBrandFailed, signal }) {
     const result = await generateImageV2(requestFor(modelId, instruction, settings, references, context), signal);
+    if (result.brand?.failed) onBrandFailed?.();
     if (!result.imageUrl) throw new Error("Generation returned no image.");
     return { type: "image", value: result.imageUrl };
   },
   variantCount: (settings) => (settings as ImageSettings).variants ?? 1,
-  async generateVariants({ modelId, instruction, settings, references, context, signal }, count) {
+  async generateVariants({ modelId, instruction, settings, references, context, onBrandFailed, signal }, count) {
     const result = await generateImageV2({
       ...requestFor(modelId, instruction, settings, references, context),
       variants: count,
     }, signal);
+    if (result.brand?.failed) onBrandFailed?.();
     const urls = result.imageUrls ?? [];
     // A backend from before variants (#113) ignores the count and answers in
     // the single-image shape. Say that, rather than "no images" -- one did
@@ -191,5 +194,6 @@ function requestFor(
     thinking: s.thinking,
     temperature: s.temperature,
     ...baseRequest(references, context),
+    brand: brandRequest(settings),
   };
 }

@@ -92,7 +92,9 @@ test.describe("frame tool", () => {
       const canvases = Array.from(document.querySelectorAll("canvas"));
       const panel = document.querySelector("button.node-panel-placeholder") as HTMLElement | null;
       return {
-        canvasZs: canvases.map((c) => zOf(c.closest("div") as HTMLElement)),
+        // A board canvas carries its own z-index (#430); the frames stage's
+        // is on its container.
+        canvasZs: canvases.map((c) => zOf(c)),
         panelZ: zOf(panel),
       };
     });
@@ -349,7 +351,7 @@ test.describe("one selection at a time", () => {
   //
   // A selected wire draws its visible stroke at 2px instead of 1.5; the
   // 12px-wide invisible path beside it is the hit target.
-  const selectedWires = (page: Page) => page.locator('svg g > path[stroke-width="2"]').count();
+  const selectedWires = (page: Page) => page.locator("svg g.board-wire.is-selected").count();
 
   /** An image wired into a Create node, plus a frame drawn clear of both. */
   async function wiredPairAndFrame(page: Page) {

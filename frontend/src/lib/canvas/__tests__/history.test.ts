@@ -126,6 +126,45 @@ describe("history", () => {
     expect(late.box.value).toBe("L-current");
   });
 
+  // #469: Board commits the baseline in its mount effect, before NodePanel
+  // registers the panels. The first change after a load must still undo.
+  it("restores a late adapter to its state when it registered (#469)", () => {
+    const h = createHistory();
+    const board = slice("b0");
+    h.register("konva", board.adapter);
+    h.commit(); // the baseline, before the panels register
+
+    const panels = slice("A,B");
+    h.register("panels", panels.adapter);
+
+    // The first change after the load: delete B.
+    panels.box.value = "A";
+    h.commit();
+
+    expect(h.undo()).toBe(true);
+    expect(panels.box.value).toBe("A,B");
+    expect(board.box.value).toBe("b0");
+    h.redo();
+    expect(panels.box.value).toBe("A");
+  });
+
+  it("fills only what an entry lacks: a second register keeps what the first recorded", () => {
+    const h = createHistory();
+    h.register("konva", slice("b0").adapter);
+    h.commit();
+
+    // StrictMode in dev: register, unregister, register again.
+    const panels = slice("A,B");
+    h.register("panels", panels.adapter)();
+    panels.box.value = "changed while unregistered";
+    h.register("panels", panels.adapter);
+
+    panels.box.value = "A";
+    h.commit();
+    h.undo();
+    expect(panels.box.value).toBe("A,B");
+  });
+
   it("stops restoring an adapter once it unregisters", () => {
     const h = createHistory();
     const a = slice("a0");

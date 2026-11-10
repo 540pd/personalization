@@ -1,0 +1,16 @@
+stateDiagram-v2
+  direction LR
+  [*] --> QUEUED : admission
+  QUEUED --> RUNNING : claim, attempt 1
+  QUEUED --> FAILED : never dispatched
+  RUNNING --> RETRYING : lease expired
+  RETRYING --> RUNNING : claim, attempt n+1
+  RETRYING --> FAILED : attempts or deadline exhausted
+  RUNNING --> COMPLETED : all slots saved
+  RUNNING --> PARTIALLY_COMPLETED : some slots failed
+  RUNNING --> NEEDS_CLARIFICATION : plan cannot proceed
+  RUNNING --> FAILED : permanent error
+  COMPLETED --> [*]
+  PARTIALLY_COMPLETED --> [*]
+  NEEDS_CLARIFICATION --> [*]
+  FAILED --> [*]

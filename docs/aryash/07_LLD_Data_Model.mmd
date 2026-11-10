@@ -1,0 +1,76 @@
+erDiagram
+  USER ||--o{ IDENTITY_LINK : "signs in via"
+  USER ||--o{ LOGIN_SESSION : "has"
+  USER ||--o{ PLAYSPACE_MAP : "owns"
+  USER ||--o{ SKILL_REVISION : "owns"
+  PLAYSPACE_MAP ||--o| ADK_SESSION : "maps to"
+  PLAYSPACE_MAP ||--o{ JOB : "runs one at a time"
+  JOB ||--|| MANIFEST : "pins"
+  JOB ||--|{ JOB_STATE_ROW : "history"
+  JOB ||--|{ OUTPUT_SLOT : "reserves"
+  OUTPUT_SLOT ||--o| GCS_OBJECT : "saved as"
+  MANIFEST }o--o{ SKILL_REVISION : "pins revision"
+  USER {
+    string owner_key PK
+    string status
+    string email
+    timestamp last_login_at
+  }
+  IDENTITY_LINK {
+    string link_id PK "HMAC of iss and sub"
+    string owner_key FK
+    int hmac_key_version
+  }
+  LOGIN_SESSION {
+    string session_hash PK "SHA-256 of cookie"
+    string owner_key FK
+    timestamp idle_expires_at
+    timestamp absolute_expires_at
+  }
+  PLAYSPACE_MAP {
+    string playspace_id PK
+    string owner_key FK
+    string adk_session_id
+    int mapping_revision
+    string in_flight_job_id
+    int attempt
+    timestamp lease_expires_at
+  }
+  ADK_SESSION {
+    string session_id PK
+    string user_id "owner_key"
+    timestamp expires_at
+  }
+  JOB {
+    string job_id PK "from idempotency key"
+    string playspace_id FK
+    string mode
+  }
+  MANIFEST {
+    string job_id PK
+    json identity
+    json session
+    json context
+  }
+  JOB_STATE_ROW {
+    string event_id PK
+    string job_id FK
+    string event_type
+    int attempt
+    int seq
+  }
+  OUTPUT_SLOT {
+    string slot_id PK
+    string node_id
+    string slot_status
+    int model_calls
+  }
+  GCS_OBJECT {
+    string gcs_object_uri PK
+    int generation
+  }
+  SKILL_REVISION {
+    string revision_ref PK
+    string owner_key FK
+    string content_hash
+  }

@@ -3,23 +3,77 @@
 // The Settings page (#214). Its frame is the library page's (.library-page):
 // same left edge, z-index and header, so the pages over the board agree.
 
+// A soft-grey page with white cards on it (#437), after Design_Aspect: the
+// surfaces set the sections apart, not extra borders. Scoped by what the
+// page holds, as the frame (.library-page) is shared with Skills and Agents.
+.library-page:has(.settings-group) {
+  @apply bg-subtle;
+
+  .library-header {
+    @apply bg-subtle;
+  }
+}
+
 .settings-group {
   @apply flex flex-col gap-2 max-w-[720px];
 }
 
+.settings-group-header {
+  @apply flex items-baseline justify-between gap-3;
+}
+
 .settings-group-title {
-  @apply m-0 text-xs font-semibold uppercase tracking-wide text-neutral-500;
+  @apply m-0 text-title font-medium text-ink;
+}
+
+.settings-group-count {
+  @apply text-meta text-ink-muted;
+}
+
+.settings-group-help {
+  @apply m-0 text-body text-ink-muted;
+}
+
+// Shown in a card while every switch in it is off (#404).
+.settings-notice {
+  @apply flex items-center gap-2.5 rounded-t-card border-b border-line bg-accent-soft px-5 py-3;
+  @apply text-body text-ink;
+
+  svg {
+    @apply shrink-0 text-accent;
+  }
 }
 
 .settings-card {
-  @apply flex flex-col rounded-xl border border-neutral-200;
+  @apply flex flex-col rounded-card border border-line bg-surface;
 }
 
 .settings-row {
   @apply flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4;
 
   & + & {
-    @apply border-t border-neutral-100;
+    @apply border-t border-line/60;
+  }
+}
+
+// A menu item's row (#404): icon, label and switch, no help.
+.settings-row.is-compact {
+  @apply gap-x-3 py-3;
+}
+
+.settings-row-icon {
+  @apply flex shrink-0 text-ink-muted;
+
+  svg {
+    @apply h-[18px] w-[18px];
+  }
+}
+
+// A hidden item reads as hidden at a glance; ink-muted still passes 4.5:1.
+.settings-row.is-off {
+  .settings-row-icon,
+  .settings-row-label {
+    @apply text-ink-muted;
   }
 }
 
@@ -28,28 +82,28 @@
 }
 
 .settings-row-label {
-  @apply text-sm font-medium text-neutral-900;
+  @apply text-body font-medium text-ink;
 }
 
 .settings-row-help {
-  @apply mt-0.5 text-[13px] text-neutral-500;
+  @apply mt-0.5 text-body text-ink-muted;
 }
 
 // ── choice: a segmented control over native radios ─────────────────────
 .settings-choice {
-  @apply m-0 flex shrink-0 gap-0.5 rounded-full border border-neutral-200 bg-neutral-50 p-[3px];
+  @apply m-0 flex shrink-0 gap-0.5 rounded-control border border-line bg-subtle p-[3px];
 }
 
 .settings-choice-option {
-  @apply relative flex h-[30px] cursor-pointer items-center gap-1.5 rounded-full px-3;
-  @apply text-[13px] text-neutral-600 transition-colors hover:text-neutral-900;
+  @apply relative flex h-[30px] cursor-pointer items-center gap-1.5 rounded-md px-3;
+  @apply text-body text-ink-muted transition-colors hover:text-ink;
 
   &.is-selected {
-    @apply bg-white font-medium text-neutral-900 shadow-sm;
+    @apply bg-surface font-medium text-ink shadow-sm;
   }
 
   &:has(.settings-choice-input:focus-visible) {
-    @apply outline-2 outline-offset-1 outline-neutral-900;
+    @apply outline-2 outline-offset-1 outline-accent;
   }
 }
 
@@ -60,10 +114,10 @@
 // ── toggle ─────────────────────────────────────────────────────────────
 .settings-switch {
   @apply flex h-[26px] w-11 shrink-0 cursor-pointer rounded-full border-0 bg-neutral-300 p-[3px] transition-colors;
-  @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900;
+  @apply focus-visible:focus-ring;
 
   &[aria-checked="true"] {
-    @apply justify-end bg-neutral-900;
+    @apply justify-end bg-accent;
   }
 }
 
@@ -77,6 +131,6 @@
 }
 
 .settings-reset {
-  @apply h-9 rounded-full border border-neutral-200 bg-white px-3.5 text-[13px] text-neutral-700;
-  @apply transition-colors hover:bg-neutral-50 disabled:cursor-default disabled:text-neutral-400 disabled:hover:bg-white;
+  @apply h-9 rounded-control border border-line bg-surface px-3.5 text-body font-medium text-ink;
+  @apply transition-colors hover:bg-subtle disabled:cursor-default disabled:text-ink-muted/60 disabled:hover:bg-surface;
 }

@@ -4,30 +4,29 @@
 // The Brand page (#219). Its frame is the library page's (.library-page):
 // same left edge, z-index and header as Settings, Skills and Agents.
 
+// A soft-grey page with white cards on it (#437), after Design_Aspect: the
+// surfaces set the sections apart, not extra borders. Scoped by what the
+// page holds, as the frame (.library-page) is shared with Skills and Agents.
+.library-page:has(.brief) {
+  @apply bg-subtle;
+
+  .library-header {
+    @apply bg-subtle;
+  }
+}
+
 // ── page ────────────────────────────────────────────────────────────────
-.brand-section {
-  @apply flex flex-col gap-3;
-}
-
-// Two cards a row where there is room, one on a narrow window -- never
-// three: each card's floor is the wider of 380px and half the row.
-.brand-cards {
-  @apply grid gap-4;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(380px, calc((100% - 1rem) / 2))), 1fr));
-}
-
 // Pinned to the bottom of the scrolling page. The negative margins take it
 // to the page's edges, past .library-page's px-10 / pb-8, and -bottom-8
 // because a sticky box stops at the padding (it would rest 32px up); mt-auto
 // sits it at the bottom when the fields are shorter than the window.
 .brand-save-bar {
   @apply sticky -bottom-8 z-10 mt-auto -mx-10 -mb-8 flex items-center justify-end gap-2;
-  @apply px-10 py-3.5 bg-white border-t border-neutral-200;
-  box-shadow: 0 -6px 16px rgb(0 0 0 / 0.04);
+  @apply px-10 py-3.5 bg-surface border-t border-line;
 }
 
 .brand-save-state {
-  @apply mr-auto flex items-center gap-2 text-[13px] text-amber-800;
+  @apply mr-auto flex items-center gap-2 text-body text-amber-800;
 }
 
 .brand-save-dot {
@@ -36,15 +35,11 @@
 
 // ── fields ──────────────────────────────────────────────────────────────
 .brand-profile {
-  @apply flex flex-col gap-2 pt-5 border-t border-black/[0.08];
+  @apply flex flex-col gap-2 pt-5 border-t border-line;
 }
 
 .brand-section-title {
-  @apply text-lg font-bold mb-1;
-}
-
-.brand-subheading {
-  @apply text-sm font-semibold text-neutral-600 -mb-1;
+  @apply text-title font-medium mb-1;
 }
 
 .brand-row {
@@ -56,18 +51,17 @@
 }
 
 .brand-field-label {
-  @apply text-sm font-semibold;
+  @apply text-body font-medium text-ink;
 }
 
 .brand-url-row {
   @apply flex gap-3;
 }
 
-.brand-input,
-.brand-textarea {
-  @apply w-full rounded-lg border border-black/10 bg-transparent px-4 text-sm;
-  @apply placeholder:text-neutral-400 transition-colors;
-  @apply focus:outline-none focus:border-neutral-400 focus:bg-white;
+.brand-input {
+  @apply w-full rounded-control border border-line bg-surface px-4 text-body;
+  @apply placeholder:text-ink-muted/70 transition-colors;
+  @apply focus:outline-none focus:border-accent;
 }
 
 .brand-input {
@@ -75,87 +69,134 @@
   @apply disabled:cursor-not-allowed disabled:opacity-60;
 }
 
-.brand-textarea {
-  @apply min-h-24 py-3 resize-y;
-  @apply disabled:cursor-not-allowed disabled:bg-transparent;
-}
-
 .brand-hint {
-  @apply text-xs text-neutral-500;
+  @apply text-meta text-ink-muted;
 }
 
-// ── art-direction card ──────────────────────────────────────────────────
-.brand-card {
-  @apply flex flex-col items-start gap-3 rounded-2xl border border-black/10 p-5;
+// ── campaign brief (#409) ───────────────────────────────────────────────
+// One card of groups; each row is a label beside its field. Every field keeps
+// its border, darker on hover and the accent on focus.
+.brief {
+  @apply flex flex-col gap-3;
 }
 
-.brand-card-head {
-  @apply w-full flex items-center justify-between;
+.brief-lead {
+  @apply -mt-0.5 text-body text-ink-muted;
 }
 
-.brand-card-title {
-  @apply text-base font-semibold transition-colors;
+.brief-card {
+  @apply flex flex-col gap-6 rounded-card border border-line bg-surface px-6 pt-5 pb-6;
 }
 
-// The checkbox stays live and full strength: it is the way back.
-.brand-card-disabled {
-  .brand-card-title,
-  .brand-textarea,
-  .brand-refs-label,
-  .brand-thumbs {
-    @apply opacity-50;
+.brief-group-title {
+  @apply mb-2 text-title font-medium text-ink;
+}
+
+.brief-group-lead {
+  @apply -mt-1 mb-2.5;
+}
+
+.brief-rows {
+  @apply grid items-center gap-x-6 gap-y-2.5;
+  grid-template-columns: 180px minmax(0, 640px);
+}
+
+.brief-label {
+  @apply text-body text-ink-muted;
+
+  &.is-top {
+    @apply self-start pt-2;
   }
 }
 
-.brand-checkbox {
-  @apply flex items-center gap-2 text-sm cursor-pointer select-none;
+.brief-field {
+  @apply flex min-h-[38px] min-w-0 items-center;
+}
 
-  input {
-    @apply w-4 h-4 accent-neutral-900 cursor-pointer;
+.brief-input {
+  @apply h-[38px] w-full rounded-control border border-line bg-surface px-3 text-body;
+  @apply placeholder:text-ink-muted/70 transition-colors hover:border-ink-muted/40;
+  @apply focus:border-accent focus:outline-none;
+}
+
+// Grows with its text (CampaignBrief's GrowingTextarea), so no scrollbar or handle.
+.brief-textarea {
+  @apply h-auto resize-none overflow-hidden py-2 leading-normal;
+}
+
+.brief-muted {
+  @apply text-body text-ink-muted;
+}
+
+.brief-readonly {
+  @apply flex items-center gap-2.5 px-3 text-body;
+
+  svg {
+    @apply text-ink-muted;
   }
 }
 
-.brand-refs-label {
-  @apply flex items-baseline gap-2 text-xs;
+.brief-chips {
+  @apply flex flex-wrap items-center gap-2;
 }
 
-.brand-refs-title {
-  @apply font-semibold text-neutral-600;
-}
+.brief-chip {
+  @apply h-[30px] rounded-full border border-line bg-surface px-3 text-body text-ink transition-colors;
+  @apply hover:border-ink-muted/40;
+  @apply disabled:cursor-default disabled:text-ink-muted/40 disabled:hover:border-line;
 
-.brand-refs-note {
-  @apply text-neutral-500;
-}
-
-.brand-thumbs {
-  @apply flex flex-wrap gap-2;
-}
-
-.brand-thumb {
-  @apply relative w-16 h-16 rounded-lg overflow-hidden border border-black/10 bg-white;
-
-  img {
-    @apply w-full h-full object-cover;
+  &[aria-pressed="true"] {
+    @apply border-accent bg-accent-soft text-accent;
   }
 }
 
-.brand-thumb-remove {
-  @apply absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded-full;
-  @apply bg-black/60 text-white transition-colors hover:bg-black/80;
-  @apply disabled:hidden;
+.brief-mandatory {
+  @apply flex items-center gap-2.5;
+
+  &.is-top {
+    @apply self-start pt-2;
+  }
+}
+
+.brief-mandatory-name {
+  @apply text-body font-medium;
+}
+
+.brief-switch {
+  @apply flex h-[22px] w-9 shrink-0 cursor-pointer rounded-full border-0 bg-neutral-300 p-[3px] transition-colors;
+
+  &[aria-checked="true"] {
+    @apply justify-end bg-accent;
+  }
+}
+
+.brief-switch-thumb {
+  @apply size-4 rounded-full bg-white shadow-sm;
+}
+
+.brief-rules {
+  @apply grid max-w-[844px] grid-cols-2 gap-4;
+}
+
+.brief-rule {
+  @apply flex flex-col gap-1.5;
+}
+
+.brief-rules-hint {
+  @apply mt-2;
 }
 
 // ── buttons ─────────────────────────────────────────────────────────────
 .brand-pill {
-  @apply h-9 px-4 rounded-full border border-black/10 bg-transparent text-sm;
-  @apply transition-colors hover:bg-black/5;
-  @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent;
+  @apply h-9 px-4 rounded-control border border-line bg-surface text-body font-medium text-ink;
+  @apply transition-colors hover:bg-subtle;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface;
 }
 
 .brand-primary {
-  @apply h-11 px-6 shrink-0 rounded-full bg-black text-sm font-semibold text-white;
-  @apply transition-colors hover:bg-neutral-800;
-  @apply disabled:bg-neutral-400 disabled:cursor-not-allowed;
+  @apply h-11 px-6 shrink-0 rounded-control bg-accent text-body font-semibold text-white;
+  @apply transition-colors hover:bg-accent-hover;
+  @apply disabled:opacity-40 disabled:cursor-not-allowed;
 }
 
 .brand-save-bar .brand-pill,
@@ -164,6 +205,111 @@
 }
 
 // Focus rings only for keyboard users, on every control on the page.
-.library-page :is(.brand-card, .brand-profile, .brand-save-bar) :is(button, input[type="checkbox"]):focus-visible {
+.library-page :is(.brief, .brand-profile, .brand-save-bar) button:focus-visible {
   @apply focus-ring;
+}
+
+// ── creative references (#442) ──────────────────────────────────────────
+// The references saved on Assets, as toggles: picked ones in the accent,
+// Always ones with the indigo badge Assets gives them.
+.brief-refs {
+  @apply flex flex-col items-start gap-3;
+}
+
+.brief-refs-summary {
+  @apply m-0 text-body text-ink-muted;
+}
+
+.brief-refs-grid {
+  @apply m-0 grid w-full max-w-[844px] list-none grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-3 p-0;
+}
+
+.brief-ref {
+  @apply flex w-full flex-col gap-1 rounded-card border-2 border-line bg-surface p-1.5 pb-2 text-left transition-colors;
+  @apply hover:border-ink-muted/40;
+
+  &[aria-pressed="true"] {
+    @apply border-accent;
+  }
+
+  // In use whatever the brief says: no hover invitation to change it.
+  &[aria-disabled="true"] {
+    @apply cursor-default border-line hover:border-line;
+  }
+}
+
+.brief-ref-image {
+  @apply relative block;
+
+  img {
+    @apply block h-[96px] w-full rounded-media bg-subtle object-cover;
+  }
+}
+
+.brief-ref-check {
+  @apply absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-accent text-white;
+}
+
+.brief-ref-always {
+  @apply absolute left-2 top-2 flex h-5 items-center rounded-full bg-indigo px-2 text-meta font-medium text-white;
+}
+
+.brief-ref-name {
+  @apply block truncate px-0.5 text-body font-medium text-ink;
+}
+
+.brief-ref-meta {
+  @apply block truncate px-0.5 text-meta text-ink-muted;
+}
+
+.brief-refs-empty {
+  @apply flex flex-wrap items-center gap-3;
+}
+
+.brief-refs-problem {
+  @apply m-0 flex items-center gap-2 text-body text-red-700;
+}
+
+.brief-link {
+  @apply text-body font-medium text-accent underline underline-offset-2;
+}
+
+// ── product and logo from Assets (#444) ─────────────────────────────────
+.brief-asset {
+  @apply flex min-w-0 flex-wrap items-center gap-3;
+}
+
+.brief-asset-thumb {
+  @apply h-10 w-14 shrink-0 rounded-media bg-subtle object-cover;
+}
+
+// A logo is a transparent PNG: a light chequer behind it, as on Assets.
+.brief-asset-logo {
+  @apply flex h-10 w-14 shrink-0 items-center justify-center overflow-hidden rounded-media border border-line px-1;
+  background: repeating-conic-gradient(#efefef 0% 25%, #ffffff 0% 50%) 50% / 10px 10px;
+
+  img {
+    @apply max-h-8 max-w-full object-contain;
+  }
+}
+
+.brief-asset-text {
+  @apply flex min-w-0 flex-col;
+}
+
+.brief-asset-name {
+  @apply truncate text-body font-medium text-ink;
+}
+
+.brief-asset-missing {
+  @apply text-body text-amber-800;
+}
+
+// ── saved to the account (#454) ─────────────────────────────────────────
+.brand-load-problem {
+  @apply m-0 flex max-w-[1080px] flex-wrap items-center gap-2 rounded-card border border-red-200 bg-red-50 px-4 py-3 text-body text-red-800;
+}
+
+.brand-save-error {
+  @apply mr-auto text-body text-red-700;
 }

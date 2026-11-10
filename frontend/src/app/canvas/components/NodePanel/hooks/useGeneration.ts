@@ -3,6 +3,7 @@ import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
 import { useFrames } from "@/store/frame.store";
 import { useSkills } from "@/store/skills.store";
 import { useAgents } from "@/store/agents.store";
+import { useGenerating } from "@/store/generating.store";
 import { selectOnly } from "@/lib/canvas/selection";
 import { canvasHistory } from "@/lib/canvas/history";
 import { boundsOf } from "@/lib/canvas/bounds";
@@ -29,6 +30,9 @@ export function useGeneration(
 ) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Not an error: made, but without the brand it was asked to use (#452).
+  const [notice, setNotice] = useState<string | null>(null);
+  const brandFailed = () => setNotice("Made without brand: couldn't load it.");
   // While the nodes wired into this one are generated first (#11).
   const [waiting, setWaiting] = useState(false);
   // This node's own progress when a downstream node is generating it.
@@ -71,6 +75,7 @@ export function useGeneration(
     setBusy(true);
     setWaiting(true);
     setError(null);
+    setNotice(null);
     useGenerationProgress.getState().setProgress(instance.id, null);
     try {
       // Resolve missing predecessors before taking their references. Each
@@ -102,6 +107,7 @@ export function useGeneration(
             settings,
             references,
             context,
+            onBrandFailed: brandFailed,
             signal: controller.signal,
           },
           count
@@ -168,6 +174,7 @@ export function useGeneration(
         // Persisted the moment the backend hands it back, so a reload during
         // a multi-minute video generation resumes rather than loses it.
         onJobStarted: (jobId) => useNodePanel.getState().setJob(instance.id, jobId),
+        onBrandFailed: brandFailed,
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
@@ -227,12 +234,21 @@ export function useGeneration(
     };
   }, [instance.job, instance.output, instance.id, spec]);
 
+  // Busy too while a downstream node is generating this one.
+  const generating = busy || upstream?.status === "generating";
+  // Told to the board, so the wires into this node show it (#456).
+  useEffect(() => {
+    if (!generating) return;
+    useGenerating.getState().setGenerating(instance.id, true);
+    return () => useGenerating.getState().setGenerating(instance.id, false);
+  }, [generating, instance.id]);
+
   return {
-    // Busy too while a downstream node is generating this one.
-    busy: busy || upstream?.status === "generating",
+    busy: generating,
     waiting,
     busyLabel,
     error: error ?? upstream?.error ?? null,
+    notice,
     /** This node failed while a downstream node was generating it. */
     upstreamError: upstream?.status === "error" ? upstream.error : undefined,
     generate,
