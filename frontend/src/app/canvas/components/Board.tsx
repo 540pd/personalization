@@ -119,6 +119,9 @@ export default function Board() {
       if (disposed) return;
       board.applyDraggability();
       board.syncAllNodeGeometry();
+      // Restoring bitmaps is hydration, not a user edit. The completed board
+      // is the first undo state; Ctrl+Z must not remove restored images.
+      canvasHistory.clear();
       canvasHistory.commit();
     });
 

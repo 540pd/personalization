@@ -12,9 +12,11 @@
 import type Konva from "konva";
 import { useKonvaNodes } from "@/store/konvaNodes.store";
 import { useKonvaSelection } from "@/store/konvaSelection.store";
+import { useFrames } from "@/store/frame.store";
 import { canvasHistory } from "@/lib/canvas/history";
 import type { HoverOutline } from "./hoverOutline";
 import type { BoardLayerDeps } from "./boardContext";
+import { deleteFrameBitmap, saveFrameBitmap, saveFrameImagePositions } from "./frameImageStorage";
 
 // imageUrl and label live in konvaNodes, not on the shape, and Delete drops
 // that record -- so they ride along, or an undone delete would bring back an
@@ -54,6 +56,10 @@ export function restoreSnapshot(snap: Snapshot, deps: HistoryDeps): void {
   // behind shows the name and port of a node that is no longer there.
   (root.find(".selectable") as Konva.Shape[]).forEach((n) => {
     if (snapSet.has(n)) return;
+    if (n.id() && useKonvaNodes.getState().nodes[n.id()]?.imageUrl) {
+      void deleteFrameBitmap(n.id()).catch((err) =>
+        console.warn("[frames] Could not delete saved image.", err));
+    }
     if (n.id()) useKonvaNodes.getState().remove(n.id());
     n.remove();
   });
@@ -74,17 +80,26 @@ export function restoreSnapshot(snap: Snapshot, deps: HistoryDeps): void {
   snap.forEach(({ node, imageUrl, label }) => {
     const rec = records[node.id()];
     if (!rec) return;
+    const needsBitmap = !!imageUrl && !rec.imageUrl;
     useKonvaNodes.getState().upsert({
       ...rec,
       imageUrl: rec.imageUrl ?? imageUrl,
       label: rec.label ?? label,
     });
+    if (needsBitmap) {
+      void saveFrameBitmap(node.id(), imageUrl).catch((err) =>
+        console.warn("[frames] Could not restore saved image.", err));
+    }
   });
   deps.applyDraggability();
   deps.hover.hide(); // the hovered node may no longer exist in this snapshot
   deps.updateSelectionChrome();
   deps.layer.batchDraw();
   deps.shapes.batchDraw();
+  // Undo/redo also changes which images belong in the persisted manifest.
+  // The keyboard path does not call board.saveSnapshot(), so an undone delete
+  // would otherwise restore the bitmap but leave no geometry for reload.
+  saveFrameImagePositions(useFrames.getState().frames);
 }
 
 /** Joins the shared timeline. Returns what leaves it. */
