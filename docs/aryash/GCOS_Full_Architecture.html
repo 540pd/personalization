@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GCOS Personalization — Full Architecture</title>
+<style>
+:root{--ink:#202b37;--muted:#637187;--line:#65778e;--purple:#9869d8;--green:#25865e;--teal:#248980;--gold:#bb8d26;--blue:#2877bb}
+*{box-sizing:border-box} body{margin:0;background:#f7f9fc;color:var(--ink);font:12px/1.38 Arial,Helvetica,sans-serif;overflow:hidden}
+.toolbar{height:54px;background:#fff;border-bottom:1px solid #d6dfeb;display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:10px;position:relative;z-index:20}
+.brand{font-size:14px;font-weight:700;white-space:nowrap}.sub{font-weight:400;color:#687788;font-size:11px;margin-left:12px}.actions{display:flex;gap:8px;align-items:center}button{border:1px solid #c5d2e2;background:white;border-radius:7px;padding:6px 11px;color:#263a4b;cursor:pointer;font:inherit}button:hover{background:#edf3fb}#zoomRead{min-width:42px;text-align:center;color:#52657b}
+.viewport{height:calc(100vh - 54px);overflow:auto;position:relative;background:#fff}#canvas{position:relative;width:1370px;height:1120px;transform-origin:top left;background:white;box-shadow:0 3px 18px #2b39531c}
+.zone{position:absolute;border:1px solid;border-radius:14px;z-index:1}.zone .zone-title{position:absolute;left:12px;top:10px;font-weight:bold;font-size:13px}.zone .zone-sub{position:absolute;left:12px;top:29px;color:#647085;font-size:10.5px}
+.zone.client{left:6px;top:42px;width:196px;height:968px;background:#f0eaf8;border-color:#ad83dc}.zone.bff{left:271px;top:42px;width:236px;height:577px;background:#e0f3ec;border-color:#449b79}.zone.ai{left:575px;top:42px;width:443px;height:929px;background:#eef4e3;border-color:#8fa969}.zone.data{left:1131px;top:42px;width:232px;height:918px;background:#e0eefb;border-color:#6c9dcd}
+.section{position:absolute;border:1.5px solid;border-radius:11px;z-index:2}.section.browser{left:18px;top:90px;width:172px;height:506px;border-color:#9967cd;background:#f8f5fd}.section.fastapi{left:587px;top:90px;width:419px;height:223px;border-color:#409b92;background:#e1f3f0}.section.runtime{left:588px;top:434px;width:417px;height:523px;border-color:#c59438;background:#fff7e4}
+.sectiontitle{font-weight:700;font-size:11px;margin:8px 10px}.card{position:absolute;border:1px solid #ccd6e1;background:#fff;border-radius:8px;padding:9px 10px;z-index:5;box-shadow:0 1px 0 #00000006;overflow:hidden}.card.purple{border-left:4px solid #9666cd}.card.green{border-left:4px solid #258d67}.card.teal{border-left:4px solid #298c84}.card.gold{border-left:4px solid #c59635}.card.blue{border-left:4px solid #3381c0}.card .heading{font-size:11px;font-weight:700;margin-bottom:4px}.card p{margin:0}.card ul{margin:4px 0 0;padding-left:14px}.card li{margin:1.8px 0;color:#5e6d80}.card .small{color:#667184;font-size:10.5px}.card.center{text-align:center}.card.center .heading{margin:0 0 3px}
+.queue{position:absolute;left:588px;top:344px;width:417px;height:55px;background:#fffae7;border:1px solid #c79b38;border-radius:9px;text-align:center;padding:7px 15px;z-index:5}.queue strong{display:block;font-size:12px}.queue span{font-size:10px;line-height:1.18;display:block}
+.pipeline-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,50px);gap:9px 17px;margin:8px 0 0}.mini{border:1px solid #d2dce7;border-radius:6px;text-align:center;padding:5px 5px;font-size:9.5px;position:relative;background:#fff}.mini b{display:block;font-size:10.5px}.mini:not(:nth-child(3n))::after{content:'↔';position:absolute;right:-14px;top:15px;color:#5b6f85;font-size:13px}
+.storage{position:absolute;background:#fff;border:1px solid #cad7e4;border-left:4px solid #307ebd;border-radius:14px 8px 8px 14px;padding:12px 9px;z-index:5;overflow:hidden}.storage:before{content:'';position:absolute;top:-2px;left:0;right:0;height:9px;border-top:1px solid #c6d4e3;border-radius:50%;pointer-events:none}.storage .heading{font-weight:bold;font-size:11px;margin-bottom:4px}.storage ul{padding-left:14px;margin:5px 0 0}.storage li{font-size:10px;color:#68778b;margin:2px 0}.storage p{font-size:10px;margin:0}
+svg.wires{position:absolute;inset:0;z-index:3;overflow:visible;pointer-events:none}.wires path{stroke:#64768c;stroke-width:1.4;fill:none;marker-end:url(#arrow)}.wires path.dash{stroke-dasharray:4 4;marker-end:url(#arrow)}.wires path.noarrow{marker-end:none}.wires .connector-tag{fill:white;stroke:#cbd6e3;stroke-width:1}.wires text{font-size:9.8px;fill:#344457;font-family:Arial,Helvetica,sans-serif}
+.chip{position:absolute;background:#fff;border:1px solid #cbd5e1;border-radius:15px;padding:2px 8px;white-space:nowrap;z-index:8;font-size:10px;text-align:center}.circle{display:inline-flex;border-radius:50%;background:#34775c;color:white;width:18px;height:18px;align-items:center;justify-content:center;font-size:11px;font-weight:bold;margin-right:4px}
+.footer{position:absolute;left:6px;top:1049px;width:1357px;height:47px;border:1px solid #93a4b7;border-radius:12px;background:#e9edf2;display:flex;align-items:center;gap:9px;padding:12px 15px;z-index:6}.footer strong{margin-right:12px;font-size:11px}.pill{background:white;border:1px solid #c8d2e0;border-radius:20px;padding:3px 10px;font-size:10px}
+.note{position:absolute;z-index:8;font-size:10px;color:#354559;background:#fff;border:1px solid #d0d9e6;border-radius:15px;padding:2px 9px;white-space:nowrap}
+@media print{body{overflow:visible}.toolbar{display:none}.viewport{overflow:visible;height:auto}#canvas{transform:none!important;box-shadow:none}@page{size:landscape;margin:0}}
+</style>
+</head>
+<body>
+<header class="toolbar"><div class="brand">GCOS Personalization — Full Architecture <span class="sub">Faithful HTML recreation of the supplied diagram</span></div><div class="actions"><button onclick="zoom(-0.1)" title="Zoom out">−</button><span id="zoomRead">100%</span><button onclick="zoom(0.1)" title="Zoom in">+</button><button onclick="fit()">Fit screen</button><button onclick="window.print()">Print / PDF</button></div></header>
+<div class="viewport" id="viewport"><main id="canvas">
+<div class="zone client"><div class="zone-title">Client and user workflows</div><div class="zone-sub">Next.js</div></div>
+<div class="zone bff"><div class="zone-title">Application BFF</div><div class="zone-sub">Node.js on Cloud Run</div></div>
+<div class="zone ai"><div class="zone-title">AI, async queue and deep runtime</div><div class="zone-sub">FastAPI on Cloud Run, Cloud Tasks, Vertex AI Agent Engine with Google ADK</div></div>
+<div class="zone data"><div class="zone-title">Data, storage, registry and state</div><div class="zone-sub">Google Cloud managed services</div></div>
+<div class="section browser"><div class="sectiontitle">Browser</div></div>
+<div class="section fastapi"><div class="sectiontitle">AI control and orchestration plane (FastAPI)</div></div>
+<div class="section runtime"><div class="sectiontitle">Custom agent runtime (Agent Engine, ADK)</div></div>
+<!-- Client -->
+<div class="card purple" style="left:28px;top:119px;width:153px;height:109px"><div class="heading">Playspace canvas</div><ul><li>Per-node and DAG run</li><li>Re-run and Refine modes</li><li>Playspace ID lifecycle</li><li>Board in namespaced localStorage</li></ul></div>
+<div class="card purple" style="left:28px;top:236px;width:153px;height:63px"><div class="heading">Skills Studio</div><p>SKILL.md upload, AI helper drafts</p></div>
+<div class="card purple" style="left:28px;top:307px;width:153px;height:76px"><div class="heading">Brand tokens</div><p>Colours with hex and role, fonts, logo; admin guardrail config</p></div>
+<div class="card purple" style="left:28px;top:511px;width:153px;height:77px"><div class="heading">Per-slot status</div><p>Polls every 1–3 s, renders images and loaders, restores after refresh</p></div>
+<div class="card purple" style="left:19px;top:645px;width:171px;height:96px"><div class="heading">Same-origin proxy</div><ul><li>/api/proxy, session cookie only</li><li>Forwards Origin</li><li>Infra OIDC to Cloud Run</li></ul></div>
+<!-- BFF -->
+<div class="card green" style="left:284px;top:91px;width:211px;height:139px"><div class="heading">Auth and identity</div><ul><li>Verify Google ID token: sig, aud, iss, exp, hd</li><li>Generated owner key + identity link</li><li>Opaque revocable session cookie</li><li>Idle and absolute timeouts, logout, disable</li><li>CSRF Origin check</li></ul></div>
+<div class="card green" style="left:284px;top:266px;width:211px;height:96px"><div class="heading">Admission gateway</div><ul><li>Idempotency key per Run click</li><li>Playspace concurrency lock</li><li>Ownership and lineage verifier</li><li>Cost limits per user and run</li></ul></div>
+<div class="card green" style="left:284px;top:397px;width:211px;height:64px"><div class="heading">Service client</div><p>Google-signed ID token to FastAPI; owner key in body, never user tokens</p></div>
+<div class="card green" style="left:284px;top:495px;width:211px;height:108px"><div class="heading">Status and delivery proxy</div><ul><li>Owner-scoped BigQuery poller, 1–2 s cache</li><li>Zero-buffer GCS stream with owner and path check</li><li>Cache-Control: private, immutable</li></ul></div>
+<!-- FastAPI -->
+<div class="card teal" style="left:598px;top:119px;width:399px;height:81px"><div class="heading">Direct sync APIs</div><ul><li>Skills CRUD, idempotent publish</li><li>Tool catalog validator</li><li>AI skill creation helper</li></ul></div>
+<div class="card teal" style="left:598px;top:207px;width:399px;height:97px"><div class="heading">LRQ graph dispatcher</div><ul><li>DAG resolver, topological order</li><li>Context assembler: parents, preserve list, own attempts</li><li>Immutable manifest to GCS</li><li>Slot reservation, QUEUED rows</li></ul></div>
+<div class="queue"><strong>Cloud Tasks queue</strong><span>Job ID only; OIDC dispatch; Cloud Tasks retries failed/unacknowledged HTTP attempts<br>with backoff (≤30 min dispatch deadline)</span></div>
+<div class="card gold" style="left:598px;top:461px;width:399px;height:96px"><div class="heading">Orchestrator agent</div><ul><li>Claim job: attempt n, 60 s lease, 15 s heartbeat; only ack task on durable completion</li><li>Session resolver: create, reuse, recreate; CAS bind</li><li>Context projection into session state (re-seed)</li></ul></div>
+<div class="card gold" style="left:598px;top:565px;width:399px;height:177px"><div class="heading">Guided multi-step pipeline</div><p class="small">Agent reads no raw history; lease and deadline checked before every model call and write</p><div class="pipeline-grid"><div class="mini"><b>Prepare</b>Manifest, handle allowlist</div><div class="mini"><b>Plan agent</b>One LLM call, plan persisted</div><div class="mini"><b>Guardrails</b>Policy, hex colour lock</div><div class="mini"><b>Image gen</b>One call per slot, max 2</div><div class="mini"><b>Verify</b>Decode, format, size</div><div class="mini"><b>Finalize</b>Node summary, preserve carry-forward</div></div></div>
+<div class="card gold" style="left:598px;top:752px;width:399px;height:141px;padding:10px"><div class="heading">MCP toolbox</div><div class="card gold" style="position:relative;left:auto;top:auto;width:100%;height:47px;margin:8px 0 7px;padding:6px 9px"><div class="heading">Run-scoped artifact function</div><p style="font-size:10px">Handles only, allowlist from run context, create-only, no list or delete</p></div><div class="card gold" style="position:relative;left:auto;top:auto;width:100%;height:47px;padding:6px 9px"><div class="heading">BigQuery event writer</div><p style="font-size:10px">Fenced by attempt, deduplicated by event ID</p></div></div>
+<div class="card gold" style="left:598px;top:901px;width:399px;height:47px"><div class="heading">ADK event forwarder plugin</div><p class="small">PII and prompt redaction; analytics and logs</p></div>
+<!-- Data -->
+<div class="storage" style="left:1145px;top:118px;width:207px;height:62px"><div class="heading">Agent Registry</div><p>Immutable skill revisions, pinned agent definitions, approved MCP catalog</p></div>
+<div class="storage" style="left:1145px;top:454px;width:207px;height:113px"><div class="heading">Firestore</div><ul><li>users, identity_links</li><li>login_sessions (hashed IDs)</li><li>Playspace maps: lock, lease, session mapping</li><li>idempotency keys, asset records</li></ul></div>
+<div class="storage" style="left:1145px;top:580px;width:207px;height:60px"><div class="heading">VertexAiSessionService</div><p>One session per Playspace, 90-day TTL</p></div>
+<div class="storage" style="left:1145px;top:644px;width:207px;height:62px"><div class="heading">Vertex AI models</div><p>Gemini planning, image generation</p></div>
+<div class="storage" style="left:1145px;top:755px;width:207px;height:97px"><div class="heading">Cloud Storage (private)</div><ul><li>inputs/{owner}/…</li><li>manifests/{job}.json</li><li>outputs/{owner}/{job}/{attempt}/{node}/{slot}</li></ul></div>
+<div class="storage" style="left:1145px;top:865px;width:207px;height:81px"><div class="heading">BigQuery</div><ul><li>job_state: append-only, derived on read</li><li>analytics events (redacted)</li></ul></div>
+<!-- Wires: reconstructed from original architectural flows -->
+<svg class="wires" width="1370" height="1120" viewBox="0 0 1370 1120" aria-label="Architecture connections"><defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#65778e" stroke="none"/></marker></defs>
+<!-- browser->BFF --> <path d="M190 550 H236 V160 H282"/><path d="M190 693 H236 V434 H282"/>
+<!-- same-origin workflow --> <path d="M104 589 V644"/>
+<!-- BFF internal --> <path d="M389 231 V265"/><path d="M389 363 V396"/>
+<!-- BFF-> FastAPI --> <path d="M495 433 H541 V159 H597"/><path d="M495 441 H560 V255 H597"/>
+<!-- FastAPI queue --> <path d="M797 305 V343"/><path d="M797 400 V460"/>
+<!-- top registry and state --> <path class="dash" d="M469 91 V10 H1106 V150 H1144"/><path class="dash" d="M947 119 V19 H1115 V511 H1144"/><path class="dash" d="M1106 9 V454 H1144"/>
+<!-- runtime to firestore --> <path d="M997 495 H1040 V520 H1144"/><path d="M997 526 H1051 V609 H1144"/>
+<!-- model use --> <path d="M997 652 H1040 V675 H1144"/>
+<!-- artifact & state writing --> <path d="M997 804 H1144"/><path d="M997 859 H1035 V904 H1144"/><path d="M997 923 H1070 V926 H1144"/>
+<!-- BFF polling and image streaming long flows --> <path d="M389 603 V1006 H1108 V913 H1144"/><path d="M414 603 V1021 H1119 V833 H1144"/>
+</svg>
+<!-- Link labels -->
+<div class="chip" style="left:199px;top:418px">Cookie, Origin</div><div class="chip" style="left:193px;top:540px">Status, images</div><div class="chip" style="left:81px;top:613px">All calls</div>
+<div class="chip" style="left:504px;top:309px">Skills, catalog</div><div class="chip" style="left:532px;top:341px">Create job</div>
+<div class="chip" style="left:737px;top:314px"><span class="circle">1</span>Enqueue job ID</div><div class="chip" style="left:737px;top:420px"><span class="circle">2</span>OIDC HTTP dispatch</div>
+<div class="chip" style="left:1017px;top:794px"><span class="circle">3</span>Create-only write</div><div class="chip" style="left:1036px;top:885px"><span class="circle">4</span>Job and slot rows</div>
+<div class="chip" style="left:703px;top:997px"><span class="circle">5</span>Poll status</div><div class="chip" style="left:717px;top:1014px"><span class="circle">5</span>Stream image</div>
+<div class="chip" style="left:707px;top:0">Users, sessions, lock, idempotency</div><div class="chip" style="left:978px;top:10px"><span class="circle">A</span>Publish, resolve revisions</div>
+<div class="chip" style="left:1064px;top:556px">Claim, lease, CAS</div><div class="chip" style="left:1048px;top:586px">Get, create, recreate</div><div class="chip" style="left:1050px;top:667px">Plan, generate</div><div class="chip" style="left:1013px;top:916px">Analytics</div>
+<footer class="footer"><strong>Security, IAM and observability</strong><span class="pill">Cloud IAM, least privilege</span><span class="pill">Cloud Trace</span><span class="pill">Secret Manager</span><span class="pill">Cloud Logging</span><span class="pill">Artifact Registry</span></footer>
+</main></div>
+<script>
+const canvas=document.querySelector('#canvas'),view=document.querySelector('#viewport'),read=document.querySelector('#zoomRead');let scale=1;
+function setScale(s){scale=Math.max(.35,Math.min(2.5,s));canvas.style.transform=`scale(${scale})`;view.firstElementChild.style.marginBottom=(1120*(scale-1))+'px';view.firstElementChild.style.marginRight=(1370*(scale-1))+'px';read.textContent=Math.round(scale*100)+'%';}
+function zoom(delta){setScale(scale+delta)}
+function fit(){let w=(view.clientWidth-20)/1370,h=(view.clientHeight-20)/1120;setScale(Math.min(w,h,1.3));view.scrollTop=0;view.scrollLeft=0;}
+window.addEventListener('resize',()=>{if(scale<=1.3)fit()});fit();
+</script>
+</body></html>
