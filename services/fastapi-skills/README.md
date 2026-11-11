@@ -33,6 +33,7 @@ app/
   registry.py     REST Agent Registry + google-auth ADC
   service.py      SkillService: Skill CRUD and ownership; the one front for routes, operator and tests
   publish.py      idempotent, recoverable publish state machine (upload deadline included)
+  publish_op.py   PublishOp (typed operation record, same stored field names) and the State constants
   lifecycle.py    disable and metadata changes, followed to the end of their Registry operations
   deps.py         the dependencies the parts share, and the ownership check
   clock.py        the one Clock (wall time, monotonic, record stamps); FakeClock for tests

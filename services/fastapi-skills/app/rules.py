@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Literal
 from . import codes
+from .publish_op import State
 
 SKILLS = 'skill_ownership'
 OPS = 'skill_publish_requests'
@@ -131,13 +132,13 @@ def finish_operation(read: Reader, row: dict, now: str, expire: datetime) -> Dec
         raise Refused(409, codes.CONFLICT, 'Publish reservation missing')
     if skill.get('ownerKey') != row['ownerKey'] or op.get('ownerKey') != row['ownerKey']:
         raise Refused(409, codes.CONFLICT, 'Publish ownership mismatch')
-    if op.get('status') == 'published':
+    if op.get('status') == State.PUBLISHED:
         return Decision()  # a retried completion must not count the bytes twice
     if skill.get('activePublishOp') != row['operationId']:
         raise Refused(409, codes.CONFLICT, 'Publish fencing mismatch')
     quota = quota_of(read, row['ownerKey'])
     return Decision(None, [
-        Write('update', OPS, row['operationId'], {'status': 'published', 'updatedAt': now, 'expireAt': expire}),
+        Write('update', OPS, row['operationId'], {'status': State.PUBLISHED, 'updatedAt': now, 'expireAt': expire}),
         Write('update', SKILLS, row['skillId'], {
             'latestPublishedRevision': op['revision'], 'latestRawBytes': op['rawBytes'],
             'activePublishOp': None, 'status': 'published', 'updatedAt': now,
@@ -154,7 +155,7 @@ def fail_operation(read: Reader, row: dict, error: str, now: str, expire: dateti
     """Failed: releases the lock (if it holds it) and its reserved bytes, once.
     The result says whether anything changed."""
     op = read(OPS, row['operationId'])
-    if not op or op.get('status') in ('failed', 'published'):
+    if not op or op.get('status') in State.FINISHED:
         return Decision(False)
     skill = read(SKILLS, row['skillId'])
     quota = quota_of(read, row['ownerKey'])
@@ -162,7 +163,7 @@ def fail_operation(read: Reader, row: dict, error: str, now: str, expire: dateti
     if skill and skill.get('activePublishOp') == row['operationId']:
         writes.append(Write('update', SKILLS, row['skillId'], {'activePublishOp': None, 'updatedAt': now}))
     writes += [
-        Write('update', OPS, row['operationId'], {'status': 'failed', 'error': error, 'updatedAt': now, 'expireAt': expire}),
+        Write('update', OPS, row['operationId'], {'status': State.FAILED, 'error': error, 'updatedAt': now, 'expireAt': expire}),
         Write('set', QUOTAS, row['ownerKey'], {**quota, 'reservedDeltaBytes': max(0, quota['reservedDeltaBytes'] - op.get('reservedDeltaBytes', 0))}),
     ]
     return Decision(True, writes)
