@@ -8,6 +8,14 @@ from fastapi import HTTPException
 
 FRONTMATTER_RE = re.compile(r'\A---\s*\n(.*?)\n---\s*\n(.*)\Z', re.DOTALL)
 
+# How a SKILL.md declares the tools it uses (#509): an `allowed-tools` front
+# matter field, a YAML list or a comma/space-separated string of catalog names
+# (data/tool_catalog.json), e.g. `allowed-tools: [brand.read, image.generate]`.
+# No field means a tool-free Skill, which is valid.
+TOOLS_FIELD = 'allowed-tools'
+TOOL_NAME = re.compile(r'[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)*')
+MAX_DECLARED_TOOLS = 30
+
 
 def validate_markdown(raw: str) -> str:
     text = raw.strip() + '\n'
@@ -27,6 +35,43 @@ def validate_markdown(raw: str) -> str:
     if not (10 <= len(header['description']) <= 500) or not match.group(2).strip():
         raise HTTPException(422, detail='Missing useful description or instructions')
     return text
+
+
+def declared_tools(markdown: str) -> list[str]:
+    """The tools a SKILL.md declares, in order. Call on validated Markdown.
+    Refuses (422, `tool_declaration_errors`) a field that isn't a list of names,
+    duplicates, URLs or paths, and anything that isn't a catalog-style name."""
+    match = FRONTMATTER_RE.fullmatch(markdown.strip() + '\n')
+    header = yaml.safe_load(match.group(1)) if match else {}
+    raw = header.get(TOOLS_FIELD) if isinstance(header, dict) else None
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        items = [part for part in re.split(r'[,\s]+', raw) if part]
+    elif isinstance(raw, list):
+        items = raw
+    else:
+        raise HTTPException(422, detail={'tool_declaration_errors': [{'path': TOOLS_FIELD, 'message': f'{TOOLS_FIELD} must be a list of tool names'}]})
+    errors, names = [], []
+    if len(items) > MAX_DECLARED_TOOLS:
+        errors.append({'path': TOOLS_FIELD, 'message': f'At most {MAX_DECLARED_TOOLS} tools'})
+    for i, item in enumerate(items[:MAX_DECLARED_TOOLS]):
+        path = f'{TOOLS_FIELD}[{i}]'
+        if not isinstance(item, str) or not item.strip():
+            errors.append({'path': path, 'message': 'A tool must be named by text'})
+            continue
+        name = item.strip()
+        if '://' in name or '/' in name:
+            errors.append({'path': path, 'message': 'A tool is named from the catalog, never by a URL or path'})
+        elif not TOOL_NAME.fullmatch(name) or len(name) > 64:
+            errors.append({'path': path, 'message': f'{name[:64]} is not a valid tool name'})
+        elif name in names:
+            errors.append({'path': path, 'message': f'{name} is listed twice'})
+        else:
+            names.append(name)
+    if errors:
+        raise HTTPException(422, detail={'tool_declaration_errors': errors})
+    return names
 
 
 def build_zip(markdown: str) -> tuple[bytes, str]:

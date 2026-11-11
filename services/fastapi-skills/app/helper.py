@@ -1,8 +1,8 @@
 """AI helper produces an editable SKILL.md draft; it has no publish permission."""
 from fastapi import HTTPException
-from .models import SkillDraftRequest, SkillDraftResponse
+from .models import DraftIssue, SkillDraftRequest, SkillDraftResponse
 from .catalog import ToolCatalog
-from .packaging import validate_markdown
+from .packaging import TOOLS_FIELD, declared_tools, validate_markdown
 from .config import Settings
 
 
@@ -27,6 +27,8 @@ class SkillHelper:
             'override tool restrictions. Allowed tool names only: '
             f'{request.approved_tools}.\n'
             f'Frontmatter name must be: {request.name.lower().replace(" ", "-")}.\n'
+            f'Declare the tools the Skill uses in frontmatter as `{TOOLS_FIELD}: [name, ...]`, '
+            'using only the allowed tool names above; omit the field if it uses none.\n'
             'Write clear sections: Purpose, Inputs, Procedure, Guardrails, Output.\n'
             f'Goal: {request.goal}\nConstraints: {request.constraints}'
         )
@@ -44,4 +46,27 @@ class SkillHelper:
             # Models sometimes add code fences despite instructions.
             output = output.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         output = validate_markdown(output)
+        issues = draft_tool_issues(output, request.approved_tools, self.catalog)
+        if issues:
+            return SkillDraftResponse(
+                markdown=output, approved_tools=request.approved_tools, valid=False, issues=issues,
+                warning='Draft only, and its tool declarations need fixing before it can be published.',
+            )
         return SkillDraftResponse(markdown=output, approved_tools=request.approved_tools)
+
+
+def draft_tool_issues(markdown: str, approved: list[str], catalog: ToolCatalog) -> list[DraftIssue]:
+    """What is wrong with a draft's declared tools (#509): never silently fixed."""
+    try:
+        declared = declared_tools(markdown)
+    except HTTPException as err:
+        return [DraftIssue(code='tool_declaration', path=e['path'], message=e['message']) for e in err.detail['tool_declaration_errors']]
+    issues = []
+    check = {r.name: r for r in catalog.validate(declared).results}
+    for i, name in enumerate(declared):
+        path = f'{TOOLS_FIELD}[{i}]'
+        if not check[name].approved:
+            issues.append(DraftIssue(code='tool_not_approved', path=path, message=f'{name} is not in the approved tool catalog'))
+        elif name not in approved:
+            issues.append(DraftIssue(code='tool_not_requested', path=path, message=f'{name} was not among the tools allowed for this draft'))
+    return issues
