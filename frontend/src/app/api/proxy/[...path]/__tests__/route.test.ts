@@ -205,6 +205,14 @@ describe("proxy route: credentials", () => {
     expect(sent().get("x-forwarded-host")).toBeNull();
   });
 
+  it("forwards a Run's Idempotency-Key, and drops one over 128 characters (#491)", async () => {
+    fetchMock.mockResolvedValue(backendJson({}));
+    await get({ "idempotency-key": "click-0001" });
+    expect(sent().get("idempotency-key")).toBe("click-0001");
+    await get({ "idempotency-key": "x".repeat(129) });
+    expect(new Headers(fetchMock.mock.calls[1][1]?.headers).get("idempotency-key")).toBeNull();
+  });
+
   it("forwards no Origin when the browser sent none", async () => {
     fetchMock.mockResolvedValue(backendJson({}));
     await get({ cookie: "gcos_session=s" });

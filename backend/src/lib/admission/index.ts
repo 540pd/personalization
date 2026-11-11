@@ -2,6 +2,7 @@ import { assetStore } from "../assets/index.js";
 import { objectName } from "../assets/cloud.js";
 import { boardStore } from "../boards/index.js";
 import { jobStore } from "../jobs/index.js";
+import { runAdmissionStore } from "../runs/stores.js";
 import { runLimits, type RunLimits } from "./limits.js";
 import { verifyRun, type AdmissionDeps, type RunPrincipal, type RunVerification } from "./verifyRun.js";
 
@@ -18,8 +19,9 @@ export { DEFAULT_RUN_LIMITS, REFERENCE_MIME_TYPES, runLimits, type RunLimits } f
  *   browser mints Playspace IDs; owned = the principal has that board.
  * - Assets: the asset store, by owner. Every stored asset counts as `ready`
  *   until uploads record a state (#374).
- * - Parent jobs: the job store, by owner. Jobs record no Playspace or node
- *   yet, so any parent is refused (fail closed) until they do.
+ * - Parent jobs: Runs admitted through POST /api/runs (#491/#492) record their
+ *   Playspace and node, so a finished one can be a parent. Older jobs (the
+ *   job store's video jobs) record neither and are refused (fail closed).
  * - Skill revisions: no Agent Registry adapter yet (PACK PY-01, #495), so every
  *   revision ref is refused; today's inline Skill text passes, unpinned.
  * - Cost: allows everything and logs the Run's size; real limits come later.
@@ -41,6 +43,12 @@ export function placeholderAdmissionDeps(): AdmissionDeps {
       };
     },
     async getJob(principal, jobId) {
+      const run = await runAdmissionStore().getRun(jobId);
+      if (run) {
+        if (!principal.ownerKey || run.ownerKey !== principal.ownerKey) return null;
+        const state = run.state === "finished" ? "finished" : run.state === "failed" ? "failed" : "running";
+        return { jobId: run.jobId, state, playspaceId: run.playspaceId, nodeId: run.nodeId };
+      }
       const job = await jobStore().get(jobId, principal.email);
       if (!job) return null;
       return { jobId: job.id, state: job.status === "done" ? "finished" : job.status === "failed" ? "failed" : "running" };
