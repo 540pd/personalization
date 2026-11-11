@@ -25,6 +25,8 @@
 | `SESSION_SECRET` | Secret for signing 30-day session JWTs — store in Secret Manager |
 | `ALLOWED_ORIGINS` | Comma-separated frontend origins (e.g. `https://frontend-xyz.run.app`) |
 | `ALLOWED_EMAIL_DOMAINS` | Comma-separated allowed email domains (e.g. `accenture.com`) |
+| `ALLOWED_HOSTED_DOMAINS` | Comma-separated Google Workspace domains (the ID token's `hd`); defaults to `ALLOWED_EMAIL_DOMAINS` |
+| `GOOGLE_ID_TOKEN_CLOCK_SKEW_SECONDS` | Optional slack on a Google token's expiry, 0–300 (default 300) |
 | `FIRESTORE_PROJECT_ID` | GCP project ID for Firestore |
 | `GCS_BUCKET_NAME` | GCS bucket name for asset storage |
 | `VERTEX_PROJECT_ID` | GCP project ID for Vertex AI Imagen 3 |
