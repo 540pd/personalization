@@ -97,6 +97,33 @@ Local end-to-end testing against the **real** Registry can set `DEV_BYPASS_AUTH=
 
 IAM (least privilege): Node service account needs `roles/run.invoker` on FastAPI. FastAPI runtime service account needs permission to read/write **its own** Firestore ownership/operation collections, `agentregistry.skills.create`, `agentregistry.skills.get/list/update`, and `agentregistry.skillRevisions.create/get`; for trial access, `roles/agentregistry.editor` includes broader Registry privileges. The helper additionally needs Vertex AI prediction permissions. Secure Cloud Run ingress and avoid service account keys.
 
+## Errors, request IDs and logs
+
+Every error has one shape (#512, contracts §5):
+
+```json
+{"error": {"code": "tool_not_approved", "message": "A tool is not in the approved tool catalog",
+           "requestId": "node-req-123", "retryable": false,
+           "issues": [{"code": "tool_not_approved", "path": "tool_names", "tool": "shell.exec", "message": "..."}],
+           "catalogRevision": "file-v1-56e2674cb8fb"}}
+```
+
+| HTTP | `code` | Retryable |
+|---:|---|---|
+| 401 | `unauthenticated` | no |
+| 403 | `forbidden` | no |
+| 404 | `resource_not_accessible` | no |
+| 409 | `idempotency_conflict`; `publish_in_progress`\*; `conflict`\* | only `publish_in_progress` |
+| 413, 422 | `validation_failed` (details in `issues`); `tool_not_approved`; `quota_exceeded`\* | no |
+| 429 | `rate_limited`\* | yes |
+| 502, 503, 504 | `dependency_unavailable` | yes |
+| 500 | `internal_error`\* | no |
+
+\* not in contracts §5's table. `issues` items have `code`, `path`, `message`, and `tool` for tool issues: `tool_not_approved`, `tool_not_listed` (declared in `SKILL.md` but missing from `tool_names`), `tool_declaration`, or pydantic's type for a malformed body (never its input). A Registry error keeps its status and loses its text.
+
+- **Request ID.** `X-Request-Id` from Node is used when it is 8–128 of `A-Z a-z 0-9 . _ : -`; otherwise one is made. It is echoed on every response, is `error.requestId`, and is on every log line.
+- **Logs.** One JSON line per request on stdout (`severity`, `requestId`, `method`, route template, `status`, `latencyMs`, `ownerHash` = 16 hex of SHA-256 of the owner key, `errorCode`). Never Markdown, prompts, tokens, the owner key or a provider's raw error. An unexpected failure logs its exception type only.
+
 ## Endpoints
 
 | Method | Route | Effect |
@@ -224,7 +251,7 @@ This is an integration-ready **starter**, not a production-certified Skill contr
 4. ~~TTL/maintenance and operator recovery for stuck publishes~~: done in #508, see [Stuck publishes](#stuck-publishes). Retriable conflicts are still open.
 5. Validate that Registry already approves/restricts an MCP server's actual methods; catalog allowlisting is not a substitute for enforcement in the tool runtime. **Never allow agents to derive arbitrary tool names, URLs or owner keys.**
 6. Limit AI-helper prompt rates, add budget counters per user/job, model output checks and a mandatory human publish review.
-7. Add structured traces/logs and API quotas, alert on stuck operations; define error taxonomy for downstream Node.
+7. ~~Structured logs and an error taxonomy for Node~~: done in #512, see [Errors, request IDs and logs](#errors-request-ids-and-logs). Traces, API quotas and alerts on stuck operations are still open.
 8. Add service account IAM tests and explicit denial tests for cross-user read/list/publish/revocation, forged `X-Owner-Key`, replay, and direct browser access.
 9. No unpublished draft content is persisted in Firestore; keep user-editable local drafts in the browser or an explicitly approved draft store.
 
