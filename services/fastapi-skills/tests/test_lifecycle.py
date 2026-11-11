@@ -114,3 +114,34 @@ async def test_another_owner_cannot_disable(slow):
     with pytest.raises(HTTPException) as failure:
         await svc.disable('usr_B', skill['skillId'])
     assert failure.value.status_code == 404
+
+
+# ── follow_operation (#530): the one way a recorded Registry operation is followed ──
+
+async def test_follow_operation_reports_pending_done_and_refused():
+    from app.registry import DONE, PENDING, REFUSED, RegistryError, follow_operation
+
+    class Ops:
+        def __init__(self, answer):
+            self.answer, self.reads = answer, 0
+
+        async def operation(self, name):
+            self.reads += 1
+            if isinstance(self.answer, Exception):
+                raise self.answer
+            return self.answer
+
+    assert await follow_operation(Ops({'done': False}), 'op') == PENDING
+    assert await follow_operation(Ops({'done': True}), 'op') == DONE
+    assert await follow_operation(Ops({'done': True, 'error': {'code': 9}}), 'op') == REFUSED
+    assert await follow_operation(Ops(RegistryError(503, 'down')), 'op') == REFUSED
+    already = Ops({'done': False})
+    assert await follow_operation(already, 'op', done={'done': True}) == DONE
+    assert already.reads == 0  # an answer in hand is not read again
+
+
+def test_a_swapped_dependency_reaches_every_part(base):
+    svc, *_ = base
+    replacement = object()
+    svc.registry = replacement
+    assert svc.lifecycle.registry is replacement and svc.publishing.registry is replacement
