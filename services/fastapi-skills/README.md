@@ -32,6 +32,7 @@ app/
   store.py        applies the rules: FirestoreStore (one transaction each) and MemoryStore (tests)
   registry.py     REST Agent Registry + google-auth ADC
   service.py      idempotent publish state machine
+  wiring.py       build_services: the one place the parts are put together (app, operator CLI, tests)
   packaging.py    validate SKILL.md + deterministic zip
   catalog.py      allowlist tool validator
   helper.py       Gemini-powered draft creator

@@ -5,16 +5,11 @@ import logging
 from pathlib import Path
 import pytest
 from fastapi import HTTPException
-from fastapi.testclient import TestClient
-from app.main import app, service, catalog, helper
-from app.security import trusted_node, Principal
-from app.catalog import ToolCatalog
-from app.config import Settings
+from app.main import app
+from app.security import trusted_node
 from app.errors import JsonFormatter, RequestIdFilter, log, owner_hash, classify
 from app.registry import RegistryError
-from app.service import SkillService
-from app.store import MemoryStore
-from test_service import FakeRegistry, MD
+from support import MD, make_parts
 
 DATA = Path(__file__).resolve().parent.parent / 'data'
 OWNER = 'usr_Secret-Owner-Key'
@@ -22,24 +17,19 @@ SECRET = 'premium-tone'  # text inside MD: must never appear in an error or a lo
 
 
 @pytest.fixture
-def ctx():
-    registry = FakeRegistry()
-    cat = ToolCatalog(DATA / 'tool_catalog.json')
-    svc = SkillService(MemoryStore(), registry, cat, Settings(google_cloud_project='test-project', registry_location='us'))
-    app.dependency_overrides[service] = lambda: svc
-    app.dependency_overrides[catalog] = lambda: cat
-    app.dependency_overrides[trusted_node] = lambda: Principal(owner_key=OWNER, caller_email='unit-test-node')
+def ctx(serve):
+    parts = make_parts()
+    svc, registry = parts.service, parts.registry
     stream = io.StringIO()
     handler = logging.StreamHandler(stream)
     handler.setFormatter(JsonFormatter())
     handler.addFilter(RequestIdFilter())
     log.addHandler(handler)
-    client = TestClient(app, raise_server_exceptions=False)
+    client = serve(parts, OWNER, raise_server_exceptions=False)
     try:
         yield client, svc, registry, stream
     finally:
         log.removeHandler(handler)
-        app.dependency_overrides.clear()
 
 
 def lines(stream):

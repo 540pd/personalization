@@ -1,79 +1,8 @@
-import io
-import zipfile
 import pytest
 from fastapi import HTTPException
-from app.config import Settings
-from app.catalog import ToolCatalog
 from app.models import SkillCreate, PublishRequest
-from app.service import SkillService
-from app.store import MemoryStore
-from app.registry import RegistryError
 from app.packaging import build_zip
-from pathlib import Path
-
-MD = '''---
-name: premium-tone
-description: Produces short product-oriented premium brand copy.
----
-# Purpose
-Write concise premium copy that follows the brand restrictions.
-# Procedure
-Check brief, prepare text, and review for unsupported claims.
-'''
-
-
-class FakeRegistry:
-    def __init__(self):
-        self.skills = {}
-        self.revisions = {}
-        self.revision_calls = 0
-
-    async def get_skill(self, resource):
-        if resource not in self.skills:
-            raise RegistryError(404, 'not found')
-        return self.skills[resource]
-
-    async def create_container(self, parent, identifier, title, description, request_id):
-        name = f'{parent}/skills/private-{identifier}'
-        self.skills[name] = {'name': name, 'state': 'STATE_DRAFT', 'displayName': title}
-        return {'done': True, 'name': f'{parent}/operations/create1'}
-
-    async def get_revision(self, resource):
-        if resource not in self.revisions:
-            raise RegistryError(404, 'not found')
-        return self.revisions[resource]
-
-    async def create_revision(self, parent, revision_id, archive, request_id):
-        self.revision_calls += 1
-        with zipfile.ZipFile(io.BytesIO(archive)) as z:
-            assert z.namelist() == ['SKILL.md']
-        revision = f'{parent}/revisions/{revision_id}'
-        self.revisions[revision] = {'name': revision, 'state': 'ACTIVE'}
-        return {'done': True, 'name': f'{parent}/operations/rev1'}
-
-    async def patch_skill(self, resource, fields, request_id):
-        if resource not in self.skills:
-            raise RegistryError(404, 'not found')
-        self.skills[resource].update(fields)
-        if fields.get('targetState') == 'TARGET_STATE_ACTIVE':
-            self.skills[resource]['state'] = 'STATE_ACTIVE'
-        elif fields.get('targetState') == 'TARGET_STATE_DISABLED':
-            self.skills[resource]['state'] = 'STATE_DISABLED'
-        return {'done': True, 'name': 'projects/test-project/locations/us/operations/promote1'}
-
-    async def operation(self, name):
-        return {'name': name, 'done': True}
-
-
-@pytest.fixture
-def base():
-    root = Path(__file__).parent.parent
-    store = MemoryStore()
-    registry = FakeRegistry()
-    cat = ToolCatalog(root / 'data' / 'tool_catalog.json')
-    cfg = Settings(google_cloud_project='test-project', registry_location='us')
-    return SkillService(store, registry, cat, cfg), store, registry
-
+from support import MD
 
 @pytest.mark.asyncio
 async def test_publish_idempotency_and_registry_only_content(base):

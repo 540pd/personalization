@@ -2,40 +2,7 @@
 import pytest
 from fastapi import HTTPException
 from app.models import SkillCreate, PublishRequest
-from app.registry import RegistryError
-from test_service import FakeRegistry, MD, base  # noqa: F401 (base is a fixture)
-
-
-class SlowRegistry(FakeRegistry):
-    """Operations stay pending until `finish(name)`, or fail with `fail(name)`."""
-    def __init__(self):
-        super().__init__()
-        self.ops = {}
-        self.patch_calls = []
-
-    async def patch_skill(self, resource, fields, request_id):
-        await super().patch_skill(resource, fields, request_id)
-        name = f'operations/{request_id}'
-        self.patch_calls.append((fields, request_id))
-        self.ops.setdefault(name, {'name': name, 'done': False})
-        return dict(self.ops[name])
-
-    async def operation(self, name):
-        return dict(self.ops.get(name, {'name': name, 'done': True}))
-
-    def finish(self, name):
-        self.ops[name] = {'name': name, 'done': True}
-
-    def fail(self, name):
-        self.ops[name] = {'name': name, 'done': True, 'error': {'code': 9}}
-
-
-@pytest.fixture
-def slow(base):
-    svc, store, _ = base
-    registry = SlowRegistry()
-    svc.registry = registry
-    return svc, store, registry
+from support import MD
 
 
 async def make(svc, owner='usr_A', slug='brand-tone'):

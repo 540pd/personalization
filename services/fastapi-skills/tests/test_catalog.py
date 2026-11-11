@@ -9,9 +9,7 @@ from app.catalog import (ToolCatalog, FileCatalogProvider, RegistryCatalogProvid
                          CatalogSnapshot, CatalogUnavailable, catalog_from_settings)
 from app.config import Settings
 from app.models import SkillCreate, PublishRequest
-from app.service import SkillService
-from app.store import MemoryStore
-from test_service import FakeRegistry, MD
+from support import MD, make_parts
 
 DATA = Path(__file__).resolve().parent.parent / 'data'
 
@@ -116,7 +114,7 @@ def test_input_schema_flag():
 @pytest.mark.asyncio
 async def test_publish_records_the_revision(catalog_file):
     cat = ToolCatalog(catalog_file)
-    svc = SkillService(MemoryStore(), FakeRegistry(), cat, Settings(google_cloud_project='test-project', registry_location='us'))
+    svc = make_parts(catalog=cat).service
     created = await svc.create('usr_A', SkillCreate(slug='premium-copy', display_name='Premium copy', description='Writes approved brand copy'))
     result = await svc.publish('usr_A', created['skillId'], PublishRequest(markdown=MD, tool_names=['brand.read']), 'req-12345678')
     revision = cat.validate([]).catalog_revision
@@ -129,7 +127,7 @@ async def test_publish_records_the_revision(catalog_file):
 async def test_rejected_publish_names_the_revision(catalog_file):
     withdraw(catalog_file, 'brand.read')
     cat = ToolCatalog(catalog_file)
-    svc = SkillService(MemoryStore(), FakeRegistry(), cat, Settings(google_cloud_project='test-project', registry_location='us'))
+    svc = make_parts(catalog=cat).service
     created = await svc.create('usr_A', SkillCreate(slug='premium-copy', display_name='Premium copy', description='Writes approved brand copy'))
     with pytest.raises(HTTPException) as failure:
         await svc.publish('usr_A', created['skillId'], PublishRequest(markdown=MD, tool_names=['brand.read']), 'req-12345678')
