@@ -50,10 +50,19 @@ class ToolValidationResponse(BaseModel):
     results: list[ToolResult]
 
 
+class DraftIssue(BaseModel):
+    code: str
+    path: str
+    message: str
+
+
 class SkillDraftResponse(BaseModel):
     markdown: str
     approved_tools: list[str]
     warning: str = 'Draft only; review and explicitly publish. No Registry write occurred.'
+    # The draft's own tool declarations, checked (#509). Not valid: fix before publishing.
+    valid: bool = True
+    issues: list[DraftIssue] = []
 
 
 class PublishStatus(BaseModel):
