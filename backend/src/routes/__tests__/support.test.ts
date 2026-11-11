@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import type { Express } from "express";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // The support form (#428): POST /api/support, open to anyone, checked,
 // limited per address, kept, then emailed when SMTP is set up.
@@ -42,7 +46,7 @@ const valid = {
 };
 
 const send = (app: Express, body: object, ip = "203.0.113.7") =>
-  request(app).post("/api/support").set("X-Client-IP", ip).send(body);
+  request(app).post("/api/support").set("Origin", APP_ORIGIN).set("X-Client-IP", ip).send(body);
 
 beforeEach(() => {
   sendMail.mockReset().mockResolvedValue({});

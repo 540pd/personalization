@@ -2,6 +2,8 @@
 // service, whether it is real or a placeholder and whether it works. Meant
 // for the moment someone sets the GCP variables (docs/switching-to-gcp.md).
 
+import { DEV_ORIGINS } from "../lib/allowedOrigins.js";
+
 export interface SmokeOptions {
   /** The backend's base URL, e.g. http://localhost:4000. */
   url: string;
@@ -14,6 +16,10 @@ export interface SmokeOptions {
   /** Cloud Run's OIDC token, when the backend admits only authenticated
    * callers (`gcloud auth print-identity-token`). */
   infraToken?: string;
+  /** The frontend origin to send on changes: the backend's CSRF guard (#490)
+   * refuses a cookie-authenticated change from any origin not in its
+   * ALLOWED_ORIGINS. Defaults to the local dev frontend. */
+  origin?: string;
 }
 
 export type CheckResult = { name: string; status: "pass" | "fail" | "skip"; detail: string };
@@ -41,6 +47,7 @@ export async function runSmoke(opts: SmokeOptions, report: (r: CheckResult) => v
     const headers: Record<string, string> = {};
     if (cookie) headers.Cookie = cookie;
     if (opts.infraToken) headers.Authorization = `Bearer ${opts.infraToken}`;
+    if (method !== "GET" && method !== "HEAD") headers.Origin = opts.origin ?? DEV_ORIGINS[0];
     let payload: Buffer | string | undefined;
     if (Buffer.isBuffer(body)) {
       payload = body;

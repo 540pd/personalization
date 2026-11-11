@@ -4,6 +4,10 @@ import jwt from "jsonwebtoken";
 import type { Express } from "express";
 import { readBrandRequest, withBrand } from "../../services/brandContext.js";
 import { buildSystemInstruction } from "../../capabilities/prompt.js";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // Generation uses the brand (#452): the brief from the request, the rest from
 // the saved Assets page, on the memory store and the mock text model.
@@ -24,17 +28,17 @@ async function app(): Promise<Express> {
 }
 
 async function upload(a: Express, kind: string, name: string, body: Buffer = PNG, type = "image/png", details?: Record<string, string>, description?: string) {
-  const res = await request(a).post(`/api/assets?kind=${kind}&name=${name}`).set("Cookie", ANA).set("Content-Type", type).send(body);
+  const res = await request(a).post(`/api/assets?kind=${kind}&name=${name}`).set("Origin", APP_ORIGIN).set("Cookie", ANA).set("Content-Type", type).send(body);
   expect(res.status).toBe(201);
   if (details || description) {
-    await request(a).patch(`/api/assets/${res.body.id}`).set("Cookie", ANA).send({ ...(details ? { details } : {}), ...(description ? { description } : {}) });
+    await request(a).patch(`/api/assets/${res.body.id}`).set("Origin", APP_ORIGIN).set("Cookie", ANA).send({ ...(details ? { details } : {}), ...(description ? { description } : {}) });
   }
   return res.body.id as string;
 }
 
 async function savePage(a: Express, record: Record<string, unknown>) {
   const current = await request(a).get("/api/brand-assets").set("Cookie", ANA);
-  const res = await request(a).put("/api/brand-assets").set("Cookie", ANA).send({
+  const res = await request(a).put("/api/brand-assets").set("Origin", APP_ORIGIN).set("Cookie", ANA).send({
     revision: current.body.revision, productName: "", sku: "", masterId: "",
     colours: { primary: "", secondary: "", accent: "" }, assetIds: [], ...record,
   });
@@ -61,12 +65,12 @@ async function setUpBrand(a: Express, guidelines = "# Rules\n\nLogo on light bac
 /** Saves the Brand page with `brief` as its campaign (#454): generation reads the saved one. */
 async function saveBrief(a: Express, brief: Record<string, unknown>) {
   const current = await request(a).get("/api/brand").set("Cookie", ANA);
-  const res = await request(a).put("/api/brand").set("Cookie", ANA).send({ revision: current.body.revision, brand: { industry: "", homepageUrl: "", campaign: brief } });
+  const res = await request(a).put("/api/brand").set("Origin", APP_ORIGIN).set("Cookie", ANA).send({ revision: current.body.revision, brand: { industry: "", homepageUrl: "", campaign: brief } });
   expect(res.status).toBe(200);
 }
 
 const text = (a: Express, body: Record<string, unknown>) =>
-  request(a).post("/api/generate/text").set("Cookie", ANA).send({ modelId: "gemini-3.5-flash-lite", instruction: "Three taglines", ...body });
+  request(a).post("/api/generate/text").set("Origin", APP_ORIGIN).set("Cookie", ANA).send({ modelId: "gemini-3.5-flash-lite", instruction: "Three taglines", ...body });
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -214,7 +218,7 @@ describe("POST /api/generate/image with the brand", () => {
     const a = await app();
     await setUpBrand(a);
     await saveBrief(a, BRIEF);
-    const res = await request(a).post("/api/generate/image").set("Cookie", ANA)
+    const res = await request(a).post("/api/generate/image").set("Origin", APP_ORIGIN).set("Cookie", ANA)
       .send({ modelId: "gemini-3.1-flash-image", instruction: "A hero shot", aspectRatio: "1:1", brand: true });
     expect(res.status).toBe(200);
     expect(res.body.brand).toEqual({ used: ["brief", "Trail shoe", "logo", "1 reference", "1 guidelines file"] });

@@ -3,6 +3,8 @@ import { pathToFileURL } from "url";
 import express from "express";
 import cors from "cors";
 import { requestLogger } from "./middleware/requestLogger.js";
+import { requireTrustedOrigin } from "./middleware/requireTrustedOrigin.js";
+import { allowedOrigins as readAllowedOrigins, DEV_ORIGINS } from "./lib/allowedOrigins.js";
 import { authConfigRouter } from "./routes/authConfig.js";
 import { sessionRouter } from "./routes/session.js";
 import { boardsRouter } from "./routes/boards.js";
@@ -22,20 +24,16 @@ import { globalErrorHandler } from "./common/errors.js";
 const PORT = process.env.PORT ?? 4000;
 
 const isProduction = !!process.env.K_SERVICE || process.env.NODE_ENV === "production";
-const DEV_DEFAULTS = ["http://localhost:3000"];
 
-function buildAllowedOrigins(): string[] {
-  const raw = process.env.ALLOWED_ORIGINS?.trim();
-  if (raw) return raw.split(",").map((o) => o.trim()).filter(Boolean);
-  if (!isProduction) {
-    console.warn("CORS: ALLOWED_ORIGINS not set — falling back to dev defaults:", DEV_DEFAULTS.join(", "));
-    return DEV_DEFAULTS;
-  }
-  console.warn("CORS: ALLOWED_ORIGINS not set — all cross-origin requests will be blocked");
-  return [];
+// One list for CORS and the CSRF Origin guard (#490); a bad entry stops startup.
+const allowedOrigins = readAllowedOrigins();
+if (!process.env.ALLOWED_ORIGINS?.trim()) {
+  console.warn(
+    isProduction
+      ? "CORS: ALLOWED_ORIGINS not set — all cross-origin requests and every cookie-authenticated change will be refused"
+      : `CORS: ALLOWED_ORIGINS not set — falling back to dev defaults: ${DEV_ORIGINS.join(", ")}`
+  );
 }
-
-const allowedOrigins = buildAllowedOrigins();
 if (allowedOrigins.length > 0) {
   console.log("CORS: allowed origins →", allowedOrigins.join(", "));
 }
@@ -68,6 +66,8 @@ export function createApp(): express.Express {
   app.use(cors({ origin: corsOriginHandler, credentials: true }));
   app.use(express.json({ limit: "10mb" }));
   app.use(requestLogger);
+  // CSRF: a cookie-authenticated change must come from one of our origins.
+  app.use(requireTrustedOrigin(allowedOrigins));
 
   // Deep health check — probes real connectivity to storage backends.
   // No auth required: called by Cloud Run health checks from infra.

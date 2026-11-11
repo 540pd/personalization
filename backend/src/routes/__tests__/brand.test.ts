@@ -3,6 +3,10 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import type { Express } from "express";
 import { readBrief } from "../../services/brandService.js";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // The Brand page saved to the account (#454): GET/PUT /api/brand by revision.
 
@@ -26,7 +30,7 @@ const BRAND = {
   campaign: { name: "Urban Running 2026", tones: ["Bold"], mandatory: { product: true, logo: false, cta: true, legal: false }, ctaText: "Shop now", referenceIds: ["a1"] },
 };
 
-const put = (a: Express, revision: number, brand: unknown, cookie = ANA) => request(a).put("/api/brand").set("Cookie", cookie).send({ revision, brand });
+const put = (a: Express, revision: number, brand: unknown, cookie = ANA) => request(a).put("/api/brand").set("Origin", APP_ORIGIN).set("Cookie", cookie).send({ revision, brand });
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -74,7 +78,7 @@ describe("/api/brand", () => {
     for (const bad of [null, "x", { industry: 5 }, { industry: "x".repeat(201) }, { campaign: { tones: "Bold" } }, { campaign: { name: "x".repeat(4001) } }]) {
       expect((await put(a, 0, bad)).status, JSON.stringify(bad)?.slice(0, 50)).toBe(400);
     }
-    expect((await request(a).put("/api/brand").set("Cookie", ANA).send({ revision: -1, brand: BRAND })).status).toBe(400);
+    expect((await request(a).put("/api/brand").set("Origin", APP_ORIGIN).set("Cookie", ANA).send({ revision: -1, brand: BRAND })).status).toBe(400);
   });
 
   it("needs a signed-in user", async () => {

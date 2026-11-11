@@ -5,6 +5,10 @@ import path from "node:path";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import type { Express } from "express";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // Video jobs (#325): queued, run, polled; stuck ones failed; ones a restart
 // interrupted picked up again. Local disk, as a dev backend runs.
@@ -62,7 +66,7 @@ describe("POST /api/generate/video and polling", () => {
   it("queues, runs, and answers the stored video; the contract is unchanged", async () => {
     const { app } = await load();
     generateVideo.mockResolvedValue({ videoUrl: VIDEO, modelUsed: "veo" });
-    const start = await request(app).post("/api/generate/video").set("Cookie", ANA).send(body());
+    const start = await request(app).post("/api/generate/video").set("Origin", APP_ORIGIN).set("Cookie", ANA).send(body());
     expect(start.status).toBe(202);
     expect(start.body).toEqual({ jobId: expect.any(String), status: "pending" });
     const job = await poll(app, start.body.jobId);
@@ -74,14 +78,14 @@ describe("POST /api/generate/video and polling", () => {
   it("a failure lands on the job", async () => {
     const { app } = await load();
     generateVideo.mockRejectedValue(new Error("quota exhausted"));
-    const start = await request(app).post("/api/generate/video").set("Cookie", ANA).send(body());
+    const start = await request(app).post("/api/generate/video").set("Origin", APP_ORIGIN).set("Cookie", ANA).send(body());
     expect(await poll(app, start.body.jobId)).toEqual({ jobId: start.body.jobId, status: "failed", message: "quota exhausted" });
   });
 
   it("another user's job is a 404", async () => {
     const { app } = await load();
     generateVideo.mockResolvedValue({ videoUrl: VIDEO, modelUsed: "veo" });
-    const start = await request(app).post("/api/generate/video").set("Cookie", ANA).send(body());
+    const start = await request(app).post("/api/generate/video").set("Origin", APP_ORIGIN).set("Cookie", ANA).send(body());
     expect((await request(app).get(`/api/generate/job/${start.body.jobId}`).set("Cookie", BEN)).status).toBe(404);
     // Settled before the next test, which counts calls.
     await poll(app, start.body.jobId);
@@ -90,7 +94,7 @@ describe("POST /api/generate/video and polling", () => {
   it("refuses references too large to queue, before any job", async () => {
     const { app } = await load();
     const big = `data:image/png;base64,${"A".repeat(950 * 1024)}`;
-    const res = await request(app).post("/api/generate/video").set("Cookie", ANA).send(body({ references: [{ kind: "image", url: big }] }));
+    const res = await request(app).post("/api/generate/video").set("Origin", APP_ORIGIN).set("Cookie", ANA).send(body({ references: [{ kind: "image", url: big }] }));
     expect(res.status).toBe(413);
     expect(generateVideo).not.toHaveBeenCalled();
   });

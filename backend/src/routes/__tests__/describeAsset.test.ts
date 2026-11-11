@@ -4,6 +4,10 @@ import jwt from "jsonwebtoken";
 import type { Express } from "express";
 import { cleanDescription } from "../../services/describeService.js";
 import type { TextGenerationParams } from "../../capabilities/types.js";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // "Describe it" (#448): POST /api/assets/:id/describe, on the memory store.
 
@@ -28,6 +32,7 @@ const BEN = as("ben@accenture.com");
 async function upload(a: Express, kind: string, name: string, type = "image/png", body: Buffer = PNG): Promise<string> {
   const res = await request(a)
     .post(`/api/assets?kind=${kind}&name=${name}`)
+    .set("Origin", APP_ORIGIN)
     .set("Cookie", ANA)
     .set("Content-Type", type)
     .send(body);
@@ -35,7 +40,7 @@ async function upload(a: Express, kind: string, name: string, type = "image/png"
   return res.body.id as string;
 }
 
-const describeIt = (a: Express, id: string, cookie = ANA) => request(a).post(`/api/assets/${id}/describe`).set("Cookie", cookie);
+const describeIt = (a: Express, id: string, cookie = ANA) => request(a).post(`/api/assets/${id}/describe`).set("Origin", APP_ORIGIN).set("Cookie", cookie);
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -74,7 +79,7 @@ describe("POST /api/assets/:id/describe", () => {
   it("needs a signed-in user", async () => {
     const a = await app();
     const id = await upload(a, "reference", "street.png");
-    expect((await request(a).post(`/api/assets/${id}/describe`)).status).toBe(401);
+    expect((await request(a).post(`/api/assets/${id}/describe`).set("Origin", APP_ORIGIN)).status).toBe(401);
   });
 
   it("sends the image with the prompt for its kind, and cleans the answer", async () => {

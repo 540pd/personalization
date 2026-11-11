@@ -195,7 +195,7 @@ if anything failed, and removes what it created.
 ```bash
 cd backend
 npm run smoke -- http://localhost:4000            # placeholders: signs in by itself in dev mode
-npm run smoke -- https://<backend-url> --cookie <gcos_session value> [--generate]
+npm run smoke -- https://<backend-url> --cookie <gcos_session value> --origin https://<frontend-url> [--generate]
 ```
 
 ```

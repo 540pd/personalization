@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import type { Express } from "express";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // The board saved to the user's account (#324): GET and PUT
 // /api/boards/current, by revision, on the memory store.
@@ -29,7 +33,7 @@ const file = (extra: Record<string, unknown> = {}) => ({
 
 const get = (a: Express, cookie = ANA) => request(a).get("/api/boards/current").set("Cookie", cookie);
 const put = (a: Express, revision: unknown, content: unknown, cookie = ANA) =>
-  request(a).put("/api/boards/current").set("Cookie", cookie).send({ revision, content });
+  request(a).put("/api/boards/current").set("Origin", APP_ORIGIN).set("Cookie", cookie).send({ revision, content });
 
 beforeEach(() => {
   vi.spyOn(console, "log").mockImplementation(() => {});
@@ -115,9 +119,9 @@ describe("DELETE /api/boards/:id", () => {
     const a = await app();
     await put(a, 0, file());
     const { id } = (await get(a)).body.board;
-    expect((await request(a).delete(`/api/boards/${id}`).set("Cookie", BEN)).status).toBe(204);
+    expect((await request(a).delete(`/api/boards/${id}`).set("Origin", APP_ORIGIN).set("Cookie", BEN)).status).toBe(204);
     expect((await get(a)).body.revision).toBe(1);
-    await request(a).delete(`/api/boards/${id}`).set("Cookie", ANA);
+    await request(a).delete(`/api/boards/${id}`).set("Origin", APP_ORIGIN).set("Cookie", ANA);
     expect((await get(a)).body).toMatchObject({ revision: 0, content: null });
   });
 });

@@ -190,6 +190,27 @@ describe("proxy route: credentials", () => {
     expect(new Headers(fetchMock.mock.calls[1][1]?.headers).get("x-client-ip")).toBeNull();
   });
 
+  it("forwards the browser's Origin, so the backend can check it (#490)", async () => {
+    fetchMock.mockResolvedValue(backendJson({}));
+    await POST(
+      new NextRequest("http://localhost:3000/api/proxy/boards", {
+        method: "POST",
+        headers: { origin: "http://localhost:3000", cookie: "gcos_session=s", referer: "https://evil.example.com/" },
+        body: "{}",
+      }),
+      params("boards")
+    );
+    expect(sent().get("origin")).toBe("http://localhost:3000");
+    expect(sent().get("referer")).toBeNull();
+    expect(sent().get("x-forwarded-host")).toBeNull();
+  });
+
+  it("forwards no Origin when the browser sent none", async () => {
+    fetchMock.mockResolvedValue(backendJson({}));
+    await get({ cookie: "gcos_session=s" });
+    expect(sent().get("origin")).toBeNull();
+  });
+
   it("forwards no cookie when there is no session cookie", async () => {
     fetchMock.mockResolvedValue(backendJson({}));
     await get({ cookie: "theme=dark" });

@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import type { Express } from "express";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // The saved Assets page (#413) on the memory stores: load, save by
 // revision, validation, detaching on save and clearing unsaved uploads.
@@ -23,7 +27,7 @@ const ANA = as("ana@accenture.com");
 const BEN = as("ben@accenture.com");
 
 const upload = async (a: Express, kind?: string, cookie = ANA): Promise<string> => {
-  const res = await request(a).post(`/api/assets${kind ? `?kind=${kind}` : ""}`).set("Cookie", cookie).set("Content-Type", "image/png").send(PNG);
+  const res = await request(a).post(`/api/assets${kind ? `?kind=${kind}` : ""}`).set("Origin", APP_ORIGIN).set("Cookie", cookie).set("Content-Type", "image/png").send(PNG);
   return res.body.id;
 };
 const page = (over: Record<string, unknown> = {}) => ({
@@ -35,7 +39,7 @@ const page = (over: Record<string, unknown> = {}) => ({
   assetIds: [],
   ...over,
 });
-const put = (a: Express, body: unknown, cookie = ANA) => request(a).put("/api/brand-assets").set("Cookie", cookie).send(body as object);
+const put = (a: Express, body: unknown, cookie = ANA) => request(a).put("/api/brand-assets").set("Origin", APP_ORIGIN).set("Cookie", cookie).send(body as object);
 const get = (a: Express, cookie = ANA) => request(a).get("/api/brand-assets").set("Cookie", cookie);
 const ids = async (a: Express, cookie = ANA) => (await request(a).get("/api/assets").set("Cookie", cookie)).body.map((x: { id: string }) => x.id);
 
@@ -152,7 +156,7 @@ describe("DELETE /api/brand-assets/pending", () => {
     const boardUpload = await upload(a);
     const bensPending = await upload(a, "logo", BEN);
 
-    const res = await request(a).delete("/api/brand-assets/pending").set("Cookie", ANA);
+    const res = await request(a).delete("/api/brand-assets/pending").set("Origin", APP_ORIGIN).set("Cookie", ANA);
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ deleted: 2 });
     const left = await ids(a);

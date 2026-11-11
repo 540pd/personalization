@@ -23,7 +23,7 @@
 |---|---|
 | `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth client ID for ID token verification |
 | `SESSION_SECRET` | Secret for signing 30-day session JWTs — store in Secret Manager |
-| `ALLOWED_ORIGINS` | Comma-separated frontend origins (e.g. `https://frontend-xyz.run.app`) |
+| `ALLOWED_ORIGINS` | Comma-separated frontend origins, exactly (e.g. `https://frontend-xyz.run.app`). Used for CORS and the CSRF check: signed-in changes from any other origin are refused. Must be HTTPS when deployed; unset when deployed, every signed-in change is refused |
 | `ALLOWED_EMAIL_DOMAINS` | Comma-separated allowed email domains (e.g. `accenture.com`) |
 | `ALLOWED_HOSTED_DOMAINS` | Comma-separated Google Workspace domains (the ID token's `hd`); defaults to `ALLOWED_EMAIL_DOMAINS` |
 | `GOOGLE_ID_TOKEN_CLOCK_SKEW_SECONDS` | Optional slack on a Google token's expiry, 0–300 (default 300) |
