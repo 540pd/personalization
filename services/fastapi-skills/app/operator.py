@@ -74,23 +74,17 @@ def refuse_node_account(account: str | None, node_account: str):
 
 
 async def _run(args) -> dict:
-    from pathlib import Path
-    from .catalog import catalog_from_settings
     from .config import settings
-    from .registry import RegistryClient
-    from .service import SkillService
-    from .store import FirestoreStore
+    from .wiring import build_services
     cfg = settings()
     refuse_node_account(adc_account(), cfg.node_service_account)
-    registry = RegistryClient(cfg)
+    parts = build_services(cfg)
     try:
-        catalog = catalog_from_settings(cfg, Path(__file__).resolve().parent.parent / 'data')
-        svc = SkillService(FirestoreStore(cfg.firestore_project_id, cfg.publish_operation_retention_days), registry, catalog, cfg)
         if args.action == 'reconcile':
-            return await reconcile(svc, args.operation_id, args.operator, args.reason)
-        return await fail(svc, args.operation_id, args.operator, args.reason, args.force)
+            return await reconcile(parts.service, args.operation_id, args.operator, args.reason)
+        return await fail(parts.service, args.operation_id, args.operator, args.reason, args.force)
     finally:
-        await registry.aclose()
+        await parts.aclose()
 
 
 def main(argv=None):

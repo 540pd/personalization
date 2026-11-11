@@ -5,12 +5,11 @@ import time
 import pytest
 from fastapi import HTTPException
 from app import operator
-from app.catalog import ToolCatalog
 from app.config import Settings
 from app.models import SkillCreate, PublishRequest
-from app.service import SkillService, UPLOAD_TIMEOUT
+from app.service import UPLOAD_TIMEOUT
 from app.store import MemoryStore
-from test_service import FakeRegistry, MD
+from support import FakeRegistry, MD, make_parts
 from pathlib import Path
 
 DATA = Path(__file__).resolve().parent.parent / 'data'
@@ -50,7 +49,7 @@ class Clock:
 def env():
     store, registry, clock = MemoryStore(), CrashingRegistry(), Clock()
     cfg = Settings(google_cloud_project='test-project', registry_location='us', publish_upload_deadline_seconds=DEADLINE)
-    svc = SkillService(store, registry, ToolCatalog(DATA / 'tool_catalog.json'), cfg, clock=clock)
+    svc = make_parts(cfg, store=store, registry=registry, clock=clock).service
     return svc, store, registry, clock
 
 

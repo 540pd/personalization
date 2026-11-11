@@ -3,13 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 from app import config
 from app.main import app
-
-CONFIGURED = {
-    'GOOGLE_CLOUD_PROJECT': 'gcos-governance-test',
-    'FIRESTORE_PROJECT_ID': 'gcos-governance-test',
-    'FASTAPI_AUDIENCE': 'https://fastapi.example.run.app',
-    'NODE_SERVICE_ACCOUNT': 'node-bff@gcos.iam.gserviceaccount.com',
-}
+from support import CONFIGURED
 
 
 @pytest.fixture(autouse=True)

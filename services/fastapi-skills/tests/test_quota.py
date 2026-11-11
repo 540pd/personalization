@@ -5,8 +5,7 @@ from fastapi.testclient import TestClient
 from app.main import app, service
 from app.models import SkillCreate, PublishRequest
 from app.security import trusted_node, Principal
-from test_service import MD, base  # noqa: F401 (base is a fixture)
-from test_disable import SlowRegistry
+from support import MD, SlowRegistry
 
 
 async def make(svc, slug, owner='usr_A'):

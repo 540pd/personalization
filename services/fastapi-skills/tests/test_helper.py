@@ -7,12 +7,12 @@ from pydantic import ValidationError
 from fastapi.testclient import TestClient
 from app import config
 from app.config import Settings
-from app.helper import SkillHelper
 from app.llm import FakeLLMClient, GeminiClient, llm_client
 from app.models import SkillDraftRequest
 from app.store import MemoryStore
 from app.catalog import ToolCatalog
 from pathlib import Path
+from support import make_parts
 
 CATALOG = ToolCatalog(Path(__file__).resolve().parent.parent / 'data' / 'tool_catalog.json')
 DRAFT = '---\nname: brand-tone\ndescription: Applies the approved brand voice.\n---\n# Purpose\nShort copy.\n'
@@ -26,7 +26,7 @@ def request(**over):
 def make(answers=(DRAFT,), store=None, clock=None, **cfg):
     fake = FakeLLMClient(list(answers))
     settings = Settings(google_cloud_project='test-project', **cfg)
-    helper = SkillHelper(settings, CATALOG, store if store is not None else MemoryStore(), fake, **({'clock': clock} if clock else {}))
+    helper = make_parts(settings, store=store, llm=fake, catalog=CATALOG, clock=clock).helper
     return helper, fake
 
 

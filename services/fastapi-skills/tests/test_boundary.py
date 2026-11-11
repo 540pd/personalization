@@ -2,16 +2,9 @@
 well-formed owner key, gets in; and an owner only ever reaches their own Skills.
 A fake token verifier stands in for Google: nothing here calls out."""
 import pytest
-from fastapi.testclient import TestClient
 from google.oauth2 import id_token
 from app import config
-from app.main import app, service, catalog, helper
-from app.catalog import ToolCatalog
-from app.config import Settings
-from app.service import SkillService
-from app.store import MemoryStore
-from test_service import FakeRegistry, MD
-from pathlib import Path
+from support import MD, make_parts
 
 AUDIENCE = 'https://fastapi.example.run.app'
 NODE = 'node-bff@gcos.iam.gserviceaccount.com'
@@ -38,7 +31,7 @@ def fake_verify(token, request, audience=None, **_):
 
 
 @pytest.fixture
-def client(monkeypatch):
+def client(monkeypatch, serve):
     for key in ('DEV_BYPASS_AUTH', 'K_SERVICE'):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv('FASTAPI_AUDIENCE', AUDIENCE)
@@ -46,14 +39,7 @@ def client(monkeypatch):
     monkeypatch.chdir('/')
     config.settings.cache_clear()
     monkeypatch.setattr(id_token, 'verify_token', fake_verify)
-    root = Path(__file__).resolve().parent.parent
-    cat = ToolCatalog(root / 'data' / 'tool_catalog.json')
-    svc = SkillService(MemoryStore(), FakeRegistry(), cat, Settings(google_cloud_project='test-project'))
-    app.dependency_overrides[service] = lambda: svc
-    app.dependency_overrides[catalog] = lambda: cat
-    app.dependency_overrides[helper] = lambda: None
-    yield TestClient(app)
-    app.dependency_overrides.clear()
+    yield serve(make_parts(), owner=None)  # the real caller check runs
     config.settings.cache_clear()
 
 
