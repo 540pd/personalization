@@ -552,7 +552,7 @@ describe("the fake FastAPI (placeholder)", () => {
     const first = await fake.publishSkill(ANA, skill.skillId, publish);
     expect(first.status).toBe("published");
     expect(await fake.publishSkill(ANA, skill.skillId, publish)).toEqual(first);
-    await expect(fake.publishSkill(ANA, skill.skillId, { ...publish, markdown: "# other" })).rejects.toMatchObject({ status: 409, code: "conflict" });
+    await expect(fake.publishSkill(ANA, skill.skillId, { ...publish, markdown: "# other" })).rejects.toMatchObject({ status: 409, code: "idempotency_conflict" });
     expect(await fake.getPublishStatus(ANA, skill.skillId, first.operationId)).toEqual(first);
   });
 

@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from "crypto";
-import { FastApiError, type FastApiClient, type PublishStatus, type ServicePrincipal, type SkillRecord } from "./types.js";
+import { idempotencyConflict, notFound, toolNotApproved, unapprovedTools } from "./errors.js";
+import { assertNoOwnerField, assertOwner, assertPublishKey, pathSegment } from "./input.js";
+import type { FastApiClient, PublishStatus, ServicePrincipal, SkillRecord } from "./types.js";
 
 // The placeholder FastAPI (#494): answers every operation from memory, per
 // owner, shaped like the service in docs/aryash/GCOS-FastAPI-skills-main, so
@@ -15,9 +17,16 @@ export function createFakeFastApiClient(): FastApiClient {
   const jobs = new Map<string, string>(); // `${owner}:${idempotencyKey}` → jobId
   const publishes = new Map<string, PublishStatus & { owner: string; skillId: string; sha: string }>();
 
+  // The client's input checks (#533): the fake refuses what the client refuses.
+  const checked = (principal: ServicePrincipal, input?: unknown) => {
+    assertOwner(principal);
+    assertNoOwnerField(input);
+  };
   const own = (principal: ServicePrincipal, skillId: string) => {
+    checked(principal);
+    pathSegment(skillId, "Skill ID"); // named as the client names the path's IDs
     const skill = skills.get(skillId);
-    if (!skill || skill.owner !== principal.ownerKey) throw new FastApiError(404, "resource_not_accessible", "Not found.", false);
+    if (!skill || skill.owner !== principal.ownerKey) throw notFound();
     return skill;
   };
   const view = ({ owner: _owner, ...record }: SkillRecord & { owner: string }): SkillRecord => ({ ...record });
@@ -25,11 +34,13 @@ export function createFakeFastApiClient(): FastApiClient {
 
   return {
     async createJob(principal, request) {
+      checked(principal, request);
       const key = `${principal.ownerKey}:${request.idempotencyKey}`;
       if (!jobs.has(key)) jobs.set(key, `job_fake_${randomUUID()}`);
       return { status: "accepted", jobId: jobs.get(key)! };
     },
     async createSkill(principal, request) {
+      checked(principal, request);
       // As the service: the ID comes from owner + slug, so a retry finds the same Skill.
       const skillId = `${createHash("sha256").update(principal.ownerKey).digest("hex").slice(0, 12)}-${request.slug}`;
       if (!skills.has(skillId)) {
@@ -46,6 +57,7 @@ export function createFakeFastApiClient(): FastApiClient {
       return view(own(principal, skillId));
     },
     async listSkills(principal) {
+      checked(principal);
       return { skills: [...skills.values()].filter((s) => s.owner === principal.ownerKey).map(view) };
     },
     async getSkill(principal, skillId) {
@@ -65,20 +77,23 @@ export function createFakeFastApiClient(): FastApiClient {
     },
     async getRevision(principal, skillId, revisionId) {
       const skill = own(principal, skillId);
-      if (!skill.latestPublishedRevision?.endsWith(`/${revisionId}`)) throw new FastApiError(404, "resource_not_accessible", "Not found.", false);
+      pathSegment(revisionId, "ID");
+      if (!skill.latestPublishedRevision?.endsWith(`/${revisionId}`)) throw notFound();
       return { name: skill.latestPublishedRevision };
     },
     async publishSkill(principal, skillId, publish) {
+      assertPublishKey(publish.idempotencyKey);
       const skill = own(principal, skillId);
       const unapproved = publish.toolNames.filter((t) => !APPROVED_TOOLS.has(t));
       if (unapproved.length) {
-        throw new FastApiError(422, "tool_not_approved", "A tool in this Skill isn't approved.", false, unapproved.map((n, i) => ({ code: "tool_not_approved", path: `toolNames[${i}]`, message: `${n} isn't an approved tool.` })));
+        throw toolNotApproved(unapprovedTools(unapproved));
       }
       const operationId = createHash("sha256").update(`${principal.ownerKey}:${skillId}:${publish.idempotencyKey}`).digest("hex");
       const sha = createHash("sha256").update(publish.markdown).digest("hex");
       const known = publishes.get(operationId);
       if (known) {
-        if (known.sha !== sha) throw new FastApiError(409, "conflict", "That Skill is busy, or this conflicts with an earlier request. Try again shortly.", false);
+        // As the service: the same key with other content is an idempotency conflict (#533).
+        if (known.sha !== sha) throw idempotencyConflict();
         const { owner: _o, skillId: _s, sha: _h, ...status } = known;
         return status;
       }
@@ -89,11 +104,13 @@ export function createFakeFastApiClient(): FastApiClient {
     },
     async getPublishStatus(principal, skillId, operationId) {
       own(principal, skillId);
+      pathSegment(operationId, "ID");
       const op = publishes.get(operationId);
-      if (!op || op.owner !== principal.ownerKey || op.skillId !== skillId) throw new FastApiError(404, "resource_not_accessible", "Not found.", false);
+      if (!op || op.owner !== principal.ownerKey || op.skillId !== skillId) throw notFound();
       return { operationId: op.operationId, status: op.status, revision: op.revision, error: op.error, catalogRevision: FAKE_CATALOG_REVISION };
     },
-    async validateTools(_principal, toolNames) {
+    async validateTools(principal, toolNames) {
+      checked(principal);
       const seen = new Set<string>();
       const results = toolNames.map((name) => {
         const dup = seen.has(name);
@@ -103,7 +120,8 @@ export function createFakeFastApiClient(): FastApiClient {
       });
       return { valid: results.every((r) => r.approved), results, catalogRevision: FAKE_CATALOG_REVISION };
     },
-    async draftSkill(_principal, request) {
+    async draftSkill(principal, request) {
+      checked(principal, request);
       return {
         markdown: `---\nname: ${request.name.toLowerCase().replace(/ /g, "-")}\ndescription: ${request.goal.slice(0, 200)}\n---\n# Purpose\n${request.goal}\n`,
         approvedTools: request.approvedTools ?? [],

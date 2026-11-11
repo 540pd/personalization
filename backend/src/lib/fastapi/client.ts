@@ -1,7 +1,8 @@
 import type { FastApiConfig } from "./config.js";
 import { TransportError, type HttpResponse, type HttpTransport, type ServiceTokenProvider } from "./transport.js";
-import { FastApiError, OPERATIONS, type CallContext, type FastApiClient, type Operation, type ServicePrincipal } from "./types.js";
+import { OPERATIONS, type CallContext, type FastApiClient, type Operation, type ServicePrincipal } from "./types.js";
 import { errorFrom, malformed, requestIdOf, unavailable } from "./errors.js";
+import { assertNoOwnerField, assertOwner, assertPublishKey, pathSegment } from "./input.js";
 import {
   MalformedAnswer,
   createdJobId,
@@ -42,23 +43,6 @@ const MAX_ATTEMPTS = 2;
 const RETRY_BASE_MS = 250;
 const RETRY_AFTER_CAP_MS = 2_000;
 
-const OWNER_FIELDS = new Set(["ownerKey", "owner_key", "owner"]);
-/** The service accepts `usr_…`, at most 128 characters (app/security.py). */
-const OWNER_KEY = /^usr_[A-Za-z0-9_-]{1,124}$/;
-/** The service wants 8–128 characters (app/main.py). */
-const IDEMPOTENCY_KEY = /^[A-Za-z0-9_.:-]{8,128}$/;
-const PATH_ID = /^[A-Za-z0-9_.:-]{1,128}$/;
-
-/** Refuses input that tries to say whose call this is: that is the session's to say. */
-function assertNoOwnerField(value: unknown): void {
-  if (Array.isArray(value)) return value.forEach(assertNoOwnerField);
-  if (!value || typeof value !== "object") return;
-  for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
-    if (OWNER_FIELDS.has(key)) throw new FastApiError(422, "validation_failed", "The owner comes from the session, not the request.", false);
-    assertNoOwnerField(v);
-  }
-}
-
 const retryableStatus = (status: number) => status === 429 || status === 502 || status === 503 || status === 504;
 
 function retryAfterMs(res: HttpResponse | undefined, attempt: number): number {
@@ -81,9 +65,7 @@ export function createFastApiClient(deps: ClientDeps): FastApiClient {
     extraHeaders: Record<string, string> = {}
   ): Promise<unknown> {
     assertNoOwnerField(input);
-    if (!principal?.ownerKey || !OWNER_KEY.test(principal.ownerKey)) {
-      throw new FastApiError(500, "dependency_unavailable", "No signed-in owner for this call.", false);
-    }
+    assertOwner(principal);
     const url = `${config.baseUrl}${path}`;
     const hasBody = op.method !== "GET" && op.method !== "DELETE" && input !== undefined;
     const body = hasBody ? JSON.stringify(toWire(input)) : undefined;
@@ -162,13 +144,8 @@ export function createFastApiClient(deps: ClientDeps): FastApiClient {
     }
   };
 
-  const segment = (value: string, what: string) => {
-    // Dots are allowed in IDs, but "." and ".." would walk the service's path.
-    if (!PATH_ID.test(value) || value === "." || value.includes("..")) throw new FastApiError(422, "validation_failed", `That ${what} isn't valid.`, false);
-    return encodeURIComponent(value);
-  };
   const pathOf = (op: Operation, ids: Record<string, string>) =>
-    op.path.replace(/\{(\w+)\}/g, (_, name: string) => segment(ids[name] ?? "", name === "skillId" ? "Skill ID" : "ID"));
+    op.path.replace(/\{(\w+)\}/g, (_, name: string) => pathSegment(ids[name] ?? "", name === "skillId" ? "Skill ID" : "ID"));
 
   return {
     async createJob(principal, request, ctx) {
@@ -204,7 +181,7 @@ export function createFastApiClient(deps: ClientDeps): FastApiClient {
       return run(OPERATIONS.getRevision, pathOf(OPERATIONS.getRevision, { skillId, revisionId }), principal, undefined, ctx);
     },
     async publishSkill(principal, skillId, publish, ctx) {
-      if (!IDEMPOTENCY_KEY.test(publish.idempotencyKey)) throw new FastApiError(422, "validation_failed", "The publish key isn't valid.", false);
+      assertPublishKey(publish.idempotencyKey);
       const { idempotencyKey, ...body } = publish;
       return read(
         publishStatus,
