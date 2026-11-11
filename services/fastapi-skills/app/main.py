@@ -11,6 +11,7 @@ from .service import SkillService
 from .store import FirestoreStore
 from .helper import SkillHelper
 from .llm import llm_client
+from .errors import install as install_errors
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +38,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title='GCOS Agent Registry Control Plane', version='0.1.0', docs_url='/docs', lifespan=lifespan)
+install_errors(app)
 
 
 def service():
