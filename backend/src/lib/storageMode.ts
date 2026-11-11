@@ -73,3 +73,38 @@ export function describeStorageModes({ firestore, storage }: StorageModes = stor
     `Storage: ${where(storage, env("GCS_BUCKET_NAME"), env("STORAGE_EMULATOR_HOST"))}`
   );
 }
+
+// ── One store per process, by storage mode (#534) ──
+
+/** How a store is made in each mode. `firestore` covers real and emulated Firestore. */
+export interface StoreBackends<T> {
+  firestore: () => T;
+  local: (dir: string) => T;
+  memory: () => T;
+}
+
+const resets = new Set<() => void>();
+
+/**
+ * The store for this process's storage mode, made on first use and kept:
+ * Firestore when FIRESTORE_PROJECT_ID is set, else local disk, else memory.
+ * Returns the getter a module exports.
+ */
+export function storeFor<T>(backends: StoreBackends<T>): () => T {
+  let store: T | null = null;
+  resets.add(() => {
+    store = null;
+  });
+  return () => {
+    if (store === null) {
+      const dir = localDataDir();
+      store = isCloud(firestoreMode()) ? backends.firestore() : dir ? backends.local(dir) : backends.memory();
+    }
+    return store;
+  };
+}
+
+/** Tests only: forget every store made by storeFor, so the next use picks again. */
+export function resetStoresForTests(): void {
+  resets.forEach((reset) => reset());
+}

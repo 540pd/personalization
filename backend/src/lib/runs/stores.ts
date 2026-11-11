@@ -1,8 +1,8 @@
 import path from "node:path";
 import { createHash } from "node:crypto";
 import type { Firestore, Transaction } from "@google-cloud/firestore";
-import { getFirestoreClient, isFirestoreMode } from "../firestore.js";
-import { localDataDir } from "../storageMode.js";
+import { getFirestoreClient } from "../firestore.js";
+import { storeFor } from "../storageMode.js";
 import { inside, readJson, writeAtomic } from "../localDisk.js";
 import { keyedLock } from "../boards/types.js";
 import type { IdempotencyRecord, PlayspaceLock, ReserveInput, ReserveResult, RunAdmissionStore, RunRecord } from "./types.js";
@@ -235,13 +235,9 @@ export function firestoreRunAdmissionStore(db: Firestore = getFirestoreClient())
   };
 }
 
-let _store: RunAdmissionStore | null = null;
+const pickRunAdmissionStore = storeFor<RunAdmissionStore>({ firestore: () => firestoreRunAdmissionStore(), local: localRunAdmissionStore, memory: memoryRunAdmissionStore });
 
 /** The run admission store for this process's storage mode, made on first use. */
 export function runAdmissionStore(): RunAdmissionStore {
-  if (!_store) {
-    const dir = localDataDir();
-    _store = isFirestoreMode() ? firestoreRunAdmissionStore() : dir ? localRunAdmissionStore(dir) : memoryRunAdmissionStore();
-  }
-  return _store;
+  return pickRunAdmissionStore();
 }
