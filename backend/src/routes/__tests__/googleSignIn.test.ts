@@ -148,3 +148,76 @@ describe("Google sign-in", () => {
     await expect(app({ GOOGLE_ID_TOKEN_CLOCK_SKEW_SECONDS: "900" })).rejects.toThrow(/CLOCK_SKEW/);
   });
 });
+
+// Owner keys (#488, PACK NJS-02): every verified Google sign-in has an owner,
+// made on its first sign-in; the key stays on the server.
+describe("Google sign-in and the account's owner", () => {
+  /** The owner service the app just loaded (same module instance as server.ts). */
+  const ownersOf = async () => (await import("../../lib/identity/index.js")).owners();
+  const storeOf = async () => (await import("../../lib/identity/index.js")).identityStore();
+
+  it("makes the account's owner on first sign-in and finds it again, by subject not email", async () => {
+    const a = await app();
+    expect((await signIn(a, token({ sub: "sub-ana" }))).status).toBe(200);
+    expect((await signIn(a, token({ sub: "sub-ana", email: "ana.silva@accenture.com" }))).status).toBe(200);
+    const svc = await ownersOf();
+    const first = await svc.findOrCreateOwner({ issuer: "https://accounts.google.com", subject: "sub-ana", email: "x@accenture.com", hostedDomain: "accenture.com" });
+    expect(first).toMatchObject({ ok: true, created: false });
+  });
+
+  it("never puts the owner key in a response", async () => {
+    const a = await app();
+    const res = await signIn(a, token({ sub: "sub-quiet" }));
+    const cookie = sessionCookieOf(res)!.split(";")[0];
+    const who = await request(a).get("/api/session").set("Cookie", cookie);
+    const viaToken = await request(a).get("/api/session").set("Authorization", `Bearer ${token({ sub: "sub-quiet" })}`);
+    for (const r of [res, who, viaToken]) {
+      expect(JSON.stringify(r.body)).not.toMatch(/usr_|owner/i);
+      expect(JSON.stringify(r.headers)).not.toMatch(/usr_/);
+    }
+    expect(viaToken.body).toEqual({ email: "ana@accenture.com" });
+  });
+
+  it("refuses a disabled account with 403 account_disabled and sets no cookie", async () => {
+    const a = await app();
+    await signIn(a, token({ sub: "sub-gone" }));
+    const svc = await ownersOf();
+    const owner = await svc.findOrCreateOwner({ issuer: "https://accounts.google.com", subject: "sub-gone", email: "ana@accenture.com", hostedDomain: "accenture.com" });
+    if (!owner.ok) throw new Error("expected an owner");
+    await svc.setOwnerStatus(owner.ownerKey, "disabled");
+    const res = await signIn(a, token({ sub: "sub-gone" }));
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("account_disabled");
+    expect(sessionCookieOf(res)).toBeUndefined();
+  });
+
+  it("refuses sign-in with 503 when the owner store fails, and sets no cookie", async () => {
+    const a = await app();
+    const store = await storeOf();
+    vi.spyOn(store, "findOrCreate").mockRejectedValue(new Error("UNAVAILABLE"));
+    const res = await signIn(a, token({ sub: "sub-down" }));
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe("dependency_unavailable");
+    expect(sessionCookieOf(res)).toBeUndefined();
+  });
+
+  it("can't be pointed at another owner from the request", async () => {
+    const a = await app();
+    await signIn(a, token({ sub: "sub-ana" }));
+    const res = await request(a)
+      .post("/api/session/refresh")
+      .set("Origin", APP_ORIGIN)
+      .set("Authorization", `Bearer ${token({ sub: "sub-mallory", email: "mallory@accenture.com" })}`)
+      .send({ ownerKey: "own_ana", owner_key: "own_ana", sub: "sub-ana" });
+    expect(res.status).toBe(200);
+    const svc = await ownersOf();
+    const ana = await svc.findOrCreateOwner({ issuer: "https://accounts.google.com", subject: "sub-ana", email: "a@accenture.com", hostedDomain: "accenture.com" });
+    const mallory = await svc.findOrCreateOwner({ issuer: "https://accounts.google.com", subject: "sub-mallory", email: "m@accenture.com", hostedDomain: "accenture.com" });
+    expect(ana.ok && mallory.ok && ana.ownerKey !== mallory.ownerKey).toBe(true);
+    expect(mallory).toMatchObject({ ok: true, created: false });
+  });
+
+  it("refuses to start deployed without IDENTITY_LINK_HMAC_KEY", async () => {
+    await expect(app({ K_SERVICE: "gcos-backend", ALLOWED_ORIGINS: "https://app.example.com", IDENTITY_LINK_HMAC_KEY: "" })).rejects.toThrow(/IDENTITY_LINK_HMAC_KEY/);
+  });
+});

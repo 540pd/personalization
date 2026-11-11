@@ -82,11 +82,16 @@ the backend restarts. A deployed backend refuses to start with it.
    JavaScript origins* (e.g. `http://localhost:3000`, the Cloud Run URL).
 2. Generate a session secret: `openssl rand -base64 48`. Deployed, keep it in Secret
    Manager (see deployment.md, **Secrets**); rotating it signs everyone out.
+   Generate the identity-link key too: `openssl rand -hex 32`, also in Secret
+   Manager. It keys each Google account's link to its owner (#488); a deployed
+   backend refuses to start without it. Changing it, or its version, makes new
+   links: do that only with a link migration, never by itself.
 3. Set, and restart both:
    ```bash
    # backend
    GOOGLE_OAUTH_CLIENT_ID=<client id>
    SESSION_SECRET=<secret>
+   IDENTITY_LINK_HMAC_KEY=<key>
    ALLOWED_EMAIL_DOMAINS=accenture.com
    # ALLOWED_HOSTED_DOMAINS=accenture.com   # the Workspace domain(s); defaults to the line above
    # frontend (inlined at build time)
@@ -95,7 +100,8 @@ the backend restarts. A deployed backend refuses to start with it.
    Unset `AUTH_MODE` (the dev placeholder) if it was set.
 4. Verify: `modes.auth` is `"required"`; the app opens on the sign-in screen with
    Google's button; after signing in, a reload stays signed in (the session cookie);
-   `npm run smoke -- <url> --cookie <value>` passes **session**.
+   `npm run smoke -- <url> --cookie <value>` passes **session**; Firestore has a
+   `users` document and an `identity_links` document for the account.
 
 **Verify on first use:** Google's token check is covered by tests only with Google
 stubbed; the first real sign-in is its first real run.

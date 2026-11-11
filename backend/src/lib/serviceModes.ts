@@ -10,6 +10,7 @@ import { cloudTasksConfig } from "./jobs/cloudTasks.js";
 import { supportMailConfig } from "./support/mailer.js";
 import { describeStorageModes, isCloud, isDeployed, storageModes, type StorageModes } from "./storageMode.js";
 import { fastApiMode } from "./fastapi/index.js";
+import { processLinkKey } from "./identity/index.js";
 
 export interface ServiceModes {
   auth: ReturnType<typeof getAuthMode>;
@@ -35,7 +36,9 @@ export function serviceModes(): ServiceModes {
 }
 
 function signIn(mode: ServiceModes["auth"]): string {
-  if (mode === "required") return "Google";
+  if (mode === "required") {
+    return processLinkKey().ephemeral ? "Google (identity links end on restart: no IDENTITY_LINK_HMAC_KEY)" : "Google";
+  }
   const toGoogle = "to switch: GOOGLE_OAUTH_CLIENT_ID, SESSION_SECRET";
   if (mode === "anonymous") return `anonymous (placeholder; AUTH_MODE=dev for dev sign-in) -- ${toGoogle}`;
   const ephemeral = isEphemeralSessionSecret() ? "; sessions end on restart, no SESSION_SECRET" : "";

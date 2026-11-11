@@ -23,6 +23,8 @@
 |---|---|
 | `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth client ID for ID token verification |
 | `SESSION_SECRET` | Secret for signing 30-day session JWTs — store in Secret Manager |
+| `IDENTITY_LINK_HMAC_KEY` | Key for identity links (Google account → owner key, #488), at least 32 bytes hex or base64 — store in Secret Manager; required when deployed |
+| `IDENTITY_LINK_HMAC_KEY_VERSION` | Optional, default `1`; part of every link ID, so change it only with a link migration |
 | `ALLOWED_ORIGINS` | Comma-separated frontend origins, exactly (e.g. `https://frontend-xyz.run.app`). Used for CORS and the CSRF check: signed-in changes from any other origin are refused. Must be HTTPS when deployed; unset when deployed, every signed-in change is refused |
 | `ALLOWED_EMAIL_DOMAINS` | Comma-separated allowed email domains (e.g. `accenture.com`) |
 | `ALLOWED_HOSTED_DOMAINS` | Comma-separated Google Workspace domains (the ID token's `hd`); defaults to `ALLOWED_EMAIL_DOMAINS` |
@@ -102,15 +104,16 @@ secrets) is #326.
 
 ## Secrets (Secret Manager)
 
-`SESSION_SECRET` must be provisioned in GCP Secret Manager and injected as an env var at
-deploy time:
+`SESSION_SECRET` and `IDENTITY_LINK_HMAC_KEY` must be provisioned in GCP Secret Manager and
+injected as env vars at deploy time:
 
 ```bash
 gcloud secrets create gcos-session-secret --data-file=-
 # paste the secret value, then Ctrl+D
+openssl rand -hex 32 | tr -d '\n' | gcloud secrets create gcos-identity-link-key --data-file=-
 
 gcloud run deploy gcos-backend \
-  --set-secrets SESSION_SECRET=gcos-session-secret:latest
+  --set-secrets SESSION_SECRET=gcos-session-secret:latest,IDENTITY_LINK_HMAC_KEY=gcos-identity-link-key:latest
 ```
 
 ## Cloud Run deploy (backend)
@@ -121,7 +124,7 @@ gcloud run deploy gcos-backend \
   --source . \
   --region us-central1 \
   --set-env-vars GOOGLE_OAUTH_CLIENT_ID=<id>,ALLOWED_ORIGINS=<frontend-url>,FIRESTORE_PROJECT_ID=<project>,GCS_BUCKET_NAME=<bucket>,VERTEX_PROJECT_ID=<project> \
-  --set-secrets SESSION_SECRET=gcos-session-secret:latest \
+  --set-secrets SESSION_SECRET=gcos-session-secret:latest,IDENTITY_LINK_HMAC_KEY=gcos-identity-link-key:latest \
   --no-allow-unauthenticated
 ```
 

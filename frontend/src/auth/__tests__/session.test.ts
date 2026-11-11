@@ -104,6 +104,17 @@ describe("completeSignIn", () => {
     expect(getIdToken()).toBeNull();
   });
 
+  it.each([
+    ["account_disabled", 403, "This account has been disabled. Ask your admin to turn it back on."],
+    ["dependency_unavailable", 503, "Sign-in is unavailable right now. Try again in a minute."],
+  ])("explains %s, and stays signed out", async (error, status, message) => {
+    replies[REFRESH] = { status, body: { error } };
+    await completeSignIn(token("ana.silva@accenture.com"));
+    expect(state().status).toBe("signedOut");
+    expect(state().error).toBe(message);
+    expect(getIdToken()).toBeNull();
+  });
+
   it("from the expired banner: signed in again, the banner gone", async () => {
     useIdentityStore.setState({ status: "signedIn", expired: true });
     replies[REFRESH] = { status: 200, body: { ok: true } };
