@@ -99,6 +99,26 @@ class FirestoreStore:
             return True
         return work(txn)
 
+    def take_draft_slot(self, owner: str, now: float, limit: int, window: float) -> bool:
+        """One AI-helper call for `owner` (#511), if under `limit` in the current
+        `window` (seconds, fixed). Counted on skill_quotas/{owner}, in a transaction."""
+        from google.cloud import firestore
+        ref = self._quota_ref(owner)
+        txn = self.db.transaction()
+
+        @firestore.transactional
+        def work(tx):
+            snap = ref.get(transaction=tx)
+            quota = snap.to_dict() if snap.exists else {}
+            start, count = quota.get('draftWindowStart', 0), quota.get('draftCount', 0)
+            if now - start >= window:
+                start, count = now, 0
+            if count >= limit:
+                return False
+            tx.set(ref, {'draftWindowStart': start, 'draftCount': count + 1}, merge=True)
+            return True
+        return work(txn)
+
     def get_operation(self, op_id: str) -> dict | None:
         snap = self.db.collection('skill_publish_requests').document(op_id).get()
         return snap.to_dict() if snap.exists else None
@@ -217,6 +237,7 @@ class MemoryStore:
         self.skills = {}
         self.ops = {}
         self.quotas = {}
+        self.drafts = {}
 
     def _quota(self, owner):
         return self.quotas.setdefault(owner, {'skillCount': 0, 'publishedBytes': 0, 'reservedDeltaBytes': 0})
@@ -255,6 +276,15 @@ class MemoryStore:
         quota['skillCount'] = max(0, quota['skillCount'] - 1)
         quota['publishedBytes'] = max(0, quota['publishedBytes'] - skill.get('latestRawBytes', 0))
         skill.update(status='disabled', disableOperation=None, quotaReleased=True)
+        return True
+
+    def take_draft_slot(self, owner, now, limit, window):
+        slot = self.drafts.setdefault(owner, {'start': 0, 'count': 0})
+        if now - slot['start'] >= window:
+            slot.update(start=now, count=0)
+        if slot['count'] >= limit:
+            return False
+        slot['count'] += 1
         return True
 
     def get_operation(self, op_id):

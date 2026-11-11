@@ -1,24 +1,29 @@
 """AI helper produces an editable SKILL.md draft; it has no publish permission."""
+import asyncio
+import time
 from fastapi import HTTPException
 from .models import DraftIssue, SkillDraftRequest, SkillDraftResponse
 from .catalog import ToolCatalog
 from .packaging import TOOLS_FIELD, declared_tools, validate_markdown
 from .config import Settings
+from .llm import GeminiClient, LLMClient
+
+
+DRAFT_WINDOW_SECONDS = 3600
 
 
 class SkillHelper:
-    def __init__(self, cfg: Settings, catalog: ToolCatalog):
+    """Drafts a SKILL.md with a model (PACK PY-04), bounded (#511): input sizes,
+    the whole prompt, a per-owner rate, the model call's time; never publishes."""
+    def __init__(self, cfg: Settings, catalog: ToolCatalog, store=None, llm: LLMClient | None = None, clock=time.time):
         self.cfg = cfg
         self.catalog = catalog
+        self.store = store
+        self.llm = llm or GeminiClient(cfg)
+        self.clock = clock
 
-    async def generate(self, request: SkillDraftRequest) -> SkillDraftResponse:
-        check = self.catalog.validate(request.approved_tools)
-        if not check.valid:
-            raise HTTPException(422, detail='Unapproved tool names provided')
-        from google import genai
-        from google.genai import types
-        import yaml
-        instruction = (
+    def prompt(self, request: SkillDraftRequest) -> str:
+        return (
             'Generate a safe standalone Agent Skills SKILL.md file with valid YAML frontmatter '
             'containing name and description. Return ONLY raw Markdown. '
             'Do not use Markdown code fences or add files/scripts. '
@@ -32,20 +37,37 @@ class SkillHelper:
             'Write clear sections: Purpose, Inputs, Procedure, Guardrails, Output.\n'
             f'Goal: {request.goal}\nConstraints: {request.constraints}'
         )
-        client = genai.Client(vertexai=True, project=self.cfg.google_cloud_project, location=self.cfg.vertex_location)
+
+    async def generate(self, owner: str, request: SkillDraftRequest) -> SkillDraftResponse:
+        # Checks that cost nothing come first, and don't count against the rate.
+        check = self.catalog.validate(request.approved_tools)
+        if not check.valid:
+            raise HTTPException(422, detail='Unapproved tool names provided')
+        prompt = self.prompt(request)
+        if len(prompt) > self.cfg.skill_helper_max_prompt_chars:
+            raise HTTPException(422, detail='The request is too long for the draft helper')
+        if self.store is not None and not self.store.take_draft_slot(
+            owner, self.clock(), self.cfg.skill_helper_drafts_per_hour, DRAFT_WINDOW_SECONDS
+        ):
+            raise HTTPException(429, detail='Too many drafts this hour. Try again later.')
+
         try:
-            response = await client.aio.models.generate_content(
-                model=self.cfg.skill_helper_model,
-                contents=instruction,
-                config=types.GenerateContentConfig(temperature=0.2, max_output_tokens=self.cfg.skill_helper_max_output_tokens),
-            )
-        finally:
-            await client.aio.aclose()
-        output = (response.text or '').strip()
+            text = await asyncio.wait_for(self.llm.generate(prompt), timeout=self.cfg.skill_helper_timeout_seconds)
+        except asyncio.TimeoutError:
+            raise HTTPException(503, detail='The draft helper took too long. Try again.') from None
+        except Exception:
+            # Model or transport failure: the caller's request was fine.
+            raise HTTPException(503, detail='The draft helper is unavailable. Try again shortly.') from None
+
+        output = (text or '').strip()
         if output.startswith('```'):
             # Models sometimes add code fences despite instructions.
-            output = output.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        output = validate_markdown(output)
+            output = output.split('\n', 1)[1].rsplit('```', 1)[0].strip() if '\n' in output else ''
+        try:
+            output = validate_markdown(output)
+        except HTTPException:
+            # The model's fault, not the caller's: 502, not 422.
+            raise HTTPException(502, detail="The model's draft wasn't a valid SKILL.md. Try again.") from None
         issues = draft_tool_issues(output, request.approved_tools, self.catalog)
         if issues:
             return SkillDraftResponse(

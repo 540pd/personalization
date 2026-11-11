@@ -85,6 +85,10 @@ Local end-to-end testing against the **real** Registry can set `DEV_BYPASS_AUTH=
 | `VERTEX_LOCATION` | Model helper location |
 | `SKILL_HELPER_MODEL` | Enabled Gemini text model in your project |
 | `SKILL_HELPER_MAX_OUTPUT_TOKENS` | Generation cap |
+| `SKILL_HELPER_BACKEND` | `gemini` (default) or `fake`: deterministic answers with no model call, for local runs; refused on Cloud Run |
+| `SKILL_HELPER_TIMEOUT_SECONDS` | The model call's limit (default 30); slower answers `503` |
+| `SKILL_HELPER_DRAFTS_PER_HOUR` | Drafts per owner per hour (default 20), counted in `skill_quotas/{owner}`; more answers `429` |
+| `SKILL_HELPER_MAX_PROMPT_CHARS` | The whole prompt's limit (default 8000), checked before any model call; over answers `422` |
 | `DEV_BYPASS_AUTH` | **Local only**, never Cloud Run |
 
 IAM (least privilege): Node service account needs `roles/run.invoker` on FastAPI. FastAPI runtime service account needs permission to read/write **its own** Firestore ownership/operation collections, `agentregistry.skills.create`, `agentregistry.skills.get/list/update`, and `agentregistry.skillRevisions.create/get`; for trial access, `roles/agentregistry.editor` includes broader Registry privileges. The helper additionally needs Vertex AI prediction permissions. Secure Cloud Run ingress and avoid service account keys.
@@ -104,7 +108,7 @@ IAM (least privilege): Node service account needs `roles/run.invoker` on FastAPI
 | `POST` | `/v1/skills/{skillId}/publish` | ZIP SKILL.md, create immutable revision, validate/promote; `Idempotency-Key` required |
 | `GET` | `/v1/skills/{skillId}/publish-operations/{opId}` | Poll & advance durable Registry LRO, return `published` only after active |
 | `POST` | `/v1/tools/validate` | Check names against approved catalog; does not execute tools |
-| `POST` | `/v1/skills/ai-draft` | Gemini generates an editable SKILL.md; **no publication** |
+| `POST` | `/v1/skills/ai-draft` | Gemini generates an editable SKILL.md; **no publication**. Bounded per owner and in time (`429`, `503`); a model answer that isn't a SKILL.md is `502` |
 | `GET` | `/healthz` | Liveness |
 
 API docs locally: `http://127.0.0.1:8080/docs`. Production can restrict OpenAPI exposure at the gateway.

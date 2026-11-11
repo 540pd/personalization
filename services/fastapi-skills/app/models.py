@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 from pydantic import BaseModel, Field, field_validator
 import re
 
@@ -35,8 +35,9 @@ class ToolValidationRequest(BaseModel):
 class SkillDraftRequest(BaseModel):
     name: str = Field(min_length=4, max_length=50)
     goal: str = Field(min_length=15, max_length=2500)
-    constraints: list[str] = Field(default_factory=list, max_length=15)
-    approved_tools: list[str] = Field(default_factory=list, max_length=20)
+    # Each item bounded too (#511): the list's length alone let one item be any size.
+    constraints: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(default_factory=list, max_length=15)
+    approved_tools: list[Annotated[str, Field(min_length=1, max_length=64)]] = Field(default_factory=list, max_length=20)
 
 
 class ToolResult(BaseModel):
