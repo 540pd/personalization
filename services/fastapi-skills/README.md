@@ -90,6 +90,8 @@ Local end-to-end testing against the **real** Registry can set `DEV_BYPASS_AUTH=
 | `SKILL_HELPER_DRAFTS_PER_HOUR` | Drafts per owner per hour (default 20), counted in `skill_quotas/{owner}`; more answers `429` |
 | `SKILL_HELPER_MAX_PROMPT_CHARS` | The whole prompt's limit (default 8000), checked before any model call; over answers `422` |
 | `CATALOG_SOURCE` | `file` (default, `data/tool_catalog.json`) or `registry` (placeholder: every validation answers `503` until the Agent Registry catalog exists) |
+| `PUBLISH_UPLOAD_DEADLINE_SECONDS` | A publish that never reached the Registry (no revision, no recorded operation) fails as "timed out before upload" on its next read after this (default 900), releasing the Skill's publish lock and reserved bytes. One that reached the Registry is reconciled, never failed by the deadline |
+| `PUBLISH_OPERATION_RETENTION_DAYS` | Finished operations get `expireAt` this many days out (default 30) for a Firestore TTL policy on `skill_publish_requests`. No code decides anything from it |
 | `CATALOG_CACHE_SECONDS` | How long a catalog read is trusted (default 60); a withdrawn tool fails validation within this. An unreadable catalog answers `503`, never a stale or permissive fallback |
 | `DEV_BYPASS_AUTH` | **Local only**, never Cloud Run |
 
@@ -197,6 +199,21 @@ The AI helper asks the model to declare tools the same way and checks its draft:
 - A process crash after reservation leaves a resumable Firestore operation. If it crashed before the revision POST, the caller must retry the same **publish POST with the original Markdown**; a GET cannot reconstruct it because the system intentionally does not store ZIP content.
 - Some error states require manual administrator reconciliation; do not arbitrarily clear an in-progress reservation and allow another publish.
 
+### Stuck publishes
+
+A publish that crashes before its revision upload can't be finished by a poll (the archive isn't stored), and it holds the Skill's publish lock. So (#508):
+
+- **Deadline.** Once `PUBLISH_UPLOAD_DEADLINE_SECONDS` (900) have passed, the next read of an operation with no revision in the Registry and no recorded Registry operation fails it as "timed out before upload", releasing the lock and its reserved bytes. A new publish of the same Skill reads the stuck one first, so nobody has to poll it. One that reached the Registry is reconciled from the Registry's state instead, never failed by the deadline.
+- **Operator path.** No HTTP route. Run from this folder with an operator account's ADC (the Node service account is refused; IAM on Firestore and the Registry is the real boundary):
+
+  ```bash
+  python -m app.operator reconcile <operation_id> --operator you@example.com --reason "incident 12"
+  python -m app.operator fail <operation_id> --operator you@example.com --reason "incident 12" [--force]
+  ```
+
+  `reconcile` advances it as a poll would. `fail` releases it; it refuses, unless `--force`, once the revision reached the Registry (it may still become the default). Every action, refused or no-op ones too, writes a `skill_publish_audit` record: operation, Skill, operator, reason, status before and after, outcome. No owner key or `SKILL.md` text.
+- **Cleanup.** Published and failed operations get `expireAt` (`PUBLISH_OPERATION_RETENTION_DAYS`, 30) for a Firestore TTL policy on `skill_publish_requests.expireAt`. Setting up that policy is a deploy step, not done here.
+
 ### API boundaries / not yet implemented
 
 This is an integration-ready **starter**, not a production-certified Skill control plane. Required before go-live:
@@ -204,7 +221,7 @@ This is an integration-ready **starter**, not a production-certified Skill contr
 1. Integration-test the `v1alpha` REST calls and `private-` resource names in the actual governance project. The publicly described REST `v1` skills registration examples may be newer than the `v1alpha` reference; pick one verified release, do not mix them.
 2. Confirm `SkillRevision` scanning policy/activation state and errors under your organization policy, including failed scan and rollback.
 3. Make the per-skill metadata PATCH operation and disable LRO fully resumable with revision CAS; current implementation returns the LRO name without a dedicated metadata-operation reconciler.
-4. Add TTL/maintenance procedures for durable publish operations, retriable conflicts, and an operator-only recovery endpoint for failed/stuck Registry calls.
+4. ~~TTL/maintenance and operator recovery for stuck publishes~~: done in #508, see [Stuck publishes](#stuck-publishes). Retriable conflicts are still open.
 5. Validate that Registry already approves/restricts an MCP server's actual methods; catalog allowlisting is not a substitute for enforcement in the tool runtime. **Never allow agents to derive arbitrary tool names, URLs or owner keys.**
 6. Limit AI-helper prompt rates, add budget counters per user/job, model output checks and a mandatory human publish review.
 7. Add structured traces/logs and API quotas, alert on stuck operations; define error taxonomy for downstream Node.

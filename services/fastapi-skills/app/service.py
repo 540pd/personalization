@@ -1,6 +1,8 @@
 """Registry container CRUD and recoverable idempotent revision publishing."""
 import hashlib
 import json
+import time
+from datetime import datetime, timezone
 from fastapi import HTTPException
 from .config import Settings
 from .models import SkillCreate, PublishRequest, PublishStatus
@@ -10,16 +12,24 @@ from .packaging import build_zip, declared_tools, validate_markdown
 from .catalog import ToolCatalog
 
 
+UPLOAD_TIMEOUT = 'Publish timed out before upload; publish again'
+
+
 def digest(data) -> str:
     return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
 class SkillService:
-    def __init__(self, store, registry, catalog: ToolCatalog, cfg: Settings):
+    def __init__(self, store, registry, catalog: ToolCatalog, cfg: Settings, clock=time.time):
         self.store = store
         self.registry = registry
         self.catalog = catalog
         self.cfg = cfg
+        self.clock = clock
+
+    def _past_upload_deadline(self, op: dict) -> bool:
+        created = datetime.fromisoformat(op['createdAt']).timestamp()
+        return self.clock() - created >= self.cfg.publish_upload_deadline_seconds
 
     def owned(self, owner: str, skill_id: str) -> dict:
         row = self.store.get_skill(skill_id)
@@ -203,6 +213,13 @@ class SkillService:
         if not_listed:
             raise HTTPException(422, detail={'tools_not_listed': not_listed})
         validation = self.catalog.validate(body.tool_names)
+        # A publish nobody polls would block this Skill for good (#508): read it
+        # first, so one past its upload deadline times out and frees the Skill.
+        active = skill.get('activePublishOp')
+        if active and active != operation_key(owner, skill_id, idempotency_key):
+            stuck = self.store.get_operation(active)
+            if stuck:
+                await self._advance(stuck, archive=None)
         if not validation.valid:
             raise HTTPException(422, detail={'invalid_tools': [r.name for r in validation.results if not r.approved],
                                              'catalog_revision': validation.catalog_revision})
@@ -216,7 +233,8 @@ class SkillService:
             'payloadHash': body_sha, 'revision': revision, 'rawBytes': len(body.markdown.strip().encode('utf-8')) + 1, 'status': 'pending',
             'registryOperation': None, 'promotionOperation': None,
             'catalogRevision': validation.catalog_revision,
-            'createdAt': stamp(), 'updatedAt': stamp(),
+            # From the same clock the upload deadline is measured with.
+            'createdAt': datetime.fromtimestamp(self.clock(), timezone.utc).isoformat(), 'updatedAt': stamp(),
         })
         return await self._advance(op, archive=archive)
 
@@ -247,6 +265,11 @@ class SkillService:
                     except RegistryError as err:
                         if err.status != 404:
                             raise
+                        if self._past_upload_deadline(op):
+                            # Never reached the Registry (#508): no revision and no
+                            # recorded operation. One that did is reconciled instead.
+                            self._fail(op, UPLOAD_TIMEOUT)
+                            return self._operation_response(self.store.get_operation(op_id))
                         if archive is None:
                             # A read-only poll cannot reconstruct the original archive safely.
                             return self._operation_response(op)
@@ -297,5 +320,13 @@ class SkillService:
                 return self._operation_response(self.store.get_operation(op_id))
             explain_registry_error(err)
 
-    def _fail(self, op: dict, msg: str):
-        self.store.fail_operation(op, msg)
+    def _fail(self, op: dict, msg: str) -> bool:
+        return self.store.fail_operation(op, msg)
+
+    async def advance_operation(self, op_id: str) -> PublishStatus:
+        """Reconcile one operation from the Registry's state, as a poll would.
+        For the operator tool (#508); the Node routes go through publish_status."""
+        op = self.store.get_operation(op_id)
+        if not op:
+            raise HTTPException(404, detail='Publish operation not found')
+        return await self._advance(op, archive=None)
