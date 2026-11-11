@@ -68,6 +68,21 @@ class FirestoreStore:
     def patch_skill(self, skill_id: str, fields: dict):
         self.db.collection('skill_ownership').document(skill_id).update({**fields, 'updatedAt': stamp()})
 
+    def finish_disable(self, skill_id: str) -> bool:
+        """Marks a Skill disabled once its Registry disable is done (#506); once only."""
+        from google.cloud import firestore
+        ref = self.db.collection('skill_ownership').document(skill_id)
+        txn = self.db.transaction()
+
+        @firestore.transactional
+        def work(tx):
+            snap = ref.get(transaction=tx)
+            if not snap.exists or snap.to_dict().get('status') == 'disabled':
+                return False
+            tx.update(ref, {'status': 'disabled', 'disableOperation': None, 'updatedAt': stamp()})
+            return True
+        return work(txn)
+
     def get_operation(self, op_id: str) -> dict | None:
         snap = self.db.collection('skill_publish_requests').document(op_id).get()
         return snap.to_dict() if snap.exists else None
@@ -213,6 +228,13 @@ class MemoryStore:
 
     def patch_skill(self, skill_id, fields):
         self.skills[skill_id].update(fields)
+
+    def finish_disable(self, skill_id):
+        skill = self.skills.get(skill_id)
+        if not skill or skill.get('status') == 'disabled':
+            return False
+        skill.update(status='disabled', disableOperation=None)
+        return True
 
     def get_operation(self, op_id):
         return self.ops.get(op_id)
