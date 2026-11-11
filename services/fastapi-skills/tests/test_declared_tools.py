@@ -73,7 +73,7 @@ async def test_a_declared_unapproved_tool_is_refused_even_when_listed(base):
     sid = await skill(svc)
     with pytest.raises(HTTPException) as failure:
         await svc.publish('usr_A', sid, PublishRequest(markdown=md('allowed-tools: [shell.exec]'), tool_names=['shell.exec']), 'key-12345678')
-    assert failure.value.detail == {'invalid_tools': ['shell.exec']}
+    assert failure.value.detail['invalid_tools'] == ['shell.exec']
     assert registry.revision_calls == 0
 
 

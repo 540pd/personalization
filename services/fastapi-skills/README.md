@@ -89,6 +89,8 @@ Local end-to-end testing against the **real** Registry can set `DEV_BYPASS_AUTH=
 | `SKILL_HELPER_TIMEOUT_SECONDS` | The model call's limit (default 30); slower answers `503` |
 | `SKILL_HELPER_DRAFTS_PER_HOUR` | Drafts per owner per hour (default 20), counted in `skill_quotas/{owner}`; more answers `429` |
 | `SKILL_HELPER_MAX_PROMPT_CHARS` | The whole prompt's limit (default 8000), checked before any model call; over answers `422` |
+| `CATALOG_SOURCE` | `file` (default, `data/tool_catalog.json`) or `registry` (placeholder: every validation answers `503` until the Agent Registry catalog exists) |
+| `CATALOG_CACHE_SECONDS` | How long a catalog read is trusted (default 60); a withdrawn tool fails validation within this. An unreadable catalog answers `503`, never a stale or permissive fallback |
 | `DEV_BYPASS_AUTH` | **Local only**, never Cloud Run |
 
 IAM (least privilege): Node service account needs `roles/run.invoker` on FastAPI. FastAPI runtime service account needs permission to read/write **its own** Firestore ownership/operation collections, `agentregistry.skills.create`, `agentregistry.skills.get/list/update`, and `agentregistry.skillRevisions.create/get`; for trial access, `roles/agentregistry.editor` includes broader Registry privileges. The helper additionally needs Vertex AI prediction permissions. Secure Cloud Run ingress and avoid service account keys.
@@ -107,7 +109,7 @@ IAM (least privilege): Node service account needs `roles/run.invoker` on FastAPI
 | `DELETE` | `/v1/skills/{skillId}` | **Disable**, don't hard delete historical revisions |
 | `POST` | `/v1/skills/{skillId}/publish` | ZIP SKILL.md, create immutable revision, validate/promote; `Idempotency-Key` required |
 | `GET` | `/v1/skills/{skillId}/publish-operations/{opId}` | Poll & advance durable Registry LRO, return `published` only after active |
-| `POST` | `/v1/tools/validate` | Check names against approved catalog; does not execute tools |
+| `POST` | `/v1/tools/validate` | Check names against approved catalog; does not execute tools. Every answer carries `catalog_revision`; `503` when the catalog can't be read |
 | `POST` | `/v1/skills/ai-draft` | Gemini generates an editable SKILL.md; **no publication**. Bounded per owner and in time (`429`, `503`); a model answer that isn't a SKILL.md is `502` |
 | `GET` | `/healthz` | Liveness |
 
@@ -181,7 +183,7 @@ Publish checks the Markdown's own declaration, not only the `tool_names` sent wi
 
 - a malformed declaration (not a list of names, a URL or path, a duplicate, an invalid name) is `422` with `{"tool_declaration_errors": [...]}`;
 - a declared tool missing from `tool_names` is `422` with `{"tools_not_listed": [...]}`;
-- `tool_names` is then checked against the catalog, as before (`{"invalid_tools": [...]}`).
+- `tool_names` is then checked against the catalog, as before (`{"invalid_tools": [...], "catalog_revision": "..."}`).
 
 The AI helper asks the model to declare tools the same way and checks its draft: a draft whose declared tools are malformed, unapproved or not among the request's `approved_tools` comes back with `valid: false` and one entry in `issues` per problem. It is never published or silently fixed.
 

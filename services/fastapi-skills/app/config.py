@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     skill_helper_timeout_seconds: float = 30       # the Node client's 30 s helper budget (#494)
     skill_helper_drafts_per_hour: int = 20         # per owner
     skill_helper_max_prompt_chars: int = 8000      # the whole prompt, checked before any model call
+    # The approved tool catalog (#510): `file` (data/tool_catalog.json) or
+    # `registry` (placeholder: fails closed until the Registry catalog exists).
+    catalog_source: str = 'file'
+    catalog_cache_seconds: float = 60
     dev_bypass_auth: bool = False
 
     @property
