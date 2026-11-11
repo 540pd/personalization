@@ -189,7 +189,7 @@ class SkillService:
         return PublishStatus(
             operation_id=op['operationId'], status=op['status'],
             revision=op.get('revision'), registry_operation=op.get('registryOperation'),
-            error=op.get('error'),
+            error=op.get('error'), catalog_revision=op.get('catalogRevision'),
         )
 
     async def publish(self, owner: str, skill_id: str, body: PublishRequest, idempotency_key: str) -> PublishStatus:
@@ -204,7 +204,8 @@ class SkillService:
             raise HTTPException(422, detail={'tools_not_listed': not_listed})
         validation = self.catalog.validate(body.tool_names)
         if not validation.valid:
-            raise HTTPException(422, detail={'invalid_tools': [r.name for r in validation.results if not r.approved]})
+            raise HTTPException(422, detail={'invalid_tools': [r.name for r in validation.results if not r.approved],
+                                             'catalog_revision': validation.catalog_revision})
         archive, archive_sha = build_zip(body.markdown)
         body_sha = digest({'archiveSha256': archive_sha, 'tools': sorted(body.tool_names)})
         op_id = operation_key(owner, skill_id, idempotency_key)
@@ -214,6 +215,7 @@ class SkillService:
             'operationId': op_id, 'ownerKey': owner, 'skillId': skill_id,
             'payloadHash': body_sha, 'revision': revision, 'rawBytes': len(body.markdown.strip().encode('utf-8')) + 1, 'status': 'pending',
             'registryOperation': None, 'promotionOperation': None,
+            'catalogRevision': validation.catalog_revision,
             'createdAt': stamp(), 'updatedAt': stamp(),
         })
         return await self._advance(op, archive=archive)
