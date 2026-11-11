@@ -1,5 +1,9 @@
 # ADR 001 — Auth Design: Google OAuth + 30-day Session JWT
 
+> **Update (#489):** `SESSION_MODE=opaque` replaces the session JWT with an opaque, revocable
+> server session (docs/aryash rule 3); `jwt`, below, stays the default until the team switches.
+> See "Opaque sessions" at the end.
+
 ## Decision
 
 Use a two-layer auth model:
@@ -61,3 +65,25 @@ Solution (borrowed from brand-play-space):
 
 Implementation: `backend/src/middleware/requireIdentity.ts`, `backend/src/lib/sessionToken.ts`
 Pattern source: brand-play-space `requireIdentity.ts`
+
+## Opaque sessions (#489, `SESSION_MODE=opaque`)
+
+- Sign-in (`POST /api/session/refresh` with a Google ID token, or dev sign-in) creates a
+  random 256-bit session ID. The cookie (`gcos_session`, HttpOnly, host-only, `SameSite=Lax`,
+  Secure when deployed) carries it; `login_sessions/{sha256(id)}` keeps the owner key, email,
+  idle and absolute deadlines and revocation time. The ID itself is never stored.
+- Every gated request resolves the cookie: unknown, revoked, idle-expired (default 7 days,
+  renewed with use at most hourly) and absolute-expired (default 30 days, never extended)
+  sessions are refused, and so is a session whose owner is disabled (`403 account_disabled`).
+- A Google ID token is a credential only on sign-in; elsewhere the cookie decides, so every
+  request after sign-in goes through these checks. The frontend already drops the ID token
+  once the cookie is set.
+- Sign-out revokes the record, even an expired one, and clears the cookie: a copy is refused.
+  Signing in again revokes the browser's previous session.
+- `sessions().disableOwner(ownerKey)` (server-side only) disables the owner and revokes all
+  their sessions. Resolved sessions are cached 10 s per instance; revocation clears the cache
+  on the instance that made it, so other instances see it within 10 s.
+- Session answers send `Cache-Control: no-store` in both modes. No session ID, hash or owner
+  key is ever in a response body.
+- Switching from `jwt` signs everyone out once: old cookies hold tokens, not session IDs.
+

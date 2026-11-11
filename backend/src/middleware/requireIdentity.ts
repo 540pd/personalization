@@ -4,6 +4,7 @@ import { googleIdTokenClient, googleIdTokenConfig, verifyGoogleIdToken } from ".
 import { owners, processLinkKey } from "../lib/identity/index.js";
 import { signSessionToken, verifySessionToken } from "../lib/sessionToken.js";
 import { readSessionCookie, SESSION_RENEW_AFTER_SECONDS, setSessionCookie } from "../lib/sessionCookie.js";
+import { sessionConfig, sessions, type SessionRefusal } from "../lib/sessions/index.js";
 
 declare global {
   namespace Express {
@@ -15,6 +16,8 @@ declare global {
        * anonymous mode until owner keys replace email (migration issue).
        */
       identity: { email: string; ownerKey?: string };
+      /** How `identity` was established, for the session routes (#489). */
+      authenticatedBy?: "anonymous" | "session" | "google";
     }
   }
 }
@@ -124,11 +127,45 @@ if (AUTH_MODE === "required" && GOOGLE_ID_TOKEN_CONFIG.hostedDomains.length === 
 // without IDENTITY_LINK_HMAC_KEY refuses to start rather than fail sign-ins.
 if (AUTH_MODE === "required") processLinkKey();
 
+// Which session (#489): "jwt", today's signed token, or "opaque", a random ID
+// checked against the session store on every request. Read once; a bad value
+// stops startup.
+const SESSION_MODE = sessionConfig().mode;
+
+export function getSessionMode(): typeof SESSION_MODE {
+  return SESSION_MODE;
+}
+
+/** An opaque session's refusal, as the error the frontend already handles. */
+function refuseSession(res: Response, reason: SessionRefusal): void {
+  if (reason === "disabled") sendError(res, "account_disabled", REFUSAL_MESSAGES.account_disabled);
+  else if (reason === "unavailable") sendError(res, "dependency_unavailable", REFUSAL_MESSAGES.dependency_unavailable);
+  else if (reason === "idle_expired" || reason === "absolute_expired") sendError(res, "token_expired", "Session has expired.");
+  else sendError(res, "token_missing", "The session cookie is not valid.");
+}
+
 /** Identifies the request from its session cookie, renewing an old one. */
-function identifyFromCookie(req: Request, res: Response, next: NextFunction): void {
+async function identifyFromCookie(req: Request, res: Response, next: NextFunction): Promise<void> {
   const cookie = readSessionCookie(req);
   if (!cookie) {
     sendError(res, "token_missing", "No bearer token or session cookie present.");
+    return;
+  }
+  if (SESSION_MODE === "opaque") {
+    // Every check, every request: deadlines, revocation, the owner's status.
+    const session = await sessions().resolve(cookie);
+    if (!session.ok) {
+      if (session.reason === "unavailable" || session.reason === "disabled") console.error(`[requireIdentity] session refused (${session.reason})`);
+      refuseSession(res, session.reason);
+      return;
+    }
+    if (!isAllowedEmailDomain(session.record.email)) {
+      sendError(res, "domain_not_allowed", "This account's email domain is not permitted.");
+      return;
+    }
+    req.identity = session.record.ownerKey ? { email: session.record.email, ownerKey: session.record.ownerKey } : { email: session.record.email };
+    req.authenticatedBy = "session";
+    next();
     return;
   }
   const session = verifySessionToken(cookie);
@@ -149,6 +186,7 @@ function identifyFromCookie(req: Request, res: Response, next: NextFunction): vo
     if (renewed) setSessionCookie(res, renewed);
   }
   req.identity = { email: session.email };
+  req.authenticatedBy = "session";
   next();
 }
 
@@ -158,8 +196,12 @@ function identifyFromCookie(req: Request, res: Response, next: NextFunction): vo
  * still note who sent it (the support form, #428). A Google token is not
  * checked here: that is a network call this note is not worth.
  */
-export function signedInEmail(req: Request): string | null {
+export async function signedInEmail(req: Request): Promise<string | null> {
   if (AUTH_MODE === "anonymous") return null;
+  if (SESSION_MODE === "opaque") {
+    const session = await sessions().resolve(readSessionCookie(req));
+    return session.ok ? session.record.email : null;
+  }
   const header = IS_DEPLOYED ? req.header("X-User-Identity") : req.header("X-User-Identity") ?? req.header("Authorization");
   const bearer = header?.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : undefined;
   for (const token of [bearer, readSessionCookie(req)]) {
@@ -170,7 +212,13 @@ export function signedInEmail(req: Request): string | null {
   return null;
 }
 
-export function requireIdentity(): RequestHandler {
+/**
+ * Gates a route on a signed-in identity. `signIn: true` is for the one route
+ * that exchanges a Google ID token for a session (POST /api/session/refresh):
+ * with opaque sessions, no other route takes a Google token, so every request
+ * after sign-in goes through the session's checks.
+ */
+export function requireIdentity(options: { signIn?: boolean } = {}): RequestHandler {
   return async function requireIdentityMiddleware(
     req: Request,
     res: Response,
@@ -178,6 +226,7 @@ export function requireIdentity(): RequestHandler {
   ): Promise<void> {
     if (AUTH_MODE === "anonymous") {
       req.identity = { email: ANONYMOUS_IDENTITY };
+      req.authenticatedBy = "anonymous";
       next();
       return;
     }
@@ -196,8 +245,16 @@ export function requireIdentity(): RequestHandler {
     // No bearer token: the session cookie, which a reload still carries
     // after the in-memory Google token is gone. A bearer token wins, so a
     // fresh sign-in is not blocked by an expired cookie.
-    if (!idToken) {
-      identifyFromCookie(req, res, next);
+    // With opaque sessions a bearer token is only a credential on the sign-in
+    // route; anywhere else it is ignored and the cookie decides.
+    if (!idToken || (SESSION_MODE === "opaque" && !options.signIn)) {
+      await identifyFromCookie(req, res, next);
+      return;
+    }
+
+    // Opaque sessions have no signed token to check: straight to Google.
+    if (SESSION_MODE === "opaque") {
+      await identifyFromGoogle(idToken, req, res, next);
       return;
     }
 
@@ -209,6 +266,7 @@ export function requireIdentity(): RequestHandler {
         return;
       }
       req.identity = { email: sessionResult.email };
+      req.authenticatedBy = "session";
       next();
       return;
     }
@@ -224,27 +282,34 @@ export function requireIdentity(): RequestHandler {
       return;
     }
 
-    // Fall through to Google ID token verification (lib/googleIdToken.ts):
-    // only what the verified token says counts, never the request body.
-    const result = await verifyGoogleIdToken(idToken, GOOGLE_ID_TOKEN_CONFIG, googleIdTokenClient);
-    if (!result.ok) {
-      // The code and a short reason only: never the token or its claims.
-      console.error(`[requireIdentity] ID token refused (${result.code}: ${result.reason})`);
-      sendError(res, result.code, REFUSAL_MESSAGES[result.code]);
-      return;
-    }
-    // The account's owner, made on its first sign-in (#488). Data stays keyed
-    // by email for now; the owner key is recorded and passed on server-side.
-    const owner = await owners().findOrCreateOwner(result.identity);
-    if (!owner.ok) {
-      console.error(`[requireIdentity] owner refused (${owner.code}: ${owner.reason})`);
-      if (owner.code === "account_disabled") sendError(res, "account_disabled", REFUSAL_MESSAGES.account_disabled);
-      else sendError(res, "dependency_unavailable", REFUSAL_MESSAGES.dependency_unavailable);
-      return;
-    }
-    req.identity = { email: result.identity.email, ownerKey: owner.ownerKey };
-    next();
+    await identifyFromGoogle(idToken, req, res, next);
   };
+}
+
+/**
+ * Google ID token verification (lib/googleIdToken.ts), then the account's
+ * owner (#488): only what the verified token says counts, never the body.
+ */
+async function identifyFromGoogle(idToken: string, req: Request, res: Response, next: NextFunction): Promise<void> {
+  const result = await verifyGoogleIdToken(idToken, GOOGLE_ID_TOKEN_CONFIG, googleIdTokenClient);
+  if (!result.ok) {
+    // The code and a short reason only: never the token or its claims.
+    console.error(`[requireIdentity] ID token refused (${result.code}: ${result.reason})`);
+    sendError(res, result.code, REFUSAL_MESSAGES[result.code]);
+    return;
+  }
+  // The account's owner, made on its first sign-in (#488). Data stays keyed
+  // by email for now; the owner key is recorded and passed on server-side.
+  const owner = await owners().findOrCreateOwner(result.identity);
+  if (!owner.ok) {
+    console.error(`[requireIdentity] owner refused (${owner.code}: ${owner.reason})`);
+    if (owner.code === "account_disabled") sendError(res, "account_disabled", REFUSAL_MESSAGES.account_disabled);
+    else sendError(res, "dependency_unavailable", REFUSAL_MESSAGES.dependency_unavailable);
+    return;
+  }
+  req.identity = { email: result.identity.email, ownerKey: owner.ownerKey };
+  req.authenticatedBy = "google";
+  next();
 }
 
 const REFUSAL_MESSAGES: Record<IdentityErrorCode, string> = {

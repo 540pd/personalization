@@ -11,6 +11,7 @@ import { supportMailConfig } from "./support/mailer.js";
 import { describeStorageModes, isCloud, isDeployed, storageModes, type StorageModes } from "./storageMode.js";
 import { fastApiMode } from "./fastapi/index.js";
 import { processLinkKey } from "./identity/index.js";
+import { sessionConfig, type SessionMode } from "./sessions/config.js";
 
 export interface ServiceModes {
   auth: ReturnType<typeof getAuthMode>;
@@ -20,6 +21,8 @@ export interface ServiceModes {
   jobs: "cloud-tasks" | "in-process";
   /** Where support messages go (#428): emailed, or only kept and logged. */
   supportEmail: "smtp" | "placeholder";
+  /** Signed 30-day tokens (today), or opaque server sessions (#489). */
+  sessions: SessionMode;
   /** The private FastAPI service (#494), or its in-memory placeholder. */
   fastapi: "service" | "placeholder";
 }
@@ -32,6 +35,7 @@ export function serviceModes(): ServiceModes {
     jobs: cloudTasksConfig() ? "cloud-tasks" : "in-process",
     supportEmail: supportMailConfig() ? "smtp" : "placeholder",
     fastapi: fastApiMode(),
+    sessions: sessionConfig().mode,
   };
 }
 
@@ -50,6 +54,7 @@ export function describeServiceModes(modes: ServiceModes = serviceModes()): stri
   const cloud = isCloud(modes.storage.firestore) && isCloud(modes.storage.storage);
   const lines = [
     `sign-in: ${signIn(modes.auth)}`,
+    `sessions: ${modes.sessions === "opaque" ? "server sessions, revocable (opaque)" : "signed 30-day tokens (jwt) -- to switch: SESSION_MODE=opaque (signs everyone out once)"}`,
     `storage: ${describeStorageModes(modes.storage)}${cloud ? "" : " -- to switch: FIRESTORE_PROJECT_ID, GCS_BUCKET_NAME"}`,
     `AI:      ${modes.ai === "vertex" ? "Vertex AI" : "offline placeholders -- to switch: VERTEX_PROJECT_ID"}`,
     `jobs:    ${modes.jobs === "cloud-tasks" ? "Cloud Tasks" : "in process (placeholder) -- to switch: CLOUD_TASKS_QUEUE, CLOUD_TASKS_SERVICE_ACCOUNT, JOBS_WORKER_URL"}`,

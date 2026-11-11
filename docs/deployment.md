@@ -24,6 +24,8 @@
 | `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth client ID for ID token verification |
 | `SESSION_SECRET` | Secret for signing 30-day session JWTs — store in Secret Manager |
 | `IDENTITY_LINK_HMAC_KEY` | Key for identity links (Google account → owner key, #488), at least 32 bytes hex or base64 — store in Secret Manager; required when deployed |
+| `SESSION_MODE` | `jwt` (default, signed 30-day tokens) or `opaque` (revocable server sessions in `login_sessions`, #489); switching signs everyone out once |
+| `SESSION_IDLE_SECONDS`, `SESSION_ABSOLUTE_SECONDS` | Opaque sessions' idle and absolute deadlines (defaults 604800 and 2592000) |
 | `IDENTITY_LINK_HMAC_KEY_VERSION` | Optional, default `1`; part of every link ID, so change it only with a link migration |
 | `ALLOWED_ORIGINS` | Comma-separated frontend origins, exactly (e.g. `https://frontend-xyz.run.app`). Used for CORS and the CSRF check: signed-in changes from any other origin are refused. Must be HTTPS when deployed; unset when deployed, every signed-in change is refused |
 | `ALLOWED_EMAIL_DOMAINS` | Comma-separated allowed email domains (e.g. `accenture.com`) |

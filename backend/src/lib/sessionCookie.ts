@@ -37,8 +37,10 @@ export function readSessionCookie(req: Request): string | undefined {
   return undefined;
 }
 
-export function setSessionCookie(res: Response, token: string): void {
-  res.cookie(SESSION_COOKIE, token, { ...cookieOptions(), maxAge: SESSION_TOKEN_TTL_SECONDS * 1000 });
+/** Sets the cookie: host-only (no Domain), HttpOnly, Secure when deployed.
+ * `maxAgeMs` defaults to the JWT's lifetime; opaque sessions pass their own. */
+export function setSessionCookie(res: Response, value: string, maxAgeMs = SESSION_TOKEN_TTL_SECONDS * 1000): void {
+  res.cookie(SESSION_COOKIE, value, { ...cookieOptions(), maxAge: maxAgeMs });
 }
 
 export function clearSessionCookie(res: Response): void {
