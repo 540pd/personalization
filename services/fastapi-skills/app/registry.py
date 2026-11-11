@@ -121,6 +121,20 @@ def operation_done(obj: dict) -> bool:
     return bool(obj.get('done'))
 
 
+PENDING, DONE, REFUSED = 'pending', 'done', 'refused'
+
+
+async def follow_operation(registry, name: str, done: dict | None = None) -> str:
+    """Where a recorded Registry operation stands (#530): PENDING, DONE, or
+    REFUSED (it ended with an error, or the Registry refused the read).
+    `done` is the operation as already returned, to skip the read."""
+    try:
+        result = done or await registry.operation(name)
+        return DONE if operation_done(result) else PENDING
+    except RegistryError:
+        return REFUSED
+
+
 def explain_registry_error(error: RegistryError):
     code = error.status
     # Fixed messages only (#512): the status survives, the Registry's text doesn't.
