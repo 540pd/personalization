@@ -5,10 +5,10 @@ can't be read fails closed (503): it is never a fallback that allows
 everything. Runtime authorizations are checked again by the ADK tools."""
 import hashlib
 import json
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
+from .clock import SYSTEM, Clock
 from .models import ToolValidationResponse, ToolResult
 from . import codes
 from .errors import ServiceError
@@ -62,7 +62,7 @@ class ToolCatalog:
     """Validates tool names against the provider's catalog, cached for
     `cache_seconds` (default 60): a withdrawn tool fails validation at most that
     long after its source changes."""
-    def __init__(self, source: 'CatalogProvider | str | Path', cache_seconds: float = DEFAULT_CACHE_SECONDS, clock=time.monotonic, load_now: bool = True):
+    def __init__(self, source: 'CatalogProvider | str | Path', cache_seconds: float = DEFAULT_CACHE_SECONDS, clock: Clock = SYSTEM, load_now: bool = True):
         self.provider = source if hasattr(source, 'load') else FileCatalogProvider(source)
         self.cache_seconds = cache_seconds
         self.clock = clock
@@ -72,7 +72,7 @@ class ToolCatalog:
             self.snapshot()  # a catalog file that can't be read is caught at startup
 
     def snapshot(self) -> CatalogSnapshot:
-        now = self.clock()
+        now = self.clock.monotonic()
         if self._snapshot is None or now - self._loaded_at >= self.cache_seconds:
             try:
                 snapshot = self.provider.load()
@@ -105,11 +105,11 @@ class ToolCatalog:
         return ToolValidationResponse(valid=all(item.approved for item in results), results=results, catalog_revision=catalog.revision)
 
 
-def catalog_from_settings(cfg, data_dir: Path) -> ToolCatalog:
+def catalog_from_settings(cfg, data_dir: Path, clock: Clock = SYSTEM) -> ToolCatalog:
     """The catalog CATALOG_SOURCE names: `file` (default) or `registry` (placeholder, fails closed)."""
     if cfg.catalog_source == 'file':
-        return ToolCatalog(data_dir / 'tool_catalog.json', cfg.catalog_cache_seconds)
+        return ToolCatalog(data_dir / 'tool_catalog.json', cfg.catalog_cache_seconds, clock)
     if cfg.catalog_source == 'registry':
         # The service still starts; every validation answers 503 until it exists.
-        return ToolCatalog(RegistryCatalogProvider(), cfg.catalog_cache_seconds, load_now=False)
+        return ToolCatalog(RegistryCatalogProvider(), cfg.catalog_cache_seconds, clock, load_now=False)
     raise RuntimeError(f'CATALOG_SOURCE must be file or registry, got {cfg.catalog_source!r}')

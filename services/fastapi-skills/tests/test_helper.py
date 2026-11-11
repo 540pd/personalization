@@ -111,16 +111,15 @@ def test_refuses_a_prompt_over_the_limit_before_any_model_call_and_without_count
 
 # ── Rate ───────────────────────────────────────────────────────────────
 
-def test_limits_drafts_per_owner_per_hour_and_resets_after_the_hour():
-    now = [1_000_000.0]
-    helper, fake = make(answers=[DRAFT], clock=lambda: now[0], skill_helper_drafts_per_hour=3)
+def test_limits_drafts_per_owner_per_hour_and_resets_after_the_hour(clock):
+    helper, fake = make(answers=[DRAFT], clock=clock, skill_helper_drafts_per_hour=3)
     for _ in range(3):
         draft(helper)
     error = refused(helper)
     assert error.status_code == 429
     assert len(fake.prompts) == 3  # the refused one never reached the model
     assert draft(helper, owner='usr_B').valid is True  # another owner has their own count
-    now[0] += 3600
+    clock.advance(3600)
     assert draft(helper).valid is True
 
 

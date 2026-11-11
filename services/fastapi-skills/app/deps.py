@@ -2,10 +2,9 @@
 ownership check every Skill operation starts with."""
 import hashlib
 import json
-import time
 from dataclasses import dataclass, field
-from typing import Callable
 from .catalog import ToolCatalog
+from .clock import SYSTEM, Clock
 from .config import Settings
 from . import codes
 from .errors import ServiceError
@@ -21,7 +20,7 @@ class Deps:
     registry: object
     catalog: ToolCatalog
     cfg: Settings
-    clock: Callable[[], float] = field(default=time.time)
+    clock: Clock = field(default=SYSTEM)
 
 
 class Part:
@@ -47,7 +46,7 @@ class Part:
         return self.deps.cfg
 
     @property
-    def clock(self):
+    def clock(self) -> Clock:
         return self.deps.clock
 
     def owned(self, owner: str, skill_id: str) -> dict:

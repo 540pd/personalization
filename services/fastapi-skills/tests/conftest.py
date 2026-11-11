@@ -1,7 +1,14 @@
 """Shared fixtures (#529). Test doubles and builders are in support.py."""
 import pytest
 from fastapi.testclient import TestClient
+from app.clock import FakeClock
 from support import FakeRegistry, SlowRegistry, make_parts
+
+
+@pytest.fixture
+def clock():
+    """The one fake clock (#535): pass it to make_parts, then clock.advance(seconds)."""
+    return FakeClock()
 
 
 @pytest.fixture
