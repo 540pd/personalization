@@ -31,6 +31,9 @@
 | `GCS_BUCKET_NAME` | GCS bucket name for asset storage |
 | `VERTEX_PROJECT_ID` | GCP project ID for Vertex AI Imagen 3 |
 | `VERTEX_LOCATION` | Vertex AI region — Nano Banana models require `global` (default: `global`) |
+| `FASTAPI_BASE_URL` | The private FastAPI service's URL (#494); unset, a placeholder in memory. HTTPS when deployed |
+| `FASTAPI_AUDIENCE` | Optional: the service token's audience, if not `FASTAPI_BASE_URL` |
+| `FASTAPI_JOB_TIMEOUT_MS`, `FASTAPI_SKILLS_TIMEOUT_MS`, `FASTAPI_HELPER_TIMEOUT_MS` | Optional timeouts for FastAPI calls (defaults 15000, 10000, 30000) |
 | `PORT` | Server port (default: 4000 locally, set to 8080 by Cloud Run) |
 | `FIRESTORE_EMULATOR_HOST` | Local only: the Firestore emulator (`127.0.0.1:8080`) |
 | `STORAGE_EMULATOR_HOST` | Local only: the Storage emulator (`http://127.0.0.1:9199`) |
