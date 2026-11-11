@@ -59,8 +59,9 @@ async def create_skill(body: SkillCreate, principal: Principal = Depends(trusted
 
 
 @app.get('/v1/skills')
-async def list_skills(principal: Principal = Depends(trusted_node), svc=Depends(service)):
-    return {'skills': svc.list_owned(principal.owner_key)}
+async def list_skills(include_disabled: bool = False, principal: Principal = Depends(trusted_node), svc=Depends(service)):
+    # Disabled Skills are left out unless asked for (#507).
+    return {'skills': svc.list_owned(principal.owner_key, include_disabled)}
 
 
 @app.get('/v1/skills/{skill_id}')

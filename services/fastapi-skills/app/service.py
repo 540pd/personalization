@@ -27,8 +27,8 @@ class SkillService:
             raise HTTPException(404, detail='Skill not found')
         return row
 
-    def list_owned(self, owner: str) -> list[dict]:
-        return self.store.list_skills(owner)
+    def list_owned(self, owner: str, include_disabled: bool = False) -> list[dict]:
+        return self.store.list_skills(owner, include_disabled)
 
     async def create(self, owner: str, request: SkillCreate) -> dict:
         # Both Registry and Firestore IDs are stable across retries.

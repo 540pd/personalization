@@ -5,6 +5,8 @@ from fastapi import HTTPException
 
 MAX_SKILLS_PER_OWNER = 5
 MAX_COMBINED_RAW_SKILL_BYTES = 300 * 1024
+# A Skill in these states is gone for its owner (#507): not listed, not counted.
+GONE = ('disable_requested', 'disabled')
 
 
 def stamp():
@@ -32,8 +34,9 @@ class FirestoreStore:
         snap = self.db.collection('skill_ownership').document(skill_id).get()
         return snap.to_dict() if snap.exists else None
 
-    def list_skills(self, owner: str) -> list[dict]:
-        return [doc.to_dict() for doc in self.db.collection('skill_ownership').where('ownerKey', '==', owner).stream()]
+    def list_skills(self, owner: str, include_disabled: bool = False) -> list[dict]:
+        rows = [doc.to_dict() for doc in self.db.collection('skill_ownership').where('ownerKey', '==', owner).stream()]
+        return rows if include_disabled else [r for r in rows if r.get('status') not in GONE]
 
     def reserve_skill(self, row: dict):
         from google.cloud import firestore
@@ -49,6 +52,8 @@ class FirestoreStore:
                 previous = existing.to_dict()
                 if previous['ownerKey'] != row['ownerKey']:
                     raise HTTPException(404, detail='Skill unavailable')
+                if previous.get('status') in GONE:
+                    raise HTTPException(409, detail='This Skill was disabled; re-creating it is not supported yet')
                 if previous['createHash'] != row['createHash']:
                     raise HTTPException(409, detail='Skill ID reserved with different metadata')
                 return previous
@@ -79,7 +84,18 @@ class FirestoreStore:
             snap = ref.get(transaction=tx)
             if not snap.exists or snap.to_dict().get('status') == 'disabled':
                 return False
-            tx.update(ref, {'status': 'disabled', 'disableOperation': None, 'updatedAt': stamp()})
+            skill = snap.to_dict()
+            # Free its slot and its published bytes (#507), in the same step, so
+            # the status check above makes this exactly once.
+            quota_ref = self._quota_ref(skill['ownerKey'])
+            quota_doc = quota_ref.get(transaction=tx)
+            quota = quota_doc.to_dict() if quota_doc.exists else {}
+            tx.update(ref, {'status': 'disabled', 'disableOperation': None, 'quotaReleased': True, 'updatedAt': stamp()})
+            tx.set(quota_ref, {
+                'skillCount': max(0, quota.get('skillCount', 0) - 1),
+                'publishedBytes': max(0, quota.get('publishedBytes', 0) - skill.get('latestRawBytes', 0)),
+                'reservedDeltaBytes': quota.get('reservedDeltaBytes', 0),
+            })
             return True
         return work(txn)
 
@@ -208,14 +224,16 @@ class MemoryStore:
     def get_skill(self, skill_id):
         return self.skills.get(skill_id)
 
-    def list_skills(self, owner):
-        return [r for r in self.skills.values() if r['ownerKey'] == owner]
+    def list_skills(self, owner, include_disabled=False):
+        return [r for r in self.skills.values() if r['ownerKey'] == owner and (include_disabled or r.get('status') not in GONE)]
 
     def reserve_skill(self, row):
         old = self.skills.get(row['skillId'])
         if old:
             if old['ownerKey'] != row['ownerKey']:
                 raise HTTPException(404, 'Skill unavailable')
+            if old.get('status') in GONE:
+                raise HTTPException(409, 'This Skill was disabled; re-creating it is not supported yet')
             if old['createHash'] != row['createHash']:
                 raise HTTPException(409, 'Skill ID already reserved with different metadata')
             return old.copy()
@@ -233,7 +251,10 @@ class MemoryStore:
         skill = self.skills.get(skill_id)
         if not skill or skill.get('status') == 'disabled':
             return False
-        skill.update(status='disabled', disableOperation=None)
+        quota = self._quota(skill['ownerKey'])
+        quota['skillCount'] = max(0, quota['skillCount'] - 1)
+        quota['publishedBytes'] = max(0, quota['publishedBytes'] - skill.get('latestRawBytes', 0))
+        skill.update(status='disabled', disableOperation=None, quotaReleased=True)
         return True
 
     def get_operation(self, op_id):
