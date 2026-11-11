@@ -77,11 +77,15 @@ export interface PublishStatus {
   status: PublishState;
   revision: string | null;
   error: string | null;
+  /** The tool catalog revision this publish was checked against (#510). */
+  catalogRevision: string | null;
 }
 
 export interface ToolCheck {
   valid: boolean;
   results: { name: string; approved: boolean; reason: string }[];
+  /** Which catalog the names were checked against (#510). */
+  catalogRevision: string | null;
 }
 
 export interface DraftSkillRequest {
@@ -112,7 +116,19 @@ export type FastApiErrorCode =
   | "conflict"
   | "idempotency_conflict"
   | "playspace_busy"
-  | "dependency_unavailable";
+  | "dependency_unavailable"
+  // The service's codes beyond the §5 table (#512).
+  | "publish_in_progress"
+  | "quota_exceeded"
+  | "rate_limited";
+
+/** Non-secret context from the service's error answer (#512). */
+export interface FastApiErrorContext {
+  /** The service's request ID, for tracing the call in its logs. */
+  requestId?: string;
+  /** The catalog revision a tool refusal was checked against. */
+  catalogRevision?: string;
+}
 
 /**
  * What a route can answer the browser with. `message` is safe to show: it never
@@ -125,7 +141,8 @@ export class FastApiError extends Error {
     message: string,
     readonly retryable: boolean,
     /** Validation details, rebuilt from the upstream answer and UI-safe. */
-    readonly issues: ValidationIssue[] = []
+    readonly issues: ValidationIssue[] = [],
+    readonly context: FastApiErrorContext = {}
   ) {
     super(message);
     this.name = "FastApiError";
