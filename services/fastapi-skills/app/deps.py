@@ -5,9 +5,10 @@ import json
 import time
 from dataclasses import dataclass, field
 from typing import Callable
-from fastapi import HTTPException
 from .catalog import ToolCatalog
 from .config import Settings
+from . import codes
+from .errors import ServiceError
 
 
 def digest(data) -> str:
@@ -52,5 +53,5 @@ class Part:
     def owned(self, owner: str, skill_id: str) -> dict:
         row = self.store.get_skill(skill_id)
         if not row or row['ownerKey'] != owner:
-            raise HTTPException(404, detail='Skill not found')
+            raise ServiceError(404, codes.NOT_ACCESSIBLE, 'Skill not found')
         return row

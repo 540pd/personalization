@@ -9,8 +9,9 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
-from fastapi import HTTPException
 from .models import ToolValidationResponse, ToolResult
+from . import codes
+from .errors import ServiceError
 
 DEFAULT_CACHE_SECONDS = 60
 
@@ -78,7 +79,7 @@ class ToolCatalog:
             except CatalogUnavailable:
                 # No stale fallback: an expired catalog is not trusted.
                 self._snapshot = None
-                raise HTTPException(503, detail='The approved tool catalog is unavailable. Try again shortly.') from None
+                raise ServiceError(503, codes.DEPENDENCY, 'The approved tool catalog is unavailable. Try again shortly.') from None
             self._snapshot, self._loaded_at = snapshot, now
         return self._snapshot
 

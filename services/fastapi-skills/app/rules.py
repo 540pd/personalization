@@ -9,6 +9,7 @@ only supplies `read` and applies the writes (Firestore: in one transaction).
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Literal
+from . import codes
 
 SKILLS = 'skill_ownership'
 OPS = 'skill_publish_requests'
@@ -38,10 +39,11 @@ class Decision:
 
 
 class Refused(Exception):
-    """A rule said no. `status` is the HTTP status the service answers with."""
-    def __init__(self, status: int, message: str):
+    """A rule said no: the status and code (app/codes.py) the service answers with."""
+    def __init__(self, status: int, code: str, message: str):
         super().__init__(message)
         self.status = status
+        self.code = code
         self.message = message
 
 
@@ -55,15 +57,15 @@ def reserve_skill(read: Reader, row: dict) -> Decision:
     existing = read(SKILLS, row['skillId'])
     if existing:
         if existing['ownerKey'] != row['ownerKey']:
-            raise Refused(404, 'Skill unavailable')
+            raise Refused(404, codes.NOT_ACCESSIBLE, 'Skill unavailable')
         if existing.get('status') in GONE:
-            raise Refused(409, 'This Skill was disabled; re-creating it is not supported yet')
+            raise Refused(409, codes.CONFLICT, 'This Skill was disabled; re-creating it is not supported yet')
         if existing['createHash'] != row['createHash']:
-            raise Refused(409, 'Skill ID reserved with different metadata')
+            raise Refused(409, codes.CONFLICT, 'Skill ID reserved with different metadata')
         return Decision(existing)
     quota = quota_of(read, row['ownerKey'])
     if quota['skillCount'] >= MAX_SKILLS_PER_OWNER:
-        raise Refused(422, 'Maximum five Skills per user')
+        raise Refused(422, codes.QUOTA, 'Maximum five Skills per user')
     return Decision(row, [
         Write('create', SKILLS, row['skillId'], row),
         Write('set', QUOTAS, row['ownerKey'], {**quota, 'skillCount': quota['skillCount'] + 1}),
@@ -102,18 +104,18 @@ def reserve_operation(read: Reader, row: dict, now: str) -> Decision:
     holding the Skill's lock, or a budget overrun, is refused."""
     skill = read(SKILLS, row['skillId'])
     if not skill or skill.get('ownerKey') != row['ownerKey']:
-        raise Refused(404, 'Skill not found')
+        raise Refused(404, codes.NOT_ACCESSIBLE, 'Skill not found')
     existing = read(OPS, row['operationId'])
     if existing:
         if existing['payloadHash'] != row['payloadHash']:
-            raise Refused(409, 'Idempotency key reused with changed content')
+            raise Refused(409, codes.IDEMPOTENCY, 'Idempotency key reused with changed content')
         return Decision(existing)
     if skill.get('activePublishOp'):
-        raise Refused(409, 'Another publish is already in progress')
+        raise Refused(409, codes.PUBLISH_IN_PROGRESS, 'Another publish is already in progress')
     quota = quota_of(read, row['ownerKey'])
     delta = max(0, row['rawBytes'] - skill.get('latestRawBytes', 0))
     if quota['publishedBytes'] + quota['reservedDeltaBytes'] + delta > MAX_COMBINED_RAW_SKILL_BYTES:
-        raise Refused(422, '300 KiB combined user Skills limit exceeded')
+        raise Refused(422, codes.QUOTA, '300 KiB combined user Skills limit exceeded')
     record = {**row, 'reservedDeltaBytes': delta}
     return Decision(record, [
         Write('create', OPS, row['operationId'], record),
@@ -126,13 +128,13 @@ def finish_operation(read: Reader, row: dict, now: str, expire: datetime) -> Dec
     """Published: counts its bytes once, only for the lock holder."""
     op, skill = read(OPS, row['operationId']), read(SKILLS, row['skillId'])
     if not op or not skill:
-        raise Refused(409, 'Publish reservation missing')
+        raise Refused(409, codes.CONFLICT, 'Publish reservation missing')
     if skill.get('ownerKey') != row['ownerKey'] or op.get('ownerKey') != row['ownerKey']:
-        raise Refused(409, 'Publish ownership mismatch')
+        raise Refused(409, codes.CONFLICT, 'Publish ownership mismatch')
     if op.get('status') == 'published':
         return Decision()  # a retried completion must not count the bytes twice
     if skill.get('activePublishOp') != row['operationId']:
-        raise Refused(409, 'Publish fencing mismatch')
+        raise Refused(409, codes.CONFLICT, 'Publish fencing mismatch')
     quota = quota_of(read, row['ownerKey'])
     return Decision(None, [
         Write('update', OPS, row['operationId'], {'status': 'published', 'updatedAt': now, 'expireAt': expire}),
