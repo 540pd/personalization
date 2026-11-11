@@ -15,3 +15,8 @@ playwright-report/
 
 # Local-disk placeholder data (#333)
 .data/
+
+# Python (services/fastapi-skills, #515)
+__pycache__/
+.pytest_cache/
+.venv/

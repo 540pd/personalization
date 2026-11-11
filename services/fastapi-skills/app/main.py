@@ -1,4 +1,5 @@
 """Private FastAPI service; BFF is the sole user-facing entry point."""
+from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from .models import SkillCreate, SkillUpdate, PublishRequest, ToolValidationRequest, SkillDraftRequest
@@ -10,11 +11,9 @@ from .service import SkillService
 from .store import FirestoreStore
 from .helper import SkillHelper
 
-app = FastAPI(title='GCOS Agent Registry Control Plane', version='0.1.0', docs_url='/docs')
-
-
-@app.on_event('startup')
-async def start():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup checks and wiring, then shutdown. Refuses to start misconfigured."""
     import os
     cfg = settings()
     if (not cfg.google_cloud_project or cfg.google_cloud_project == 'test-project') or (not cfg.firestore_project_id or cfg.firestore_project_id == 'test-project'):
@@ -28,11 +27,13 @@ async def start():
     app.state.catalog = ToolCatalog(Path(__file__).resolve().parent.parent / 'data' / 'tool_catalog.json')
     app.state.service = SkillService(app.state.store, app.state.registry, app.state.catalog, cfg)
     app.state.helper = SkillHelper(cfg, app.state.catalog)
+    try:
+        yield
+    finally:
+        await app.state.registry.aclose()
 
 
-@app.on_event('shutdown')
-async def stop():
-    await app.state.registry.aclose()
+app = FastAPI(title='GCOS Agent Registry Control Plane', version='0.1.0', docs_url='/docs', lifespan=lifespan)
 
 
 def service():
