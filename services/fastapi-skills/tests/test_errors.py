@@ -175,13 +175,16 @@ def test_the_unhandled_error_log_line_has_the_request_id(ctx):
     assert 'secret detail' not in stream.getvalue()
 
 
-def test_helper_errors_have_codes(ctx):
-    assert classify(429, 'Too many drafts this hour. Try again later.')[0] == 'rate_limited'
-    assert classify(503, 'The draft helper took too long. Try again.')[0] == 'dependency_unavailable'
-    assert classify(422, 'Maximum five Skills per user')[0] == 'quota_exceeded'
-    assert classify(401, 'Missing service ID token')[0] == 'unauthenticated'
-    assert classify(403, 'Caller service not allowed')[0] == 'forbidden'
-    assert classify(409, 'Agent Registry resource conflict')[0] == 'conflict'
+def test_a_code_comes_from_the_raise_never_from_the_message(ctx):
+    # #531: the message no longer decides the code; the ServiceError's own code does.
+    assert classify(422, 'Maximum five Skills per user')[0] == 'validation_failed'
+    assert classify(422, 'Maximum five Skills per user', 'quota_exceeded')[0] == 'quota_exceeded'
+    # Without a code (FastAPI's own errors), the status decides.
+    assert classify(429, 'Too many')[0] == 'rate_limited'
+    assert classify(503, 'x')[0] == 'dependency_unavailable'
+    assert classify(401, 'x')[0] == 'unauthenticated'
+    assert classify(403, 'x')[0] == 'forbidden'
+    assert classify(409, 'x')[0] == 'conflict'
     assert classify(422, {'unknown': 1})[1] == 'The request is not valid'
 
 

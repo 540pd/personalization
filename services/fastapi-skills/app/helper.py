@@ -1,12 +1,13 @@
 """AI helper produces an editable SKILL.md draft; it has no publish permission."""
 import asyncio
 import time
-from fastapi import HTTPException
 from .models import DraftIssue, SkillDraftRequest, SkillDraftResponse
 from .catalog import ToolCatalog
 from .packaging import TOOLS_FIELD, declared_tools, validate_markdown
 from .config import Settings
 from .llm import GeminiClient, LLMClient
+from . import codes
+from .errors import ServiceError
 
 
 DRAFT_WINDOW_SECONDS = 3600
@@ -42,22 +43,22 @@ class SkillHelper:
         # Checks that cost nothing come first, and don't count against the rate.
         check = self.catalog.validate(request.approved_tools)
         if not check.valid:
-            raise HTTPException(422, detail='Unapproved tool names provided')
+            raise ServiceError(422, codes.TOOL_NOT_APPROVED, 'Unapproved tool names provided')
         prompt = self.prompt(request)
         if len(prompt) > self.cfg.skill_helper_max_prompt_chars:
-            raise HTTPException(422, detail='The request is too long for the draft helper')
+            raise ServiceError(422, codes.VALIDATION, 'The request is too long for the draft helper')
         if self.store is not None and not self.store.take_draft_slot(
             owner, self.clock(), self.cfg.skill_helper_drafts_per_hour, DRAFT_WINDOW_SECONDS
         ):
-            raise HTTPException(429, detail='Too many drafts this hour. Try again later.')
+            raise ServiceError(429, codes.RATE_LIMITED, 'Too many drafts this hour. Try again later.')
 
         try:
             text = await asyncio.wait_for(self.llm.generate(prompt), timeout=self.cfg.skill_helper_timeout_seconds)
         except asyncio.TimeoutError:
-            raise HTTPException(503, detail='The draft helper took too long. Try again.') from None
+            raise ServiceError(503, codes.DEPENDENCY, 'The draft helper took too long. Try again.') from None
         except Exception:
             # Model or transport failure: the caller's request was fine.
-            raise HTTPException(503, detail='The draft helper is unavailable. Try again shortly.') from None
+            raise ServiceError(503, codes.DEPENDENCY, 'The draft helper is unavailable. Try again shortly.') from None
 
         output = (text or '').strip()
         if output.startswith('```'):
@@ -65,9 +66,9 @@ class SkillHelper:
             output = output.split('\n', 1)[1].rsplit('```', 1)[0].strip() if '\n' in output else ''
         try:
             output = validate_markdown(output)
-        except HTTPException:
+        except ServiceError:
             # The model's fault, not the caller's: 502, not 422.
-            raise HTTPException(502, detail="The model's draft wasn't a valid SKILL.md. Try again.") from None
+            raise ServiceError(502, codes.DEPENDENCY, "The model's draft wasn't a valid SKILL.md. Try again.") from None
         issues = draft_tool_issues(output, request.approved_tools, self.catalog)
         if issues:
             return SkillDraftResponse(
@@ -81,7 +82,7 @@ def draft_tool_issues(markdown: str, approved: list[str], catalog: ToolCatalog) 
     """What is wrong with a draft's declared tools (#509): never silently fixed."""
     try:
         declared = declared_tools(markdown)
-    except HTTPException as err:
+    except ServiceError as err:
         return [DraftIssue(code='tool_declaration', path=e['path'], message=e['message']) for e in err.detail['tool_declaration_errors']]
     issues = []
     check = {r.name: r for r in catalog.validate(declared).results}

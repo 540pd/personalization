@@ -4,8 +4,9 @@ import base64
 import uuid
 from typing import Any
 import httpx
-from fastapi import HTTPException
 from .config import Settings
+from . import codes
+from .errors import ServiceError
 
 
 class RegistryError(Exception):
@@ -140,7 +141,7 @@ def explain_registry_error(error: RegistryError):
     # Fixed messages only (#512): the status survives, the Registry's text doesn't.
     if code in (404, 403):
         # Never transform permissions failures into successful reads.
-        raise HTTPException(code, detail='Skill unavailable' if code == 404 else 'Agent Registry denied access')
+        raise ServiceError(code, codes.NOT_ACCESSIBLE if code == 404 else codes.FORBIDDEN, 'Skill unavailable' if code == 404 else 'Agent Registry denied access')
     if code == 409:
-        raise HTTPException(409, detail='Agent Registry resource conflict')
-    raise HTTPException(502 if code < 500 else 503, detail='Agent Registry is unavailable. Try again shortly.')
+        raise ServiceError(409, codes.CONFLICT, 'Agent Registry resource conflict')
+    raise ServiceError(502 if code < 500 else 503, codes.DEPENDENCY, 'Agent Registry is unavailable. Try again shortly.')

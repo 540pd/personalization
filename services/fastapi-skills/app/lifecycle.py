@@ -1,15 +1,16 @@
 """Disable and metadata changes (#506, #530): each starts a Registry operation,
 records it, and is finished by a later read once the operation ends."""
-from fastapi import HTTPException
 from .deps import Part, digest
 from .registry import DONE, PENDING, RegistryError, explain_registry_error, follow_operation, operation_uuid
+from . import codes
+from .errors import ServiceError
 
 
 class Lifecycle(Part):
     async def update_metadata(self, owner: str, skill_id: str, fields: dict) -> dict:
         row = self.owned(owner, skill_id)
         if not fields:
-            raise HTTPException(422, detail='At least one field is required')
+            raise ServiceError(422, codes.VALIDATION, 'At least one field is required')
         try:
             op = await self.registry.patch_skill(
                 row['registryResource'], fields, operation_uuid('metadata:' + skill_id + ':' + digest(fields))
@@ -44,7 +45,7 @@ class Lifecycle(Part):
         if row.get('status') == 'disable_requested' and row.get('disableOperation'):
             return await self.reconcile_disable(row)
         if row.get('activePublishOp'):
-            raise HTTPException(409, detail='A publish is currently in progress')
+            raise ServiceError(409, codes.PUBLISH_IN_PROGRESS, 'A publish is currently in progress')
         try:
             op = await self.registry.patch_skill(row['registryResource'],
                 {'targetState': 'TARGET_STATE_DISABLED'},

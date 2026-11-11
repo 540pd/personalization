@@ -4,7 +4,8 @@ import io
 import re
 import zipfile
 import yaml
-from fastapi import HTTPException
+from . import codes
+from .errors import ServiceError
 
 FRONTMATTER_RE = re.compile(r'\A---\s*\n(.*?)\n---\s*\n(.*)\Z', re.DOTALL)
 
@@ -20,20 +21,20 @@ MAX_DECLARED_TOOLS = 30
 def validate_markdown(raw: str) -> str:
     text = raw.strip() + '\n'
     if len(text.encode('utf-8')) > 100 * 1024:
-        raise HTTPException(422, detail='SKILL.md exceeds GCOS limit of 100 KiB')
+        raise ServiceError(422, codes.VALIDATION, 'SKILL.md exceeds GCOS limit of 100 KiB')
     match = FRONTMATTER_RE.fullmatch(text)
     if not match:
-        raise HTTPException(422, detail='SKILL.md needs YAML frontmatter with name and description')
+        raise ServiceError(422, codes.VALIDATION, 'SKILL.md needs YAML frontmatter with name and description')
     try:
         header = yaml.safe_load(match.group(1))
     except yaml.YAMLError:
-        raise HTTPException(422, detail='Invalid YAML frontmatter') from None
+        raise ServiceError(422, codes.VALIDATION, 'Invalid YAML frontmatter') from None
     if not isinstance(header, dict) or not isinstance(header.get('name'), str) or not isinstance(header.get('description'), str):
-        raise HTTPException(422, detail='Frontmatter must contain name and description')
+        raise ServiceError(422, codes.VALIDATION, 'Frontmatter must contain name and description')
     if not re.fullmatch(r'[a-z][a-z0-9-]{2,50}[a-z0-9]', header['name']):
-        raise HTTPException(422, detail='Invalid skill frontmatter name')
+        raise ServiceError(422, codes.VALIDATION, 'Invalid skill frontmatter name')
     if not (10 <= len(header['description']) <= 500) or not match.group(2).strip():
-        raise HTTPException(422, detail='Missing useful description or instructions')
+        raise ServiceError(422, codes.VALIDATION, 'Missing useful description or instructions')
     return text
 
 
@@ -51,7 +52,7 @@ def declared_tools(markdown: str) -> list[str]:
     elif isinstance(raw, list):
         items = raw
     else:
-        raise HTTPException(422, detail={'tool_declaration_errors': [{'path': TOOLS_FIELD, 'message': f'{TOOLS_FIELD} must be a list of tool names'}]})
+        raise ServiceError(422, codes.VALIDATION, {'tool_declaration_errors': [{'path': TOOLS_FIELD, 'message': f'{TOOLS_FIELD} must be a list of tool names'}]})
     errors, names = [], []
     if len(items) > MAX_DECLARED_TOOLS:
         errors.append({'path': TOOLS_FIELD, 'message': f'At most {MAX_DECLARED_TOOLS} tools'})
@@ -70,7 +71,7 @@ def declared_tools(markdown: str) -> list[str]:
         else:
             names.append(name)
     if errors:
-        raise HTTPException(422, detail={'tool_declaration_errors': errors})
+        raise ServiceError(422, codes.VALIDATION, {'tool_declaration_errors': errors})
     return names
 
 
@@ -84,5 +85,5 @@ def build_zip(markdown: str) -> tuple[bytes, str]:
         zf.writestr(entry, text.encode('utf-8'))
     payload = buffer.getvalue()
     if len(payload) > 500 * 1024:
-        raise HTTPException(422, detail='Compressed package exceeds conservative 500 KiB limit')
+        raise ServiceError(422, codes.VALIDATION, 'Compressed package exceeds conservative 500 KiB limit')
     return payload, hashlib.sha256(payload).hexdigest()
