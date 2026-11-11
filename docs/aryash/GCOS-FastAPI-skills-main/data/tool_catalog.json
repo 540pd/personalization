@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "tools": [
+    {"name": "brand.read", "description": "Read authorized brand configuration", "approved": true, "risk": "read", "mcp_server_resource": null},
+    {"name": "asset.read", "description": "Read run-approved user assets", "approved": true, "risk": "read", "mcp_server_resource": null},
+    {"name": "image.generate", "description": "Invoke constrained image generation", "approved": true, "risk": "bounded-write", "mcp_server_resource": null},
+    {"name": "artifact.write", "description": "Create output only under pre-reserved run paths", "approved": true, "risk": "bounded-write", "mcp_server_resource": null}
+  ]
+}
