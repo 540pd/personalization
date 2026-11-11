@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     vertex_location: str = 'us-central1'
     skill_helper_model: str = 'gemini-3.5-flash-lite'
     skill_helper_max_output_tokens: int = 2048
+    # The helper's bounds (#511). Placeholders until agreed.
+    skill_helper_backend: str = 'gemini'           # gemini | fake (fake is refused on Cloud Run)
+    skill_helper_timeout_seconds: float = 30       # the Node client's 30 s helper budget (#494)
+    skill_helper_drafts_per_hour: int = 20         # per owner
+    skill_helper_max_prompt_chars: int = 8000      # the whole prompt, checked before any model call
     dev_bypass_auth: bool = False
 
     @property

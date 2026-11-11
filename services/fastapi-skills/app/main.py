@@ -10,6 +10,7 @@ from .security import Principal, trusted_node
 from .service import SkillService
 from .store import FirestoreStore
 from .helper import SkillHelper
+from .llm import llm_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,11 +23,13 @@ async def lifespan(app: FastAPI):
         raise RuntimeError('Set FASTAPI_AUDIENCE and NODE_SERVICE_ACCOUNT')
     if cfg.dev_bypass_auth and os.environ.get('K_SERVICE'):
         raise RuntimeError('DEV_BYPASS_AUTH must never be enabled in Cloud Run')
+    if cfg.skill_helper_backend == 'fake' and os.environ.get('K_SERVICE'):
+        raise RuntimeError('SKILL_HELPER_BACKEND=fake must never be used in Cloud Run')
     app.state.registry = RegistryClient(cfg)
     app.state.store = FirestoreStore(cfg.firestore_project_id)
     app.state.catalog = ToolCatalog(Path(__file__).resolve().parent.parent / 'data' / 'tool_catalog.json')
     app.state.service = SkillService(app.state.store, app.state.registry, app.state.catalog, cfg)
-    app.state.helper = SkillHelper(cfg, app.state.catalog)
+    app.state.helper = SkillHelper(cfg, app.state.catalog, app.state.store, llm_client(cfg))
     try:
         yield
     finally:
@@ -125,4 +128,4 @@ async def validate_tools(body: ToolValidationRequest, principal: Principal = Dep
 
 @app.post('/v1/skills/ai-draft')
 async def ai_draft(body: SkillDraftRequest, principal: Principal = Depends(trusted_node), draft_helper=Depends(helper)):
-    return await draft_helper.generate(body)
+    return await draft_helper.generate(principal.owner_key, body)
