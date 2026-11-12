@@ -84,7 +84,7 @@ describe("POST /api/session/refresh", () => {
   });
 
   it("marks the cookie Secure in production", async () => {
-    const res = await request(await app({ NODE_ENV: "production", ALLOWED_ORIGINS: "https://app.example.com" }))
+    const res = await request(await app({ NODE_ENV: "production", ALLOWED_ORIGINS: "https://app.example.com", IDENTITY_LINK_HMAC_KEY: "ab".repeat(32) }))
       .post("/api/session/refresh")
       .set("Origin", "https://app.example.com")
       .set("X-User-Identity", "Bearer google:ana@accenture.com");
@@ -148,7 +148,7 @@ describe("requireIdentity with the session cookie", () => {
   });
 
   it("deployed, ignores Authorization (the infra token) and uses the cookie", async () => {
-    const res = await whoAmI(await app({ K_SERVICE: "gcos-backend", ALLOWED_ORIGINS: "https://app.example.com" }))
+    const res = await whoAmI(await app({ K_SERVICE: "gcos-backend", ALLOWED_ORIGINS: "https://app.example.com", IDENTITY_LINK_HMAC_KEY: "ab".repeat(32) }))
       .set("Authorization", "Bearer infra-oidc-token")
       .set("Cookie", `gcos_session=${session("ana@accenture.com")}`);
     expect(res.status).toBe(200);

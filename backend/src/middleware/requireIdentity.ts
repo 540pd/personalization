@@ -1,13 +1,20 @@
 import { timingSafeEqual } from "crypto";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { googleIdTokenClient, googleIdTokenConfig, verifyGoogleIdToken } from "../lib/googleIdToken.js";
+import { owners, processLinkKey } from "../lib/identity/index.js";
 import { signSessionToken, verifySessionToken } from "../lib/sessionToken.js";
 import { readSessionCookie, SESSION_RENEW_AFTER_SECONDS, setSessionCookie } from "../lib/sessionCookie.js";
 
 declare global {
   namespace Express {
     interface Request {
-      identity: { email: string };
+      /**
+       * `email` is what data is keyed by today. `ownerKey` (#488) is the
+       * owner a verified Google sign-in belongs to; server-side only, never
+       * sent to the browser. Absent for session cookies, dev sign-in and
+       * anonymous mode until owner keys replace email (migration issue).
+       */
+      identity: { email: string; ownerKey?: string };
     }
   }
 }
@@ -86,10 +93,15 @@ type IdentityErrorCode =
   | "token_missing"
   | "token_invalid"
   | "token_expired"
-  | "domain_not_allowed";
+  | "domain_not_allowed"
+  // #488: a verified account whose owner is disabled, or the owner store down.
+  | "account_disabled"
+  | "dependency_unavailable";
+
+const STATUS: Partial<Record<IdentityErrorCode, number>> = { account_disabled: 403, dependency_unavailable: 503 };
 
 function sendError(res: Response, code: IdentityErrorCode, message: string): void {
-  res.status(401).json({ error: code, message });
+  res.status(STATUS[code] ?? 401).json({ error: code, message });
 }
 
 function constantTimeEquals(a: string, b: string): boolean {
@@ -108,6 +120,9 @@ const GOOGLE_ID_TOKEN_CONFIG = googleIdTokenConfig();
 if (AUTH_MODE === "required" && GOOGLE_ID_TOKEN_CONFIG.hostedDomains.length === 0) {
   console.warn("[requireIdentity] ALLOWED_HOSTED_DOMAINS is empty: every Google sign-in will be refused.");
 }
+// Identity links need their key (#488): read now, so a deployed backend
+// without IDENTITY_LINK_HMAC_KEY refuses to start rather than fail sign-ins.
+if (AUTH_MODE === "required") processLinkKey();
 
 /** Identifies the request from its session cookie, renewing an old one. */
 function identifyFromCookie(req: Request, res: Response, next: NextFunction): void {
@@ -218,7 +233,16 @@ export function requireIdentity(): RequestHandler {
       sendError(res, result.code, REFUSAL_MESSAGES[result.code]);
       return;
     }
-    req.identity = { email: result.identity.email };
+    // The account's owner, made on its first sign-in (#488). Data stays keyed
+    // by email for now; the owner key is recorded and passed on server-side.
+    const owner = await owners().findOrCreateOwner(result.identity);
+    if (!owner.ok) {
+      console.error(`[requireIdentity] owner refused (${owner.code}: ${owner.reason})`);
+      if (owner.code === "account_disabled") sendError(res, "account_disabled", REFUSAL_MESSAGES.account_disabled);
+      else sendError(res, "dependency_unavailable", REFUSAL_MESSAGES.dependency_unavailable);
+      return;
+    }
+    req.identity = { email: result.identity.email, ownerKey: owner.ownerKey };
     next();
   };
 }
@@ -228,4 +252,6 @@ const REFUSAL_MESSAGES: Record<IdentityErrorCode, string> = {
   token_invalid: "ID token is invalid.",
   token_expired: "ID token has expired.",
   domain_not_allowed: "This account's email domain is not permitted.",
+  account_disabled: "This account has been disabled.",
+  dependency_unavailable: "Sign-in is unavailable right now. Try again shortly.",
 };

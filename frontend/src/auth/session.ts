@@ -49,6 +49,9 @@ export async function checkSession(): Promise<void> {
 const REFUSED: Record<string, string> = {
   domain_not_allowed: "isn't allowed here. Sign in with your work Google account.",
   token_expired: "Google's sign-in expired before it reached us. Try again.",
+  // #488: the account's owner is disabled, or the owner store is down.
+  account_disabled: "This account has been disabled. Ask your admin to turn it back on.",
+  dependency_unavailable: "Sign-in is unavailable right now. Try again in a minute.",
   unreachable: "We couldn't reach the server. Check your connection and try again.",
 };
 
