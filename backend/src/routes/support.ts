@@ -86,7 +86,7 @@ export function supportRouter(): Router {
       clientProject: body.clientProject as boolean,
       message: (body.message as string).trim(),
       context: contextOf(body.context),
-      account: signedInEmail(req),
+      account: await signedInEmail(req),
     };
 
     try {

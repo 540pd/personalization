@@ -22,6 +22,7 @@ switch it:
 ```
 GCOS backend listening on http://localhost:4000
   sign-in: anonymous (placeholder) -- to switch: GOOGLE_OAUTH_CLIENT_ID, SESSION_SECRET
+  sessions: signed 30-day tokens (jwt) -- to switch: SESSION_MODE=opaque (signs everyone out once)
   storage: local disk at …/backend/.data (placeholder) -- to switch: FIRESTORE_PROJECT_ID, GCS_BUCKET_NAME
   AI:      offline placeholders -- to switch: VERTEX_PROJECT_ID
   jobs:    in process (placeholder) -- to switch: CLOUD_TASKS_QUEUE, CLOUD_TASKS_SERVICE_ACCOUNT, JOBS_WORKER_URL
@@ -105,6 +106,38 @@ the backend restarts. A deployed backend refuses to start with it.
 
 **Verify on first use:** Google's token check is covered by tests only with Google
 stubbed; the first real sign-in is its first real run.
+
+## Sessions: signed tokens or server sessions
+
+`SESSION_MODE` picks how a signed-in browser stays signed in (#489):
+
+| `SESSION_MODE` | The cookie holds | Sign-out | Disable an account |
+|---|---|---|---|
+| `jwt` (default) | a signed 30-day token (`SESSION_SECRET`) | clears the cookie; a copy works until it expires | only stops new Google sign-ins |
+| `opaque` | a random 256-bit ID; the server keeps its SHA-256 hash in `login_sessions` | revokes the server record: a copy is refused | refuses every session at once |
+
+With `opaque`, every request checks the session's idle deadline
+(`SESSION_IDLE_SECONDS`, default 7 days; renewed with use, at most hourly), its
+absolute deadline (`SESSION_ABSOLUTE_SECONDS`, default 30 days; never extended),
+revocation and the owner's status. A Google ID token is accepted only on sign-in;
+after that the cookie is the only credential. `SESSION_SECRET` isn't needed.
+
+1. Turn on a TTL policy so old records are cleaned up (expiry is still checked on
+   every read; the TTL only deletes):
+   ```bash
+   gcloud firestore fields ttls update expireAt --collection-group=login_sessions --enable-ttl
+   ```
+2. Set `SESSION_MODE=opaque` and restart. **Everyone is signed out once**: old
+   cookies hold tokens, not session IDs.
+3. Verify: `modes.sessions` is `"opaque"`; after signing in, `login_sessions` has
+   a document named by a 64-character hash; signing out and replaying the old
+   cookie gets `401`.
+
+A resolved session is reused for up to 10 s per backend instance. Sign-out and
+disabling take effect at once on the instance that did them, and within 10 s on
+the others. Disabling an account is a trusted server function
+(`sessions().disableOwner(ownerKey)` in `backend/src/lib/sessions/`); there is no
+route for it.
 
 ## AI generation: the placeholders
 

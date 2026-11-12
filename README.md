@@ -63,8 +63,10 @@ cd frontend && npx playwright test           # e2e; one worker
 
 ## Auth
 
-Two-layer: a Google ID token (short-lived, **in-memory only**) + a 30-day session JWT (`HttpOnly`
-cookie, signed with `SESSION_SECRET`).
+Two-layer: a Google ID token (short-lived, **in-memory only**) + a session in an `HttpOnly` cookie.
+By default (`SESSION_MODE=jwt`) that is a 30-day JWT signed with `SESSION_SECRET`; with
+`SESSION_MODE=opaque` it is a random session ID checked against `login_sessions` on every request,
+revoked on sign-out and when an account is disabled (#489, `docs/switching-to-gcp.md`).
 
 - The Google ID token lives **in `authState.ts` as a module variable** — never `localStorage`,
   `sessionStorage`, or a cookie.
