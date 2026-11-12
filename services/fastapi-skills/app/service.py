@@ -6,7 +6,7 @@ from .config import Settings
 from .models import SkillCreate, PublishRequest, PublishStatus
 from .store import key_for, operation_key, stamp
 from .registry import RegistryError, operation_uuid, operation_done, explain_registry_error
-from .packaging import build_zip
+from .packaging import build_zip, declared_tools, validate_markdown
 from .catalog import ToolCatalog
 
 
@@ -196,6 +196,12 @@ class SkillService:
         skill = self.owned(owner, skill_id)
         if skill['status'] in ('creating', 'disable_requested', 'disabled'):
             raise HTTPException(409, detail='Skill container is not ready for publishing')
+        # The tools the Markdown itself declares (#509), not only the list sent
+        # beside it: each must be listed in tool_names, which the catalog checks.
+        declared = declared_tools(validate_markdown(body.markdown))
+        not_listed = [name for name in declared if name not in body.tool_names]
+        if not_listed:
+            raise HTTPException(422, detail={'tools_not_listed': not_listed})
         validation = self.catalog.validate(body.tool_names)
         if not validation.valid:
             raise HTTPException(422, detail={'invalid_tools': [r.name for r in validation.results if not r.approved]})

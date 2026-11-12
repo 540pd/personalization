@@ -154,12 +154,32 @@ X-Owner-Key: usr_example
 Authorization: Bearer <NODE_SERVICE_ID_TOKEN>
 
 {
-  "markdown": "---\nname: brand-tone\ndescription: Applies brand voice to product copy.\n---\n# Instructions\nRead approved rules and generate short, accurate copy.\n",
+  "markdown": "---\nname: brand-tone\ndescription: Applies brand voice to product copy.\nallowed-tools: [brand.read]\n---\n# Instructions\nRead approved rules and generate short, accurate copy.\n",
   "tool_names": ["brand.read"]
 }
 ```
 
 Response may be `202` with `pending`, `publishing` or `pending_activation`; continue polling the publish operation until status is `published`. The server never labels a pending Registry scan as published.
+
+### Declaring tools in SKILL.md
+
+A Skill declares the tools it uses in its front matter, as `allowed-tools`: a YAML list, or a comma/space-separated string, of names from the approved catalog (`data/tool_catalog.json`). No field means a tool-free Skill, which is valid.
+
+```yaml
+---
+name: brand-tone
+description: Applies brand voice to product copy.
+allowed-tools: [brand.read, image.generate]
+---
+```
+
+Publish checks the Markdown's own declaration, not only the `tool_names` sent with it (#509):
+
+- a malformed declaration (not a list of names, a URL or path, a duplicate, an invalid name) is `422` with `{"tool_declaration_errors": [...]}`;
+- a declared tool missing from `tool_names` is `422` with `{"tools_not_listed": [...]}`;
+- `tool_names` is then checked against the catalog, as before (`{"invalid_tools": [...]}`).
+
+The AI helper asks the model to declare tools the same way and checks its draft: a draft whose declared tools are malformed, unapproved or not among the request's `approved_tools` comes back with `valid: false` and one entry in `issues` per problem. It is never published or silently fixed.
 
 ### Why publish idempotency works
 
