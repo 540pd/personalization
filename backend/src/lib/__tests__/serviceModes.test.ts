@@ -5,8 +5,8 @@ import { assertDeployable, describeServiceModes, type ServiceModes } from "../se
 
 afterEach(() => vi.unstubAllEnvs());
 
-const placeholders: ServiceModes = { auth: "anonymous", storage: { firestore: "local", storage: "local" }, ai: "placeholder", jobs: "in-process", supportEmail: "placeholder" };
-const gcp: ServiceModes = { auth: "required", storage: { firestore: "gcp", storage: "gcp" }, ai: "vertex", jobs: "cloud-tasks", supportEmail: "smtp" };
+const placeholders: ServiceModes = { auth: "anonymous", storage: { firestore: "local", storage: "local" }, ai: "placeholder", jobs: "in-process", supportEmail: "placeholder", fastapi: "placeholder" };
+const gcp: ServiceModes = { auth: "required", storage: { firestore: "gcp", storage: "gcp" }, ai: "vertex", jobs: "cloud-tasks", supportEmail: "smtp", fastapi: "service" };
 
 describe("describeServiceModes", () => {
   it("names each placeholder and the variables that switch it", () => {
@@ -17,6 +17,7 @@ describe("describeServiceModes", () => {
     expect(text).toContain("AI:      offline placeholders -- to switch: VERTEX_PROJECT_ID");
     expect(text).toContain("jobs:    in process (placeholder) -- to switch: CLOUD_TASKS_QUEUE, CLOUD_TASKS_SERVICE_ACCOUNT, JOBS_WORKER_URL");
     expect(text).toContain("support: kept and logged, not emailed (placeholder) -- to switch: SUPPORT_EMAIL_TO, SUPPORT_EMAIL_FROM, SMTP_HOST");
+    expect(text).toContain("FastAPI: in memory (placeholder) -- to switch: FASTAPI_BASE_URL");
     expect(text).toContain("docs/switching-to-gcp.md");
   });
 

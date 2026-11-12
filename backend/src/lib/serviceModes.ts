@@ -9,6 +9,7 @@ import { isEphemeralSessionSecret } from "./sessionToken.js";
 import { cloudTasksConfig } from "./jobs/cloudTasks.js";
 import { supportMailConfig } from "./support/mailer.js";
 import { describeStorageModes, isCloud, isDeployed, storageModes, type StorageModes } from "./storageMode.js";
+import { fastApiMode } from "./fastapi/index.js";
 
 export interface ServiceModes {
   auth: ReturnType<typeof getAuthMode>;
@@ -18,6 +19,8 @@ export interface ServiceModes {
   jobs: "cloud-tasks" | "in-process";
   /** Where support messages go (#428): emailed, or only kept and logged. */
   supportEmail: "smtp" | "placeholder";
+  /** The private FastAPI service (#494), or its in-memory placeholder. */
+  fastapi: "service" | "placeholder";
 }
 
 export function serviceModes(): ServiceModes {
@@ -27,6 +30,7 @@ export function serviceModes(): ServiceModes {
     ai: process.env.VERTEX_PROJECT_ID?.trim() ? "vertex" : "placeholder",
     jobs: cloudTasksConfig() ? "cloud-tasks" : "in-process",
     supportEmail: supportMailConfig() ? "smtp" : "placeholder",
+    fastapi: fastApiMode(),
   };
 }
 
@@ -47,6 +51,7 @@ export function describeServiceModes(modes: ServiceModes = serviceModes()): stri
     `AI:      ${modes.ai === "vertex" ? "Vertex AI" : "offline placeholders -- to switch: VERTEX_PROJECT_ID"}`,
     `jobs:    ${modes.jobs === "cloud-tasks" ? "Cloud Tasks" : "in process (placeholder) -- to switch: CLOUD_TASKS_QUEUE, CLOUD_TASKS_SERVICE_ACCOUNT, JOBS_WORKER_URL"}`,
     `support: ${modes.supportEmail === "smtp" ? "emailed over SMTP" : "kept and logged, not emailed (placeholder) -- to switch: SUPPORT_EMAIL_TO, SUPPORT_EMAIL_FROM, SMTP_HOST"}`,
+    `FastAPI: ${modes.fastapi === "service" ? "private service" : "in memory (placeholder) -- to switch: FASTAPI_BASE_URL"}`,
   ];
   return lines.map((l) => `  ${l}`).join("\n") + "\n  (docs/switching-to-gcp.md)";
 }
@@ -76,6 +81,11 @@ export function assertDeployable(modes: ServiceModes = serviceModes()): void {
   }
   if (modes.ai === "placeholder") {
     console.warn("[startup] Deployed with placeholder AI images: set VERTEX_PROJECT_ID for Vertex AI.");
+  }
+  // Nothing calls FastAPI yet, so it can't be required here; the client
+  // itself refuses the placeholder when deployed (lib/fastapi/index.ts).
+  if (modes.fastapi === "placeholder") {
+    console.warn("[startup] Deployed without FASTAPI_BASE_URL: anything that calls FastAPI will fail. Set it once the service exists.");
   }
   if (modes.supportEmail === "placeholder") {
     console.warn("[startup] Deployed without support email: messages are kept, not emailed. Set SUPPORT_EMAIL_TO, SUPPORT_EMAIL_FROM and SMTP_HOST.");

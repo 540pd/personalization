@@ -12,6 +12,7 @@ variables and restarting, **never a code change**. Services switch one at a time
 | AI generation | offline placeholders | Vertex AI | `VERTEX_PROJECT_ID` (and `VERTEX_LOCATION`) |
 | Video jobs | in process, picked up again after a restart | Cloud Tasks | `CLOUD_TASKS_QUEUE`, `CLOUD_TASKS_SERVICE_ACCOUNT`, `JOBS_WORKER_URL` |
 | Support email | messages kept and logged, not emailed | any SMTP server | `SUPPORT_EMAIL_TO`, `SUPPORT_EMAIL_FROM`, `SMTP_HOST` (and `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`) |
+| FastAPI (Skills, job creation) | in memory, checks nothing | the private FastAPI service on Cloud Run | `FASTAPI_BASE_URL` (and `FASTAPI_AUDIENCE`) |
 
 ## How to tell what is running
 
@@ -25,6 +26,7 @@ GCOS backend listening on http://localhost:4000
   AI:      offline placeholders -- to switch: VERTEX_PROJECT_ID
   jobs:    in process (placeholder) -- to switch: CLOUD_TASKS_QUEUE, CLOUD_TASKS_SERVICE_ACCOUNT, JOBS_WORKER_URL
   support: kept and logged, not emailed (placeholder) -- to switch: SUPPORT_EMAIL_TO, SUPPORT_EMAIL_FROM, SMTP_HOST
+  FastAPI: in memory (placeholder) -- to switch: FASTAPI_BASE_URL
 ```
 
 `GET /api/health` answers the same as `modes`, plus a probe of each configured
@@ -186,6 +188,52 @@ An email that fails leaves the message kept and the failure logged.
    screen's **Contact us** arrives, and Reply answers the sender.
 
 Each address may send 5 messages an hour, counted per backend instance.
+
+## FastAPI: the private Python service
+
+Skills (create, list, publish, the catalog check, the AI draft helper) and job
+creation are calls from this backend to a separate FastAPI service (#494). All of
+them go through one client, `backend/src/lib/fastapi/`. Without `FASTAPI_BASE_URL`
+the client is a placeholder that answers from memory and checks nothing; a
+deployed backend refuses it the first time something calls FastAPI (nothing does
+yet, so a deployment without the service still starts, with a warning).
+
+Each call carries the backend's own Google-signed ID token (Application Default
+Credentials: the backend's service account on Cloud Run), never a user's token or
+cookie, and the signed-in owner's key (`usr_…`) in an `X-Owner-Key` header. The
+Skills calls follow the service in `docs/aryash/GCOS-FastAPI-skills-main` (`/v1/…`
+routes, `Idempotency-Key` on publish); they're listed in `OPERATIONS` in
+`backend/src/lib/fastapi/types.ts`. Creating a job is still a proposal: that
+service has no jobs.
+
+1. Deploy FastAPI as its own Cloud Run service, private
+   (`--no-allow-unauthenticated`).
+2. Let the backend's service account call it:
+   ```bash
+   gcloud run services add-iam-policy-binding <fastapi-service> --region=$REGION \
+     --member=serviceAccount:$SA --role=roles/run.invoker
+   ```
+3. **FastAPI must check the caller itself**: a Google-signed ID token whose
+   audience is its own URL (or the custom audience) and whose email is the
+   backend's service account. The service does this in `app/security.py`; set its
+   `FASTAPI_AUDIENCE` to its own URL and `NODE_SERVICE_ACCOUNT` to `$SA`. Without
+   that check this client is not secure on its own, because `X-Owner-Key` would
+   be trusted from anyone.
+4. Set, and restart:
+   ```bash
+   FASTAPI_BASE_URL=https://<fastapi service>.run.app
+   # FASTAPI_AUDIENCE=<custom audience>   # only if FastAPI expects one other than its URL
+   ```
+5. Verify: `modes.fastapi` is `"service"`.
+
+Timeouts (`FASTAPI_JOB_TIMEOUT_MS` 15 s, `FASTAPI_SKILLS_TIMEOUT_MS` 10 s,
+`FASTAPI_HELPER_TIMEOUT_MS` 30 s) are placeholders until agreed with #363. Only
+calls that are safe to repeat are retried, once. Creating a job is never retried:
+if its answer is lost, the client reports it as pending so it can be reconciled
+by its idempotency key, rather than risk starting a second job.
+
+**Verify on first use:** the client is tested with the token and HTTP stubbed;
+no real FastAPI service exists yet.
 
 ## Checking everything at once: the smoke test
 
