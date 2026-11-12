@@ -2,7 +2,9 @@
 import pytest
 from fastapi import HTTPException
 from app.config import Settings
+import asyncio
 from app.helper import SkillHelper, draft_tool_issues
+from app.llm import FakeLLMClient
 from app.models import PublishRequest, SkillCreate, SkillDraftRequest
 from app.packaging import declared_tools, validate_markdown
 from test_service import base  # noqa: F401 (base is a fixture)
@@ -100,43 +102,15 @@ async def test_a_tool_free_skill_is_valid(base):
 
 # ── The AI helper ──────────────────────────────────────────────────────
 
-class FakeGenai:
-    """Stands in for google.genai.Client: returns `text`, records the prompt."""
-    def __init__(self, text):
-        self.text = text
-        self.prompts = []
-        fake = self
-
-        class Models:
-            async def generate_content(self, model, contents, config):
-                fake.prompts.append(contents)
-                return type('R', (), {'text': fake.text})()
-
-        class Aio:
-            models = Models()
-
-            async def aclose(self):
-                pass
-
-        self.aio = Aio()
-
-
 @pytest.fixture
-def helper(base, monkeypatch):
-    from google import genai
-    svc, _, _ = base
-    state = {}
-
-    def client(**_):
-        return state['fake']
-    monkeypatch.setattr(genai, 'Client', client)
+def helper(base):
+    svc, store, _ = base
 
     def run(text, approved):
-        state['fake'] = FakeGenai(text)
-        h = SkillHelper(Settings(google_cloud_project='test-project'), svc.catalog)
-        import asyncio
-        result = asyncio.run(h.generate(SkillDraftRequest(name='brand-tone', goal='Write short brand copy for images.', approved_tools=approved)))
-        return result, state['fake']
+        fake = FakeLLMClient([text])
+        h = SkillHelper(Settings(google_cloud_project='test-project'), svc.catalog, store, fake)
+        result = asyncio.run(h.generate('usr_A', SkillDraftRequest(name='brand-tone', goal='Write short brand copy for images.', approved_tools=approved)))
+        return result, fake
     return run
 
 
