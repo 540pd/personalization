@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import type { Express } from "express";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // Generation and stored files (#323): outputs answered as asset URLs, and
 // asset URLs sent as references read back into bytes for the model.
@@ -71,7 +75,7 @@ describe("generated outputs", () => {
   it("answers an image as a stored asset's URL, which serves the model's bytes", async () => {
     const a = await app();
     generateV2.mockResolvedValue({ imageUrl: dataUrl("image/png", PIXEL), modelUsed: "m" });
-    const res = await request(a).post("/api/generate/image").set("Cookie", ANA).send(image());
+    const res = await request(a).post("/api/generate/image").set("Origin", APP_ORIGIN).set("Cookie", ANA).send(image());
     expect(res.status).toBe(200);
     expect(res.body.imageUrl).toMatch(/^\/api\/proxy\/assets\/[0-9a-f-]{36}\/content$/);
     const served = await content(a, res.body.imageUrl);
@@ -86,7 +90,7 @@ describe("generated outputs", () => {
   it("stores every variant", async () => {
     const a = await app();
     generateV2.mockResolvedValue({ imageUrl: dataUrl("image/png", PIXEL), modelUsed: "m" });
-    const res = await request(a).post("/api/generate/image").set("Cookie", ANA).send(image({ variants: 3 }));
+    const res = await request(a).post("/api/generate/image").set("Origin", APP_ORIGIN).set("Cookie", ANA).send(image({ variants: 3 }));
     expect(res.body.imageUrls).toHaveLength(3);
     expect(new Set(res.body.imageUrls).size).toBe(3);
     for (const url of res.body.imageUrls) expect(url).toMatch(/^\/api\/proxy\/assets\//);
@@ -95,14 +99,14 @@ describe("generated outputs", () => {
   it("leaves a URL that is not a data: URL as it is (the mock's placeholder)", async () => {
     const a = await app();
     generateV2.mockResolvedValue({ imageUrl: "https://via.placeholder.com/1.png", modelUsed: "mock" });
-    const res = await request(a).post("/api/generate/image").set("Cookie", ANA).send(image());
+    const res = await request(a).post("/api/generate/image").set("Origin", APP_ORIGIN).set("Cookie", ANA).send(image());
     expect(res.body.imageUrl).toBe("https://via.placeholder.com/1.png");
   });
 
   it("stores a video job's output", async () => {
     const a = await app();
     generateVideo.mockResolvedValue({ videoUrl: dataUrl("video/mp4", PIXEL), modelUsed: "veo" });
-    const start = await request(a).post("/api/generate/video").set("Cookie", ANA)
+    const start = await request(a).post("/api/generate/video").set("Origin", APP_ORIGIN).set("Cookie", ANA)
       .send({ modelId: "veo-3.1-lite-generate-001", instruction: "a wave" });
     expect(start.status).toBe(202);
     let job = { status: "pending" } as { status: string; videoUrl?: string };
@@ -127,14 +131,14 @@ describe("assets in memory only", () => {
     generateV2.mockResolvedValue({ imageUrl: inline, modelUsed: "m" });
     const count = async () => (await request(a).get("/api/assets").set("Cookie", ANA)).body.length;
     const before = await count();
-    const res = await request(a).post("/api/generate/image").set("Cookie", ANA).send(image());
+    const res = await request(a).post("/api/generate/image").set("Origin", APP_ORIGIN).set("Cookie", ANA).send(image());
     expect(res.body.imageUrl).toBe(inline);
     expect(await count()).toBe(before);
   });
 
   it("an upload says it is not durable", async () => {
     const a = await app();
-    const res = await request(a).post("/api/assets").set("Cookie", ANA).set("Content-Type", "image/png").send(PIXEL);
+    const res = await request(a).post("/api/assets").set("Origin", APP_ORIGIN).set("Cookie", ANA).set("Content-Type", "image/png").send(PIXEL);
     expect(res.status).toBe(201);
     expect(res.body.durable).toBe(false);
   });
@@ -142,7 +146,7 @@ describe("assets in memory only", () => {
 
 describe("asset references", () => {
   async function uploaded(a: Express, cookie = ANA): Promise<string> {
-    const res = await request(a).post("/api/assets").set("Cookie", cookie).set("Content-Type", "image/png").send(PIXEL);
+    const res = await request(a).post("/api/assets").set("Origin", APP_ORIGIN).set("Cookie", cookie).set("Content-Type", "image/png").send(PIXEL);
     return res.body.url;
   }
 
@@ -150,7 +154,7 @@ describe("asset references", () => {
     const a = await app();
     const url = await uploaded(a);
     generateText.mockResolvedValue({ text: "ok", modelUsed: "m" });
-    const res = await request(a).post("/api/generate/text").set("Cookie", ANA).send({
+    const res = await request(a).post("/api/generate/text").set("Origin", APP_ORIGIN).set("Cookie", ANA).send({
       modelId: "gemini-3.5-flash-lite", instruction: "describe it",
       references: [{ kind: "image", url, name: "cat" }, { kind: "text", text: "notes", name: "brief" }],
     });
@@ -165,7 +169,7 @@ describe("asset references", () => {
     const a = await app();
     generateV2.mockResolvedValue({ imageUrl: "https://x.test/1.png", modelUsed: "m" });
     const inline = dataUrl("image/jpeg", PIXEL);
-    await request(a).post("/api/generate/image").set("Cookie", ANA).send(image({ references: [{ kind: "image", url: inline }] }));
+    await request(a).post("/api/generate/image").set("Origin", APP_ORIGIN).set("Cookie", ANA).send(image({ references: [{ kind: "image", url: inline }] }));
     expect(generateV2.mock.calls[0][0].references).toEqual([{ kind: "image", url: inline }]);
   });
 
@@ -173,15 +177,15 @@ describe("asset references", () => {
     const a = await app();
     const bens = await uploaded(a, BEN);
     const gone = await uploaded(a);
-    await request(a).delete(gone.replace("/api/proxy", "/api").replace("/content", "")).set("Cookie", ANA);
+    await request(a).delete(gone.replace("/api/proxy", "/api").replace("/content", "")).set("Origin", APP_ORIGIN).set("Cookie", ANA);
 
     for (const url of [bens, gone]) {
-      const res = await request(a).post("/api/generate/image").set("Cookie", ANA)
+      const res = await request(a).post("/api/generate/image").set("Origin", APP_ORIGIN).set("Cookie", ANA)
         .send(image({ references: [{ kind: "image", url, name: "cat" }] }));
       expect(res.status).toBe(400);
       expect(res.body.message).toBe('Reference "cat" is no longer stored. Replace it and try again.');
     }
-    const video = await request(a).post("/api/generate/video").set("Cookie", ANA)
+    const video = await request(a).post("/api/generate/video").set("Origin", APP_ORIGIN).set("Cookie", ANA)
       .send({ modelId: "veo-3.1-lite-generate-001", instruction: "x", references: [{ kind: "image", url: bens }] });
     expect(video.status).toBe(400);
     expect(video.body.message).toMatch(/no longer stored/);

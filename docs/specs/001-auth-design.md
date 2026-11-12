@@ -52,6 +52,7 @@ Solution (borrowed from brand-play-space):
 - Google ID token: memory-only on the frontend. Never written to localStorage, sessionStorage, or a cookie.
 - Session JWT: HttpOnly cookie only. Not readable by JavaScript.
 - Email domain allowlist: applied at every token verification, not just sign-in. Tightening the allowlist takes effect immediately for existing sessions.
+- CSRF (#490): a POST, PUT, PATCH or DELETE carrying the session cookie, and every `/api/session/*` call, needs an `Origin` exactly in `ALLOWED_ORIGINS` (`backend/src/middleware/requireTrustedOrigin.ts`); the proxy forwards the browser's. Missing, `null`, malformed or other origins get `403 origin_not_allowed`. Bearer-only calls and Cloud Tasks' OIDC route have no cookie to forge and pass. No header stands in for `Origin`.
 - Google ID token (#487): besides signature, audience and expiry, the token must name a Google issuer and a subject, have `email_verified`, and carry a Workspace domain (`hd`) in `ALLOWED_HOSTED_DOMAINS`. The email suffix is checked too, never instead of `hd`, so a personal Google account is refused. One verifier: `backend/src/lib/googleIdToken.ts`.
 - Anonymous mode: allowed only in local dev (no `K_SERVICE`, no `NODE_ENV=production`). Deployed without OAuth → refuse to start.
 

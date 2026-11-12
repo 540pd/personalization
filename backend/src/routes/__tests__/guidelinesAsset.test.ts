@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import type { Express } from "express";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // Brand guidelines as Markdown (#450): the `guidelines` kind, text/markdown
 // for it and it only, 100 KB, UTF-8, served as text.
@@ -22,7 +26,7 @@ async function app(): Promise<Express> {
 const ANA = `gcos_session=${jwt.sign({ email: "ana@accenture.com" }, SECRET, { expiresIn: 3600 })}`;
 
 const upload = (a: Express, query: string, body: Buffer, type: string) =>
-  request(a).post(`/api/assets${query}`).set("Cookie", ANA).set("Content-Type", type).send(body);
+  request(a).post(`/api/assets${query}`).set("Origin", APP_ORIGIN).set("Cookie", ANA).set("Content-Type", type).send(body);
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -49,11 +53,11 @@ describe("guidelines assets", () => {
   it("takes a title, a document type and a note", async () => {
     const a = await app();
     const { body } = await upload(a, "?kind=guidelines&name=brand.md", MD, "text/markdown");
-    const ok = await request(a).patch(`/api/assets/${body.id}`).set("Cookie", ANA)
+    const ok = await request(a).patch(`/api/assets/${body.id}`).set("Origin", APP_ORIGIN).set("Cookie", ANA)
       .send({ details: { title: "Brand book", docType: "Logo Guidelines", note: "2026 edition" } });
     expect(ok.status).toBe(200);
     expect(ok.body.details).toEqual({ title: "Brand book", docType: "Logo Guidelines", note: "2026 edition" });
-    const bad = await request(a).patch(`/api/assets/${body.id}`).set("Cookie", ANA).send({ details: { docType: "Poster" } });
+    const bad = await request(a).patch(`/api/assets/${body.id}`).set("Origin", APP_ORIGIN).set("Cookie", ANA).send({ details: { docType: "Poster" } });
     expect(bad.status).toBe(400);
   });
 
@@ -64,7 +68,7 @@ describe("guidelines assets", () => {
     expect((await upload(a, "?kind=guidelines&name=x.png", PNG, "image/png")).status).toBe(415);
 
     const { body } = await upload(a, "?kind=guidelines&name=brand.md", MD, "text/markdown");
-    expect((await request(a).patch(`/api/assets/${body.id}`).set("Cookie", ANA).send({ kind: "logo" })).status).toBe(415);
+    expect((await request(a).patch(`/api/assets/${body.id}`).set("Origin", APP_ORIGIN).set("Cookie", ANA).send({ kind: "logo" })).status).toBe(415);
   });
 
   it("refuses a file over 100 KB, and one that is not UTF-8 text", async () => {
@@ -82,7 +86,7 @@ describe("guidelines assets", () => {
     const a = await app();
     const { body } = await upload(a, "?kind=guidelines&name=brand.md", MD, "text/markdown");
     const current = await request(a).get("/api/brand-assets").set("Cookie", ANA);
-    const put = await request(a).put("/api/brand-assets").set("Cookie", ANA).send({
+    const put = await request(a).put("/api/brand-assets").set("Origin", APP_ORIGIN).set("Cookie", ANA).send({
       revision: current.body.revision, productName: "", sku: "", masterId: "",
       colours: { primary: "", secondary: "", accent: "" }, assetIds: [body.id],
     });

@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import type { Express } from "express";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // The session cookie (#320): set on refresh, read by requireIdentity when no
 // bearer token comes, renewed once old, cleared on sign-out.
@@ -67,6 +71,7 @@ describe("POST /api/session/refresh", () => {
   it("sets the session cookie for a verified Google ID token", async () => {
     const res = await request(await app())
       .post("/api/session/refresh")
+      .set("Origin", APP_ORIGIN)
       .set("Authorization", "Bearer google:ana@accenture.com");
 
     expect(res.status).toBe(200);
@@ -79,8 +84,9 @@ describe("POST /api/session/refresh", () => {
   });
 
   it("marks the cookie Secure in production", async () => {
-    const res = await request(await app({ NODE_ENV: "production" }))
+    const res = await request(await app({ NODE_ENV: "production", ALLOWED_ORIGINS: "https://app.example.com" }))
       .post("/api/session/refresh")
+      .set("Origin", "https://app.example.com")
       .set("X-User-Identity", "Bearer google:ana@accenture.com");
     expect(cookieOf(res)).toMatch(/Secure/);
   });
@@ -88,6 +94,7 @@ describe("POST /api/session/refresh", () => {
   it("is not blocked by an expired cookie when a fresh token comes with it", async () => {
     const res = await request(await app())
       .post("/api/session/refresh")
+      .set("Origin", APP_ORIGIN)
       .set("Authorization", "Bearer google:ana@accenture.com")
       .set("Cookie", `gcos_session=${session("ana@accenture.com", 31 * DAY)}`);
     expect(res.status).toBe(200);
@@ -141,7 +148,7 @@ describe("requireIdentity with the session cookie", () => {
   });
 
   it("deployed, ignores Authorization (the infra token) and uses the cookie", async () => {
-    const res = await whoAmI(await app({ K_SERVICE: "gcos-backend" }))
+    const res = await whoAmI(await app({ K_SERVICE: "gcos-backend", ALLOWED_ORIGINS: "https://app.example.com" }))
       .set("Authorization", "Bearer infra-oidc-token")
       .set("Cookie", `gcos_session=${session("ana@accenture.com")}`);
     expect(res.status).toBe(200);
@@ -171,7 +178,7 @@ describe("POST /api/session/sign-out", () => {
   it("clears the cookie and answers 204, with or without a session", async () => {
     const a = await app();
     for (const cookie of [`gcos_session=${session("ana@accenture.com")}`, ""]) {
-      const res = await request(a).post("/api/session/sign-out").set("Cookie", cookie);
+      const res = await request(a).post("/api/session/sign-out").set("Origin", APP_ORIGIN).set("Cookie", cookie);
       expect(res.status).toBe(204);
       const cleared = cookieOf(res)!;
       expect(cleared).toMatch(/^gcos_session=;/);

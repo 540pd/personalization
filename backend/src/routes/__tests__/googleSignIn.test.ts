@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import type { Express } from "express";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // Google sign-in through the real routes (#487, PACK NJS-01): only a token
 // that passes every check gets a session, and nothing in the request or the
@@ -47,7 +51,7 @@ async function app(env: Record<string, string> = {}): Promise<Express> {
 
 /** Signs in with `idToken`; returns the response. */
 const signIn = (a: Express, idToken: string) =>
-  request(a).post("/api/session/refresh").set("Authorization", `Bearer ${idToken}`);
+  request(a).post("/api/session/refresh").set("Origin", APP_ORIGIN).set("Authorization", `Bearer ${idToken}`);
 
 const sessionCookieOf = (res: request.Response) =>
   ([] as string[]).concat(res.headers["set-cookie"] ?? []).find((c) => c.startsWith("gcos_session="));
@@ -111,12 +115,14 @@ describe("Google sign-in", () => {
     const a = await app();
     const refused = await request(a)
       .post("/api/session/refresh")
+      .set("Origin", APP_ORIGIN)
       .set("Authorization", `Bearer ${token({ hd: null, email: "ana@gmail.com" })}`)
       .send({ email: "boss@accenture.com", sub: "sub-boss", owner_key: "owner-boss", hd: "accenture.com" });
     expect(refused.status).toBe(401);
 
     const signedIn = await request(a)
       .post("/api/session/refresh")
+      .set("Origin", APP_ORIGIN)
       .set("Authorization", `Bearer ${token()}`)
       .send({ email: "boss@accenture.com" });
     const cookie = sessionCookieOf(signedIn)!.split(";")[0];

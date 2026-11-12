@@ -71,7 +71,9 @@ npx playwright test e2e/<spec>.ts --reporter=line
 - Canvas features are checked at 50%, 100% and 150% zoom (`setZoom` in `e2e/helpers.ts`).
   `setZoom` wheels at (700, 430): don't put a test object there, or it swallows the zoom.
 - One Playwright run per checkout at a time; it reuses a dev server on :3000. Another checkout
-  (a worktree) runs its own `next dev -p <port>` and sets `E2E_BASE_URL`.
+  (a worktree) runs its own `next dev -p <port>` and sets `E2E_BASE_URL`; add that origin
+  (e.g. `http://localhost:3100`) to the backend's `ALLOWED_ORIGINS`, or its signed-in changes get
+  `403 origin_not_allowed` from the CSRF check (#490).
 - A fresh checkout puts Next's dev-tools button bottom-left, over the minimised sidebar, and
   `sidebar.spec.ts:224` fails. Copy `.next/cache/next-devtools-config.json` from a checkout where
   it was moved bottom-right.

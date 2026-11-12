@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import type { Express } from "express";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // Dev sign-in, the placeholder for Google (#334): any allowed email typed in
 // gets the production session cookie, and from there it is the real path.
@@ -37,25 +41,25 @@ describe("AUTH_MODE=dev", () => {
 
   it("signs in with a typed email; the cookie then works like production's", async () => {
     const a = await app({ AUTH_MODE: "dev" });
-    const res = await request(a).post("/api/session/dev-sign-in").send({ email: " Dev.User@Accenture.com " });
+    const res = await request(a).post("/api/session/dev-sign-in").set("Origin", APP_ORIGIN).send({ email: " Dev.User@Accenture.com " });
     expect(res.status).toBe(200);
     const cookie = cookieOf(res)!;
     expect(cookie).toMatch(/HttpOnly/);
 
     const session = await request(a).get("/api/session").set("Cookie", cookie.split(";")[0]);
     expect(session.body).toEqual({ email: "dev.user@accenture.com" });
-    const signOut = await request(a).post("/api/session/sign-out").set("Cookie", cookie.split(";")[0]);
+    const signOut = await request(a).post("/api/session/sign-out").set("Origin", APP_ORIGIN).set("Cookie", cookie.split(";")[0]);
     expect(cookieOf(signOut)).toMatch(/Expires=Thu, 01 Jan 1970/);
   });
 
   it("works without SESSION_SECRET: one is made per start", async () => {
     const a = await app({ AUTH_MODE: "dev" });
-    const res = await request(a).post("/api/session/dev-sign-in").send({ email: "dev.user@accenture.com" });
+    const res = await request(a).post("/api/session/dev-sign-in").set("Origin", APP_ORIGIN).send({ email: "dev.user@accenture.com" });
     expect(cookieOf(res)).toBeDefined();
   });
 
   it("keeps the domain allowlist, so the refused account can be seen", async () => {
-    const res = await request(await app({ AUTH_MODE: "dev" })).post("/api/session/dev-sign-in").send({ email: "ana@gmail.com" });
+    const res = await request(await app({ AUTH_MODE: "dev" })).post("/api/session/dev-sign-in").set("Origin", APP_ORIGIN).send({ email: "ana@gmail.com" });
     expect(res.status).toBe(401);
     expect(res.body.error).toBe("domain_not_allowed");
   });
@@ -63,7 +67,7 @@ describe("AUTH_MODE=dev", () => {
   it("refuses what is not an email", async () => {
     const a = await app({ AUTH_MODE: "dev" });
     for (const email of ["", "dev", "a@b", 42, undefined]) {
-      expect((await request(a).post("/api/session/dev-sign-in").send({ email })).status).toBe(400);
+      expect((await request(a).post("/api/session/dev-sign-in").set("Origin", APP_ORIGIN).send({ email })).status).toBe(400);
     }
   });
 
@@ -87,7 +91,7 @@ describe("other modes", () => {
   it("have no dev sign-in route", async () => {
     const modes: Record<string, string>[] = [{}, { GOOGLE_OAUTH_CLIENT_ID: "client", SESSION_SECRET: "s" }];
     for (const env of modes) {
-      const res = await request(await app(env)).post("/api/session/dev-sign-in").send({ email: "dev.user@accenture.com" });
+      const res = await request(await app(env)).post("/api/session/dev-sign-in").set("Origin", APP_ORIGIN).send({ email: "dev.user@accenture.com" });
       expect(res.status).toBe(404);
     }
   });

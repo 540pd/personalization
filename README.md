@@ -73,6 +73,9 @@ cookie, signed with `SESSION_SECRET`).
   service OIDC token so the backend (deployed `--no-allow-unauthenticated`) will accept it.
 - `requireIdentity` middleware on the backend gates all routes except `/api/health` and
   `/api/auth-config`.
+- CSRF: a POST, PUT, PATCH or DELETE that carries the session cookie, and every sign-in or
+  sign-out, must come from an origin in `ALLOWED_ORIGINS` (exact scheme, host and port). The proxy
+  forwards the browser's `Origin`; anything else gets `403 origin_not_allowed`.
 - Google sign-in needs a verified email and a Workspace account whose domain (the token's `hd`) is in
   `ALLOWED_HOSTED_DOMAINS` (defaults to `ALLOWED_EMAIL_DOMAINS`, e.g. `accenture.com`); the email domain is
   checked as well, never instead. Enforced server-side.

@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import type { Express } from "express";
+import { DEV_ORIGINS } from "../../lib/allowedOrigins.js";
+
+// What the browser sends through the proxy; the CSRF guard needs it on changes (#490).
+const APP_ORIGIN = DEV_ORIGINS[0];
 
 // The asset routes (#323) on the memory store: upload, list, serve, delete,
 // each scoped to the signed-in user.
@@ -24,7 +28,7 @@ const ANA = as("ana@accenture.com");
 const BEN = as("ben@accenture.com");
 
 const upload = (a: Express, cookie: string, body: Buffer = PNG, type = "image/png") =>
-  request(a).post("/api/assets").set("Cookie", cookie).set("Content-Type", type).send(body);
+  request(a).post("/api/assets").set("Origin", APP_ORIGIN).set("Cookie", cookie).set("Content-Type", type).send(body);
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -109,10 +113,10 @@ describe("GET /api/assets and DELETE /api/assets/:id", () => {
     expect(list.body.map((x: { id: string }) => x.id)).toEqual([second.id, first.id]);
 
     // Ben's delete of Ana's asset does nothing.
-    expect((await request(a).delete(`/api/assets/${first.id}`).set("Cookie", BEN)).status).toBe(204);
+    expect((await request(a).delete(`/api/assets/${first.id}`).set("Origin", APP_ORIGIN).set("Cookie", BEN)).status).toBe(204);
     expect((await request(a).get("/api/assets").set("Cookie", ANA)).body).toHaveLength(2);
 
-    expect((await request(a).delete(`/api/assets/${first.id}`).set("Cookie", ANA)).status).toBe(204);
+    expect((await request(a).delete(`/api/assets/${first.id}`).set("Origin", APP_ORIGIN).set("Cookie", ANA)).status).toBe(204);
     const after = await request(a).get("/api/assets").set("Cookie", ANA);
     expect(after.body.map((x: { id: string }) => x.id)).toEqual([second.id]);
     expect((await request(a).get(`/api/assets/${first.id}/content`).set("Cookie", ANA)).status).toBe(404);
@@ -123,9 +127,9 @@ describe("GET /api/assets and DELETE /api/assets/:id", () => {
 describe("asset kinds and details", () => {
   const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
   const uploadAs = (a: Express, query: string, body: Buffer = PNG, type = "image/png") =>
-    request(a).post(`/api/assets?${query}`).set("Cookie", ANA).set("Content-Type", type).send(body);
+    request(a).post(`/api/assets?${query}`).set("Origin", APP_ORIGIN).set("Cookie", ANA).set("Content-Type", type).send(body);
   const patch = (a: Express, id: string, body: unknown, cookie = ANA) =>
-    request(a).patch(`/api/assets/${id}`).set("Cookie", cookie).send(body as object);
+    request(a).patch(`/api/assets/${id}`).set("Origin", APP_ORIGIN).set("Cookie", cookie).send(body as object);
 
   it("takes a kind and file name with the upload, and answers the info", async () => {
     const res = await uploadAs(await app(), "kind=productImage&name=" + encodeURIComponent("../shoes/side view.png"));

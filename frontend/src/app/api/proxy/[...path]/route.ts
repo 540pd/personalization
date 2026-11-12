@@ -127,6 +127,12 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
   const cookie = sessionCookie(req.headers.get("cookie"));
   if (cookie) forwardHeaders.set("cookie", cookie);
 
+  // The browser's Origin, as it sent it: the backend refuses a cookie-
+  // authenticated change from any origin not in its ALLOWED_ORIGINS (CSRF,
+  // #490). Only Origin: never Referer or X-Forwarded-Host in its place.
+  const origin = req.headers.get("origin");
+  if (origin) forwardHeaders.set("origin", origin);
+
   // Bytes, not text: req.text() decodes as UTF-8, which corrupts a binary
   // upload. Buffered rather than streamed, so fetch needs no duplex: "half";
   // the backend caps JSON bodies at 10 MB anyway.

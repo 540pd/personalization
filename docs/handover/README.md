@@ -130,7 +130,7 @@ All env, no code. The full checklist per service, with roles and how to verify, 
 | AI | `VERTEX_PROJECT_ID` |
 | Video jobs | `CLOUD_TASKS_QUEUE`, `CLOUD_TASKS_SERVICE_ACCOUNT`, `JOBS_WORKER_URL` |
 
-Then `npm run smoke -- <url> [--cookie …] [--generate]`. A deployed backend refuses to
+Then `npm run smoke -- <url> [--cookie …] [--origin <frontend-url>] [--generate]` (`--origin`: one of the backend's `ALLOWED_ORIGINS`, for its CSRF check). A deployed backend refuses to
 start on a storage, sign-in or jobs placeholder, so a missed variable fails loudly.
 
 **Never run against real GCP yet. Verify on first use:**

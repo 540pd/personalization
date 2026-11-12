@@ -1,5 +1,5 @@
 // npm run smoke -- <backend-url> [--cookie <value>] [--email <address>]
-//                                [--generate] [--infra-token <token>]
+//                                [--generate] [--infra-token <token>] [--origin <frontend-origin>]
 // One line per check; exits 1 if any failed (#336).
 
 import { runSmoke, type CheckResult, type SmokeOptions } from "./smoke.js";
@@ -12,10 +12,11 @@ function parse(argv: string[]): SmokeOptions {
     else if (a === "--cookie") opts.cookie = argv[++i];
     else if (a === "--email") opts.email = argv[++i];
     else if (a === "--infra-token") opts.infraToken = argv[++i];
+    else if (a === "--origin") opts.origin = argv[++i];
     else if (!a.startsWith("--") && !opts.url) opts.url = a;
     else throw new Error(`Unknown argument: ${a}`);
   }
-  if (!opts.url) throw new Error("Usage: npm run smoke -- <backend-url> [--cookie <value>] [--email <address>] [--generate] [--infra-token <token>]");
+  if (!opts.url) throw new Error("Usage: npm run smoke -- <backend-url> [--cookie <value>] [--email <address>] [--generate] [--infra-token <token>] [--origin <frontend-origin>]");
   return opts;
 }
 
