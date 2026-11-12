@@ -12,6 +12,7 @@ import { generateRouter } from "./routes/generate.js";
 import { assetsRouter } from "./routes/assets.js";
 import { brandAssetsRouter } from "./routes/brandAssets.js";
 import { brandRouter } from "./routes/brand.js";
+import { runsRouter } from "./routes/runs.js";
 import { supportRouter } from "./routes/support.js";
 import { isFirestoreMode, getFirestoreClient } from "./lib/firestore.js";
 import { isGcsMode, getBucket } from "./lib/gcs.js";
@@ -133,6 +134,7 @@ export function createApp(): express.Express {
   app.use("/api", assetsRouter);
   app.use("/api", brandAssetsRouter);
   app.use("/api", brandRouter);
+  app.use("/api", runsRouter);
 
   // Cloud Tasks' worker endpoint (#325), outside /api and only when the
   // queue is set up: in process, nothing calls in.

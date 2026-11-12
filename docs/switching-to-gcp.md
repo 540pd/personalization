@@ -274,6 +274,34 @@ by its idempotency key, rather than risk starting a second job.
 **Verify on first use:** the client is tested with the token and HTTP stubbed;
 no real FastAPI service exists yet.
 
+## Runs: idempotency and the Playspace lock
+
+`POST /api/runs` (#491, #492) admits one Run click: an `Idempotency-Key` header
+plus the Run request. It is verified (#493), then three records are written in
+one Firestore transaction, before anything is sent to FastAPI:
+
+| Collection | Holds |
+|---|---|
+| `idempotency/{ownerKey}:{key}` | the click's fingerprint, its job ID, `pending` / `accepted` / `failed`, `expireAt` |
+| `owners/{ownerKey}/playspaces/{playspaceId}` | `inFlightJobId`: the one job holding the Playspace (no TTL) |
+| `runs/{jobId}` | the job's Playspace, node, mode and state, for lineage |
+
+The same click returns the same job; the same key with a changed Run is `409
+idempotency_conflict`; another click on a busy Playspace is `409 playspace_busy`.
+The job ID comes from owner + key, so a lost FastAPI answer leaves the click
+`pending` under the same ID; it is never sent again under a new one. Runs need
+an owner key: Google sign-in, or dev sign-in with `SESSION_MODE=opaque`.
+
+1. Turn on a TTL policy for old click records (expiry is checked on read too;
+   the TTL only deletes): `gcloud firestore fields ttls update expireAt
+   --collection-group=idempotency --enable-ttl`. Never on `playspaces`: a lock
+   is released only when its job finishes.
+2. Until a worker or reconciler calls the release handoff (`runs().finishRun`),
+   a lock whose job is gone is cleared with
+   `npm run release-run-lock -- <ownerKey> <playspaceId> <jobId>` (it does
+   nothing unless that job holds the lock). A lock held past
+   `RUN_LOCK_STALE_SECONDS` is logged.
+
 ## Checking everything at once: the smoke test
 
 One command checks any backend and prints a line per service; it exits non-zero

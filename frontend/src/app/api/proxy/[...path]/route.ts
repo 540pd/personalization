@@ -133,6 +133,11 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
   const origin = req.headers.get("origin");
   if (origin) forwardHeaders.set("origin", origin);
 
+  // A Run click's key (#491): the backend admits each key once. Bounded here
+  // too, so the proxy never forwards an oversized header.
+  const idempotencyKey = req.headers.get("idempotency-key");
+  if (idempotencyKey && idempotencyKey.length <= 128) forwardHeaders.set("idempotency-key", idempotencyKey);
+
   // Bytes, not text: req.text() decodes as UTF-8, which corrupts a binary
   // upload. Buffered rather than streamed, so fetch needs no duplex: "half";
   // the backend caps JSON bodies at 10 MB anyway.

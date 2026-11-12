@@ -39,6 +39,8 @@
 | `FASTAPI_AUDIENCE` | Optional: the service token's audience, if not `FASTAPI_BASE_URL` |
 | `FASTAPI_JOB_TIMEOUT_MS`, `FASTAPI_SKILLS_TIMEOUT_MS`, `FASTAPI_HELPER_TIMEOUT_MS` | Optional timeouts for FastAPI calls (defaults 15000, 10000, 30000) |
 | `RUN_MAX_ASSETS`, `RUN_MAX_ASSET_BYTES`, `RUN_MAX_SKILLS`, `RUN_MAX_SKILL_BYTES`, `RUN_MAX_SKILLS_TOTAL_BYTES`, `RUN_MAX_INSTRUCTION_CHARS`, `RUN_MAX_COUNT`, `RUN_MAX_PARENTS` | Optional Run admission limits (#493); defaults are today's numbers (5, 25 MiB, 20, 100 KiB, 400 KiB, 30000, 10, 10) |
+| `RUN_IDEMPOTENCY_RETENTION_SECONDS` | Optional: how long a Run click is recognised as a replay (#491; default 604800, 7 days) |
+| `RUN_LOCK_STALE_SECONDS` | Optional: a Playspace lock held longer than this is logged as stale (#492; default 1500, the 25 min job limit) |
 | `PORT` | Server port (default: 4000 locally, set to 8080 by Cloud Run) |
 | `FIRESTORE_EMULATOR_HOST` | Local only: the Firestore emulator (`127.0.0.1:8080`) |
 | `STORAGE_EMULATOR_HOST` | Local only: the Storage emulator (`http://127.0.0.1:9199`) |

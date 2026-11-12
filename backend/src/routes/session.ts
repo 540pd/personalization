@@ -4,6 +4,14 @@ import { refreshSessionToken } from "../services/authService.js";
 import { clearSessionCookie, readSessionCookie, setSessionCookie } from "../lib/sessionCookie.js";
 import { signSessionToken } from "../lib/sessionToken.js";
 import { sessions } from "../lib/sessions/index.js";
+import { owners } from "../lib/identity/index.js";
+
+/**
+ * The issuer dev sign-in's identity links use (#491/#492 placeholder): local
+ * only, like dev sign-in itself, so a Run can be tried without Google. Never a
+ * real Google issuer, so it can't collide with a Google account's link.
+ */
+export const DEV_SIGN_IN_ISSUER = "urn:gcos:dev-sign-in";
 import { sendValidationError } from "../common/errors.js";
 
 export const sessionRouter = Router();
@@ -104,8 +112,21 @@ sessionRouter.post("/session/dev-sign-in", (req, res, next) => {
     return;
   }
   if (getSessionMode() === "opaque") {
-    // Dev sign-in has no Google account, so no owner.
-    void startOpaqueSession(res, { email: address, ownerKey: null }).catch(next);
+    // Dev sign-in has no Google account: a dev-only identity link gives it an
+    // owner, so Runs (which need one) work locally too.
+    void (async () => {
+      const owner = await owners().findOrCreateOwner({
+        issuer: DEV_SIGN_IN_ISSUER,
+        subject: address,
+        email: address,
+        hostedDomain: address.split("@")[1] ?? "",
+      });
+      if (!owner.ok) {
+        res.status(owner.code === "account_disabled" ? 403 : 503).json({ error: owner.code === "account_disabled" ? "account_disabled" : "dependency_unavailable", message: "Sign-in is unavailable right now. Try again shortly." });
+        return;
+      }
+      await startOpaqueSession(res, { email: address, ownerKey: owner.ownerKey });
+    })().catch(next);
     return;
   }
   const token = signSessionToken(address);

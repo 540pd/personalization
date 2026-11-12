@@ -19,6 +19,7 @@ even though source files are `.ts` — this is the NodeNext ESM requirement.
 - `src/lib/boardStore.ts` — Board CRUD. In-memory stub; TODO Firestore wiring.
 - `src/lib/sessionToken.ts` — 30-day JWT sign/verify.
 - `src/lib/firestore.ts`, `gcs.ts` — Lazy singletons.
+- `src/lib/runs/` + `src/routes/runs.ts` — `POST /api/runs` (#491/#492): verifies a Run, reserves its `Idempotency-Key` and the Playspace lock in one transaction (`decide()` in `stores.ts` is the rule all three stores share), then calls FastAPI's `createJob` outside it. `runs().finishRun()` is the trusted release; no route releases a lock.
 - `src/lib/admission/` — Run admission (#493): `verifyRun()` checks a Run's Playspace, assets, Skill revisions and parent jobs against the session's owner and returns an `AuthorizedRunContext`; nothing from the browser goes further unchecked. Placeholder deps in `index.ts` say what each one waits for.
 - `src/lib/fastapi/` — The one client for calls to the private FastAPI service (#494): service ID token, owner key from the session, retries only idempotent calls; a fake when `FASTAPI_BASE_URL` is unset. Never `fetch` FastAPI from a route.
 - `src/routes/boards.ts`, `generate.ts`, `assets.ts`, `session.ts`, `authConfig.ts`
