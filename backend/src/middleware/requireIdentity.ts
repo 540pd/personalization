@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "crypto";
-import { OAuth2Client } from "google-auth-library";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
+import { googleIdTokenClient, googleIdTokenConfig, verifyGoogleIdToken } from "../lib/googleIdToken.js";
 import { signSessionToken, verifySessionToken } from "../lib/sessionToken.js";
 import { readSessionCookie, SESSION_RENEW_AFTER_SECONDS, setSessionCookie } from "../lib/sessionCookie.js";
 
@@ -102,13 +102,12 @@ function constantTimeEquals(a: string, b: string): boolean {
 // Keep constantTimeEquals in scope — may be needed for future service keys.
 void constantTimeEquals;
 
-function classifyVerifyError(err: unknown): IdentityErrorCode {
-  const message = err instanceof Error ? err.message : String(err);
-  if (/expired|used too late/i.test(message)) return "token_expired";
-  return "token_invalid";
+// Read once, like the rest of this module's env. A bad value (e.g. the clock
+// skew) throws here, so the backend refuses to start rather than verify loosely.
+const GOOGLE_ID_TOKEN_CONFIG = googleIdTokenConfig();
+if (AUTH_MODE === "required" && GOOGLE_ID_TOKEN_CONFIG.hostedDomains.length === 0) {
+  console.warn("[requireIdentity] ALLOWED_HOSTED_DOMAINS is empty: every Google sign-in will be refused.");
 }
-
-const oauthClient = new OAuth2Client();
 
 /** Identifies the request from its session cookie, renewing an old one. */
 function identifyFromCookie(req: Request, res: Response, next: NextFunction): void {
@@ -210,31 +209,23 @@ export function requireIdentity(): RequestHandler {
       return;
     }
 
-    // Fall through to Google ID token verification.
-    try {
-      const ticket = await oauthClient.verifyIdToken({
-        idToken,
-        audience: GOOGLE_OAUTH_CLIENT_ID as string,
-      });
-      const payload = ticket.getPayload();
-      if (!payload?.email) {
-        sendError(res, "token_invalid", "Verified token had no email claim.");
-        return;
-      }
-      if (!isAllowedEmailDomain(payload.email)) {
-        sendError(res, "domain_not_allowed", "This account's email domain is not permitted.");
-        return;
-      }
-      req.identity = { email: payload.email };
-      next();
-    } catch (err) {
-      const code = classifyVerifyError(err);
-      console.error(`[requireIdentity] ID token verification failed (${code})`);
-      sendError(
-        res,
-        code,
-        code === "token_expired" ? "ID token has expired." : "ID token is invalid."
-      );
+    // Fall through to Google ID token verification (lib/googleIdToken.ts):
+    // only what the verified token says counts, never the request body.
+    const result = await verifyGoogleIdToken(idToken, GOOGLE_ID_TOKEN_CONFIG, googleIdTokenClient);
+    if (!result.ok) {
+      // The code and a short reason only: never the token or its claims.
+      console.error(`[requireIdentity] ID token refused (${result.code}: ${result.reason})`);
+      sendError(res, result.code, REFUSAL_MESSAGES[result.code]);
+      return;
     }
+    req.identity = { email: result.identity.email };
+    next();
   };
 }
+
+const REFUSAL_MESSAGES: Record<IdentityErrorCode, string> = {
+  token_missing: "No bearer token or session cookie present.",
+  token_invalid: "ID token is invalid.",
+  token_expired: "ID token has expired.",
+  domain_not_allowed: "This account's email domain is not permitted.",
+};

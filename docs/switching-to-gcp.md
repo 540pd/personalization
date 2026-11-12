@@ -7,7 +7,7 @@ variables and restarting, **never a code change**. Services switch one at a time
 
 | Service | Placeholder (default) | Real service | Set |
 |---|---|---|---|
-| Sign-in | anonymous, or **dev sign-in** with `AUTH_MODE=dev` | Google, `ALLOWED_EMAIL_DOMAINS` only | `GOOGLE_OAUTH_CLIENT_ID`, `SESSION_SECRET`; frontend `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` |
+| Sign-in | anonymous, or **dev sign-in** with `AUTH_MODE=dev` | Google Workspace accounts: `hd` in `ALLOWED_HOSTED_DOMAINS` (defaults to `ALLOWED_EMAIL_DOMAINS`) | `GOOGLE_OAUTH_CLIENT_ID`, `SESSION_SECRET`; frontend `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` |
 | Data and files | local disk at `backend/.data` | Firestore + Cloud Storage | `FIRESTORE_PROJECT_ID`, `GCS_BUCKET_NAME` |
 | AI generation | offline placeholders | Vertex AI | `VERTEX_PROJECT_ID` (and `VERTEX_LOCATION`) |
 | Video jobs | in process, picked up again after a restart | Cloud Tasks | `CLOUD_TASKS_QUEUE`, `CLOUD_TASKS_SERVICE_ACCOUNT`, `JOBS_WORKER_URL` |
@@ -86,6 +86,7 @@ the backend restarts. A deployed backend refuses to start with it.
    GOOGLE_OAUTH_CLIENT_ID=<client id>
    SESSION_SECRET=<secret>
    ALLOWED_EMAIL_DOMAINS=accenture.com
+   # ALLOWED_HOSTED_DOMAINS=accenture.com   # the Workspace domain(s); defaults to the line above
    # frontend (inlined at build time)
    NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID=<the same client id>
    ```

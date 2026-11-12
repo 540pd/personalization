@@ -9,12 +9,23 @@ import type { Express } from "express";
 const SECRET = "test-secret";
 const DAY = 60 * 60 * 24;
 
-// Google's verification, stubbed: "google:<email>" is a valid ID token.
+// Google's verification, stubbed: "google:<email>" is a valid ID token for a
+// Workspace account, with the claims a real one carries (#487).
 vi.mock("google-auth-library", () => ({
   OAuth2Client: class {
     async verifyIdToken({ idToken }: { idToken: string }) {
       if (!idToken.startsWith("google:")) throw new Error("Wrong number of segments");
-      return { getPayload: () => ({ email: idToken.slice("google:".length) }) };
+      const email = idToken.slice("google:".length);
+      return {
+        getPayload: () => ({
+          iss: "https://accounts.google.com",
+          sub: `sub-${email}`,
+          exp: Math.floor(Date.now() / 1000) + 3600,
+          email,
+          email_verified: true,
+          hd: email.split("@")[1],
+        }),
+      };
     }
   },
 }));

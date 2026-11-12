@@ -73,7 +73,9 @@ cookie, signed with `SESSION_SECRET`).
   service OIDC token so the backend (deployed `--no-allow-unauthenticated`) will accept it.
 - `requireIdentity` middleware on the backend gates all routes except `/api/health` and
   `/api/auth-config`.
-- Allowed email domains are enforced server-side via `ALLOWED_EMAIL_DOMAINS` (e.g. `accenture.com`).
+- Google sign-in needs a verified email and a Workspace account whose domain (the token's `hd`) is in
+  `ALLOWED_HOSTED_DOMAINS` (defaults to `ALLOWED_EMAIL_DOMAINS`, e.g. `accenture.com`); the email domain is
+  checked as well, never instead. Enforced server-side.
 
 ## Wiring up real generation
 
