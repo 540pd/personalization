@@ -28,7 +28,8 @@ app/
   config.py       environment settings
   security.py     Node Cloud Run OIDC authentication + trusted ownerKey
   models.py       Pydantic request/response contracts
-  store.py        transactional Firestore ownership and publish operation records
+  rules.py        Skill, quota and publish-lock rules: pure, shared by both stores (#528)
+  store.py        applies the rules: FirestoreStore (one transaction each) and MemoryStore (tests)
   registry.py     REST Agent Registry + google-auth ADC
   service.py      idempotent publish state machine
   packaging.py    validate SKILL.md + deterministic zip

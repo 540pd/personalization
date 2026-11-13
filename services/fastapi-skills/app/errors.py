@@ -42,13 +42,10 @@ INTERNAL = 'internal_error'                  # * an unexpected failure
 # Messages whose code isn't the default for their status.
 BY_MESSAGE = {
     'Idempotency key reused with changed content': IDEMPOTENCY,
-    'Idempotency mismatch': IDEMPOTENCY,
     'Another publish is already in progress': PUBLISH_IN_PROGRESS,
-    'Publish already active': PUBLISH_IN_PROGRESS,
     'A publish is currently in progress': PUBLISH_IN_PROGRESS,
     'Maximum five Skills per user': QUOTA,
     '300 KiB combined user Skills limit exceeded': QUOTA,
-    'Combined Skills budget exceeded': QUOTA,
     'Unapproved tool names provided': TOOL_NOT_APPROVED,
 }
 BY_STATUS = {
