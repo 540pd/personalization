@@ -1,11 +1,13 @@
 """Private FastAPI service; BFF is the sole user-facing entry point."""
 from contextlib import asynccontextmanager
-from fastapi import Depends, FastAPI, Header, HTTPException, Response
+from fastapi import Depends, FastAPI, Header, Response
 from .models import SkillCreate, SkillUpdate, PublishRequest, ToolValidationRequest, SkillDraftRequest
 from .config import settings
 from .security import Principal, trusted_node
 from .errors import install as install_errors
 from .wiring import build_services
+from . import codes
+from .errors import ServiceError
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -103,7 +105,7 @@ async def publish_skill(
     principal: Principal = Depends(trusted_node), svc=Depends(service),
 ):
     if not idempotency_key or not (8 <= len(idempotency_key) <= 128):
-        raise HTTPException(422, detail='Idempotency-Key header required (8-128 characters)')
+        raise ServiceError(422, codes.VALIDATION, 'Idempotency-Key header required (8-128 characters)')
     result = await svc.publish(principal.owner_key, skill_id, body, idempotency_key)
     response.status_code = 200 if result.status == 'published' else 202
     return result

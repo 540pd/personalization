@@ -6,8 +6,8 @@ transaction; Registry calls never happen inside one."""
 import copy
 import hashlib
 from datetime import datetime, timedelta, timezone
-from fastapi import HTTPException
 from . import rules
+from .errors import ServiceError
 from .rules import GONE, MAX_COMBINED_RAW_SKILL_BYTES, MAX_SKILLS_PER_OWNER, OPS, QUOTAS, SKILLS  # noqa: F401 (re-exported)
 
 AUDIT = 'skill_publish_audit'
@@ -43,7 +43,7 @@ class RuleStore:
         try:
             return self._run(rule, *args)
         except rules.Refused as refused:
-            raise HTTPException(refused.status, detail=refused.message) from None
+            raise ServiceError(refused.status, refused.code, refused.message) from None
 
     def reserve_skill(self, row: dict):
         return self._decide(rules.reserve_skill, row)

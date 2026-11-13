@@ -4,8 +4,10 @@ Every error answers the contracts §5 shape:
 
     {"error": {"code", "message", "requestId", "retryable", "issues"?}}
 
-Code raises plain HTTPException with a fixed message (or a structured dict for
-validation details); `classify` turns that into a stable code. Messages are
+Code raises ServiceError(status, code, message-or-dict) with a code from
+app/codes.py (#531); a structured dict becomes `error.issues`. Only an
+HTTPException raised without a code (FastAPI's own) gets one from its status.
+The rules raise Refused, which the stores turn into ServiceError. Messages are
 the service's own fixed text: never Markdown, prompts, tokens, owner keys or a
 provider's raw error. Every log line is JSON and carries the request ID."""
 import contextvars
@@ -16,7 +18,7 @@ import re
 import sys
 import time
 import uuid
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -25,35 +27,26 @@ REQUEST_ID_HEADER = 'X-Request-Id'
 SAFE_REQUEST_ID = re.compile(r'[A-Za-z0-9._:-]{8,128}')
 request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar('request_id', default='-')
 
-# Codes from contracts §5, plus the few it has no row for (marked *).
-UNAUTHENTICATED = 'unauthenticated'
-FORBIDDEN = 'forbidden'
-NOT_ACCESSIBLE = 'resource_not_accessible'
-VALIDATION = 'validation_failed'
-TOOL_NOT_APPROVED = 'tool_not_approved'
-IDEMPOTENCY = 'idempotency_conflict'
-DEPENDENCY = 'dependency_unavailable'
-CONFLICT = 'conflict'                        # * another state conflict
-PUBLISH_IN_PROGRESS = 'publish_in_progress'  # * the Skill's publish lock is held
-QUOTA = 'quota_exceeded'                     # * five Skills / 300 KiB
-RATE_LIMITED = 'rate_limited'                # * draft helper per-hour limit
-INTERNAL = 'internal_error'                  # * an unexpected failure
+from .codes import (CONFLICT, DEPENDENCY, FORBIDDEN, INTERNAL, NOT_ACCESSIBLE, RATE_LIMITED,
+                    RETRYABLE, TOOL_NOT_APPROVED, UNAUTHENTICATED, VALIDATION)
 
-# Messages whose code isn't the default for their status.
-BY_MESSAGE = {
-    'Idempotency key reused with changed content': IDEMPOTENCY,
-    'Another publish is already in progress': PUBLISH_IN_PROGRESS,
-    'A publish is currently in progress': PUBLISH_IN_PROGRESS,
-    'Maximum five Skills per user': QUOTA,
-    '300 KiB combined user Skills limit exceeded': QUOTA,
-    'Unapproved tool names provided': TOOL_NOT_APPROVED,
-}
+
+class ServiceError(HTTPException):
+    """An error raised with its code (#531). It is an HTTPException, so
+    `.status_code` and `.detail` read as before; `detail` is the message, or a
+    structured dict (invalid_tools, tools_not_listed, tool_declaration_errors)
+    that becomes `error.issues`."""
+    def __init__(self, status: int, code: str, detail, headers: dict | None = None):
+        super().__init__(status, detail=detail, headers=headers)
+        self.code = code
+
+
+# Only for HTTPExceptions raised without a code (FastAPI's own, or a library's).
 BY_STATUS = {
     401: UNAUTHENTICATED, 403: FORBIDDEN, 404: NOT_ACCESSIBLE, 409: CONFLICT,
     413: VALIDATION, 422: VALIDATION, 429: RATE_LIMITED,
     502: DEPENDENCY, 503: DEPENDENCY, 504: DEPENDENCY,
 }
-RETRYABLE = {DEPENDENCY, RATE_LIMITED, PUBLISH_IN_PROGRESS}
 GENERIC = {
     VALIDATION: 'The request is not valid', TOOL_NOT_APPROVED: 'A tool is not in the approved tool catalog',
     INTERNAL: 'Something went wrong. Try again.',
@@ -64,8 +57,14 @@ def _code_for(status: int) -> str:
     return BY_STATUS.get(status, INTERNAL if status >= 500 else VALIDATION if status >= 400 else INTERNAL)
 
 
-def classify(status: int, detail) -> tuple[str, str, list | None, dict]:
-    """(code, message, issues, extra fields) for an HTTPException."""
+def classify(status: int, detail, code: str | None = None) -> tuple[str, str, list | None, dict]:
+    """(code, message, issues, extra fields) for an HTTPException. `code` is
+    the ServiceError's own; without one, the status decides."""
+    found = _from_detail(status, detail)
+    return (code or found[0], *found[1:])
+
+
+def _from_detail(status: int, detail) -> tuple[str, str, list | None, dict]:
     if isinstance(detail, dict):
         if 'invalid_tools' in detail:
             issues = [{'code': TOOL_NOT_APPROVED, 'path': 'tool_names', 'tool': name,
@@ -82,7 +81,7 @@ def classify(status: int, detail) -> tuple[str, str, list | None, dict]:
         code = _code_for(status)
         return code, GENERIC.get(code, 'The request could not be completed'), None, {}
     message = detail if isinstance(detail, str) and detail else GENERIC.get(_code_for(status), 'The request could not be completed')
-    return BY_MESSAGE.get(message, _code_for(status)), message, None, {}
+    return _code_for(status), message, None, {}
 
 
 def error_body(code: str, message: str, issues: list | None = None, extra: dict | None = None) -> dict:
@@ -133,7 +132,7 @@ def install(app: FastAPI):
 
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, exc: StarletteHTTPException):
-        code, message, issues, extra = classify(exc.status_code, exc.detail)
+        code, message, issues, extra = classify(exc.status_code, exc.detail, getattr(exc, 'code', None))
         request.state.error_code = code
         headers = {k: v for k, v in (exc.headers or {}).items()}
         return JSONResponse(error_body(code, message, issues, extra), status_code=exc.status_code, headers=headers)

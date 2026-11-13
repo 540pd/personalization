@@ -2,12 +2,13 @@
 revision, wait for it to be active, make it the default; a poll or the next
 publish advances it, and one that never reached the Registry times out."""
 from datetime import datetime, timezone
-from fastapi import HTTPException
 from .deps import Part, digest
 from .models import PublishRequest, PublishStatus
 from .packaging import build_zip, declared_tools, validate_markdown
 from .registry import RegistryError, explain_registry_error, operation_done, operation_uuid
 from .store import operation_key, stamp
+from . import codes
+from .errors import ServiceError
 
 UPLOAD_TIMEOUT = 'Publish timed out before upload; publish again'
 
@@ -27,13 +28,13 @@ class PublishFlow(Part):
     async def publish(self, owner: str, skill_id: str, body: PublishRequest, idempotency_key: str) -> PublishStatus:
         skill = self.owned(owner, skill_id)
         if skill['status'] in ('creating', 'disable_requested', 'disabled'):
-            raise HTTPException(409, detail='Skill container is not ready for publishing')
+            raise ServiceError(409, codes.CONFLICT, 'Skill container is not ready for publishing')
         # The tools the Markdown itself declares (#509), not only the list sent
         # beside it: each must be listed in tool_names, which the catalog checks.
         declared = declared_tools(validate_markdown(body.markdown))
         not_listed = [name for name in declared if name not in body.tool_names]
         if not_listed:
-            raise HTTPException(422, detail={'tools_not_listed': not_listed})
+            raise ServiceError(422, codes.VALIDATION, {'tools_not_listed': not_listed})
         validation = self.catalog.validate(body.tool_names)
         # A publish nobody polls would block this Skill for good (#508): read it
         # first, so one past its upload deadline times out and frees the Skill.
@@ -43,7 +44,7 @@ class PublishFlow(Part):
             if stuck:
                 await self.advance(stuck, archive=None)
         if not validation.valid:
-            raise HTTPException(422, detail={'invalid_tools': [r.name for r in validation.results if not r.approved],
+            raise ServiceError(422, codes.TOOL_NOT_APPROVED, {'invalid_tools': [r.name for r in validation.results if not r.approved],
                                              'catalog_revision': validation.catalog_revision})
         archive, archive_sha = build_zip(body.markdown)
         body_sha = digest({'archiveSha256': archive_sha, 'tools': sorted(body.tool_names)})
@@ -64,7 +65,7 @@ class PublishFlow(Part):
         self.owned(owner, skill_id)
         op = self.store.get_operation(op_id)
         if not op or op['ownerKey'] != owner or op['skillId'] != skill_id:
-            raise HTTPException(404, detail='Publish operation not found')
+            raise ServiceError(404, codes.NOT_ACCESSIBLE, 'Publish operation not found')
         return await self.advance(op, archive=None)
 
     async def advance(self, op: dict, archive: bytes | None) -> PublishStatus:
@@ -150,5 +151,5 @@ class PublishFlow(Part):
         For the operator tool (#508); the Node routes go through publish_status."""
         op = self.store.get_operation(op_id)
         if not op:
-            raise HTTPException(404, detail='Publish operation not found')
+            raise ServiceError(404, codes.NOT_ACCESSIBLE, 'Publish operation not found')
         return await self.advance(op, archive=None)

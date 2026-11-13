@@ -126,6 +126,7 @@ Every error has one shape (#512, contracts §5):
 
 \* not in contracts §5's table. `issues` items have `code`, `path`, `message`, and `tool` for tool issues: `tool_not_approved`, `tool_not_listed` (declared in `SKILL.md` but missing from `tool_names`), `tool_declaration`, or pydantic's type for a malformed body (never its input). A Registry error keeps its status and loses its text.
 
+- **Raising.** Raise `ServiceError(status, codes.X, message)` (`app/errors.py`, codes in `app/codes.py`); a test fails on a bare `HTTPException` in `app/` or a raise without a known code (#531). The rules raise `Refused(status, code, message)`, which the stores turn into `ServiceError`. Only FastAPI's own errors get their code from the status.
 - **Request ID.** `X-Request-Id` from Node is used when it is 8–128 of `A-Z a-z 0-9 . _ : -`; otherwise one is made. It is echoed on every response, is `error.requestId`, and is on every log line.
 - **Logs.** One JSON line per request on stdout (`severity`, `requestId`, `method`, route template, `status`, `latencyMs`, `ownerHash` = 16 hex of SHA-256 of the owner key, `errorCode`). Never Markdown, prompts, tokens, the owner key or a provider's raw error. An unexpected failure logs its exception type only.
 

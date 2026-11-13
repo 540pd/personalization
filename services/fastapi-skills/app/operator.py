@@ -9,8 +9,9 @@ refused or no-op one, leaves an audit record (no owner key, no SKILL.md).
 import argparse
 import asyncio
 import sys
-from fastapi import HTTPException
 from .store import stamp
+from . import codes
+from .errors import ServiceError
 
 OPERATOR_FAILED = 'Failed by an operator'
 
@@ -26,7 +27,7 @@ def _audit(svc, action: str, op: dict, operator: str, reason: str, before: str, 
 def _load(svc, op_id: str) -> dict:
     op = svc.store.get_operation(op_id)
     if not op:
-        raise HTTPException(404, detail='Publish operation not found')
+        raise ServiceError(404, codes.NOT_ACCESSIBLE, 'Publish operation not found')
     return op
 
 
