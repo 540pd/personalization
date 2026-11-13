@@ -8,6 +8,7 @@ import { FastApiError, type FastApiClient, type PublishStatus, type ServicePrinc
 // checks nothing the real service would (no Registry, catalog or quotas).
 
 const APPROVED_TOOLS = new Set(["brand.read", "image.generate"]);
+const FAKE_CATALOG_REVISION = "fake-v1";
 
 export function createFakeFastApiClient(): FastApiClient {
   const skills = new Map<string, SkillRecord & { owner: string }>();
@@ -82,15 +83,15 @@ export function createFakeFastApiClient(): FastApiClient {
         return status;
       }
       const revision = `${skill.registryResource}/revisions/${publishes.size + 1}`;
-      publishes.set(operationId, { operationId, status: "published", revision, error: null, owner: principal.ownerKey, skillId, sha });
+      publishes.set(operationId, { operationId, status: "published", revision, error: null, catalogRevision: FAKE_CATALOG_REVISION, owner: principal.ownerKey, skillId, sha });
       skill.latestPublishedRevision = revision;
-      return { operationId, status: "published", revision, error: null };
+      return { operationId, status: "published", revision, error: null, catalogRevision: FAKE_CATALOG_REVISION };
     },
     async getPublishStatus(principal, skillId, operationId) {
       own(principal, skillId);
       const op = publishes.get(operationId);
       if (!op || op.owner !== principal.ownerKey || op.skillId !== skillId) throw new FastApiError(404, "resource_not_accessible", "Not found.", false);
-      return { operationId: op.operationId, status: op.status, revision: op.revision, error: op.error };
+      return { operationId: op.operationId, status: op.status, revision: op.revision, error: op.error, catalogRevision: FAKE_CATALOG_REVISION };
     },
     async validateTools(_principal, toolNames) {
       const seen = new Set<string>();
@@ -100,7 +101,7 @@ export function createFakeFastApiClient(): FastApiClient {
         if (dup) return { name, approved: false, reason: "duplicate" };
         return APPROVED_TOOLS.has(name) ? { name, approved: true, reason: "approved by catalog" } : { name, approved: false, reason: "not in approved tool catalog" };
       });
-      return { valid: results.every((r) => r.approved), results };
+      return { valid: results.every((r) => r.approved), results, catalogRevision: FAKE_CATALOG_REVISION };
     },
     async draftSkill(_principal, request) {
       return {

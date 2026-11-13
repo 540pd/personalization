@@ -24,11 +24,17 @@ const config: FastApiConfig = { baseUrl: BASE, audience: BASE, timeoutsMs: { ...
 
 type Answer = HttpResponse | TransportError | ((req: HttpRequest) => HttpResponse);
 const ok = (body: unknown, status = 200): HttpResponse => ({ status, headers: {}, body: JSON.stringify(body) });
-/** An error answer the way FastAPI sends one: { detail }. */
+/** An error answer the way older FastAPI builds sent one: { detail } (still understood). */
 const err = (status: number, detail: unknown = `upstream said something with ${BASE} and ${TOKEN}`, headers: Record<string, string> = {}): HttpResponse => ({
   status,
   headers,
   body: JSON.stringify({ detail }),
+});
+/** An error answer in the service's shape (#512): { error: { code, message, requestId, retryable, issues? } }. */
+const contractErr = (status: number, error: Record<string, unknown>, requestId = "fa-req-12345678"): HttpResponse => ({
+  status,
+  headers: { "x-request-id": requestId },
+  body: JSON.stringify({ error: { message: `upstream said something with ${BASE} and ${TOKEN}`, requestId, retryable: false, ...error } }),
 });
 
 /** The service's Skill row (app/service.py), ownerKey and hashes included. */
@@ -121,7 +127,7 @@ describe("what goes on the wire (the service's contract)", () => {
 
   it("sends the publish key as the Idempotency-Key header, not in the body", async () => {
     const { client, sent } = setup([ok({ operation_id: "op", status: "pending" }, 202)]);
-    expect(await client.publishSkill(ANA, "s1", publish)).toEqual({ operationId: "op", status: "pending", revision: null, error: null });
+    expect(await client.publishSkill(ANA, "s1", publish)).toEqual({ operationId: "op", status: "pending", revision: null, error: null, catalogRevision: null });
     expect(sent[0].headers["Idempotency-Key"]).toBe("6f0c4563-967d-45bd");
     expect(JSON.parse(sent[0].body!)).not.toHaveProperty("idempotency_key");
   });
@@ -305,6 +311,87 @@ describe("errors use the shared contract and leak nothing", () => {
     expect(e.issues).toEqual([{ code: "string_pattern_mismatch", path: "slug", message: "String should match pattern" }]);
   });
 
+  it.each([
+    [401, "unauthenticated", 502, "dependency_unavailable", false],
+    [403, "forbidden", 502, "dependency_unavailable", false],
+    [404, "resource_not_accessible", 404, "resource_not_accessible", false],
+    [409, "idempotency_conflict", 409, "idempotency_conflict", false],
+    [409, "publish_in_progress", 409, "publish_in_progress", true],
+    [409, "conflict", 409, "conflict", false],
+    [422, "quota_exceeded", 422, "quota_exceeded", false],
+    [429, "rate_limited", 429, "rate_limited", true],
+    [503, "dependency_unavailable", 502, "dependency_unavailable", true],
+    [500, "internal_error", 502, "dependency_unavailable", true],
+  ])("maps the service's %i %s to %i %s (#512)", async (upstream, upstreamCode, status, code, retryable) => {
+    const { client } = setup([contractErr(upstream, { code: upstreamCode }), contractErr(upstream, { code: upstreamCode })]);
+    const e = (await client.getSkill(ANA, "s1").catch((x: unknown) => x)) as FastApiError;
+    expect(e).toBeInstanceOf(FastApiError);
+    expect({ status: e.status, code: e.code, retryable: e.retryable }).toEqual({ status, code, retryable });
+    expect(e.context.requestId).toBe("fa-req-12345678");
+    expect(e.message).not.toContain(BASE);
+    expect(e.message).not.toContain("upstream said");
+  });
+
+  it("reads tool issues and the catalog revision from error.issues (#512)", async () => {
+    const { client } = setup([
+      contractErr(422, {
+        code: "tool_not_approved",
+        catalogRevision: "file-v1-56e2674cb8fb",
+        issues: [{ code: "tool_not_approved", path: "tool_names", tool: "shell.exec", message: `upstream text ${BASE}` }],
+      }),
+    ]);
+    const e = (await client.publishSkill(ANA, "s1", publish).catch((x: unknown) => x)) as FastApiError;
+    expect(e).toMatchObject({ status: 422, code: "tool_not_approved", context: { catalogRevision: "file-v1-56e2674cb8fb" } });
+    expect(e.issues).toEqual([{ code: "tool_not_approved", path: "toolNames[0]", message: "shell.exec isn't an approved tool." }]);
+  });
+
+  it("maps tools_not_listed and tool_declaration issues to validation_failed, in both shapes", async () => {
+    const { client } = setup([
+      contractErr(422, {
+        code: "validation_failed",
+        issues: [
+          { code: "tool_not_listed", path: "tool_names", tool: "brand.read", message: "x" },
+          { code: "tool_declaration", path: "allowed-tools[1]", message: "A tool is named from the catalog, never by a URL or path" },
+          { code: "string_pattern_mismatch", path: "body.display_name", message: "String should match pattern" },
+        ],
+      }),
+      err(422, { tools_not_listed: ["brand.read"] }),
+      err(422, { tool_declaration_errors: [{ path: "allowed-tools", message: "allowed-tools must be a list of tool names" }] }),
+    ]);
+    const a = (await client.publishSkill(ANA, "s1", publish).catch((x: unknown) => x)) as FastApiError;
+    expect(a.code).toBe("validation_failed");
+    expect(a.issues).toEqual([
+      { code: "tool_not_listed", path: "toolNames[0]", message: "SKILL.md declares brand.read; add it to the tool list." },
+      { code: "tool_declaration", path: "allowed-tools[1]", message: "A tool is named from the catalog, never by a URL or path" },
+      { code: "string_pattern_mismatch", path: "displayName", message: "String should match pattern" },
+    ]);
+    const b = (await client.publishSkill(ANA, "s1", publish).catch((x: unknown) => x)) as FastApiError;
+    expect(b).toMatchObject({ code: "validation_failed", issues: [{ code: "tool_not_listed", path: "toolNames[0]" }] });
+    const c = (await client.publishSkill(ANA, "s1", publish).catch((x: unknown) => x)) as FastApiError;
+    expect(c).toMatchObject({ code: "validation_failed", issues: [{ code: "tool_declaration", path: "allowed-tools" }] });
+  });
+
+  it("ignores a request ID that doesn't look like one", async () => {
+    const { client } = setup([contractErr(404, { code: "resource_not_accessible" }, "bad id\nwith newline")]);
+    const e = (await client.getSkill(ANA, "s1").catch((x: unknown) => x)) as FastApiError;
+    expect(e.context.requestId).toBeUndefined();
+  });
+
+  it("logs the service's request ID with the outcome", async () => {
+    const { client } = setup([contractErr(404, { code: "resource_not_accessible" })]);
+    await client.getSkill(ANA, "s1").catch(() => {});
+    expect(errors.mock.calls.flat().join(" ")).toContain("404 request fa-req-12345678");
+  });
+
+  it("reads the catalog revision on publish status and tool checks", async () => {
+    const { client } = setup([
+      ok({ operation_id: "op", status: "published", revision: "r", error: null, catalog_revision: "file-v1-abc" }),
+      ok({ valid: true, results: [{ name: "brand.read", approved: true, reason: "approved by catalog" }], catalog_revision: "file-v1-abc" }),
+    ]);
+    expect((await client.getPublishStatus(ANA, "s1", "op")).catalogRevision).toBe("file-v1-abc");
+    expect((await client.validateTools(ANA, ["brand.read"])).catalogRevision).toBe("file-v1-abc");
+  });
+
   it("refuses an answer over the size limit without retrying", async () => {
     const { client, sent } = setup([new TransportError("too_large"), ok({})]);
     await expect(client.listSkills(ANA)).rejects.toMatchObject({ status: 502, code: "dependency_unavailable" });
@@ -479,6 +566,7 @@ describe("the fake FastAPI (placeholder)", () => {
         { name: "shell.exec", approved: false, reason: "not in approved tool catalog" },
         { name: "brand.read", approved: false, reason: "duplicate" },
       ],
+      catalogRevision: "fake-v1",
     });
   });
 
