@@ -44,11 +44,16 @@ class ToolResult(BaseModel):
     name: str
     approved: bool
     reason: str
+    # Whether the catalog has an input schema for this tool (#510).
+    input_schema: bool = False
 
 
 class ToolValidationResponse(BaseModel):
     valid: bool
     results: list[ToolResult]
+    # Which catalog this was checked against (#510).
+    catalog_revision: str = ''
+
 
 
 class DraftIssue(BaseModel):
@@ -72,3 +77,5 @@ class PublishStatus(BaseModel):
     revision: str | None = None
     registry_operation: str | None = None
     error: str | None = None
+    # The tool catalog revision this publish was validated against (#510).
+    catalog_revision: str | None = None
