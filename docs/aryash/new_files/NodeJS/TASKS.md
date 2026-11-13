@@ -59,4 +59,4 @@
 
 ## Running a task
 
-Start Claude Code with this task file, frozen scope, schema map, API contracts and actual repository. After completion record tests and artifacts; move to the next task only when its dependencies are satisfied. No agent/ADK work in this pack.
+Start Claude Code with this task file, frozen scope, schema map, API contracts and actual repository. After completion record tests and artifacts; move to the next task only when its dependencies are satisfied. ADK runtime work is in `../ADK/TASKS.md`; FastAPI dispatches but never generates image bytes directly.

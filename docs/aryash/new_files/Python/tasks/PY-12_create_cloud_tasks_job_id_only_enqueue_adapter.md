@@ -1,27 +1,20 @@
 # PY-12 — Create Cloud Tasks job-ID-only enqueue adapter
 
-> **Claude Code — atomic implementation prompt.** The team reports `NJS-01..08` and `PY-01..04` are already done; **do not recreate them**. Read `../../01_FROZEN_SCOPE.md`, `../../Shared/02_SCHEMA_OWNERSHIP.md`, `../../Shared/03_API_CONTRACTS.md`, `../../Shared/05_SCHEMA_REVIEW.md` and `../../Environment/VARIABLE_MATRIX.md`, along with real repository `CLAUDE.md`, routes, models and tests. Implement only this task; preserve existing code conventions. No production deploy, destructive migrations, auto-commit or git push.
+> **Claude Code — one atomic task.** NJS-01..08 and PY-01..04 are completed; inspect and reuse. Read `../../01_FROZEN_SCOPE.md`, `../../Shared/02_SCHEMA_OWNERSHIP.md`, `../../Shared/03_API_CONTRACTS.md`, `../../Shared/06_COMPONENT_BOUNDARIES.md`, `../../Shared/05_SCHEMA_REVIEW.md` and the actual repo `CLAUDE.md`. Never auto-deploy, apply migrations, push, or expose secrets.
 
-**Status:** NEW — one-image, no-agent MVP.  **Dependencies:** PY-09,10; INF-11.
+**Status:** NEW — single-image ADK MVP.  **Depends on:** PY-09,10; INF-11.
 
-## Goal and exact stores
+**Exact approved schema references:** `job_admissions`. Do not invent tables or rename collections.
 
-Touch only: `job_admissions` (Cloud SQL).
+## Implement only this
+- [ ] Enqueue `{job_id}` with deterministic Cloud Tasks name and a configured Cloud Run worker URL.
+- [ ] Attach task OIDC service identity and audience; no browser/user token is copied.
+- [ ] Validate configured dispatch deadline and Task retry options within ADK worker execution limit.
 
-## Instructions to implement
+## Acceptance / tests
+- [ ] Task payload has job_id only; duplicate-name handling checked.
 
-- [ ] Create HTTP Cloud Task targeting private FastAPI worker URL with task service account OIDC ID token.
-- [ ] Send only job_id (plus fixed schema version if needed) in task body; read metadata from SQL/manifest.
-- [ ] Use deterministic named task for job; configure bounded retry/backoff from env.
-
-## Tests / proof of completion
-
-- [ ] Payload contains no user token, prompt or GCS locator.
-- [ ] Task request contains OIDC serviceAccountEmail + audience.
-
-## Acceptance and boundaries
-
-- Keep exact v8 entity/field names; do not add a new table/collection merely to make this task easier.
-- Reject cross-user access by server-derived `userKey`; `brandId` and future roles do not authorize reads/writes in this phase.
-- Do not implement ADK, MCP, agent tools, DAG execution, multi-image or RBAC enforcement. If behavior requires a future component, use a narrow interface/mocked dependency and document it.
-- Report: changed files, behavior, exact schema touched, tests run (with output), and remaining blockers. Never claim tests passed without running them.
+## Boundaries
+- **FastAPI calls ADK, not Vertex image generation. ADK owns model invocation and image artifacts.** No multi-node DAG, autonomous DAM search, multi-image, or RBAC enforcement.
+- Preserve `userKey` authorization, nullable `brandId` context only, attempt/fence rules, and exact v8 schemas.
+- Report changed files, verified commands/tests, schema affected, remaining blockers and next dependencies.

@@ -1,7 +1,7 @@
-# Prompt to hand to Claude Code for each task
+# Claude Code invocation (one task at a time)
 
-Open and follow `01_FROZEN_SCOPE.md`, `Shared/02_SCHEMA_OWNERSHIP.md`, `Shared/03_API_CONTRACTS.md` and `Shared/05_SCHEMA_REVIEW.md`. Inspect the current repository and `CLAUDE.md`; previous NJS-01..08 and PY-01..04 are already reported completed.
+Read `01_FROZEN_SCOPE.md`, `Shared/02_SCHEMA_OWNERSHIP.md`, `Shared/03_API_CONTRACTS.md`, `Shared/04_DEPENDENCY_WAVES.md`, `Shared/06_COMPONENT_BOUNDARIES.md` and `Shared/05_SCHEMA_REVIEW.md`. Inspect the actual repo and its `CLAUDE.md` before editing. NJS-01..08 and PY-01..04 have already been completed.
 
-**Implement ONLY this selected task:** `<relative/path/to/task.md>`
+**Implement ONLY:** `<relative/path/to/selected/task.md>`
 
-Use the exact v8 schema/table/collection names in the task. Do not change ADK/MCP/DAG/RBAC or run production deploys. Add tests and execute them. At the end report existing behavior, exact files changed, database names touched, commands/test results, and blockers/decisions. Do not work on a second task unless asked.
+Critical: image generation belongs ONLY to ADK via Vertex AI. FastAPI handles Cloud Tasks, auth, SQL attempt fencing, ADK invocation and result verification; Node handles app authorization, admission, DAM, status and binary proxy. No DAG, autonomous agent DAM search, multi-image or RBAC enforcement. Use exact v8 physical names. No secrets in env examples. Do not deploy or alter production resources without approval. At completion show files, schema changes, test commands + output, risks, follow-on dependencies. Do not continue to other tasks without instruction.

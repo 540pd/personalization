@@ -1,29 +1,34 @@
-# GCOS One-image MVP — frozen task constraints
+# GCOS Personalization — frozen scope: one-image MVP WITH ADK
 
-**Source precedence:** v8 data model and v8 ERD govern physical schema / collection / field names; updated v5 architecture governs BFF / FastAPI / Cloud Tasks flows; current user instructions override both for implementation phase. Existing environment inventory is a historical snapshot, **not evidence that a Python repository already exists**.
+## Reference precedence and existing work
+- Latest user direction overrides the previous no-agent interim plan: **ADK is the ONLY image-generation runtime**. FastAPI dispatches and invokes ADK; it NEVER calls image-generation models itself.
+- `References/GCOS_Modular_DAM_Data_Model_v8.md` and matching ERD govern exact schema names, types, nullable fields and one-to-one modular Firestore DAM documents. No invented tables or renaming.
+- `References/GCOS_Full_Architecture_v5.html` governs component boundaries. Unlike its future-looking multi-node/DAG labels, CURRENT run accepts ONE selected image node and ONE output slot.
+- `NJS-01..08` and `PY-01..04` are REPORTED COMPLETE. Inspect existing code first; migrate adapters where needed, don't redo them.
 
-## Completed; NEVER reissue or implement from scratch
-- NJS-01 through NJS-08: Google ID verification, immutable userKey/identity, opaque sessions, CSRF, idempotency, Playspace lock, ownership/lineage, signed FastAPI client — **reported completed by team**. Rewire existing code to Cloud SQL where v8 requires, without changing behavior.
-- PY-01 through PY-04: Skills CRUD, Registry publish, tool catalog validation and AI Skill helper — **reported completed by team**. Preserve and integrate.
-
-## In scope NOW
-- One user-selected image node per Run; **exactly one generated image** (slot index **0**, provisional integration convention, adapt if repo has an approved index convention).
-- Node Cloud Run BFF: authenticated userKey access, Cloud SQL transactional app state, Firestore modular DAM, single private GCS bucket, BigQuery status read, secure image stream, feedback capture.
-- Python FastAPI Cloud Run: small single-run dispatcher, Cloud Tasks enqueue/job-ID only, OIDC worker handler, SQL lease/fence, **direct non-agent Vertex AI generation of one image**, create-only output GCS and BigQuery events.
-- Store roles, grants and approval fields as schema data only. `brandId` nullable context, **not authorization**. Authorization in this MVP is by authenticated `userKey`.
+## IN scope NOW
+- Node BFF: existing Google Sign-In/opaque sessions, userKey ownership, Cloud SQL transactions, single-image Run admission, Firestore modular DAM upload/capture, GCS binary proxy, BigQuery job+slot polling, Skills references, feedback.
+- FastAPI on private Cloud Run: Skills APIs already built; one-image dispatcher, Cloud Tasks enqueue, OIDC task handler, Cloud SQL lease/attempt and board-lock handling, authenticated call to deployed **ADK runtime**, safe completion verification and error classification.
+- ADK custom runtime deployed to Google Agent Runtime / Agent Engine as indicated in architecture (local test adapter first); one Playspace session, constrained Plan agent, prompt/Skills/guardrails, **one image call through Vertex AI**, verification, artifact IO through run-scoped MCP, deterministic events and usage. Prefer explicit bounded steps over open-ended autonomous loops.
+- MCP Toolbox: **Artifact reader/writer and BigQuery event writer** only. Implement as run-scoped tools; do not allow arbitrary object or table names. Application-controlled events MUST be emitted deterministically; LLM may not opt out of mandatory writes.
+- Cloud SQL for exact 16 transactional tables; Firestore for exact 17 modular DAM collections; BigQuery for `job_events`, `slot_events`, `job_analytics` and logical views `v_job_latest`,`v_slot_ready`; ONE private GCS asset bucket using `input/`, `output/` prefixes.
+- Brand and role fields persisted as in v8, `brandId` nullable; **`userKey` is current authorization principal**. Published Skill revisions remain ONLY in Agent Registry; Cloud SQL stores refs/summaries, never duplicates published Skill source.
 
 ## Explicitly OUT of scope
-- Custom Agent Runtime, Agent Engine, ADK, agent registry for new runtime agents, ADK sessions, MCP DAM search / Artifact MCP / BigQuery MCP, multi-agent planning, graph/DAG resolver, topological execution, multi-image generation.
-- RBAC evaluation, role permission enforcement, cross-user Brand sharing, new role-management endpoints, automatic creative preference learning.
-- Cloud Scheduler, standalone Reconciler, periodic recovery scan, a new database/table/collection for operational state without approval.
-- Node invoking Vertex AI for newly added generation route. Existing legacy Node code may be retained behind a clearly documented migration boundary; do not silently delete existing capabilities.
+- Multi-node DAG/graph resolver, topological dependencies, multiple image slots per Run (count=1 only).
+- **Agent-selected DAM references**, `dam.search_candidates` or autonomous Firestore DAM browsing. Explicit user-selected, Node-authorized asset IDs are allowed as Run inputs.
+- RBAC role enforcement, Brand-level shared access based solely on brandId, role administration, automatic user preference learning.
+- Cloud Scheduler, standalone Reconciler, periodic job sweeps; do not claim Cloud Tasks rescues acknowledged stuck work.
+- Node/FastAPI direct Vertex image-generation calls; temporary Python direct-generation adapter from old v8 plan is REMOVED.
 
-## Important phase adapter
-The architecture diagram shows ADK/MCP producing images/events. **Only for this interim phase**, direct Python worker code takes responsibility for the same output and event contracts. Future ADK can replace the worker implementation later without changing approved GCS/SQL/BQ contracts. This is a deliberate temporary deviation and MUST be labeled in code/docs.
+## Safety and failure invariants
+- Cloud Tasks authenticates to FastAPI Worker with Google-signed OIDC ID token; Node→FastAPI uses separate service OIDC. Browser sends neither service token nor GCS credentials.
+- FastAPI Cloud SQL claim/renew/finalize owns attempt+lease fence. ADK/MCP write tools must validate an *authoritative* attempt/lease before accepting canonical output/event; avoid TOCTOU (read-then-write without atomic commit).
+- GCS create-only objects live in **attempt-scoped paths**. ADK gets a validated narrow input/output allowlist, never arbitrary paths. `slot_ready` is published only after object generation/bytes verified and accepted by current SQL attempt; Node crosschecks SQL fence when reading BQ.
+- Deterministic event IDs and replay-safe handling. BQ primary keys are not enforced. No automatic model re-invocation when request outcome is uncertain; bounded invocation and max-call limits.
+- **Do not return Cloud Tasks HTTP 2xx until durable terminal job state is committed.** HTTP target max dispatch deadline is 30 min; configure job/runtime limits within that ceiling. Retries happen only for failed/unacknowledged tasks.
+- Never perform a network call inside a Cloud SQL transaction; DB state plus external writes need safe idempotent protocol. Any gap requiring a new durable state store must be raised for approval rather than invented.
+- Maintain complete production auth and privacy controls. Task files are prompts, NOT deployment permission. Do not apply IAM, migrations, deploys or destructive changes without operator review/approval.
 
-## Execution safety and review stops
-- Cloud SQL is authoritative for user/session/admission/board lock/worker fence; Firestore is authoritative for DAM modular metadata; BigQuery for append-only job/slot/analytics events; GCS for immutable bytes/manifest; published Skills stay in Agent Registry.
-- No network call inside SQL transaction. Firestore and SQL/BQ/GCS writes are not cross-service atomic. Idempotent retries + stable IDs required.
-- Cloud Tasks retries **failed/unacknowledged HTTP deliveries**, but does not discover successfully acknowledged stuck jobs. Never acknowledge 2xx before durable terminal completion, and never automatically repeat a Vertex call after an ambiguous timeout. Retry exhaustion needs operations handling.
-- Missing or ambiguous source contract is logged in `Shared/05_SCHEMA_REVIEW.md`; don't silently invent/rename physical fields or migrate data destructively. Adapt `slot_index=0` if approved code differs.
-- Every task: inspect `CLAUDE.md`, current code, repo conventions, migrations/tests before modifications; implement only task; run tests; report changed files, commands/results, remaining blockers. No push, production deployment or schema migration without approval.
+## Implementation discipline
+Every Claude Code task: inspect actual repository and `CLAUDE.md`, implement only selected task, run relevant tests, list changed files, exact schema touched and blockers. If a spec is unconfirmed or a provider SDK API has moved, verify current official SDK/docs and propose the narrowest compliant adaptation before coding. No auto-commit/push.

@@ -1,29 +1,25 @@
-# Environment variable map / ownership
+# v9 environment configuration matrix — proposed names are NOT verified implemented settings
 
-**Evidence:** `References/Existing_Environment_Inventory.md` reports actual names from an earlier checked-out frontend and Node service; it explicitly states no FastAPI service was in that checkout. Names below marked **PROPOSED** are a plan, not evidence of present implementation. Claude Code must inspect the real repository before writing config.
+Names below are intentionally sanitized and must be reconciled with actual code. Do not copy real secrets, static tokens or service-account JSON into the repository. On Cloud Run/Agent Runtime use service identities and ADC. See `References/Existing_Environment_Inventory.md` for historical Node/frontend variables, which are not guaranteed to be current.
 
-| Variable(s) | Owner | Status | Secret? | Reason |
+| Key | Component | Purpose | Status | Secret? |
 |---|---|---|---|---|
-| `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID`, `BACKEND_URL`, `NEXT_PUBLIC_UNDO_HISTORY_LIMIT` | Next.js | EXISTING | No | Sign-in/proxy/canvas |
-| `GOOGLE_OAUTH_CLIENT_ID`, `ALLOWED_ORIGINS`, `ALLOWED_EMAIL_DOMAINS`, `PORT` | Node | EXISTING | No | Existing BFF auth/server |
-| `SESSION_SECRET` | Node | EXISTING NAME; verify completed opaque-session implementation | **Yes** | Session protection; Secret Manager |
-| `FIRESTORE_PROJECT_ID`, `GCS_BUCKET_NAME` | Node | EXISTING | No | Current client configuration; one bucket |
-| `LOCAL_DATA_DIR`, `FIRESTORE_EMULATOR_HOST`, `STORAGE_EMULATOR_HOST` | Node/local | EXISTING OPTIONAL | No | Dev fallback/emulators |
-| `LOCAL_STORAGE_DIR` | Node | CONFIGURED BUT UNUSED in supplied inventory | No | Do not rely on it |
-| `VERTEX_PROJECT_ID`, `VERTEX_LOCATION` | Node legacy | EXISTING in old checkout; new Run must not use | No | Legacy capability only until migrated |
-| `CLOUD_TASKS_QUEUE`, `CLOUD_TASKS_SERVICE_ACCOUNT`, `JOBS_WORKER_URL` | Old Node video worker | EXISTING names in old source, absent values | No | Do not repurpose blindly; new dispatcher is Python |
-| `FASTAPI_BASE_URL` | Node | PROPOSED | No | OIDC service-client destination |
-| `CLOUD_SQL_INSTANCE_CONNECTION_NAME`, `CLOUD_SQL_DATABASE`, `CLOUD_SQL_USER` | Node/Python | PROPOSED | No | SQL connection |
-| `CLOUD_SQL_PASSWORD` | Node/Python | PROPOSED | **Yes** | Only if password auth used; Secret Manager |
-| `BIGQUERY_PROJECT_ID`, `BIGQUERY_DATASET` | Node/Python | PROPOSED | No | Event reads/writes |
-| `GOOGLE_CLOUD_PROJECT`, `GCP_REGION`, `VERTEX_IMAGE_MODEL_ID`, `VERTEX_LOCATION` | Python | PROPOSED | No | Vertex non-agent execution |
-| `WORKER_OIDC_AUDIENCE`, `NODE_INVOKER_SERVICE_ACCOUNT`, `FASTAPI_WORKER_SERVICE_ACCOUNT` | Python | PROPOSED | No | Strict invoker service identities |
-| `WORKER_LEASE_SECONDS`, `WORKER_HEARTBEAT_SECONDS`, `JOB_TIMEOUT_SECONDS`, `MODEL_TIMEOUT_SECONDS` | Python | PROPOSED | No | Worker execution budgets |
-| `SINGLE_IMAGE_OUTPUT_COUNT`, `MOCK_VERTEX` | Python | PROPOSED | No | One-image limit; local mock only |
-| `K_SERVICE`, `NODE_ENV`, `VITEST` | Platform/toolchain | PLATFORM MANAGED | No | Do not set as credentials |
+| `BACKEND_URL`, `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` | frontend | current backend proxy + user Google Sign-in | existing in previous checkout | no |
+| `GOOGLE_OAUTH_CLIENT_ID`, `SESSION_SECRET` | Node | session and Google ID verification | existing | `SESSION_SECRET` yes |
+| `FIRESTORE_PROJECT_ID`, `GCS_BUCKET_NAME` | Node | modular DAM and one asset bucket | existing, values environment-dependent | no |
+| `FASTAPI_BASE_URL` | Node | private control plane target | proposed | no |
+| `CLOUD_SQL_INSTANCE_CONNECTION_NAME`, `CLOUD_SQL_DATABASE`, `CLOUD_SQL_USER` | Node, FastAPI and fenced MCP gateway | SQL PostgreSQL connection | proposed | no |
+| `CLOUD_SQL_PASSWORD` | SQL services when password auth is used | credential from Secret Manager only | proposed | YES |
+| `CLOUD_TASKS_QUEUE`, `CLOUD_TASKS_SERVICE_ACCOUNT`, `JOBS_WORKER_URL` | FastAPI dispatcher | task enqueue / OIDC / worker target | proposed for Python; current Node repo may use keys for other jobs | no |
+| `WORKER_OIDC_AUDIENCE` | FastAPI | validate Cloud Tasks identity | proposed | no |
+| `ADK_AGENT_RUNTIME_RESOURCE`, `ADK_RUNTIME_LOCATION` | FastAPI + ADK deploy | locate managed deployed runtime | proposed | no |
+| `ADK_INVOKE_AUDIENCE`, `ADK_REQUEST_TIMEOUT_SECONDS`, `MOCK_ADK` | FastAPI | authorized ADK invocation and local mock | proposed | no |
+| `ADK_SESSION_SERVICE_RESOURCE` | ADK | managed Playspace session service | proposed | no |
+| `VERTEX_PLAN_MODEL_ID`, `VERTEX_IMAGE_MODEL_ID`, `VERTEX_LOCATION` | **ADK only** | model selection and region | proposed, verify model availability | no |
+| `MCP_TOOL_SERVER_URL`, `MCP_TOOL_AUDIENCE` | ADK | private artifact/event tools | proposed | no |
+| `MCP_ALLOWED_TOOLS` | MCP server | allowlisted three tool operations; NO DAM-search | proposed | no |
+| `BIGQUERY_PROJECT_ID`, `BIGQUERY_DATASET` | BFF/read, MCP/write | status/events analytics | proposed | no |
+| `WORKER_LEASE_SECONDS`, `WORKER_HEARTBEAT_SECONDS` | FastAPI | SQL attempts/fencing | proposed | no |
+| `MODEL_TIMEOUT_SECONDS`, `ADK_IMAGE_MAX_CALLS`, `ADK_PLAN_MAX_CALLS` | ADK | cap cost, latency and retries | proposed | no |
 
-## Rules
-- Use ADC locally and attached Cloud Run service account in deployed services, no service-account JSON key in repository.
-- Never place real DB password, SESSION_SECRET or access token in the `.example` files.
-- Existing `SESSION_SECRET` and Google OAuth setup should not be silently overwritten just because inventory mentions an old JWT implementation.
-- For production, verify runtime enforces config and disables anonymous/mock modes.
+**Separation invariant:** ADK is the **only** caller of image-generation APIs for the new Run flow. FastAPI has no `VERTEX_IMAGE_MODEL_ID` requirement. Existing legacy Node model keys in source may be preserved only for unrelated preexisting features, never used by new Run endpoint.

@@ -1,44 +1,46 @@
-# Shared MVP integration contracts (proposed, verify existing routes)
+# Shared cross-service contracts — one image via ADK (v9)
 
-No externally visible URL is asserted as already implemented. Reuse existing route shape when present; these are stable semantic contracts for Claude Code to follow.
+Inspect existing repository routes before choosing URL names. These are semantic contracts, not assertions that endpoints already exist.
 
-| Operation | Owner | Contract / authorization |
+| Operation | Owning code | Input → output |
 |---|---|---|
-| Create/list/edit board | Node | `boards` + `board_content`, userKey from session, CAS revision |
-| Upload input asset | Node | reserve/verify `input/` GCS; create `dam_assets` + `dam_asset_files` + matching typed detail/state |
-| Start single-image Run | Node | stable job_id; userKey/boardId/nodeId; count=1; NJS-05/06 reused |
-| Dispatcher API | Python | private Node service OIDC → look up `job_admissions`/GCS manifest; task payload **job_id only** |
-| Worker endpoint | Python | private Cloud Tasks OIDC identity → SQL lease/fence → Python Vertex → output GCS → BQ events |
-| Job progress | Node | query `v_job_latest` and `v_slot_ready` after SQL userKey ownership check; 3-5s browser polling |
-| Output binary | Node | verified `slot_ready` + exact GCS generation; authenticated stream |
-| Save/Like/Dislike | Node | idempotent Firestore capture + `asset_feedback`; no extra AI call or GCS image copy |
+| Board + campaign + Skills selection | Node | authenticated userKey; Cloud SQL board/campaign; pinned Agent Registry refs; no agent DAM search |
+| Start Run (count=1) | Node | validated boardId, nodeId, explicit input asset IDs + prompt → stable job_id, immutable manifest in `input/` |
+| Private dispatch | FastAPI | Node service OIDC + job_id → validate SQL + GCS manifest, enqueue Cloud Task payload `{job_id}` |
+| Cloud Tasks worker | FastAPI | task OIDC + `{job_id}` → SQL lease claim/renew, pinned attempt/fence, invoke ADK, verify receipt, terminal commit |
+| ADK invocation | ADK Agent Runtime | run_id, userKey, boardId, manifest locator+generation, attempt_no, lease_fence, scoped tool claims, session ID → typed one-image result or classified error |
+| ADK execution | ADK | approved single-node prompt/Skills/guardrails → Vertex AI one-image output; input/output bytes only through MCP artifact tool |
+| Artifact tool | Restricted MCP | verified manifest allowlisted handle → input bytes; approved `output/users/{userKey}/runs/{jobId}/attempts/{attemptNo}/nodes/{nodeId}/slots/0.ext` → create-only image GCS receipt |
+| Event tool | Restricted MCP | stable `event_id`, job/attempt/fence + validated locator/metadata → BQ job/slot/usage events; SQL attempt acceptance guard |
+| Status | Node | SQL userKey authorization + bounded BigQuery `v_job_latest` and `v_slot_ready` → job JSON, one accepted slot |
+| Image | Node | SQL authorization + accepted `slot_ready` (fence checked) → authenticated stream of exact GCS generation |
+| DAM capture and feedback | Node | save/like/dislike on accepted slot → modular Firestore DAM docs + `asset_feedback`, never copy image bytes |
 
-## One-image manifest example (illustrative, **not** a new physical schema)
+## Example minimal one-slot manifest (illustrative, not new physical table)
 ```json
 {
-  "schemaVersion": 1,
-  "jobId": "job_example",
-  "userKey": "user_example",
-  "brandId": null,
-  "boardId": "board_example",
-  "briefId": null,
-  "promptSnapshot": "Replace the background while preserving the product label.",
-  "inputAssetHandles": [{"assetId": "asset_example", "role": "main_image"}],
-  "outputReservations": [{"nodeId": "node_example", "slotIndex": 0, "objectTemplate": "output/users/user_example/runs/job_example/attempts/{attemptNo}/nodes/node_example/slots/0.png"}],
-  "selectedSkillRevisions": [],
-  "mcpToolAllowlist": [],
-  "limits": {"imageCount": 1},
-  "createdAt": "2026-11-13T00:00:00Z"
+  "schemaVersion":1,
+  "jobId":"job_example",
+  "userKey":"user_example",
+  "brandId":null,
+  "boardId":"board_example",
+  "briefId":null,
+  "promptSnapshot":"Replace the background while preserving the logo.",
+  "inputAssetHandles":[{"assetId":"asset_example","role":"main_image"}],
+  "outputReservations":[{"nodeId":"node_example","slotIndex":0,"objectTemplate":"output/users/user_example/runs/job_example/attempts/{attemptNo}/nodes/node_example/slots/0.png"}],
+  "selectedSkillRevisions":[],
+  "mcpToolAllowlist":["artifact.fetch_input","artifact.write_output","events.write"],
+  "limits":{"imageCount":1},
+  "createdAt":"2026-11-13T00:00:00Z"
 }
 ```
+`objectTemplate` is only an illustrative internal reservation shape: adapt to the already-approved concrete representation. `mcpToolAllowlist` is ACTIVE in this phase; `dam.search_candidates` is NOT included. User-facing authorization is always based on server-derived userKey; optional brandId is not an access grant.
 
-**Contract clarification:** v8 does not define an `objectTemplate` name inside reservation; adapt to existing reserved-output object shape, preserving a single approved output path. Empty `mcpToolAllowlist` is a dormant compatibility field: **no MCP tools run now**. Python writes direct to GCS temporarily. The example is synthetic and contains no real identifiers.
+## Critical commit order
+1. Node creates SQL job admission and immutable manifest, validated handles; Python enqueues ID only.
+2. FastAPI task handler claims *authoritative* SQL attempt/fence; calls ADK once for that attempt.
+3. ADK/authorized tool validates exact current fence; writes to unique attempt-scoped GCS path with create-only precondition; verifies generation/size/MIME.
+4. Deterministic event writer checks authoritative fence and publishes stable `slot_ready` ID. Store/read idempotently; no BigQuery uniqueness guarantee. BFF crosschecks current SQL attempt/fence before delivery.
+5. FastAPI ensures durable completion and finalizes SQL + board lock before 2xx acknowledgement. If ADK timed out ambiguously, never auto-generate a second image.
 
-## Cross-service invariants
-- Node creates/owns stable job_id, assetId and authorized output slot. SQL job admission must exist before Python enqueues.
-- FastAPI never trusts body userKey alone. It authenticates caller and verifies job_id / user_key through SQL & manifest.
-- Cloud Tasks invokes worker with its own OIDC SA, NOT the browser Google ID token. 2xx only after durable terminal completion.
-- Worker takes SQL attempt lease; stale attempt cannot commit SQL state or canonical BQ ready record.
-- GCS output generation is written once and stored in BigQuery slot_events; only after slot_ready may Node stream.
-- BigQuery is an append-only event log, not lock authority; stable event_id and dedup in query/derived state required. BFF must cross-check BQ slot attempt/fence against authoritative SQL job admission before showing ready data; a SQL precheck and BQ insert are not atomic.
-- Role and approval fields may be populated but no RBAC enforcement in this iteration.
+No multi-node DAG. No autonomous DAM asset selection. No LLM-driven decision to record required state events. Cloud Tasks has up to a 30-minute HTTP dispatch deadline; keep request execution below this or explicitly approve a different durable completion protocol.
