@@ -1,6 +1,6 @@
 """Minimal transactional ownership/quota/idempotency metadata; no published Skill bodies."""
 import hashlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 
 MAX_SKILLS_PER_OWNER = 5
@@ -13,6 +13,12 @@ def stamp():
     return datetime.now(timezone.utc).isoformat()
 
 
+def expire_at(days: int) -> datetime:
+    """When a finished operation may be deleted (#508). Only a Firestore TTL
+    policy reads it: no code decides anything from it."""
+    return datetime.now(timezone.utc) + timedelta(days=days)
+
+
 def key_for(owner: str, slug: str) -> str:
     return f'{hashlib.sha256(owner.encode()).hexdigest()[:12]}-{slug}'
 
@@ -23,9 +29,10 @@ def operation_key(owner: str, skill: str, key: str) -> str:
 
 class FirestoreStore:
     """Transactions span metadata only; Registry calls occur strictly outside transactions."""
-    def __init__(self, project_id: str):
+    def __init__(self, project_id: str, retention_days: int = 30):
         from google.cloud import firestore
         self.db = firestore.Client(project=project_id)
+        self.retention_days = retention_days
 
     def _quota_ref(self, owner: str):
         return self.db.collection('skill_quotas').document(owner)
@@ -189,7 +196,7 @@ class FirestoreStore:
                 raise HTTPException(409, detail='Publish fencing mismatch')
             quota = quota_doc.to_dict() if quota_doc.exists else {}
             updated_total = quota.get('publishedBytes', 0) + op['rawBytes'] - skill.get('latestRawBytes', 0)
-            tx.update(op_ref, {'status': 'published', 'updatedAt': stamp()})
+            tx.update(op_ref, {'status': 'published', 'updatedAt': stamp(), 'expireAt': expire_at(self.retention_days)})
             tx.update(skill_ref, {
                 'latestPublishedRevision': op['revision'],
                 'latestRawBytes': op['rawBytes'], 'activePublishOp': None,
@@ -202,7 +209,9 @@ class FirestoreStore:
             })
         work(txn)
 
-    def fail_operation(self, row: dict, error: str):
+    def fail_operation(self, row: dict, error: str) -> bool:
+        """Fails a running operation, releasing its lock and reserved bytes.
+        False when it had already finished (nothing changed)."""
         from google.cloud import firestore
         op_ref = self.db.collection('skill_publish_requests').document(row['operationId'])
         skill_ref = self.db.collection('skill_ownership').document(row['skillId'])
@@ -215,29 +224,36 @@ class FirestoreStore:
             op_doc = op_ref.get(transaction=tx)
             quota_doc = quota_ref.get(transaction=tx)
             if not op_doc.exists:
-                return
+                return False
             op = op_doc.to_dict()
             if op.get('status') in ('failed', 'published'):
-                return
+                return False
             quota = quota_doc.to_dict() if quota_doc.exists else {}
             if skill_doc.exists and skill_doc.to_dict().get('activePublishOp') == row['operationId']:
                 tx.update(skill_ref, {'activePublishOp': None})
-            tx.update(op_ref, {'status': 'failed', 'error': error, 'updatedAt': stamp()})
+            tx.update(op_ref, {'status': 'failed', 'error': error, 'updatedAt': stamp(), 'expireAt': expire_at(self.retention_days)})
             tx.set(quota_ref, {
                 'skillCount': quota.get('skillCount', 0),
                 'publishedBytes': quota.get('publishedBytes', 0),
                 'reservedDeltaBytes': max(0, quota.get('reservedDeltaBytes', 0) - op.get('reservedDeltaBytes', 0)),
             })
-        work(txn)
+            return True
+        return work(txn)
+
+    def record_audit(self, row: dict):
+        """An operator action on a publish operation (#508)."""
+        self.db.collection('skill_publish_audit').add(row)
 
 
 class MemoryStore:
     """Test double only - no persistence or multi-instance isolation."""
-    def __init__(self):
+    def __init__(self, retention_days: int = 30):
         self.skills = {}
         self.ops = {}
         self.quotas = {}
         self.drafts = {}
+        self.audit = []
+        self.retention_days = retention_days
 
     def _quota(self, owner):
         return self.quotas.setdefault(owner, {'skillCount': 0, 'publishedBytes': 0, 'reservedDeltaBytes': 0})
@@ -321,13 +337,18 @@ class MemoryStore:
         quota['publishedBytes'] += op['rawBytes'] - skill.get('latestRawBytes', 0)
         quota['reservedDeltaBytes'] -= op['reservedDeltaBytes']
         op['status'] = 'published'
+        op['expireAt'] = expire_at(self.retention_days)
         skill.update(latestPublishedRevision=row['revision'], latestRawBytes=op['rawBytes'], activePublishOp=None, status='published')
 
-    def fail_operation(self, row: dict, error: str):
+    def fail_operation(self, row: dict, error: str) -> bool:
         op = self.ops[row['operationId']]
         if op['status'] in ('failed', 'published'):
-            return
+            return False
         self._quota(row['ownerKey'])['reservedDeltaBytes'] -= op['reservedDeltaBytes']
-        op.update(status='failed', error=error)
+        op.update(status='failed', error=error, expireAt=expire_at(self.retention_days))
         if self.skills[row['skillId']].get('activePublishOp') == row['operationId']:
             self.skills[row['skillId']]['activePublishOp'] = None
+        return True
+
+    def record_audit(self, row: dict):
+        self.audit.append(dict(row))

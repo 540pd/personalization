@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # `registry` (placeholder: fails closed until the Registry catalog exists).
     catalog_source: str = 'file'
     catalog_cache_seconds: float = 60
+    # Stuck publishes (#508). Placeholders until agreed.
+    publish_upload_deadline_seconds: float = 900   # one that never reached the Registry fails after this
+    publish_operation_retention_days: int = 30     # finished operations get expireAt for a Firestore TTL policy
     dev_bypass_auth: bool = False
 
     @property
