@@ -1,0 +1,1034 @@
+[
+  {
+    "id": "NJS-09",
+    "title": "Inventory completed BFF code and identify Cloud SQL migration seams",
+    "path": "NodeJS/tasks/NJS-09_inventory_completed_bff_code_and_identify_cloud_sql_migration_seams.md",
+    "depends_on": "NJS-01..08 completed",
+    "schema": [
+      "users",
+      "identity_links",
+      "login_sessions",
+      "idempotency_keys",
+      "board_runtime",
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "NJS-10",
+    "title": "Add Cloud SQL PostgreSQL connection pool and transaction helper",
+    "path": "NodeJS/tasks/NJS-10_add_cloud_sql_postgresql_connection_pool_and_transaction_helper.md",
+    "depends_on": "NJS-09; INF-04",
+    "schema": [
+      "users"
+    ]
+  },
+  {
+    "id": "NJS-11",
+    "title": "Adapt existing user and identity-link persistence to Cloud SQL",
+    "path": "NodeJS/tasks/NJS-11_adapt_existing_user_and_identity_link_persistence_to_cloud_sql.md",
+    "depends_on": "NJS-10; NJS-01,02 done",
+    "schema": [
+      "users",
+      "identity_links"
+    ]
+  },
+  {
+    "id": "NJS-12",
+    "title": "Adapt existing opaque session persistence to Cloud SQL",
+    "path": "NodeJS/tasks/NJS-12_adapt_existing_opaque_session_persistence_to_cloud_sql.md",
+    "depends_on": "NJS-10; NJS-03 done",
+    "schema": [
+      "login_sessions",
+      "users"
+    ]
+  },
+  {
+    "id": "NJS-13",
+    "title": "Move existing idempotency repository to SQL without changing API",
+    "path": "NodeJS/tasks/NJS-13_move_existing_idempotency_repository_to_sql_without_changing_api.md",
+    "depends_on": "NJS-10; NJS-05 done",
+    "schema": [
+      "idempotency_keys",
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "NJS-14",
+    "title": "Move Playspace concurrency lock into board_runtime SQL transaction",
+    "path": "NodeJS/tasks/NJS-14_move_playspace_concurrency_lock_into_board_runtime_sql_transaction.md",
+    "depends_on": "NJS-10; NJS-06 done",
+    "schema": [
+      "board_runtime",
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "NJS-15",
+    "title": "Centralize authenticated userKey, nullable brandId and API validation",
+    "path": "NodeJS/tasks/NJS-15_centralize_authenticated_userkey_nullable_brandid_and_api_validation.md",
+    "depends_on": "NJS-11,12",
+    "schema": [
+      "users",
+      "boards"
+    ]
+  },
+  {
+    "id": "NJS-16",
+    "title": "Implement Playspace board create/list/get endpoints",
+    "path": "NodeJS/tasks/NJS-16_implement_playspace_board_create_list_get_endpoints.md",
+    "depends_on": "NJS-10,15",
+    "schema": [
+      "boards"
+    ]
+  },
+  {
+    "id": "NJS-17",
+    "title": "Read board_content and normalize legacy canvas snapshot aliases",
+    "path": "NodeJS/tasks/NJS-17_read_board_content_and_normalize_legacy_canvas_snapshot_aliases.md",
+    "depends_on": "NJS-16",
+    "schema": [
+      "board_content",
+      "boards"
+    ]
+  },
+  {
+    "id": "NJS-18",
+    "title": "Save canvas content with optimistic revision CAS",
+    "path": "NodeJS/tasks/NJS-18_save_canvas_content_with_optimistic_revision_cas.md",
+    "depends_on": "NJS-17",
+    "schema": [
+      "board_content",
+      "boards"
+    ]
+  },
+  {
+    "id": "NJS-19",
+    "title": "Support board archive, reopen activity and active brief association",
+    "path": "NodeJS/tasks/NJS-19_support_board_archive_reopen_activity_and_active_brief_association.md",
+    "depends_on": "NJS-16,21",
+    "schema": [
+      "boards",
+      "campaign_briefs"
+    ]
+  },
+  {
+    "id": "NJS-20",
+    "title": "Brand settings CRUD with exact SQL fields and revisions",
+    "path": "NodeJS/tasks/NJS-20_brand_settings_crud_with_exact_sql_fields_and_revisions.md",
+    "depends_on": "NJS-10,15",
+    "schema": [
+      "brand_settings"
+    ]
+  },
+  {
+    "id": "NJS-21",
+    "title": "Campaign brief create/list/get/update with snapshot-safe schema",
+    "path": "NodeJS/tasks/NJS-21_campaign_brief_create_list_get_update_with_snapshot_safe_schema.md",
+    "depends_on": "NJS-10,15",
+    "schema": [
+      "campaign_briefs"
+    ]
+  },
+  {
+    "id": "NJS-22",
+    "title": "Validate campaign referenceAssetIds and board links",
+    "path": "NodeJS/tasks/NJS-22_validate_campaign_referenceassetids_and_board_links.md",
+    "depends_on": "NJS-21,27",
+    "schema": [
+      "campaign_briefs",
+      "asset_links",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-23",
+    "title": "Persist Skill Registry metadata links in Cloud SQL",
+    "path": "NodeJS/tasks/NJS-23_persist_skill_registry_metadata_links_in_cloud_sql.md",
+    "depends_on": "NJS-10; PY-01..04 done",
+    "schema": [
+      "skill_registry_links"
+    ]
+  },
+  {
+    "id": "NJS-24",
+    "title": "Create append-only SQL audit_events helper for BFF mutations",
+    "path": "NodeJS/tasks/NJS-24_create_append_only_sql_audit_events_helper_for_bff_mutations.md",
+    "depends_on": "NJS-10,15",
+    "schema": [
+      "audit_events"
+    ]
+  },
+  {
+    "id": "NJS-25",
+    "title": "Create typed Firestore DAM repository for canonical dam_assets",
+    "path": "NodeJS/tasks/NJS-25_create_typed_firestore_dam_repository_for_canonical_dam_assets.md",
+    "depends_on": "NJS-15; INF-07",
+    "schema": [
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-26",
+    "title": "Add one-to-one dam_asset_files GCS locator repository",
+    "path": "NodeJS/tasks/NJS-26_add_one_to_one_dam_asset_files_gcs_locator_repository.md",
+    "depends_on": "NJS-25",
+    "schema": [
+      "dam_asset_files",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-27",
+    "title": "Add one-to-one DAM classification repository",
+    "path": "NodeJS/tasks/NJS-27_add_one_to_one_dam_classification_repository.md",
+    "depends_on": "NJS-25",
+    "schema": [
+      "dam_asset_classification",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-28",
+    "title": "Add DAM lineage repository and controlled input provenance",
+    "path": "NodeJS/tasks/NJS-28_add_dam_lineage_repository_and_controlled_input_provenance.md",
+    "depends_on": "NJS-25",
+    "schema": [
+      "dam_asset_lineage",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-29",
+    "title": "Add DAM state repository with revision protection",
+    "path": "NodeJS/tasks/NJS-29_add_dam_state_repository_with_revision_protection.md",
+    "depends_on": "NJS-25",
+    "schema": [
+      "dam_asset_state",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-30",
+    "title": "Define shared typed DAM detail validation and repository interface",
+    "path": "NodeJS/tasks/NJS-30_define_shared_typed_dam_detail_validation_and_repository_interface.md",
+    "depends_on": "NJS-25",
+    "schema": [
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-31",
+    "title": "Implement canonical one-bucket input GCS path utility",
+    "path": "NodeJS/tasks/NJS-31_implement_canonical_one_bucket_input_gcs_path_utility.md",
+    "depends_on": "INF-08; NJS-15",
+    "schema": [
+      "gcs_input",
+      "gcs_object_properties"
+    ]
+  },
+  {
+    "id": "NJS-32",
+    "title": "Implement Firestore upload_reservations lifecycle",
+    "path": "NodeJS/tasks/NJS-32_implement_firestore_upload_reservations_lifecycle.md",
+    "depends_on": "NJS-25,31",
+    "schema": [
+      "upload_reservations"
+    ]
+  },
+  {
+    "id": "NJS-33",
+    "title": "Finalize GCS upload to modular Firestore asset records",
+    "path": "NodeJS/tasks/NJS-33_finalize_gcs_upload_to_modular_firestore_asset_records.md",
+    "depends_on": "NJS-26,29,32",
+    "schema": [
+      "dam_assets",
+      "dam_asset_files",
+      "dam_asset_state",
+      "upload_reservations"
+    ]
+  },
+  {
+    "id": "NJS-34",
+    "title": "Expose generic Playspace image upload route",
+    "path": "NodeJS/tasks/NJS-34_expose_generic_playspace_image_upload_route.md",
+    "depends_on": "NJS-33",
+    "schema": [
+      "dam_assets",
+      "upload_reservations"
+    ]
+  },
+  {
+    "id": "NJS-35",
+    "title": "Expose typed Assets-page upload route",
+    "path": "NodeJS/tasks/NJS-35_expose_typed_assets_page_upload_route.md",
+    "depends_on": "NJS-33,55..60",
+    "schema": [
+      "dam_assets",
+      "dam_product_images",
+      "dam_logos",
+      "dam_guidelines"
+    ]
+  },
+  {
+    "id": "NJS-36",
+    "title": "DAM listing API with pagination and user scope",
+    "path": "NodeJS/tasks/NJS-36_dam_listing_api_with_pagination_and_user_scope.md",
+    "depends_on": "NJS-25,29",
+    "schema": [
+      "dam_assets",
+      "dam_asset_state"
+    ]
+  },
+  {
+    "id": "NJS-37",
+    "title": "DAM detail GET including modular joins",
+    "path": "NodeJS/tasks/NJS-37_dam_detail_get_including_modular_joins.md",
+    "depends_on": "NJS-26,27,28,29,55..60",
+    "schema": [
+      "dam_assets",
+      "dam_asset_files",
+      "dam_asset_classification",
+      "dam_asset_lineage",
+      "dam_asset_state"
+    ]
+  },
+  {
+    "id": "NJS-38",
+    "title": "DAM metadata edit with CAS and no GCS rewrite",
+    "path": "NodeJS/tasks/NJS-38_dam_metadata_edit_with_cas_and_no_gcs_rewrite.md",
+    "depends_on": "NJS-37",
+    "schema": [
+      "dam_assets",
+      "dam_asset_classification",
+      "dam_asset_state"
+    ]
+  },
+  {
+    "id": "NJS-39",
+    "title": "Asset-to-consumer link creation/removal",
+    "path": "NodeJS/tasks/NJS-39_asset_to_consumer_link_creation_removal.md",
+    "depends_on": "NJS-25",
+    "schema": [
+      "asset_links",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-40",
+    "title": "Product sets create/update/read with master image membership",
+    "path": "NodeJS/tasks/NJS-40_product_sets_create_update_read_with_master_image_membership.md",
+    "depends_on": "NJS-30,39",
+    "schema": [
+      "product_sets",
+      "dam_assets",
+      "asset_links"
+    ]
+  },
+  {
+    "id": "NJS-41",
+    "title": "Authorized input-image binary proxy",
+    "path": "NodeJS/tasks/NJS-41_authorized_input_image_binary_proxy.md",
+    "depends_on": "NJS-26,36",
+    "schema": [
+      "dam_asset_files",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-42",
+    "title": "Validate single-image Run request DTO at BFF",
+    "path": "NodeJS/tasks/NJS-42_validate_single_image_run_request_dto_at_bff.md",
+    "depends_on": "NJS-15,18",
+    "schema": [
+      "boards",
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "NJS-43",
+    "title": "Preflight Run image handles, campaign and Skill revisions",
+    "path": "NodeJS/tasks/NJS-43_preflight_run_image_handles_campaign_and_skill_revisions.md",
+    "depends_on": "NJS-42,23,26",
+    "schema": [
+      "dam_assets",
+      "dam_asset_files",
+      "campaign_briefs",
+      "skill_registry_links"
+    ]
+  },
+  {
+    "id": "NJS-44",
+    "title": "Build immutable one-node, one-slot Run manifest",
+    "path": "NodeJS/tasks/NJS-44_build_immutable_one_node_one_slot_run_manifest.md",
+    "depends_on": "NJS-43",
+    "schema": [
+      "gcs_manifest",
+      "gcs_output"
+    ]
+  },
+  {
+    "id": "NJS-45",
+    "title": "Write Run manifest create-only to input/ GCS",
+    "path": "NodeJS/tasks/NJS-45_write_run_manifest_create_only_to_input_gcs.md",
+    "depends_on": "NJS-44,31",
+    "schema": [
+      "gcs_manifest",
+      "gcs_input"
+    ]
+  },
+  {
+    "id": "NJS-46",
+    "title": "Complete SQL job_admissions reservation lifecycle",
+    "path": "NodeJS/tasks/NJS-46_complete_sql_job_admissions_reservation_lifecycle.md",
+    "depends_on": "NJS-13,14,45",
+    "schema": [
+      "job_admissions",
+      "idempotency_keys",
+      "board_runtime"
+    ]
+  },
+  {
+    "id": "NJS-47",
+    "title": "Connect existing Node signed service client to single-run FastAPI dispatcher",
+    "path": "NodeJS/tasks/NJS-47_connect_existing_node_signed_service_client_to_single_run_fastapi_dispatcher.md",
+    "depends_on": "NJS-46; NJS-08 done; PY-08",
+    "schema": [
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "NJS-48",
+    "title": "BigQuery latest-status read API (user-scoped)",
+    "path": "NodeJS/tasks/NJS-48_bigquery_latest_status_read_api_user_scoped.md",
+    "depends_on": "NJS-46; INF-09,10",
+    "schema": [
+      "job_events",
+      "slot_events",
+      "bq_status_views"
+    ]
+  },
+  {
+    "id": "NJS-49",
+    "title": "Binary output delivery proxy from accepted slot_ready",
+    "path": "NodeJS/tasks/NJS-49_binary_output_delivery_proxy_from_accepted_slot_ready.md",
+    "depends_on": "NJS-48,41",
+    "schema": [
+      "slot_events",
+      "gcs_output"
+    ]
+  },
+  {
+    "id": "NJS-50",
+    "title": "Capture a ready generated output into modular DAM once",
+    "path": "NodeJS/tasks/NJS-50_capture_a_ready_generated_output_into_modular_dam_once.md",
+    "depends_on": "NJS-37,48,49",
+    "schema": [
+      "dam_assets",
+      "dam_asset_files",
+      "dam_asset_classification",
+      "dam_asset_lineage",
+      "dam_asset_state",
+      "slot_events"
+    ]
+  },
+  {
+    "id": "NJS-51",
+    "title": "Persist user Like/Dislike and favorite in asset_feedback",
+    "path": "NodeJS/tasks/NJS-51_persist_user_like_dislike_and_favorite_in_asset_feedback.md",
+    "depends_on": "NJS-50",
+    "schema": [
+      "asset_feedback",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-52",
+    "title": "Make save, feedback and DAM capture retry-safe across BQ/Firestore",
+    "path": "NodeJS/tasks/NJS-52_make_save_feedback_and_dam_capture_retry_safe_across_bq_firestore.md",
+    "depends_on": "NJS-50,51",
+    "schema": [
+      "asset_feedback",
+      "dam_asset_state",
+      "dam_asset_files"
+    ]
+  },
+  {
+    "id": "NJS-53",
+    "title": "Normalize API errors, correlation IDs and no-secret logging",
+    "path": "NodeJS/tasks/NJS-53_normalize_api_errors_correlation_ids_and_no_secret_logging.md",
+    "depends_on": "NJS-24,47,48",
+    "schema": [
+      "audit_events",
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "NJS-54",
+    "title": "Node end-to-end tests for upload \u2192 Run \u2192 output \u2192 feedback",
+    "path": "NodeJS/tasks/NJS-54_node_end_to_end_tests_for_upload_run_output_feedback.md",
+    "depends_on": "NJS-34..53",
+    "schema": [
+      "boards",
+      "job_admissions",
+      "dam_assets",
+      "asset_feedback"
+    ]
+  },
+  {
+    "id": "NJS-55",
+    "title": "Typed DAM details for productImage only",
+    "path": "NodeJS/tasks/NJS-55_typed_dam_details_for_productimage_only.md",
+    "depends_on": "NJS-30",
+    "schema": [
+      "dam_product_images",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-56",
+    "title": "Typed DAM details for logo only",
+    "path": "NodeJS/tasks/NJS-56_typed_dam_details_for_logo_only.md",
+    "depends_on": "NJS-30",
+    "schema": [
+      "dam_logos",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-57",
+    "title": "Typed DAM details for adaptFrom creative only",
+    "path": "NodeJS/tasks/NJS-57_typed_dam_details_for_adaptfrom_creative_only.md",
+    "depends_on": "NJS-30",
+    "schema": [
+      "dam_adapt_from",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-58",
+    "title": "Typed DAM details for styleExample only",
+    "path": "NodeJS/tasks/NJS-58_typed_dam_details_for_styleexample_only.md",
+    "depends_on": "NJS-30",
+    "schema": [
+      "dam_style_examples",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-59",
+    "title": "Typed DAM details for reference only",
+    "path": "NodeJS/tasks/NJS-59_typed_dam_details_for_reference_only.md",
+    "depends_on": "NJS-30",
+    "schema": [
+      "dam_references",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "NJS-60",
+    "title": "Typed DAM details for guidelines only",
+    "path": "NodeJS/tasks/NJS-60_typed_dam_details_for_guidelines_only.md",
+    "depends_on": "NJS-30",
+    "schema": [
+      "dam_guidelines",
+      "dam_assets"
+    ]
+  },
+  {
+    "id": "PY-05",
+    "title": "Attach new run router to completed FastAPI service",
+    "path": "Python/tasks/PY-05_attach_new_run_router_to_completed_fastapi_service.md",
+    "depends_on": "PY-01..04 completed",
+    "schema": [
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "PY-06",
+    "title": "Add typed Python environment configuration for MVP worker",
+    "path": "Python/tasks/PY-06_add_typed_python_environment_configuration_for_mvp_worker.md",
+    "depends_on": "PY-05; ENV templates",
+    "schema": [
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "PY-07",
+    "title": "Validate existing Node-to-FastAPI service identity",
+    "path": "Python/tasks/PY-07_validate_existing_node_to_fastapi_service_identity.md",
+    "depends_on": "PY-05; NJS-08 done",
+    "schema": [
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "PY-08",
+    "title": "Define single-image Run dispatch request and response contracts",
+    "path": "Python/tasks/PY-08_define_single_image_run_dispatch_request_and_response_contracts.md",
+    "depends_on": "PY-07; NJS-42,44",
+    "schema": [
+      "job_admissions",
+      "gcs_manifest"
+    ]
+  },
+  {
+    "id": "PY-09",
+    "title": "Read authorized job_admissions from Cloud SQL",
+    "path": "Python/tasks/PY-09_read_authorized_job_admissions_from_cloud_sql.md",
+    "depends_on": "PY-06,08",
+    "schema": [
+      "job_admissions",
+      "boards"
+    ]
+  },
+  {
+    "id": "PY-10",
+    "title": "Read immutable GCS job manifest pinned to generation",
+    "path": "Python/tasks/PY-10_read_immutable_gcs_job_manifest_pinned_to_generation.md",
+    "depends_on": "PY-09",
+    "schema": [
+      "gcs_manifest",
+      "gcs_input"
+    ]
+  },
+  {
+    "id": "PY-11",
+    "title": "Prepare output reservation for one slot and attempt path",
+    "path": "Python/tasks/PY-11_prepare_output_reservation_for_one_slot_and_attempt_path.md",
+    "depends_on": "PY-10",
+    "schema": [
+      "gcs_output",
+      "gcs_manifest"
+    ]
+  },
+  {
+    "id": "PY-12",
+    "title": "Create Cloud Tasks job-ID-only enqueue adapter",
+    "path": "Python/tasks/PY-12_create_cloud_tasks_job_id_only_enqueue_adapter.md",
+    "depends_on": "PY-09,10; INF-11",
+    "schema": [
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "PY-13",
+    "title": "Make dispatch enqueue idempotent on duplicate task name",
+    "path": "Python/tasks/PY-13_make_dispatch_enqueue_idempotent_on_duplicate_task_name.md",
+    "depends_on": "PY-12",
+    "schema": [
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "PY-14",
+    "title": "Protect worker HTTP endpoint with Cloud Tasks OIDC identity",
+    "path": "Python/tasks/PY-14_protect_worker_http_endpoint_with_cloud_tasks_oidc_identity.md",
+    "depends_on": "PY-05,07; INF-12",
+    "schema": [
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "PY-15",
+    "title": "Claim worker lease and attempt using Cloud SQL row lock",
+    "path": "Python/tasks/PY-15_claim_worker_lease_and_attempt_using_cloud_sql_row_lock.md",
+    "depends_on": "PY-09,14",
+    "schema": [
+      "job_admissions",
+      "board_runtime"
+    ]
+  },
+  {
+    "id": "PY-16",
+    "title": "Renew worker lease heartbeat while processing",
+    "path": "Python/tasks/PY-16_renew_worker_lease_heartbeat_while_processing.md",
+    "depends_on": "PY-15",
+    "schema": [
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "PY-17",
+    "title": "Resolve verified GCS input image bytes for one Run",
+    "path": "Python/tasks/PY-17_resolve_verified_gcs_input_image_bytes_for_one_run.md",
+    "depends_on": "PY-10,16",
+    "schema": [
+      "gcs_input",
+      "dam_asset_files"
+    ]
+  },
+  {
+    "id": "PY-18",
+    "title": "Build deterministic prompt from promptSnapshot, brief and Skills",
+    "path": "Python/tasks/PY-18_build_deterministic_prompt_from_promptsnapshot_brief_and_skills.md",
+    "depends_on": "PY-10,17; PY-01..04 done",
+    "schema": [
+      "gcs_manifest",
+      "skill_registry_links"
+    ]
+  },
+  {
+    "id": "PY-19",
+    "title": "Invoke Vertex AI directly from Python for exactly one image",
+    "path": "Python/tasks/PY-19_invoke_vertex_ai_directly_from_python_for_exactly_one_image.md",
+    "depends_on": "PY-17,18; INF-14",
+    "schema": [
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "PY-20",
+    "title": "Verify model output image and metadata",
+    "path": "Python/tasks/PY-20_verify_model_output_image_and_metadata.md",
+    "depends_on": "PY-19",
+    "schema": [
+      "slot_events"
+    ]
+  },
+  {
+    "id": "PY-21",
+    "title": "Write generated output create-only under output/ GCS",
+    "path": "Python/tasks/PY-21_write_generated_output_create_only_under_output_gcs.md",
+    "depends_on": "PY-11,20",
+    "schema": [
+      "gcs_output",
+      "gcs_object_properties"
+    ]
+  },
+  {
+    "id": "PY-22",
+    "title": "Write deterministic BigQuery job lifecycle events",
+    "path": "Python/tasks/PY-22_write_deterministic_bigquery_job_lifecycle_events.md",
+    "depends_on": "PY-15,16; INF-09",
+    "schema": [
+      "job_events"
+    ]
+  },
+  {
+    "id": "PY-23",
+    "title": "Emit one verified slot_ready event and metadata to BigQuery",
+    "path": "Python/tasks/PY-23_emit_one_verified_slot_ready_event_and_metadata_to_bigquery.md",
+    "depends_on": "PY-20,21,22",
+    "schema": [
+      "slot_events"
+    ]
+  },
+  {
+    "id": "PY-24",
+    "title": "Atomically finalize SQL job state and release board lock",
+    "path": "Python/tasks/PY-24_atomically_finalize_sql_job_state_and_release_board_lock.md",
+    "depends_on": "PY-15,16,22,23",
+    "schema": [
+      "job_admissions",
+      "board_runtime"
+    ]
+  },
+  {
+    "id": "PY-25",
+    "title": "Handle failures, retryable errors and unknown model outcomes",
+    "path": "Python/tasks/PY-25_handle_failures_retryable_errors_and_unknown_model_outcomes.md",
+    "depends_on": "PY-19,22,24",
+    "schema": [
+      "job_admissions",
+      "job_events"
+    ]
+  },
+  {
+    "id": "PY-26",
+    "title": "Deduplicate redelivered job and event side effects",
+    "path": "Python/tasks/PY-26_deduplicate_redelivered_job_and_event_side_effects.md",
+    "depends_on": "PY-13,15,22,23",
+    "schema": [
+      "job_events",
+      "slot_events",
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "PY-27",
+    "title": "Record model usage and latency in job_analytics",
+    "path": "Python/tasks/PY-27_record_model_usage_and_latency_in_job_analytics.md",
+    "depends_on": "PY-19,22",
+    "schema": [
+      "job_analytics"
+    ]
+  },
+  {
+    "id": "PY-28",
+    "title": "Test single-image dispatch and worker failure matrix",
+    "path": "Python/tasks/PY-28_test_single_image_dispatch_and_worker_failure_matrix.md",
+    "depends_on": "PY-05..27",
+    "schema": [
+      "job_admissions",
+      "slot_events",
+      "job_events"
+    ]
+  },
+  {
+    "id": "INF-01",
+    "title": "Inventory existing GCP resources and required APIs",
+    "path": "Cloud_Infra/tasks/INF-01_inventory_existing_gcp_resources_and_required_apis.md",
+    "depends_on": "none",
+    "schema": []
+  },
+  {
+    "id": "INF-02",
+    "title": "Create separate runtime service accounts",
+    "path": "Cloud_Infra/tasks/INF-02_create_separate_runtime_service_accounts.md",
+    "depends_on": "INF-01",
+    "schema": []
+  },
+  {
+    "id": "INF-03",
+    "title": "Define minimum IAM bindings for Node, Python and tasks",
+    "path": "Cloud_Infra/tasks/INF-03_define_minimum_iam_bindings_for_node_python_and_tasks.md",
+    "depends_on": "INF-02",
+    "schema": []
+  },
+  {
+    "id": "INF-04",
+    "title": "Provision PostgreSQL Cloud SQL and private connectivity",
+    "path": "Cloud_Infra/tasks/INF-04_provision_postgresql_cloud_sql_and_private_connectivity.md",
+    "depends_on": "INF-01,02",
+    "schema": [
+      "users",
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "INF-05",
+    "title": "Set up versioned Cloud SQL migration runner and alias mapping",
+    "path": "Cloud_Infra/tasks/INF-05_set_up_versioned_cloud_sql_migration_runner_and_alias_mapping.md",
+    "depends_on": "INF-04",
+    "schema": [
+      "users"
+    ]
+  },
+  {
+    "id": "INF-06",
+    "title": "Enable Cloud SQL backups, monitoring and credentials",
+    "path": "Cloud_Infra/tasks/INF-06_enable_cloud_sql_backups_monitoring_and_credentials.md",
+    "depends_on": "INF-04",
+    "schema": [
+      "users",
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "INF-07",
+    "title": "Create Firestore native database and DAM indexes",
+    "path": "Cloud_Infra/tasks/INF-07_create_firestore_native_database_and_dam_indexes.md",
+    "depends_on": "INF-01",
+    "schema": [
+      "dam_assets",
+      "dam_asset_files",
+      "dam_asset_classification",
+      "dam_asset_lineage",
+      "dam_asset_state",
+      "dam_product_images",
+      "dam_logos",
+      "dam_adapt_from",
+      "dam_style_examples",
+      "dam_references",
+      "dam_guidelines",
+      "asset_links",
+      "asset_feedback",
+      "product_sets",
+      "dam_context",
+      "user_asset_preferences",
+      "upload_reservations"
+    ]
+  },
+  {
+    "id": "INF-08",
+    "title": "Configure one private GCS bucket with input/ and output/ paths",
+    "path": "Cloud_Infra/tasks/INF-08_configure_one_private_gcs_bucket_with_input_and_output_paths.md",
+    "depends_on": "INF-01,03",
+    "schema": [
+      "gcs_input",
+      "gcs_output",
+      "gcs_object_properties"
+    ]
+  },
+  {
+    "id": "INF-09",
+    "title": "Create BigQuery dataset and three partitioned event tables",
+    "path": "Cloud_Infra/tasks/INF-09_create_bigquery_dataset_and_three_partitioned_event_tables.md",
+    "depends_on": "INF-01",
+    "schema": [
+      "job_events",
+      "slot_events",
+      "job_analytics"
+    ]
+  },
+  {
+    "id": "INF-10",
+    "title": "Create bounded BigQuery latest status logical views",
+    "path": "Cloud_Infra/tasks/INF-10_create_bounded_bigquery_latest_status_logical_views.md",
+    "depends_on": "INF-09",
+    "schema": [
+      "bq_status_views",
+      "job_events",
+      "slot_events"
+    ]
+  },
+  {
+    "id": "INF-11",
+    "title": "Create Cloud Tasks queue for one-image HTTP jobs",
+    "path": "Cloud_Infra/tasks/INF-11_create_cloud_tasks_queue_for_one_image_http_jobs.md",
+    "depends_on": "INF-01,02",
+    "schema": []
+  },
+  {
+    "id": "INF-12",
+    "title": "Grant Cloud Run invocation and OIDC task creation rights",
+    "path": "Cloud_Infra/tasks/INF-12_grant_cloud_run_invocation_and_oidc_task_creation_rights.md",
+    "depends_on": "INF-02,03,11",
+    "schema": []
+  },
+  {
+    "id": "INF-13",
+    "title": "Deploy Node BFF with Cloud SQL, Firestore, BigQuery and GCS",
+    "path": "Cloud_Infra/tasks/INF-13_deploy_node_bff_with_cloud_sql_firestore_bigquery_and_gcs.md",
+    "depends_on": "INF-03,04,07,08,09,26",
+    "schema": []
+  },
+  {
+    "id": "INF-14",
+    "title": "Deploy FastAPI private service with Python Vertex access",
+    "path": "Cloud_Infra/tasks/INF-14_deploy_fastapi_private_service_with_python_vertex_access.md",
+    "depends_on": "INF-03,04,08,09,12,26",
+    "schema": []
+  },
+  {
+    "id": "INF-15",
+    "title": "Create Secret Manager bindings and sanitized deployment variable map",
+    "path": "Cloud_Infra/tasks/INF-15_create_secret_manager_bindings_and_sanitized_deployment_variable_map.md",
+    "depends_on": "INF-02,13,14",
+    "schema": []
+  },
+  {
+    "id": "INF-16",
+    "title": "Configure Artifact Registry and build/deploy pipeline",
+    "path": "Cloud_Infra/tasks/INF-16_configure_artifact_registry_and_build_deploy_pipeline.md",
+    "depends_on": "INF-13,14",
+    "schema": []
+  },
+  {
+    "id": "INF-17",
+    "title": "Observability, budget alerting and worker failure visibility",
+    "path": "Cloud_Infra/tasks/INF-17_observability_budget_alerting_and_worker_failure_visibility.md",
+    "depends_on": "INF-09,11,13,14",
+    "schema": [
+      "job_events",
+      "job_analytics"
+    ]
+  },
+  {
+    "id": "INF-18",
+    "title": "Staging smoke tests, schema drift checks and rollback plan",
+    "path": "Cloud_Infra/tasks/INF-18_staging_smoke_tests_schema_drift_checks_and_rollback_plan.md",
+    "depends_on": "INF-05..17,19..26; NJS-54; PY-28",
+    "schema": [
+      "job_admissions",
+      "dam_assets",
+      "slot_events"
+    ]
+  },
+  {
+    "id": "INF-19",
+    "title": "Migrate identity SQL tables: users, identity_links, login_sessions",
+    "path": "Cloud_Infra/tasks/INF-19_migrate_identity_sql_tables_users_identity_links_login_sessions.md",
+    "depends_on": "INF-05",
+    "schema": [
+      "users",
+      "identity_links",
+      "login_sessions"
+    ]
+  },
+  {
+    "id": "INF-20",
+    "title": "Migrate future Brand and role schema only",
+    "path": "Cloud_Infra/tasks/INF-20_migrate_future_brand_and_role_schema_only.md",
+    "depends_on": "INF-05,19",
+    "schema": [
+      "brands",
+      "brand_memberships",
+      "role_policies"
+    ]
+  },
+  {
+    "id": "INF-21",
+    "title": "Migrate brand_settings and campaign_briefs tables",
+    "path": "Cloud_Infra/tasks/INF-21_migrate_brand_settings_and_campaign_briefs_tables.md",
+    "depends_on": "INF-05,19",
+    "schema": [
+      "brand_settings",
+      "campaign_briefs"
+    ]
+  },
+  {
+    "id": "INF-22",
+    "title": "Migrate Playspace boards, board_content and board_runtime",
+    "path": "Cloud_Infra/tasks/INF-22_migrate_playspace_boards_board_content_and_board_runtime.md",
+    "depends_on": "INF-05,19",
+    "schema": [
+      "boards",
+      "board_content",
+      "board_runtime"
+    ]
+  },
+  {
+    "id": "INF-23",
+    "title": "Migrate published Skill metadata links and grants schema",
+    "path": "Cloud_Infra/tasks/INF-23_migrate_published_skill_metadata_links_and_grants_schema.md",
+    "depends_on": "INF-05,19",
+    "schema": [
+      "skill_registry_links",
+      "skill_grants"
+    ]
+  },
+  {
+    "id": "INF-24",
+    "title": "Migrate idempotency_keys and job_admissions transaction tables",
+    "path": "Cloud_Infra/tasks/INF-24_migrate_idempotency_keys_and_job_admissions_transaction_tables.md",
+    "depends_on": "INF-05,19,22",
+    "schema": [
+      "idempotency_keys",
+      "job_admissions"
+    ]
+  },
+  {
+    "id": "INF-25",
+    "title": "Migrate append-only audit_events SQL table",
+    "path": "Cloud_Infra/tasks/INF-25_migrate_append_only_audit_events_sql_table.md",
+    "depends_on": "INF-05,19",
+    "schema": [
+      "audit_events"
+    ]
+  },
+  {
+    "id": "INF-26",
+    "title": "Verify all 16 Cloud SQL migrations, keys and concurrency indexes",
+    "path": "Cloud_Infra/tasks/INF-26_verify_all_16_cloud_sql_migrations_keys_and_concurrency_indexes.md",
+    "depends_on": "INF-19..25",
+    "schema": [
+      "users",
+      "identity_links",
+      "login_sessions",
+      "brands",
+      "brand_memberships",
+      "role_policies",
+      "brand_settings",
+      "campaign_briefs",
+      "boards",
+      "board_content",
+      "board_runtime",
+      "skill_registry_links",
+      "skill_grants",
+      "idempotency_keys",
+      "job_admissions",
+      "audit_events"
+    ]
+  }
+]
