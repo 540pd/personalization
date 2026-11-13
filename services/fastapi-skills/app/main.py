@@ -1,17 +1,11 @@
 """Private FastAPI service; BFF is the sole user-facing entry point."""
 from contextlib import asynccontextmanager
-from pathlib import Path
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from .models import SkillCreate, SkillUpdate, PublishRequest, ToolValidationRequest, SkillDraftRequest
 from .config import settings
-from .catalog import catalog_from_settings
-from .registry import RegistryClient
 from .security import Principal, trusted_node
-from .service import SkillService
-from .store import FirestoreStore
-from .helper import SkillHelper
-from .llm import llm_client
 from .errors import install as install_errors
+from .wiring import build_services
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,15 +20,12 @@ async def lifespan(app: FastAPI):
         raise RuntimeError('DEV_BYPASS_AUTH must never be enabled in Cloud Run')
     if cfg.skill_helper_backend == 'fake' and os.environ.get('K_SERVICE'):
         raise RuntimeError('SKILL_HELPER_BACKEND=fake must never be used in Cloud Run')
-    app.state.registry = RegistryClient(cfg)
-    app.state.store = FirestoreStore(cfg.firestore_project_id, cfg.publish_operation_retention_days)
-    app.state.catalog = catalog_from_settings(cfg, Path(__file__).resolve().parent.parent / 'data')
-    app.state.service = SkillService(app.state.store, app.state.registry, app.state.catalog, cfg)
-    app.state.helper = SkillHelper(cfg, app.state.catalog, app.state.store, llm_client(cfg))
+    parts = build_services(cfg)
+    app.state.service, app.state.helper, app.state.catalog = parts.service, parts.helper, parts.catalog
     try:
         yield
     finally:
-        await app.state.registry.aclose()
+        await parts.aclose()
 
 
 app = FastAPI(title='GCOS Agent Registry Control Plane', version='0.1.0', docs_url='/docs', lifespan=lifespan)

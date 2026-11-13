@@ -7,7 +7,6 @@ from app.helper import SkillHelper, draft_tool_issues
 from app.llm import FakeLLMClient
 from app.models import PublishRequest, SkillCreate, SkillDraftRequest
 from app.packaging import declared_tools, validate_markdown
-from test_service import base  # noqa: F401 (base is a fixture)
 
 
 def md(tools_line=''):
