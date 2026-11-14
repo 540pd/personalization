@@ -152,6 +152,50 @@
   @apply hover:bg-accent-soft hover:text-accent;
 }
 
+/*
+ * The parts a form field is made of (#560), from the Figma node form: a
+ * label, a box, a helper line, a caption beside the label, and the divider
+ * between a form's sections. A form's stylesheet applies them by name and
+ * adds only its own layout, so every field in every form looks the same.
+ */
+
+/* A field's name: "Model", "Instruction". */
+@utility field-label {
+  @apply text-body font-semibold text-ink;
+}
+
+/*
+ * What is typed or chosen in: white with a findable edge. Goes on the control
+ * itself (a text area) or on the box around one (a select with its small
+ * label). Under the pointer only the edge darkens; keyboard focus, its own or
+ * its control's, draws the shared ring, so the control inside needs none.
+ */
+@utility field-box {
+  @apply rounded-control border border-line-strong bg-surface px-3 py-2.5 text-body text-ink;
+  @apply transition-colors;
+  @apply placeholder:text-ink-muted;
+  @apply hover:border-ink-muted;
+  @apply focus-visible:focus-ring;
+  @apply has-[:focus-visible]:focus-ring;
+  @apply disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line-strong;
+  @apply has-[:disabled]:opacity-50 has-[:disabled]:hover:border-line-strong;
+}
+
+/* A quiet line that explains: under a field, or naming a control in a box. */
+@utility field-hint {
+  @apply text-meta text-ink-muted;
+}
+
+/* A few words beside a label, in small capitals: "YOUR CREATIVE DIRECTION". */
+@utility field-caption {
+  @apply text-meta font-medium uppercase tracking-wider text-ink-muted;
+}
+
+/* The line between two sections of a form, with the same room either side. */
+@utility form-divider {
+  @apply my-1 border-t border-line-soft;
+}
+
 /* The dimmed full-window layer a modal dialog sits on, centred. */
 @utility dialog-backdrop {
   @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20;

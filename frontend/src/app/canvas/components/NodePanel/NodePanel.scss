@@ -202,12 +202,16 @@
   @apply flex flex-col gap-4 overflow-y-auto px-5 pb-5 pt-3;
 }
 
+// The looks of a label, a box and a helper line are the shared field
+// utilities (#560); the classes here add only spacing and layout.
 .node-panel-section-label {
-  @apply mb-1.5 text-meta font-medium text-ink-muted;
+  @apply field-label;
+  @apply mb-1.5;
 }
 
 .node-panel-instruction {
-  @apply w-full resize-none rounded-control bg-subtle px-3.5 py-2.5 text-body text-ink outline-none placeholder:text-ink-muted/70 focus:ring-2 focus:ring-accent/30;
+  @apply field-box;
+  @apply w-full resize-none;
 }
 
 /* @ mentions (#239): the textarea over a mirror of its text that tints handles */
@@ -293,7 +297,8 @@
 }
 
 .node-panel-setting {
-  @apply flex-1 rounded-control bg-subtle px-3 py-2.5;
+  @apply field-box;
+  @apply flex-1;
 }
 
 .node-panel-grounding {
@@ -301,7 +306,8 @@
 }
 
 .node-panel-setting-label {
-  @apply mb-1 text-meta font-medium text-ink-muted;
+  @apply field-hint;
+  @apply mb-1;
 }
 
 .node-panel-select {
@@ -341,7 +347,7 @@
 /* Temperature */
 
 .node-panel-temperature {
-  @apply rounded-control bg-subtle px-3 py-2.5;
+  @apply field-box;
 }
 
 .node-panel-temperature-header {
@@ -353,7 +359,8 @@
 }
 
 .node-panel-temperature-value {
-  @apply tabular-nums text-meta text-ink-muted;
+  @apply field-hint;
+  @apply tabular-nums;
 }
 
 .node-panel-temperature-slider {
@@ -361,7 +368,7 @@
 }
 
 .node-panel-range-label {
-  @apply text-meta text-ink-muted;
+  @apply field-hint;
 }
 
 .node-panel-range {
@@ -375,7 +382,8 @@
 }
 
 .node-panel-option {
-  @apply flex items-center gap-1.5 rounded-control bg-subtle px-2.5 py-1.5;
+  @apply field-box;
+  @apply flex items-center gap-1.5;
 }
 
 .node-panel-option-select {
@@ -423,7 +431,8 @@
 }
 
 .node-panel-brand-summary {
-  @apply m-0 text-meta text-ink-muted;
+  @apply field-hint;
+  @apply m-0;
 }
 
 .node-panel-brand-link {
