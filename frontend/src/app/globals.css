@@ -42,6 +42,12 @@
   --color-accent-via: #512fff;
   --color-accent-to: #234cff;
 
+  /* The same three stops under the pointer, a step darker. The design shows
+     no hover, so these are placeholders (#548). */
+  --color-accent-from-hover: #7a00e6;
+  --color-accent-via-hover: #3f1ce6;
+  --color-accent-to-hover: #1238e0;
+
   /* Small status labels only, never panels or buttons. */
   --color-indigo: #4d4a9b;
   --color-cyan: #45a3c4;
@@ -89,6 +95,22 @@
 /* The same ring drawn inside, for rows and items that fill their container. */
 @utility focus-ring-inset {
   @apply outline-2 -outline-offset-2 outline-accent;
+}
+
+/*
+ * The colour of a primary button in every state (#548): the gradient, a
+ * darker one under the pointer, dimmed while pressed, faded and inert when
+ * disabled, the accent ring on keyboard focus. Colour and state only: the
+ * button that applies it keeps its own size, corners and spacing. The one
+ * place the gradient is written.
+ */
+@utility button-primary {
+  @apply bg-linear-to-r from-accent-from via-accent-via to-accent-to text-white;
+  @apply transition-colors;
+  @apply enabled:hover:from-accent-from-hover enabled:hover:via-accent-via-hover enabled:hover:to-accent-to-hover;
+  @apply enabled:active:opacity-90;
+  @apply disabled:cursor-not-allowed disabled:opacity-40;
+  @apply focus-visible:focus-ring;
 }
 
 /* The dimmed full-window layer a modal dialog sits on, centred. */

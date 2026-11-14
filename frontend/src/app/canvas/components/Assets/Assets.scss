@@ -507,9 +507,8 @@ select.assets-input {
 }
 
 .assets-primary {
-  @apply h-10 shrink-0 rounded-control bg-accent px-5 text-body font-semibold text-white transition-colors hover:bg-accent-hover;
-  @apply disabled:cursor-not-allowed disabled:opacity-40;
-  @apply focus-visible:focus-ring;
+  @apply h-10 shrink-0 rounded-control px-5 text-body font-semibold;
+  @apply button-primary;
 }
 
 .assets-danger {

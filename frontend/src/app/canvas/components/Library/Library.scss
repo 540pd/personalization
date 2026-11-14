@@ -59,7 +59,8 @@
 
 .library-action-button {
   @apply inline-flex shrink-0 items-center gap-2 h-[38px] px-[18px] rounded-control;
-  @apply bg-accent text-body font-semibold text-white transition-colors hover:bg-accent-hover;
+  @apply text-body font-semibold;
+  @apply button-primary;
 }
 
 .library-action-button:focus-visible,
@@ -356,8 +357,8 @@
 }
 
 .library-dialog-submit {
-  @apply h-9 px-4 rounded-control bg-accent text-body font-semibold text-white transition-colors hover:bg-accent-hover;
-  @apply disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent;
+  @apply h-9 px-4 rounded-control text-body font-semibold;
+  @apply button-primary;
 }
 
 .library-dialog button:focus-visible {

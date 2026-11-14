@@ -204,8 +204,8 @@
 // Brand's primary button (brand-primary) at the confirm's height. The accent,
 // not red: what it replaces comes back with Undo.
 .board-confirm-primary {
-  @apply h-9 px-4 rounded-control bg-accent text-body font-semibold text-white;
-  @apply transition-colors hover:bg-accent-hover;
+  @apply h-9 px-4 rounded-control text-body font-semibold;
+  @apply button-primary;
 }
 
 .board-confirm button:focus-visible {
