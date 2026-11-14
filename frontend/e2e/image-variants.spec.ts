@@ -387,7 +387,8 @@ test.describe("image variants", () => {
     await addPanel(page);
 
     const select = page.locator('select[aria-label="Images"]');
-    await expect(select).toHaveAttribute("title", "Images");
+    // The name was a tooltip; it is now written over the select (#565).
+    await expect(page.locator(".setting-select", { has: select }).locator(".setting-select-label")).toHaveText("Images");
     await expect(select).toHaveValue("1");
     const labels = await select.locator("option").allTextContents();
     expect(labels).toEqual(Array.from({ length: 10 }, (_, i) => `×${i + 1}`));

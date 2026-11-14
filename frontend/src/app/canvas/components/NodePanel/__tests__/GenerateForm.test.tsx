@@ -92,13 +92,13 @@ describe("GenerateForm", () => {
 
   it("renders no advanced section for a spec without one", () => {
     setup({ spec: { ...baseSpec, Advanced: undefined } });
-    expect(screen.queryByText("Advanced")).not.toBeInTheDocument();
+    expect(screen.queryByText("Advanced settings")).not.toBeInTheDocument();
   });
 
   it("renders the spec's advanced section when it has one", () => {
     const Advanced = ({ value }: SettingsProps) => <div>temp {String((value as { temperature: number }).temperature)}</div>;
     setup({ spec: { ...baseSpec, Advanced } });
-    fireEvent.click(screen.getByText("Advanced"));
+    fireEvent.click(screen.getByText("Advanced settings"));
     expect(screen.getByText("temp 0.5")).toBeInTheDocument();
   });
 
@@ -141,7 +141,7 @@ describe("GenerateForm", () => {
 
     const open = (model: string) => {
       setup({ spec: capSpec, draft: { model, instruction: "x" } });
-      const adv = screen.queryByText("Advanced");
+      const adv = screen.queryByText("Advanced settings");
       if (adv) fireEvent.click(adv);
     };
 
@@ -166,12 +166,12 @@ describe("GenerateForm", () => {
     it("hides the Advanced section entirely when nothing in it applies", () => {
       // An empty collapsible box is worse than no box.
       open("neither");
-      expect(screen.queryByText("Advanced")).not.toBeInTheDocument();
+      expect(screen.queryByText("Advanced settings")).not.toBeInTheDocument();
     });
 
     it("treats a model with no declared capabilities as supporting everything", () => {
       setup({ spec: { ...baseSpec, Advanced }, draft: { model: "model-a", instruction: "x" } });
-      fireEvent.click(screen.getByText("Advanced"));
+      fireEvent.click(screen.getByText("Advanced settings"));
       expect(screen.getByText("thinking-control")).toBeInTheDocument();
       expect(screen.getByText("temperature-control")).toBeInTheDocument();
     });

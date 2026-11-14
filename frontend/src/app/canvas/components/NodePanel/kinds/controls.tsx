@@ -52,36 +52,30 @@ interface SettingSelectProps<T extends string | number> {
   onChange: (next: string) => void;
   /** What an option reads as, when not its own value ("×3", "4s"). */
   format?: (option: T) => string;
-  /**
-   * "setting": a labelled select in an Advanced section.
-   * "option": a bare select in the Options row, named by aria-label alone.
-   */
-  variant: "setting" | "option";
-  title?: string;
 }
 
-/** A settings dropdown, in either of the two places a kind shows one. */
+/**
+ * A settings dropdown: a small label over a field box (#565). One look
+ * wherever a kind shows one -- there were two, a labelled box in Advanced and
+ * a bare pill in the Options row whose name only a tooltip gave.
+ */
 export function SettingSelect<T extends string | number>({
-  label, options, value, onChange, format, variant, title,
+  label, options, value, onChange, format,
 }: SettingSelectProps<T>) {
-  const select = (
-    <select
-      aria-label={label}
-      title={title}
-      value={String(value)}
-      onChange={(e) => onChange(e.target.value)}
-      className={variant === "setting" ? "node-panel-select" : "node-panel-option-select"}
-    >
-      {options.map((o) => (
-        <option key={o} value={String(o)}>{format ? format(o) : o}</option>
-      ))}
-    </select>
-  );
-  if (variant === "option") return <div className="node-panel-option">{select}</div>;
   return (
-    <div className="node-panel-setting">
-      <p className="node-panel-setting-label">{label}</p>
-      {select}
+    <div className="setting-select">
+      {/* The select carries the name itself, so this is for the eye only. */}
+      <span className="setting-select-label" aria-hidden>{label}</span>
+      <select
+        aria-label={label}
+        value={String(value)}
+        onChange={(e) => onChange(e.target.value)}
+        className="setting-select-box"
+      >
+        {options.map((o) => (
+          <option key={o} value={String(o)}>{format ? format(o) : o}</option>
+        ))}
+      </select>
     </div>
   );
 }

@@ -72,7 +72,6 @@ function Advanced({ value, onChange }: SettingsProps) {
     <div className="node-panel-advanced-content">
       <div className="node-panel-advanced-row">
         <SettingSelect
-          variant="setting"
           label="Duration"
           options={DURATIONS}
           value={String(s.durationSeconds)}
@@ -81,7 +80,6 @@ function Advanced({ value, onChange }: SettingsProps) {
         />
 
         <SettingSelect
-          variant="setting"
           label="Resolution"
           options={RESOLUTIONS}
           value={s.resolution}
