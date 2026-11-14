@@ -34,6 +34,8 @@ interface NodeLabelProps {
   /** The node's on-screen width; the label never exceeds it. */
   maxWidth: number;
   onCommit: (next: string) => void;
+  /** Overrides the text colour: the accent for the node whose form is open (#559). */
+  colour?: string;
   /**
    * Make the name a handle: a press that moves past the drag threshold calls
    * this with the screen point it was pressed at. A frame's name uses it to
@@ -59,6 +61,7 @@ export default function NodeLabel({
   bottom,
   maxWidth,
   onCommit,
+  colour,
   onDragFrom,
   onSelect,
   hidden = false,
@@ -108,7 +111,7 @@ export default function NodeLabel({
     fontSize: LABEL_FONT_SIZE,
     lineHeight: `${LABEL_LINE_HEIGHT}px`,
     fontFamily: "inherit",
-    color: LABEL_INK,
+    color: colour ?? LABEL_INK,
     pointerEvents: "auto",
     // Above the ports so a rename is always reachable, and below the nav rail
     // so a node dragged under it takes its name with it. Was a bare 52 with a

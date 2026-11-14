@@ -40,6 +40,17 @@
   @apply bg-ink-muted;
 }
 
+/* The node whose form is open (#559): its ports take the accent, with the
+   outline and the name. Before the hover, target and blocked rules, which
+   still win. */
+.board-port.is-linked .board-port-dot {
+  @apply border-accent;
+}
+
+.board-port.is-linked.is-connected .board-port-dot::after {
+  @apply bg-accent;
+}
+
 .board-port:hover .board-port-dot {
   width: 14px;
   height: 14px;

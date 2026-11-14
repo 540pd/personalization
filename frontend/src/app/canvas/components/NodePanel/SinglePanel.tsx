@@ -95,6 +95,7 @@ export default function SinglePanel({
         hovered={hovered}
         isActive={isActive}
         isPanelOpen={isPanelOpen}
+        filled={!!shown}
         anchors={anchorHandlers}
         hideLabel={hideLabel}
         hideInputPort={hideInputPort}

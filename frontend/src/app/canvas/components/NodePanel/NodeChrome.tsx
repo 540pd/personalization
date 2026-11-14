@@ -17,9 +17,10 @@ import type { ScreenBox } from "./nodeScreenBox";
 import HoverOutline from "./HoverOutline";
 import SelectionBox from "./SelectionBox";
 import NodePorts from "./NodePorts";
+import { nodeOutline, nodeState } from "./nodeOutline";
 
 export default function NodeChrome({
-  instance, box, vp, hovered, isActive, isPanelOpen, anchors, hideLabel, hideInputPort, hideOutputPort,
+  instance, box, vp, hovered, isActive, isPanelOpen, filled, anchors, hideLabel, hideInputPort, hideOutputPort,
 }: {
   instance: PanelInstance;
   box: ScreenBox;
@@ -28,6 +29,8 @@ export default function NodeChrome({
   hovered: boolean;
   isActive: boolean;
   isPanelOpen: boolean;
+  /** The node shows an output. */
+  filled: boolean;
   anchors: ComponentProps<typeof SelectionBox>["anchors"];
   hideLabel: boolean;
   hideInputPort: boolean;
@@ -40,6 +43,8 @@ export default function NodeChrome({
   // and the pointer has to be able to travel up onto the name.
   const alwaysNames = useSettings((s) => s.settings.showNodeNames);
   const hoveredNodeId = useHoveredNode(!alwaysNames);
+  // One rule for the outline, the name and the ports (#559).
+  const outline = nodeOutline(nodeState(isActive, isPanelOpen), filled);
 
   return (
     <>
@@ -55,6 +60,7 @@ export default function NodeChrome({
           top={box.top}
           width={box.width}
           height={box.height}
+          outline={outline}
           anchors={isPanelOpen ? undefined : anchors}
         />
       )}
@@ -68,6 +74,7 @@ export default function NodeChrome({
           left={box.left}
           bottom={box.top - LABEL_GAP}
           maxWidth={box.width}
+          colour={outline.linked ? outline.colour : undefined}
           // An unchanged commit (open, then click away) is not a rename, and
           // must not turn an auto name into a user-chosen one.
           onCommit={(next) => {
@@ -81,6 +88,7 @@ export default function NodeChrome({
       <NodePorts
         instance={instance}
         vp={vp}
+        linked={outline.linked}
         showInput={takesInput(instance.kind) && !hideInputPort}
         showOutput={isSource(instance.kind) && !hideOutputPort}
       />
