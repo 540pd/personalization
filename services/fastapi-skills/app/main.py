@@ -1,20 +1,15 @@
 """Private FastAPI service; BFF is the sole user-facing entry point."""
-from pathlib import Path
+from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from .models import SkillCreate, SkillUpdate, PublishRequest, ToolValidationRequest, SkillDraftRequest
 from .config import settings
-from .catalog import ToolCatalog
-from .registry import RegistryClient
 from .security import Principal, trusted_node
-from .service import SkillService
-from .store import FirestoreStore
-from .helper import SkillHelper
+from .errors import install as install_errors
+from .wiring import build_services
 
-app = FastAPI(title='GCOS Agent Registry Control Plane', version='0.1.0', docs_url='/docs')
-
-
-@app.on_event('startup')
-async def start():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup checks and wiring, then shutdown. Refuses to start misconfigured."""
     import os
     cfg = settings()
     if (not cfg.google_cloud_project or cfg.google_cloud_project == 'test-project') or (not cfg.firestore_project_id or cfg.firestore_project_id == 'test-project'):
@@ -23,16 +18,18 @@ async def start():
         raise RuntimeError('Set FASTAPI_AUDIENCE and NODE_SERVICE_ACCOUNT')
     if cfg.dev_bypass_auth and os.environ.get('K_SERVICE'):
         raise RuntimeError('DEV_BYPASS_AUTH must never be enabled in Cloud Run')
-    app.state.registry = RegistryClient(cfg)
-    app.state.store = FirestoreStore(cfg.firestore_project_id)
-    app.state.catalog = ToolCatalog(Path(__file__).resolve().parent.parent / 'data' / 'tool_catalog.json')
-    app.state.service = SkillService(app.state.store, app.state.registry, app.state.catalog, cfg)
-    app.state.helper = SkillHelper(cfg, app.state.catalog)
+    if cfg.skill_helper_backend == 'fake' and os.environ.get('K_SERVICE'):
+        raise RuntimeError('SKILL_HELPER_BACKEND=fake must never be used in Cloud Run')
+    parts = build_services(cfg)
+    app.state.service, app.state.helper, app.state.catalog = parts.service, parts.helper, parts.catalog
+    try:
+        yield
+    finally:
+        await parts.aclose()
 
 
-@app.on_event('shutdown')
-async def stop():
-    await app.state.registry.aclose()
+app = FastAPI(title='GCOS Agent Registry Control Plane', version='0.1.0', docs_url='/docs', lifespan=lifespan)
+install_errors(app)
 
 
 def service():
@@ -58,8 +55,9 @@ async def create_skill(body: SkillCreate, principal: Principal = Depends(trusted
 
 
 @app.get('/v1/skills')
-async def list_skills(principal: Principal = Depends(trusted_node), svc=Depends(service)):
-    return {'skills': svc.list_owned(principal.owner_key)}
+async def list_skills(include_disabled: bool = False, principal: Principal = Depends(trusted_node), svc=Depends(service)):
+    # Disabled Skills are left out unless asked for (#507).
+    return {'skills': svc.list_owned(principal.owner_key, include_disabled)}
 
 
 @app.get('/v1/skills/{skill_id}')
@@ -123,4 +121,4 @@ async def validate_tools(body: ToolValidationRequest, principal: Principal = Dep
 
 @app.post('/v1/skills/ai-draft')
 async def ai_draft(body: SkillDraftRequest, principal: Principal = Depends(trusted_node), draft_helper=Depends(helper)):
-    return await draft_helper.generate(body)
+    return await draft_helper.generate(principal.owner_key, body)
