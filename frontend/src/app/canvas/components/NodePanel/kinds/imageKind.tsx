@@ -51,7 +51,6 @@ function Advanced({ value, onChange, supports }: SettingsProps) {
       {supports.thinking && (
         <div className="node-panel-advanced-row">
           <SettingSelect
-            variant="setting"
             label="Thinking"
             options={THINKING_OPTS}
             value={s.thinking}
@@ -73,7 +72,6 @@ function Options({ value, onChange, supports }: SettingsProps) {
     <div className="node-panel-options">
       {supports.aspectRatio && (
         <SettingSelect
-          variant="option"
           label="Aspect ratio"
           options={ASPECT_RATIOS}
           value={s.aspectRatio}
@@ -83,7 +81,6 @@ function Options({ value, onChange, supports }: SettingsProps) {
 
       {supports.imageSize && (
         <SettingSelect
-          variant="option"
           label="Quality"
           options={QUALITIES}
           value={s.quality}
@@ -92,12 +89,10 @@ function Options({ value, onChange, supports }: SettingsProps) {
       )}
 
       {/* A bare count beside "16:9" and "1K" could mean anything, so the
-          multiplier reads as "this many" at a glance, and the label says
-          what of -- on hover, and to a screen reader, which has no hover. */}
+          multiplier reads as "this many" at a glance; the label over it
+          says what of. */}
       <SettingSelect
-        variant="option"
         label="Images"
-        title="Images"
         options={VARIANT_OPTS}
         value={s.variants}
         format={(n) => `×${n}`}

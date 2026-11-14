@@ -14,27 +14,24 @@ describe("TemperatureSlider", () => {
 });
 
 describe("SettingSelect", () => {
-  it("as a setting, is labelled above the select", () => {
+  it("shows its label over the select, which carries the name itself", () => {
     const { container } = render(
-      <SettingSelect variant="setting" label="Duration" options={["4", "6"]} value="6" format={(d) => `${d}s`} onChange={vi.fn()} />
+      <SettingSelect label="Duration" options={["4", "6"]} value="6" format={(d) => `${d}s`} onChange={vi.fn()} />
     );
-    expect(container.querySelector(".node-panel-setting .node-panel-setting-label")).toHaveTextContent("Duration");
+    const label = container.querySelector(".setting-select > .setting-select-label");
+    expect(label).toHaveTextContent("Duration");
+    // For the eye only: the select is named by aria-label, not read twice.
+    expect(label).toHaveAttribute("aria-hidden", "true");
     const select = screen.getByLabelText("Duration") as HTMLSelectElement;
-    expect(select).toHaveClass("node-panel-select");
+    expect(select).toHaveClass("setting-select-box");
     expect(select.value).toBe("6");
     expect([...select.options].map((o) => o.textContent)).toEqual(["4s", "6s"]);
   });
 
-  it("as an option, is a bare select with its title, and reports the value", () => {
+  it("reports the chosen value, for numbers too", () => {
     const onChange = vi.fn();
-    const { container } = render(
-      <SettingSelect variant="option" label="Images" title="Images" options={[1, 2, 3]} value={2} format={(n) => `×${n}`} onChange={onChange} />
-    );
-    expect(container.querySelector(".node-panel-option > select.node-panel-option-select")).not.toBeNull();
-    expect(container.querySelector(".node-panel-setting-label")).toBeNull();
-    const select = screen.getByLabelText("Images");
-    expect(select).toHaveAttribute("title", "Images");
-    fireEvent.change(select, { target: { value: "3" } });
+    render(<SettingSelect label="Images" options={[1, 2, 3]} value={2} format={(n) => `×${n}`} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Images"), { target: { value: "3" } });
     expect(onChange).toHaveBeenCalledWith("3");
   });
 });

@@ -7,14 +7,15 @@
 // Deliberately free of store imports: everything arrives as props, so it can
 // be unit-tested without a Konva stage or a live store.
 
-import { useState, useMemo } from "react";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { useMemo } from "react";
+import { Loader2 } from "lucide-react";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import type { NodeKindSpec, NodeSettings } from "./nodeKinds";
 import InstructionField from "./InstructionField";
 import BrandSwitch from "./BrandSwitch";
 import NodeFormHeader from "./NodeFormHeader";
 import ModelField from "./ModelField";
+import AdvancedSection from "./AdvancedSection";
 import { mentionNotes, resolveMentions, type Mentionables } from "../../mentions/mentions";
 
 const NO_MENTIONABLES: Mentionables = { skills: [], agents: [] };
@@ -60,7 +61,6 @@ export default function GenerateForm({
   onClose, onInstructionBlur, onSubmit, mentionables = NO_MENTIONABLES, onOpenLibrary,
 }: GenerateFormProps) {
   // Only chrome state lives here; resetting it on reopen is harmless.
-  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const { model, instruction } = draft;
 
@@ -127,20 +127,9 @@ export default function GenerateForm({
         )}
 
         {showAdvanced && Advanced && (
-          <div>
-            <button
-              onClick={() => setAdvancedOpen((v) => !v)}
-              className="node-panel-advanced-trigger"
-            >
-              Advanced
-              <ChevronDown
-                size={13}
-                className={`node-panel-chevron ${advancedOpen ? "node-panel-chevron-open" : ""}`}
-              />
-            </button>
-
-            {advancedOpen && <Advanced value={settings} onChange={onSettingsChange} supports={supports} />}
-          </div>
+          <AdvancedSection>
+            <Advanced value={settings} onChange={onSettingsChange} supports={supports} />
+          </AdvancedSection>
         )}
 
         {Options && <Options value={settings} onChange={onSettingsChange} supports={supports} />}
