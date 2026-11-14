@@ -31,8 +31,6 @@ function setup(overrides: Partial<React.ComponentProps<typeof GenerateForm>> = {
     onSettingsChange: vi.fn(),
     busy: false,
     error: null as string | null,
-    left: 0,
-    top: 0,
     onClose: vi.fn(),
     onInstructionBlur: vi.fn(),
     onSubmit: vi.fn(),

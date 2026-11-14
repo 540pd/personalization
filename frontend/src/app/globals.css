@@ -177,3 +177,12 @@
   @apply float-above;
   @apply rounded-full bg-surface border border-line shadow-float px-3 py-1 whitespace-nowrap pointer-events-none;
 }
+
+/* A node's form, docked on the right of the board (#557): one fixed place for
+   every node, whatever the pan and zoom. It keeps one margin from the window's
+   top, right and bottom, and is as tall as its content up to that; the part
+   that scrolls is the form's own body. */
+@utility node-form-dock {
+  @apply fixed right-4 top-4 max-h-[calc(100vh-2rem)] pointer-events-auto;
+  @apply rounded-card bg-surface border border-line shadow-float;
+}

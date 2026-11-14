@@ -141,8 +141,11 @@
 
 /* Create Image panel */
 
+// Where the form sits and its card look are the shared dock (#557); only its
+// width and inner layout are its own.
 .node-panel-create {
-  @apply flex w-80 flex-col rounded-card border border-line bg-surface shadow-float;
+  @apply node-form-dock;
+  @apply flex w-80 flex-col;
 }
 
 .node-panel-header {

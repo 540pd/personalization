@@ -9,7 +9,6 @@ export const COLORS = {
   ink:          "#000000",
   paper:        "#ffffff",
   selected:     "#a100ff",
-  panelBorder:  "rgba(0,0,0,0.08)",
   // The wash over the board while a file is dragged across it.
   dropScrim:    "rgba(0,0,0,0.04)",
   placeholder:  "#f5f4f8",
@@ -170,10 +169,8 @@ export const LINE_DEFAULT_LENGTH = 100; // canvas units
 // Floor is around 180. The empty state needs roughly 64px of content height
 // for its icon and two lines, and a 16:9 node at edge 180 is only 101px tall.
 //
-// Also keeps the Create Image panel on the node's preferred right-hand side
-// on any window down to ~948px: it needs edge <= viewportWidth - 688. The
-// panel is now wider than its node, which 320 had avoided by matching
-// PANEL_W exactly.
+// Also leaves a new node, centred on the canvas, clear of its form docked on
+// the right (#557) on any window down to ~1190px with the rail expanded.
 export const DEFAULT_NODE_MAX_EDGE = 260;
 
 // Aspect ratios offered by the Create Image panel, and the default.

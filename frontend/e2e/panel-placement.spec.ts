@@ -1,50 +1,74 @@
 import { test, expect } from "@playwright/test";
 import { openBoard, addPanel, collapsePanels, panelBoxes, dragFrom } from "./helpers";
 
-// The Create Image panel is pinned to the node's right edge. A node near the
-// right of the viewport used to push it off screen entirely -- measured at
-// 272px out, with the Create button unreachable. It now prefers the right,
-// falls back to the left, and clamps only if neither side fits.
+// The Create Image form is docked on the right of the board (#557): one fixed
+// place for every node. It used to sit beside its node, flipping to the left
+// near the window's edge; a node at the far right once pushed it 272px off
+// screen, with the Create button unreachable.
+
+const MARGIN = 16;
 
 async function panelRect(page: import("@playwright/test").Page) {
   return page.evaluate(() => {
     const p = document.querySelector(".node-panel-create");
     if (!p) return null;
     const r = p.getBoundingClientRect();
-    return { x: r.x, right: r.right, vw: window.innerWidth };
+    return { x: r.x, y: r.y, right: r.right, bottom: r.bottom, width: r.width, vw: window.innerWidth, vh: window.innerHeight };
   });
 }
 
 test.describe("Create Image panel placement", () => {
-  test("stays on screen when its node is at the right edge", async ({ page }) => {
+  test("is docked at the right of the window, inside its margins", async ({ page }) => {
     await openBoard(page);
     await addPanel(page);
-    await collapsePanels(page);
 
     const [node] = await panelBoxes(page);
-    await dragFrom(page, node.x + node.w / 2, node.y + node.h / 2, 1340 - (node.x + node.w / 2));
-
-    // The drag left it active, so one click opens the panel.
-    const [moved] = await panelBoxes(page);
-    await page.mouse.click(moved.x + 10, moved.y + 10);
-    await page.waitForTimeout(700);
-
     const panel = await panelRect(page);
     expect(panel).not.toBeNull();
-    expect(panel!.x).toBeGreaterThanOrEqual(0);
-    expect(panel!.right).toBeLessThanOrEqual(panel!.vw);
+    expect(panel!.width).toBe(320);
+    expect(panel!.right).toBe(panel!.vw - MARGIN);
+    expect(panel!.y).toBe(MARGIN);
+    expect(panel!.bottom).toBeLessThanOrEqual(panel!.vh - MARGIN);
+    // A new node, centred on the canvas, is clear of it.
+    expect(node.x + node.w).toBeLessThan(panel!.x);
   });
 
-  test("opens on the node's right at the default position", async ({ page }) => {
+  test("stays in the same place wherever its node is", async ({ page }) => {
     await openBoard(page);
     await addPanel(page);
+    const docked = await panelRect(page);
+    await collapsePanels(page);
 
-    const [node] = await panelBoxes(page);
-    const panel = await panelRect(page);
-    expect(panel).not.toBeNull();
-    // Preferred side, and fully visible.
-    expect(panel!.x).toBeGreaterThan(node.x);
-    expect(panel!.right).toBeLessThanOrEqual(panel!.vw);
+    // Far left, then far right: the old placement flipped sides for these.
+    for (const targetX of [400, 1340]) {
+      const [node] = await panelBoxes(page);
+      await dragFrom(page, node.x + node.w / 2, node.y + node.h / 2, targetX - (node.x + node.w / 2));
+      // The drag left it active, so one click opens the panel.
+      const [moved] = await panelBoxes(page);
+      await page.mouse.click(moved.x + 10, moved.y + 10);
+      await page.waitForTimeout(700);
+      expect(await panelRect(page)).toEqual(docked);
+      await collapsePanels(page);
+    }
+  });
+
+  test("does not move or scale when the board is panned or zoomed", async ({ page }) => {
+    await openBoard(page);
+    await addPanel(page);
+    const docked = await panelRect(page);
+
+    // Zoom out over the empty board, well clear of the node and the form.
+    await page.mouse.move(420, 200);
+    await page.keyboard.down("Control");
+    await page.mouse.wheel(0, 300);
+    await page.keyboard.up("Control");
+    await page.waitForTimeout(300);
+    expect(await panelRect(page)).toEqual(docked);
+
+    // Pan with the wheel.
+    await page.mouse.wheel(120, 90);
+    await page.waitForTimeout(300);
+    expect(await panelRect(page)).toEqual(docked);
   });
 
   // canvasX is a left edge while canvasY is a centre; the creation code once
