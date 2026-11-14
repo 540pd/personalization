@@ -11,12 +11,14 @@ import "../Connections.scss";
 interface NodePortsProps {
   instance: PanelInstance;
   vp: Viewport;
+  /** This node's form is open: its ports take the accent (#559). */
+  linked?: boolean;
   showInput: boolean;
   showOutput: boolean;
 }
 
 /** A node's input and output ports, placed from shared geometry, same as uploaded images. */
-export default function NodePorts({ instance, vp, showInput, showOutput }: NodePortsProps) {
+export default function NodePorts({ instance, vp, linked = false, showInput, showOutput }: NodePortsProps) {
   const inPt  = toScreen(inputPoint(instance), vp);
   const outPt = toScreen(outputPoint(instance), vp);
   // A port with a wire on it is drawn filled (#456).
@@ -32,6 +34,7 @@ export default function NodePorts({ instance, vp, showInput, showOutput }: NodeP
   const isLanding = useConnectionStore((s) => s.drag?.landingId === instance.id);
   const inClass = [
     "board-port is-input",
+    linked && "is-linked",
     inWired && "is-connected",
     isTarget && "is-target",
     isLanding && "is-landing",
@@ -39,7 +42,7 @@ export default function NodePorts({ instance, vp, showInput, showOutput }: NodeP
   ]
     .filter(Boolean)
     .join(" ");
-  const outClass = ["board-port", outWired && "is-connected", blockedPort === "output" && "is-blocked"].filter(Boolean).join(" ");
+  const outClass = ["board-port", linked && "is-linked", outWired && "is-connected", blockedPort === "output" && "is-blocked"].filter(Boolean).join(" ");
   return (
     <>
       {showInput && (
