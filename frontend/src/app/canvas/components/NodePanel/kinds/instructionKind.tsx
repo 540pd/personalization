@@ -44,6 +44,7 @@ export const instructionKind: NodeKindSpec = {
   prompt: "What should this node work out?",
   // An agent is a saved Prompt setup, so only here does @ offer agents too.
   mentions: "skills-and-agents",
+  caption: "@ for skills and agents",
   brand: true,
   models: MODELS,
   // Same principle as the other kinds: default to the lite model.

@@ -245,9 +245,26 @@
   @apply mb-1.5;
 }
 
+// The instruction field (#563, InstructionField): the label with its caption
+// on one row, then the box.
+.instruction-field-heading {
+  @apply mb-1.5 flex items-baseline justify-between gap-2;
+}
+
+.instruction-field-label {
+  @apply field-label;
+  @apply m-0;
+}
+
+.instruction-field-caption {
+  @apply field-caption;
+}
+
+// About four lines before it scrolls. The mirror under the text area takes
+// this class too, so the two stay the same box.
 .node-panel-instruction {
   @apply field-box;
-  @apply w-full resize-none;
+  @apply min-h-[6.5rem] w-full resize-none;
 }
 
 /* @ mentions (#239): the textarea over a mirror of its text that tints handles */
