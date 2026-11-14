@@ -194,9 +194,8 @@
 }
 
 .brand-primary {
-  @apply h-11 px-6 shrink-0 rounded-control bg-accent text-body font-semibold text-white;
-  @apply transition-colors hover:bg-accent-hover;
-  @apply disabled:opacity-40 disabled:cursor-not-allowed;
+  @apply h-11 px-6 shrink-0 rounded-control text-body font-semibold;
+  @apply button-primary;
 }
 
 .brand-save-bar .brand-pill,

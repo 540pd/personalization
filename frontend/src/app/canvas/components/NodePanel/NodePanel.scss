@@ -388,15 +388,14 @@
 /* Create button */
 
 .node-panel-create-button {
-  @apply flex w-full select-none items-center justify-center gap-2 rounded-control py-3 text-body font-semibold text-white transition;
+  @apply flex w-full select-none items-center justify-center gap-2 rounded-control py-3 text-body font-semibold;
+  @apply button-primary;
 }
 
-.node-panel-create-button-disabled {
-  @apply cursor-not-allowed bg-accent opacity-40;
-}
-
+/* The colour of both states is button-primary's (#548); it reads the
+   button's own `disabled`, so -disabled needs no rule of its own. */
 .node-panel-create-button-enabled {
-  @apply cursor-pointer bg-accent hover:bg-accent-hover active:opacity-90;
+  @apply cursor-pointer;
 }
 
 .node-panel-loader {
