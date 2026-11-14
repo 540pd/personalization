@@ -240,10 +240,6 @@
 
 // The looks of a label, a box and a helper line are the shared field
 // utilities (#560); the classes here add only spacing and layout.
-.node-panel-section-label {
-  @apply field-label;
-  @apply mb-1.5;
-}
 
 // The instruction field (#563, InstructionField): the label with its caption
 // on one row, then the box.
@@ -362,10 +358,6 @@
   @apply flex-1;
 }
 
-.node-panel-grounding {
-  @apply flex flex-col;
-}
-
 .node-panel-setting-label {
   @apply field-hint;
   @apply mb-1;
@@ -373,36 +365,6 @@
 
 .node-panel-select {
   @apply w-full cursor-pointer bg-transparent text-body text-ink outline-none;
-}
-
-/* Grounding toggle */
-
-.node-panel-grounding .node-panel-setting-label {
-  @apply mb-2;
-}
-
-.node-panel-toggle {
-  @apply relative inline-flex h-6 w-10 items-center rounded-full transition-colors;
-}
-
-.node-panel-toggle-on {
-  @apply bg-accent;
-}
-
-.node-panel-toggle-off {
-  @apply bg-neutral-300;
-}
-
-.node-panel-toggle-thumb {
-  @apply inline-block h-5 w-5 rounded-full bg-white shadow transition-transform;
-}
-
-.node-panel-toggle-thumb-on {
-  @apply translate-x-[18px];
-}
-
-.node-panel-toggle-thumb-off {
-  @apply translate-x-0.5;
 }
 
 /* Temperature */
@@ -484,7 +446,11 @@
 }
 
 .node-panel-brand-label {
-  @apply mb-0;
+  @apply field-label;
+}
+
+.node-panel-brand-switch {
+  @apply switch;
 }
 
 .node-panel-brand-summary {
@@ -493,7 +459,14 @@
 }
 
 .node-panel-brand-link {
-  @apply font-medium text-accent underline underline-offset-2;
+  @apply rounded-[3px] font-semibold text-accent hover:underline;
+  @apply focus-visible:focus-ring;
+}
+
+// The line that closes a section of the form (#564).
+.node-panel-divider {
+  @apply form-divider;
+  @apply border-x-0 border-b-0;
 }
 
 .node-panel-notice {

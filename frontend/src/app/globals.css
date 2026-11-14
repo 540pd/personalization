@@ -196,6 +196,21 @@
   @apply my-1 border-t border-line-soft;
 }
 
+/*
+ * An on/off switch (#564): a pill track with a round white thumb, neutral
+ * when off and the accent when on. It goes on a `button role="switch"` and
+ * reads the button's own `aria-checked`, and the thumb is drawn by the
+ * button itself, so the markup is one element and the state is said once.
+ */
+@utility switch {
+  @apply relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full bg-ink-muted transition-colors;
+  @apply aria-checked:bg-accent;
+  @apply focus-visible:focus-ring;
+  @apply disabled:cursor-not-allowed disabled:opacity-50;
+  @apply after:h-4 after:w-4 after:translate-x-0.5 after:rounded-full after:bg-white after:shadow after:transition-transform after:content-[''];
+  @apply aria-checked:after:translate-x-[18px];
+}
+
 /* The dimmed full-window layer a modal dialog sits on, centred. */
 @utility dialog-backdrop {
   @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20;

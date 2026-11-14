@@ -39,7 +39,7 @@ export default function BrandSwitch({ settings, onChange }: { settings: NodeSett
   return (
     <div className="node-panel-brand">
       <div className="node-panel-brand-row">
-        <span id={`${id}-label`} className="node-panel-section-label node-panel-brand-label">
+        <span id={`${id}-label`} className="node-panel-brand-label">
           Use brand
         </span>
         <button
@@ -48,11 +48,10 @@ export default function BrandSwitch({ settings, onChange }: { settings: NodeSett
           aria-checked={on}
           aria-labelledby={`${id}-label`}
           aria-describedby={`${id}-summary`}
-          className={`node-panel-toggle ${on ? "node-panel-toggle-on" : "node-panel-toggle-off"}`}
+          // The look, on and off, is the shared `switch` (#564): it reads aria-checked.
+          className="node-panel-brand-switch"
           onClick={() => onChange({ ...settings, useBrand: !on } as NodeSettings)}
-        >
-          <span className={`node-panel-toggle-thumb ${on ? "node-panel-toggle-thumb-on" : "node-panel-toggle-thumb-off"}`} />
-        </button>
+        />
       </div>
       <p id={`${id}-summary`} className="node-panel-brand-summary">
         {summary}
