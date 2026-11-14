@@ -93,7 +93,7 @@ export default function GenerateForm({
       // The layering order is TypeScript's (Z_INDEX), as the rail's is.
       style={{ zIndex: Z_INDEX.panelForm }}
     >
-      <NodeFormHeader title={spec.title} nodeName={nodeName} tagline={spec.tagline} onClose={onClose}>
+      <NodeFormHeader title={spec.title} nodeName={nodeName} onClose={onClose}>
         <div className="node-panel-model-wrapper" ref={modelPickerRef}>
           <button onClick={() => setIsModelOpen((v) => !v)} className="node-panel-model-trigger">
             <span>

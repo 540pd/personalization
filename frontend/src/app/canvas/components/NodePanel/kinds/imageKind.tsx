@@ -128,7 +128,6 @@ function Output({ value }: { value: string }) {
 export const imageKind: NodeKindSpec = {
   kind: "image",
   title: "Create Image",
-  tagline: "Your product. A whole new perspective.",
   prompt: "Describe the image...",
   // Skills only: an agent is a Prompt-panel setup with a text model (#240).
   mentions: "skills",

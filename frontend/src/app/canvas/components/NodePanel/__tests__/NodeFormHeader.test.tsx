@@ -16,15 +16,9 @@ describe("NodeFormHeader", () => {
     expect(screen.getByText("jungle theme").getAttribute("title")).toBe("jungle theme");
   });
 
-  it("leaves out the name and the tagline when there are none", () => {
+  it("leaves out the name when there is none", () => {
     const { container } = render(<NodeFormHeader title="Create Image" onClose={vi.fn()} />);
     expect(container.querySelector(".node-form-header-name")).toBeNull();
-    expect(container.querySelector(".node-form-header-tagline")).toBeNull();
-  });
-
-  it("shows the tagline under the title", () => {
-    render(<NodeFormHeader title="Create Image" tagline="Your product. A whole new perspective." onClose={vi.fn()} />);
-    expect(screen.getByText("Your product. A whole new perspective.")).toBeTruthy();
   });
 
   it("closes from a button named Close", () => {
@@ -34,9 +28,9 @@ describe("NodeFormHeader", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("renders what it is given under the tagline", () => {
+  it("renders what it is given under the title", () => {
     render(
-      <NodeFormHeader title="Create Image" tagline="A line." onClose={vi.fn()}>
+      <NodeFormHeader title="Create Image" onClose={vi.fn()}>
         <button type="button">Model A</button>
       </NodeFormHeader>,
     );

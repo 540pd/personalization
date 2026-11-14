@@ -100,8 +100,6 @@ export interface NodeKindSpec {
   kind: NodeKind;
   /** Panel heading. */
   title: string;
-  /** One line under the title in the form's header (#561); none shows none. */
-  tagline?: string;
   /** Instruction textarea placeholder. */
   prompt: string;
   /** What `@` offers in the Instruction (#239). Omitted: no @ menu. */
