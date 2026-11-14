@@ -23,7 +23,7 @@ export default function DropOverlay() {
         height: area.height,
         pointerEvents: "none",
         zIndex: Z_INDEX.dropOverlay,
-        background: "rgba(0,0,0,0.04)",
+        background: COLORS.dropScrim,
         border: `2px dashed ${COLORS.ink}`,
         borderRadius: 12,
         display: "flex",
