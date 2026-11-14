@@ -6,6 +6,7 @@ from .config import settings
 from .security import Principal, trusted_node
 from .errors import install as install_errors
 from .wiring import build_services
+from .publish_op import State
 from . import codes
 from .errors import ServiceError
 
@@ -107,7 +108,7 @@ async def publish_skill(
     if not idempotency_key or not (8 <= len(idempotency_key) <= 128):
         raise ServiceError(422, codes.VALIDATION, 'Idempotency-Key header required (8-128 characters)')
     result = await svc.publish(principal.owner_key, skill_id, body, idempotency_key)
-    response.status_code = 200 if result.status == 'published' else 202
+    response.status_code = 200 if result.status == State.PUBLISHED else 202
     return result
 
 
