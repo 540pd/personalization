@@ -13,7 +13,7 @@ import { baseRequest, brandRequest, KindPlaceholder, TemperatureSlider, TEXT_NOD
 // Ids from docs/llm_parameter/, not guessed.
 const MODELS = [
   { id: "gemini-3.8-flash",      label: "Gemini 3.8 Flash" },
-  { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite" },
+  { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite", hint: "Lowest cost. Good for trying an idea first." },
 ];
 
 function Advanced({ value, onChange }: SettingsProps) {

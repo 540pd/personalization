@@ -110,7 +110,8 @@ describe("@ mentions in the Instruction (#239)", () => {
   it("typing an agent's handle doesn't change the model", () => {
     render(<Harness />);
     type("@copywriter write");
-    expect(screen.getByRole("button", { name: /^Lite/ })).toBeInTheDocument();
+    // The field's button is named by its label and its value (#562).
+    expect(screen.getByRole("button", { name: /^Model Lite/ })).toBeInTheDocument();
     expect(screen.queryByText(/from @copywriter/)).toBeNull();
   });
 

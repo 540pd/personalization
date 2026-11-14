@@ -37,6 +37,8 @@ export interface ModelCapabilities {
 export interface ModelOption {
   id: string;
   label: string;
+  /** A line under the model field while this model is chosen (#562): what to know before using it. */
+  hint?: string;
   /** Omitted means "everything this kind offers". */
   supports?: ModelCapabilities;
 }

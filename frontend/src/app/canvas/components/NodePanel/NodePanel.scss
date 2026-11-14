@@ -171,48 +171,68 @@
   @apply min-w-0 truncate text-body font-medium text-accent;
 }
 
-.node-panel-model-wrapper {
-  @apply relative mt-1;
-}
-
-.node-panel-model-trigger {
-  @apply flex items-center gap-1 text-body text-ink-muted transition-colors hover:text-ink;
-}
-
-.node-panel-chevron {
-  @apply transition-transform duration-150;
-}
-
-.node-panel-chevron-open {
-  @apply rotate-180;
-}
-
-.node-panel-model-dropdown {
-  @apply absolute left-0 top-full z-10 mt-1.5 w-48 overflow-hidden rounded-card border border-line bg-surface shadow-menu;
-}
-
-.node-panel-model-option {
-  @apply flex w-full items-center justify-between px-3 py-2 text-body transition-colors;
-}
-
-.node-panel-model-option-active {
-  @apply bg-accent-soft font-medium text-accent;
-}
-
-.node-panel-model-option-inactive {
-  @apply text-ink hover:bg-subtle;
-}
-
-.node-panel-model-check {
-  @apply shrink-0 text-accent;
-}
-
 .node-form-header-close {
   @apply -mr-1.5 -mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-subtle hover:text-ink;
   @apply focus-visible:focus-ring;
 }
 
 /* Body */
+
+// The model field (#562, ModelField): the shared label, box and hint (#560).
+.model-field {
+  @apply flex flex-col;
+}
+
+.model-field-label {
+  @apply field-label;
+  @apply m-0 mb-1.5;
+}
+
+.model-field-trigger {
+  @apply field-box;
+  @apply flex w-full cursor-pointer items-center justify-between gap-2 text-left;
+}
+
+.model-field-value {
+  @apply min-w-0 truncate font-medium text-accent;
+}
+
+.model-field-from {
+  @apply font-normal text-ink-muted;
+}
+
+.model-field-chevron {
+  @apply shrink-0 text-ink-muted transition-transform duration-150;
+}
+
+.model-field-chevron-open {
+  @apply rotate-180;
+}
+
+.model-field-hint {
+  @apply field-hint;
+  @apply m-0 mt-1.5;
+}
+
+// Fixed under the trigger by ModelField, so the scrolling body cannot clip it.
+.model-field-menu {
+  @apply menu-surface;
+  @apply z-10 overflow-y-auto p-1;
+}
+
+.model-field-option {
+  @apply flex w-full items-center justify-between rounded-control px-2.5 py-2 text-left text-body text-ink transition-colors hover:bg-subtle;
+  @apply focus-visible:focus-ring-inset;
+}
+
+.model-field-option-current {
+  @apply active-soft;
+  @apply font-medium;
+}
+
+.model-field-check {
+  @apply shrink-0;
+}
 
 .node-panel-body {
   @apply flex flex-col gap-4 overflow-y-auto px-5 pb-5 pt-3;
@@ -299,6 +319,14 @@
 }
 
 /* Advanced */
+
+.node-panel-chevron {
+  @apply transition-transform duration-150;
+}
+
+.node-panel-chevron-open {
+  @apply rotate-180;
+}
 
 .node-panel-advanced-trigger {
   @apply flex items-center gap-1.5 text-body font-medium text-ink;
@@ -428,10 +456,6 @@
 .node-panel-loader {
   @apply shrink-0 animate-spin;
 }
-.node-panel-model-from {
-  @apply text-ink-muted;
-}
-
 /* Use brand (#452): the switch, and what it will send. */
 
 .node-panel-brand {

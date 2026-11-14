@@ -101,7 +101,7 @@ test.describe("Prompt panel: @ skills and agents (#239)", () => {
     await box(page).pressSequentially("@cop");
     await menu(page).getByRole("option", { name: /copywriter/ }).click();
     await box(page).pressSequentially("taglines in @brand-voice");
-    await expect(page.locator(".node-panel-model-trigger")).toHaveText("Gemini 3.8 Flash · from @copywriter");
+    await expect(page.locator(".model-field-value")).toHaveText("Gemini 3.8 Flash · from @copywriter");
     // The menu is still open on the typed handle; where it lands depends on
     // the fonts, and on Linux it covers Create.
     await box(page).press("Escape");
@@ -130,7 +130,7 @@ test.describe("Prompt panel: @ skills and agents (#239)", () => {
       "One agent per prompt: @planner is sent as text.",
     ]);
     // Typed, not picked: the model stays.
-    await expect(page.locator(".node-panel-model-trigger")).toHaveText("Gemini 3.5 Flash Lite");
+    await expect(page.locator(".model-field-value")).toHaveText("Gemini 3.5 Flash Lite");
     await page.locator("button.node-panel-create-button").click();
     await expect.poll(() => bodies.length).toBe(1);
     expect(bodies[0].agent).toEqual({ name: "copywriter", instructions: "Write three options." });

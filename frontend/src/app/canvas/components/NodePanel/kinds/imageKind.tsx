@@ -23,12 +23,15 @@ const MODELS = [
   { id: "gemini-3.1-flash-image",      label: "Nano Banana 2",
     supports: { temperature: true,  thinking: true,  imageSize: true, aspectRatio: true } },
   { id: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite",
+    hint: "Lowest cost. Good for trying an idea first.",
     supports: { temperature: true,  thinking: true,  imageSize: true, aspectRatio: true } },
   // Pro sets no thinking_config.
   { id: "gemini-3-pro-image",          label: "Nano Banana Pro",
+    hint: "Thinking can't be set for this model.",
     supports: { temperature: true,  thinking: false, imageSize: true, aspectRatio: true } },
   // 2.1 sets no temperature.
   { id: "gemini-nano-banana-2.1",      label: "Nano Banana 2.1",
+    hint: "Temperature can't be set for this model.",
     supports: { temperature: false, thinking: true,  imageSize: true, aspectRatio: true } },
 ];
 
