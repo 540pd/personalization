@@ -1,26 +1,46 @@
 @import "tailwindcss";
 
 /*
- * The design values every surface draws from (#434), after
- * docs/sidebar/Design_Aspect: a neutral interface, one blue accent for what
- * is active or primary, and colour otherwise left to the user's content.
+ * The design values every surface draws from (#434, colours from #547).
+ * The colours follow the Figma screens in docs/figma_screens: near-white
+ * surfaces with a lavender tint, one purple accent for what is active or
+ * primary, and colour otherwise left to the user's content.
  * Each becomes a utility: `bg-subtle`, `text-ink-muted`, `border-line`,
  * `text-body`, `rounded-control`, `shadow-float` and so on.
+ *
+ * The colour values are provisional: sampled from the screenshots, not read
+ * from the Figma file. A component never writes a colour of its own, so a
+ * corrected value is a one-line change here.
  */
 @theme {
-  /* Surfaces: white to work on, a soft grey to set areas apart. */
+  /* Surfaces: white to work on, a soft lavender-grey to set areas apart. */
   --color-surface: #ffffff;
-  --color-subtle: #f5f5f5;
+  --color-subtle: #f5f4f8;
 
-  /* Text, and the light line used where a border is really needed. */
-  --color-ink: #111111;
-  --color-ink-muted: #666666;
-  --color-line: #e7e7e7;
+  /* The page and the board behind the cards: white with a hint of lavender. */
+  --color-canvas: #fefcff;
 
-  /* The one accent: primary actions, the active tool, selection, focus. */
-  --color-accent: #2c6adc;
-  --color-accent-hover: #2057c4;
-  --color-accent-soft: #eef3fc;
+  /* Text: near-black and a grey, both with a little purple in them. */
+  --color-ink: #24212d;
+  --color-ink-muted: #80798c;
+
+  /* Lines, lightest first: a divider between areas, the edge of a card or
+     panel, and the edge of a field (input, select, text area), which has to
+     stay findable on white. */
+  --color-line-soft: #f4f1f7;
+  --color-line: #efedf3;
+  --color-line-strong: #dcd7e4;
+
+  /* The one accent: primary actions, the active tool, selection, focus.
+     The hover is also the accent for text on the soft fill. */
+  --color-accent: #a100ff;
+  --color-accent-hover: #8500d4;
+  --color-accent-soft: #f8edff;
+
+  /* The primary action's gradient, left to right: purple into blue. */
+  --color-accent-from: #8c0dff;
+  --color-accent-via: #512fff;
+  --color-accent-to: #234cff;
 
   /* Small status labels only, never panels or buttons. */
   --color-indigo: #4d4a9b;

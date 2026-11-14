@@ -72,8 +72,8 @@ test.describe("Campaign Brief", () => {
     await name.hover();
     await expect.poll(border).not.toBe(rest);
     await name.focus();
-    // The accent (#437), #2c6adc.
-    await expect.poll(border).toBe("rgb(44, 106, 220)");
+    // The accent (#437, purple since #547), #a100ff.
+    await expect.poll(border).toBe("rgb(161, 0, 255)");
     await name.fill("Monsoon Collection 2027");
     // Filled, unfocused and unhovered: back to the resting border, not hidden.
     await page.mouse.move(5, 5);
