@@ -22,13 +22,14 @@
   @apply opacity-40 cursor-default hover:bg-transparent hover:text-ink-muted;
 }
 
+/* A button whose card is open: the dock's active tool (#549). */
 .shape-style-button-open {
-  @apply bg-accent text-white hover:bg-accent hover:text-white;
+  @apply active-soft;
 }
 
 /* Bold and Italic: on, but not a card opened. */
 .shape-style-button-on {
-  @apply bg-accent-soft text-accent hover:bg-accent-soft hover:text-accent;
+  @apply active-soft;
 }
 
 /* The Size button and options: a number or a letter, not an icon. */
@@ -92,7 +93,7 @@
 }
 
 .shape-style-option-current {
-  @apply bg-accent-soft text-accent hover:bg-accent-soft hover:text-accent;
+  @apply active-soft;
 }
 
 /* A shortcut in a tooltip: Create frame F (#243) */

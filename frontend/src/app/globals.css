@@ -113,6 +113,17 @@
   @apply focus-visible:focus-ring;
 }
 
+/*
+ * What is on or current among its neighbours (#549): the active tool, the
+ * current menu item, a toggle that is on. The soft accent with accent text,
+ * and the same under the pointer, so hovering it changes nothing. The strong
+ * fill is left to button-primary.
+ */
+@utility active-soft {
+  @apply bg-accent-soft text-accent;
+  @apply hover:bg-accent-soft hover:text-accent;
+}
+
 /* The dimmed full-window layer a modal dialog sits on, centred. */
 @utility dialog-backdrop {
   @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20;

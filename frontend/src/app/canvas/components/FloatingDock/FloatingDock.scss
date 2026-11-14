@@ -31,7 +31,7 @@
 }
 
 .floating-dock-button-active {
-  @apply bg-accent text-white;
+  @apply active-soft;
 }
 
 .floating-dock-button-inactive {
@@ -91,7 +91,8 @@
 }
 
 .floating-dock-submenu-item-active {
-  @apply bg-accent-soft text-accent font-medium;
+  @apply font-medium;
+  @apply active-soft;
 }
 
 .floating-dock-submenu-item-inactive {
