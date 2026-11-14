@@ -156,6 +156,7 @@ export default function SinglePanel({
       {isPanelOpen && !spec.authored && (
         <GenerateForm
           spec={spec}
+          nodeName={instance.label}
           draft={draft}
           onDraftChange={setDraft}
           settings={settings}
