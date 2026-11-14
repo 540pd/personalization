@@ -11,7 +11,7 @@ import { useState, useMemo } from "react";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import type { NodeKindSpec, NodeSettings } from "./nodeKinds";
-import MentionInput from "./MentionInput";
+import InstructionField from "./InstructionField";
 import BrandSwitch from "./BrandSwitch";
 import NodeFormHeader from "./NodeFormHeader";
 import ModelField from "./ModelField";
@@ -99,36 +99,25 @@ export default function GenerateForm({
           fromAgent={modelFrom}
         />
 
-        <div>
-          <p className="node-panel-section-label">Instruction</p>
-          <MentionInput
-            value={instruction}
-            onChange={(next, agent) =>
-              onDraftChange({
-                ...draft,
-                instruction: next,
-                // Picking an agent runs it on its own model, if this kind has it.
-                ...(agent && spec.models.some((m) => m.id === agent.model) ? { model: agent.model } : {}),
-              })
-            }
-            onBlur={onInstructionBlur}
-            placeholder={spec.prompt}
-            className="node-panel-instruction"
-            scope={spec.mentions}
-            mentionables={mentionables}
-            known={resolved?.known ?? []}
-            onOpenLibrary={onOpenLibrary}
-          />
-          {notes.length > 0 && (
-            <div className="mention-notes">
-              {notes.map((n) => (
-                <p key={n} className="mention-note">
-                  {n}
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
+        <InstructionField
+          value={instruction}
+          onChange={(next, agent) =>
+            onDraftChange({
+              ...draft,
+              instruction: next,
+              // Picking an agent runs it on its own model, if this kind has it.
+              ...(agent && spec.models.some((m) => m.id === agent.model) ? { model: agent.model } : {}),
+            })
+          }
+          onBlur={onInstructionBlur}
+          placeholder={spec.prompt}
+          caption={spec.caption}
+          scope={spec.mentions}
+          mentionables={mentionables}
+          known={resolved?.known ?? []}
+          notes={notes}
+          onOpenLibrary={onOpenLibrary}
+        />
 
         {spec.brand && <BrandSwitch settings={settings} onChange={onSettingsChange} />}
 

@@ -114,6 +114,7 @@ export const videoKind: NodeKindSpec = {
   prompt: "Describe the video...",
   // Skills only, as in an Image panel (#240).
   mentions: "skills",
+  caption: "@ for skills",
   models: MODELS,
   // Shortest clip and smallest resolution the picker offers. Video is the
   // slowest and most expensive kind, so the default should be a quick look.

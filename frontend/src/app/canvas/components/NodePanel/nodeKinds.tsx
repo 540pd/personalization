@@ -104,6 +104,8 @@ export interface NodeKindSpec {
   title: string;
   /** Instruction textarea placeholder. */
   prompt: string;
+  /** A few words beside the Instruction label (#563): what the user can do in the box. */
+  caption?: string;
   /** What `@` offers in the Instruction (#239). Omitted: no @ menu. */
   mentions?: MentionScope;
   /** Offers Use brand (#452): image and text kinds, not video or Compose yet. */

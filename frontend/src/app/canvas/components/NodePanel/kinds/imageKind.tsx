@@ -134,6 +134,7 @@ export const imageKind: NodeKindSpec = {
   prompt: "Describe the image...",
   // Skills only: an agent is a Prompt-panel setup with a text model (#240).
   mentions: "skills",
+  caption: "@ for skills",
   brand: true,
   models: MODELS,
   // Cheapest model and smallest size by default. A node is usually created to
