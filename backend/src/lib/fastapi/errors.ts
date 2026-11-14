@@ -13,6 +13,32 @@ export const unavailable = (status = 503, retryable = true, context: FastApiErro
 /** The service answered something that isn't its contract. */
 export const malformed = () => unavailable(502, false);
 
+// ── Named errors (#533): the client and the fake both build their errors here,
+// so the placeholder can't answer differently from the real client. ──
+
+type Ctx = FastApiErrorContext;
+export const notFound = (context: Ctx = {}) => new FastApiError(404, "resource_not_accessible", "Not found.", false, [], context);
+export const playspaceBusy = (context: Ctx = {}) => new FastApiError(409, "playspace_busy", "A run is already active for this Playspace.", false, [], context);
+export const idempotencyConflict = (context: Ctx = {}) =>
+  new FastApiError(409, "idempotency_conflict", "This request conflicts with an earlier one using the same key.", false, [], context);
+export const publishInProgress = (context: Ctx = {}) =>
+  new FastApiError(409, "publish_in_progress", "This Skill is already being published. Try again shortly.", true, [], context);
+export const conflict = (context: Ctx = {}) =>
+  new FastApiError(409, "conflict", "That Skill is busy, or this conflicts with an earlier request. Try again shortly.", false, [], context);
+export const quotaExceeded = (context: Ctx = {}) => new FastApiError(422, "quota_exceeded", "You've reached the limit for your Skills.", false, [], context);
+export const toolNotApproved = (issues: ValidationIssue[], context: Ctx = {}) =>
+  new FastApiError(422, "tool_not_approved", "A tool in this Skill isn't approved.", false, issues, context);
+export const validationFailed = (issues: ValidationIssue[] = [], context: Ctx = {}) =>
+  new FastApiError(422, "validation_failed", "The request didn't pass validation.", false, issues, context);
+/** Refused before sending: the input itself is wrong. `message` is ours, never upstream's. */
+export const invalidInput = (message: string) => new FastApiError(422, "validation_failed", message, false);
+/** A call without a session-derived owner: a bug on our side, never sent. */
+export const missingOwner = () => new FastApiError(500, "dependency_unavailable", "No signed-in owner for this call.", false);
+export const rateLimited = (context: Ctx = {}) => new FastApiError(429, "rate_limited", "Too many requests. Try again later.", true, [], context);
+
+/** `name isn't an approved tool` issues for tool names, numbered as the client numbers them. */
+export const unapprovedTools = (names: unknown[]) => names.slice(0, 50).map((n, i) => toolIssue("tool_not_approved", n, `toolNames[${i}]`));
+
 /** A wire path as Node names it: `body.tool_names` → `toolNames`. */
 const nodePath = (path: unknown) =>
   text(path, 100)
@@ -83,24 +109,22 @@ export function errorFrom(res: HttpResponse): FastApiError {
   const revision = error?.catalogRevision ?? (parsed.detail as { catalog_revision?: unknown } | undefined)?.catalog_revision;
   if (typeof revision === "string" && revision) context.catalogRevision = text(revision, 100);
 
-  if (res.status === 404) return new FastApiError(404, "resource_not_accessible", "Not found.", false, [], context);
+  if (res.status === 404) return notFound(context);
   if (res.status === 409) {
-    if (code === "playspace_busy") return new FastApiError(409, code, "A run is already active for this Playspace.", false, [], context);
-    if (code === "idempotency_conflict") return new FastApiError(409, code, "This request conflicts with an earlier one using the same key.", false, [], context);
-    if (code === "publish_in_progress") return new FastApiError(409, code, "This Skill is already being published. Try again shortly.", true, [], context);
-    return new FastApiError(409, "conflict", "That Skill is busy, or this conflicts with an earlier request. Try again shortly.", false, [], context);
+    if (code === "playspace_busy") return playspaceBusy(context);
+    if (code === "idempotency_conflict") return idempotencyConflict(context);
+    if (code === "publish_in_progress") return publishInProgress(context);
+    return conflict(context);
   }
   if (res.status === 422 || res.status === 400 || res.status === 413) {
-    if (code === "quota_exceeded") return new FastApiError(422, code, "You've reached the limit for your Skills.", false, [], context);
-    if (code === "tool_not_approved" || issues.some((i) => i.code === "tool_not_approved")) {
-      return new FastApiError(422, "tool_not_approved", "A tool in this Skill isn't approved.", false, issues, context);
-    }
-    return new FastApiError(422, "validation_failed", "The request didn't pass validation.", false, issues, context);
+    if (code === "quota_exceeded") return quotaExceeded(context);
+    if (code === "tool_not_approved" || issues.some((i) => i.code === "tool_not_approved")) return toolNotApproved(issues, context);
+    return validationFailed(issues, context);
   }
   // Our service identity was refused: a deployment problem, not the user's.
   if (res.status === 401 || res.status === 403) return unavailable(502, false, context);
   if (res.status === 429) {
-    if (code === "rate_limited") return new FastApiError(429, code, "Too many requests. Try again later.", true, [], context);
+    if (code === "rate_limited") return rateLimited(context);
     return unavailable(503, true, context);
   }
   return unavailable(502, true, context);
