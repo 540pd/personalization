@@ -1,6 +1,7 @@
 "use client";
 
-// Luma reference: IMG-02/03. The panel beside a node, driven entirely by its
+// Luma reference: IMG-02/03. A node's form, docked on the right of the board
+// (#557: where it sits is `node-form-dock`, not a prop), driven entirely by its
 // kind's spec — this component knows nothing about images, video or text.
 //
 // Deliberately free of store imports: everything arrives as props, so it can
@@ -9,7 +10,7 @@
 import { useState, useRef, useMemo } from "react";
 import { useDismiss } from "@/lib/dom/useDismiss";
 import { X, ChevronDown, Check, Loader2 } from "lucide-react";
-import { COLORS, Z_INDEX } from "@/constants/canvas.constants";
+import { Z_INDEX } from "@/constants/canvas.constants";
 import type { NodeKindSpec, NodeSettings } from "./nodeKinds";
 import MentionInput from "./MentionInput";
 import BrandSwitch from "./BrandSwitch";
@@ -41,9 +42,6 @@ export interface GenerateFormProps {
   error: string | null;
   /** Said after a Create that worked but not as asked: made without the brand (#452). */
   notice?: string | null;
-  /** Screen position of the panel's left edge and vertical centre. */
-  left: number;
-  top: number;
   onClose: () => void;
   /** Seeds the node's name while the user is still configuring it. */
   onInstructionBlur: () => void;
@@ -56,7 +54,7 @@ export interface GenerateFormProps {
 
 export default function GenerateForm({
   spec, draft, onDraftChange, settings, onSettingsChange, busy, busyLabel, error, notice,
-  left, top, onClose, onInstructionBlur, onSubmit, mentionables = NO_MENTIONABLES, onOpenLibrary,
+  onClose, onInstructionBlur, onSubmit, mentionables = NO_MENTIONABLES, onOpenLibrary,
 }: GenerateFormProps) {
   // Only chrome state lives here; resetting it on reopen is harmless.
   const [isModelOpen, setIsModelOpen] = useState(false);
@@ -89,16 +87,8 @@ export default function GenerateForm({
   return (
     <div
       className="node-panel-create"
-      style={{
-        position: "fixed",
-        left,
-        top,
-        transform: "translateY(-50%)",
-        zIndex: Z_INDEX.panelForm,
-        border: `1px solid ${COLORS.panelBorder}`,
-        maxHeight: "calc(100vh - 2rem)",
-        pointerEvents: "auto",
-      }}
+      // The layering order is TypeScript's (Z_INDEX), as the rail's is.
+      style={{ zIndex: Z_INDEX.panelForm }}
     >
       {/* Header */}
       <div className="node-panel-header">

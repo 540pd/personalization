@@ -1,8 +1,9 @@
 "use client";
 
 // One Create node on the board (#468, moved out of NodePanel): its
-// placeholder, the chrome around it (NodeChrome), and its Generate panel or
-// in-place editor. The draft is useNodeDraft; where it sits is nodeScreenBox.
+// placeholder, the chrome around it (NodeChrome), and its Generate panel
+// (docked on the right, #557) or in-place editor. The draft is useNodeDraft;
+// where the node sits is nodeScreenBox.
 
 import { useState, useMemo, useCallback, useRef } from "react";
 import { useNodePanel, type PanelInstance } from "@/store/nodePanel.store";
@@ -12,10 +13,8 @@ import { useLayerOrder } from "@/store/layerOrder.store";
 import { useSection } from "@/store/section.store";
 import { useSkills } from "@/store/skills.store";
 import { useAgents } from "@/store/agents.store";
-import { useCanvasArea } from "../../canvasArea";
 import GenerateForm from "./GenerateForm";
 import { kindSpec, panelOutput } from "./kinds";
-import { panelPlacement } from "./panelPlacement";
 import { nodeScreenBox } from "./nodeScreenBox";
 import { useNodeDraft } from "./hooks/useNodeDraft";
 import { usePanelDrag } from "./hooks/usePanelDrag";
@@ -69,15 +68,6 @@ export default function SinglePanel({
   const pw = instance.w;
   const ph = instance.h;
   const box = nodeScreenBox(instance, vp);
-
-  // The panel is placed relative to the node, so it has to know how much room
-  // is left on screen. The visible canvas, not the window: the left-flip
-  // fallback would otherwise push a panel underneath the sidebar.
-  const area = useCanvasArea();
-  const viewLeft = area.left ?? 0;
-  const panelLeft = panelPlacement({
-    nodeLeft: box.left, nodeWidth: box.width, viewLeft, viewRight: viewLeft + area.width,
-  });
 
   // What @ can name in the Instruction (#239).
   const skills = useSkills((s) => s.skills);
@@ -173,8 +163,6 @@ export default function SinglePanel({
           busyLabel={busyLabel}
           error={error}
           notice={notice}
-          left={panelLeft}
-          top={box.centreY}
           onClose={onClosePanel}
           onInstructionBlur={commitInstruction}
           onSubmit={generate}

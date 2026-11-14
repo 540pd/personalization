@@ -46,8 +46,6 @@ function Harness({ mentionables = library, kind = spec, initial = "" }: { mentio
       onSettingsChange={vi.fn()}
       busy={false}
       error={null}
-      left={0}
-      top={0}
       onClose={vi.fn()}
       onInstructionBlur={vi.fn()}
       onSubmit={vi.fn()}
