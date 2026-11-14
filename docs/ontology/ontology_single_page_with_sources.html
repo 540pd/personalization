@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="A concise, interactive single-page note explaining ontology: what it is, why it is useful, its building blocks, and how to build one." />
+  <title>Ontology Notes — Interactive Single-Page Guide</title>
+  <style>
+    :root {
+      --brand: #8b3dff;
+      --brand-2: #6523c9;
+      --brand-3: #b98cff;
+      --brand-soft: #f2eaff;
+      --brand-faint: #faf7ff;
+      --ink: #1d1725;
+      --ink-2: #5f586d;
+      --ink-3: #81798e;
+      --line: #e9e3f0;
+      --bg: #fbfafe;
+      --card: #ffffff;
+      --shadow: 0 1px 2px rgba(35, 20, 55, .04), 0 12px 34px rgba(83, 45, 130, .08);
+      --blue: #2563eb;
+      --blue-soft: #eaf1ff;
+      --teal: #0f907d;
+      --teal-soft: #e6faf6;
+      --orange: #d97706;
+      --orange-soft: #fff4df;
+      --pink: #c52067;
+      --pink-soft: #fff0f6;
+      --red: #b4233c;
+      --red-soft: #fff4f5;
+      --green: #16794d;
+      --green-soft: #edf9f2;
+      --radius: 16px;
+      --wrap: 1120px;
+    }
+
+    [data-theme="dark"] {
+      --ink: #f7f2ff;
+      --ink-2: #cbc2d7;
+      --ink-3: #9e95ad;
+      --line: #40364d;
+      --bg: #16111d;
+      --card: #211a2b;
+      --brand-soft: #33234a;
+      --brand-faint: #1b1523;
+      --blue-soft: #172b52;
+      --teal-soft: #153b37;
+      --orange-soft: #493015;
+      --pink-soft: #4a1b31;
+      --red-soft: #421b24;
+      --green-soft: #17372a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .18), 0 16px 42px rgba(0, 0, 0, .28);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    a { color: inherit; }
+    svg text { font-family: inherit; }
+    ::selection { background: #d9c2ff; color: #25133b; }
+
+    .wrap { width: min(var(--wrap), calc(100% - 40px)); margin: 0 auto; }
+    .read-progress {
+      position: fixed; inset: 0 auto auto 0; width: 0; height: 3px; z-index: 1000;
+      background: linear-gradient(90deg, var(--brand), #c66cff);
+    }
+    .skip-link {
+      position: fixed; top: -100px; left: 16px; z-index: 1100; padding: 10px 14px;
+      background: var(--card); border: 1px solid var(--line); border-radius: 10px; text-decoration: none;
+    }
+    .skip-link:focus { top: 14px; }
+
+    .site-header {
+      position: sticky; top: 0; z-index: 900;
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+      background: color-mix(in srgb, var(--bg) 90%, transparent);
+      backdrop-filter: blur(14px);
+    }
+    .nav-shell { min-height: 64px; display: flex; align-items: center; gap: 20px; }
+    .brand-link { display: flex; align-items: center; gap: 10px; font-weight: 850; text-decoration: none; white-space: nowrap; }
+    .brand-mark {
+      width: 28px; height: 28px; display: grid; place-items: center; border-radius: 9px;
+      color: white; background: linear-gradient(145deg, var(--brand), var(--brand-2)); box-shadow: 0 8px 20px rgba(139, 61, 255, .25);
+    }
+    .brand-sub { color: var(--ink-3); font-weight: 550; }
+    .site-nav { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+    .site-nav a {
+      padding: 9px 11px; border-radius: 9px; text-decoration: none; color: var(--ink-2); font-size: 13px; font-weight: 750;
+    }
+    .site-nav a:hover, .site-nav a.is-active { background: var(--brand-soft); color: var(--brand-2); }
+    .nav-actions { display: flex; gap: 8px; }
+    .icon-button, .menu-button {
+      width: 38px; height: 38px; border: 1px solid var(--line); background: var(--card); border-radius: 10px; cursor: pointer;
+    }
+    .menu-button { display: none; }
+
+    .hero {
+      position: relative; overflow: hidden; color: white; padding: 72px 0 76px;
+      background:
+        radial-gradient(650px 300px at 83% 5%, rgba(201, 151, 255, .38), transparent 62%),
+        radial-gradient(500px 260px at 10% 95%, rgba(97, 48, 164, .5), transparent 70%),
+        linear-gradient(125deg, #241333 0%, #3d1a68 52%, #6c28c7 100%);
+    }
+    .hero::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .36;
+      background-image: radial-gradient(rgba(255,255,255,.13) 1px, transparent 1px); background-size: 22px 22px;
+      mask-image: linear-gradient(to right, black, transparent 80%);
+    }
+    .hero-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.55fr .65fr; gap: 54px; align-items: end; }
+    .eyebrow {
+      display: inline-flex; padding: 6px 10px; border: 1px solid rgba(255,255,255,.22); border-radius: 999px;
+      background: rgba(255,255,255,.08); color: #e4d5ff; font-size: 11px; font-weight: 850; letter-spacing: .13em; text-transform: uppercase;
+    }
+    .hero h1 { max-width: 760px; margin: 16px 0 14px; font-size: clamp(42px, 6vw, 72px); line-height: .99; letter-spacing: -.045em; }
+    .hero .lede { max-width: 760px; margin: 0; color: #eadfff; font-size: clamp(17px, 2vw, 21px); }
+    .hero-aside { padding: 22px; border: 1px solid rgba(255,255,255,.18); border-radius: 15px; background: rgba(255,255,255,.08); }
+    .hero-aside .label, .callout .label { font-size: 10px; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; color: #d9c4ff; }
+    .hero-aside p { margin: 10px 0 16px; color: #f1eaff; font-size: 14px; }
+    .hero-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .hero-pills span { padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,.1); font-size: 11px; color: #eee5ff; }
+
+    .summary-strip { position: relative; z-index: 4; margin-top: -34px; }
+    .summary-card {
+      display: grid; grid-template-columns: auto 1fr auto auto; gap: 14px; align-items: center;
+      padding: 18px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: var(--shadow);
+    }
+    .summary-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; background: var(--brand-soft); color: var(--brand); font-size: 20px; }
+    .kicker, .mini-label, .step-label { color: var(--brand); font-size: 10px; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; }
+    .summary-card p { margin: 2px 0 0; }
+    .copy-note, .print-button, .soft-button {
+      border: 1px solid var(--line); border-radius: 9px; background: var(--card); padding: 8px 11px; cursor: pointer; font-size: 12px; font-weight: 750;
+    }
+    .copy-note:hover, .print-button:hover, .soft-button:hover { border-color: var(--brand-3); color: var(--brand-2); }
+
+    main section { padding: 66px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 72px; }
+    main section:nth-child(even) { background: color-mix(in srgb, var(--brand-faint) 55%, var(--bg)); }
+    .section-head { margin-bottom: 28px; }
+    .section-head h2 { margin: 0 0 6px; font-size: clamp(29px, 4vw, 42px); line-height: 1.08; letter-spacing: -.035em; }
+    .section-number { color: var(--brand); margin-right: 8px; }
+    .section-sub { max-width: 780px; margin: 0; color: var(--ink-2); }
+    .subhead { margin: 50px 0 20px; }
+    .subhead h3 { margin: 0 0 4px; font-size: 24px; letter-spacing: -.02em; }
+    .subhead p { margin: 0; color: var(--ink-2); }
+
+    .cite { display: inline-flex; gap: 3px; margin-left: 5px; vertical-align: .22em; font-size: 10px; font-weight: 900; line-height: 1; }
+    .cite a { min-width: 21px; padding: 4px 5px; border: 1px solid color-mix(in srgb, var(--brand) 34%, var(--line)); border-radius: 999px; color: var(--brand-2); background: var(--brand-soft); text-align: center; text-decoration: none; }
+    .cite a:hover, .cite a:focus-visible { border-color: var(--brand); outline: none; transform: translateY(-1px); }
+    .provenance-note { display: flex; align-items: flex-start; gap: 10px; margin: 14px auto 0; padding: 11px 14px; border: 1px solid var(--line); border-radius: 11px; background: color-mix(in srgb, var(--card) 92%, var(--brand-soft)); color: var(--ink-2); font-size: 12px; }
+    .provenance-note strong { color: var(--ink); }
+    .provenance-note a { margin-left: auto; color: var(--brand-2); font-weight: 800; text-decoration: none; white-space: nowrap; }
+
+    .formula { display: grid; grid-template-columns: repeat(7, auto); justify-content: center; gap: 12px; align-items: center; }
+    .formula-piece { min-width: 160px; padding: 17px; border: 1px solid var(--line); border-radius: 13px; background: var(--card); box-shadow: var(--shadow); text-align: center; }
+    .formula-piece b { display: block; color: var(--brand-2); font-size: 14px; }
+    .formula-piece span { color: var(--ink-2); font-size: 12px; }
+    .formula-sign { color: var(--ink-3); font-weight: 900; }
+
+    .tabs, .interactive-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); overflow: hidden; }
+    .tab-list { display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+    .tab-button {
+      border: 0; padding: 9px 13px; border-radius: 9px; background: transparent; color: var(--ink-2); cursor: pointer; white-space: nowrap; font-weight: 780; font-size: 13px;
+    }
+    .tab-button[aria-selected="true"] { background: var(--brand-soft); color: var(--brand-2); }
+    .tab-panel { display: none; padding: 24px; }
+    .tab-panel.is-active { display: block; }
+    .tab-panel h3 { margin: 0 0 14px; font-size: 18px; }
+    .tab-panel p { color: var(--ink-2); margin-bottom: 0; }
+    .sentence { padding: 16px; border: 1px solid #d8bfff; border-radius: 11px; background: var(--brand-faint); font-size: 16px; }
+    .token { display: inline-block; padding: 2px 6px; border-radius: 5px; font-weight: 750; }
+    .token.entity { background: var(--blue-soft); color: var(--blue); }
+    .token.relation { background: var(--teal-soft); color: var(--teal); }
+    .triples { display: grid; gap: 9px; }
+    .triple { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; padding: 11px; border: 1px solid var(--line); border-radius: 10px; }
+    .triple .subject, .triple .object { padding: 8px 10px; background: var(--blue-soft); color: var(--blue); border-radius: 8px; font-weight: 800; text-align: center; }
+    .triple .predicate { color: var(--brand-2); font-weight: 800; font-size: 13px; }
+    .code-note { margin: 0; padding: 16px; border-radius: 11px; background: #20172b; color: #eee4ff; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+
+    .graph-card { display: grid; grid-template-columns: 1.7fr .75fr; gap: 14px; }
+    .graph-stage, .graph-inspector { min-height: 390px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); }
+    .graph-stage {
+      padding: 20px; display: grid; place-items: center;
+      background-image: radial-gradient(color-mix(in srgb, var(--ink-3) 22%, transparent) 1px, transparent 1px); background-size: 18px 18px;
+    }
+    .graph-stage svg { width: 100%; max-height: 340px; }
+    .graph-node, .graph-edge { cursor: pointer; outline: none; }
+    .graph-node:hover rect, .graph-node:focus rect { stroke-width: 3; filter: drop-shadow(0 8px 10px rgba(91, 41, 166, .13)); }
+    .graph-edge:hover path, .graph-edge:focus path { stroke-width: 4; }
+    .graph-inspector { padding: 24px; }
+    .graph-inspector h3 { margin: 8px 0 6px; font-size: 22px; }
+    .graph-inspector p { color: var(--ink-2); }
+    .graph-tip { margin-top: 18px; padding-top: 15px; border-top: 1px dashed var(--line); font-size: 12px; color: var(--ink-3); }
+
+    .compare-grid, .benefit-grid, .note-grid, .failure-grid, .maturity-grid { display: grid; gap: 14px; }
+    .compare-grid { grid-template-columns: repeat(4, 1fr); }
+    .benefit-grid { grid-template-columns: repeat(3, 1fr); }
+    .note-grid.cols-3, .maturity-grid { grid-template-columns: repeat(3, 1fr); }
+    .compare-card, .benefit-card, .note-card, .failure, .maturity-card {
+      padding: 18px; border: 1px solid var(--line); border-radius: 13px; background: var(--card); box-shadow: var(--shadow);
+    }
+    .compare-card h3, .benefit-card h3, .note-card h3, .failure h3, .maturity-card h3 { margin: 0 0 6px; font-size: 15px; }
+    .compare-card p, .benefit-card p, .note-card p, .failure p, .maturity-card p { margin: 0; color: var(--ink-2); font-size: 13px; }
+    .compare-card .example, .benefit-card .solves { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); color: var(--brand-2); font-size: 11px; font-weight: 750; }
+    .compare-card.is-focus { border-color: var(--brand); background: linear-gradient(180deg, var(--card), var(--brand-faint)); }
+
+    .state-switch { display: inline-flex; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); margin-bottom: 14px; }
+    .state-switch button { border: 0; border-radius: 7px; background: transparent; padding: 8px 11px; cursor: pointer; color: var(--ink-2); font-size: 12px; font-weight: 800; }
+    .state-switch button.is-active { background: var(--brand-soft); color: var(--brand-2); }
+    .state-panels { display: none; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .state-panels.is-active { display: grid; }
+    .state-panel { padding: 18px; border: 1px solid; border-radius: 13px; }
+    .state-panel.bad { border-color: #f3cbd3; background: var(--red-soft); }
+    .state-panel.good { border-color: #bfe5cf; background: var(--green-soft); }
+    .state-panel h3 { margin: 0 0 10px; font-size: 15px; }
+    .state-panel ul { margin: 0; padding-left: 19px; }
+    .state-panel li { margin: 7px 0; font-size: 13px; color: var(--ink-2); }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .filter-button { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 11px; cursor: pointer; color: var(--ink-2); font-size: 12px; font-weight: 780; }
+    .filter-button.is-active { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-2); }
+    .benefit-card[hidden] { display: none; }
+    .benefit-icon { width: 31px; height: 31px; display: grid; place-items: center; margin-bottom: 12px; border-radius: 9px; background: var(--brand-soft); color: var(--brand); font-weight: 900; }
+
+    .agent-flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .agent-step { position: relative; padding: 18px; border: 1px solid var(--line); border-radius: 13px; background: var(--card); box-shadow: var(--shadow); }
+    .agent-step::after { content: "→"; position: absolute; right: -13px; top: 50%; transform: translateY(-50%); z-index: 2; color: var(--brand); font-weight: 900; }
+    .agent-step:last-child::after { display: none; }
+    .agent-step h3 { margin: 8px 0 6px; font-size: 15px; }
+    .agent-step p { margin: 0; color: var(--ink-2); font-size: 12px; }
+    .agent-step:last-child { border-color: var(--brand); }
+
+    .assessment { display: grid; grid-template-columns: 1.35fr .65fr; gap: 14px; }
+    .check-list { display: grid; gap: 9px; }
+    .check-row { display: flex; gap: 11px; align-items: flex-start; padding: 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--card); cursor: pointer; }
+    .check-row input { margin-top: 4px; accent-color: var(--brand); }
+    .check-row b { display: block; font-size: 13px; }
+    .check-row span { color: var(--ink-2); font-size: 11px; }
+    .assessment-result { padding: 22px; border: 1px solid #d7baff; border-radius: 14px; background: linear-gradient(180deg, var(--card), var(--brand-faint)); box-shadow: var(--shadow); }
+    .score-bubble { width: 58px; height: 58px; display: grid; place-items: center; margin-bottom: 14px; border-radius: 50%; background: var(--brand); color: white; font-size: 18px; font-weight: 900; }
+    .assessment-result h3 { margin: 0 0 6px; }
+    .assessment-result p { margin: 0; color: var(--ink-2); font-size: 13px; }
+
+    .anatomy-explorer, .process-explorer { display: grid; grid-template-columns: 260px 1fr; gap: 14px; }
+    .anatomy-menu, .process-menu { display: grid; gap: 7px; align-content: start; }
+    .anatomy-button, .process-button {
+      display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; width: 100%;
+      padding: 11px; text-align: left; border: 1px solid var(--line); border-radius: 10px; background: var(--card); cursor: pointer;
+    }
+    .anatomy-button .num, .process-button .num { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: var(--brand-soft); color: var(--brand); font-size: 12px; font-weight: 900; }
+    .anatomy-button b, .process-button b { display: block; font-size: 13px; }
+    .anatomy-button small, .process-button small { display: block; color: var(--ink-3); font-size: 10px; }
+    .anatomy-button.is-active, .process-button.is-active { border-color: var(--brand); background: var(--brand-faint); }
+    .anatomy-panel, .step-panel { display: none; min-height: 365px; padding: 26px; border: 1px solid var(--line); border-radius: 15px; background: var(--card); box-shadow: var(--shadow); }
+    .anatomy-panel.is-active, .step-panel.is-active { display: block; }
+    .anatomy-panel h3, .step-panel h3 { margin: 8px 0 5px; font-size: 25px; }
+    .anatomy-panel > p, .step-panel > p { margin-top: 0; color: var(--ink-2); }
+    .detail-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px; margin-top: 18px; }
+    .detail-box { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--brand-faint); }
+    .detail-box b { display: block; margin-bottom: 4px; font-size: 12px; }
+    .detail-box span { color: var(--ink-2); font-size: 12px; }
+
+    .statement-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .statement-card { padding: 18px; border: 1px solid #d8bfff; border-radius: 13px; background: var(--card); box-shadow: var(--shadow); }
+    .statement-card .role { color: var(--brand); font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+    .statement-card h3 { margin: 8px 0 5px; font-size: 15px; }
+    .statement-card p { margin: 0; color: var(--ink-2); font-size: 12px; }
+    .statement-grid.bottom { grid-template-columns: 1fr 1fr; margin-top: 12px; }
+
+    .structure-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .structure-card { padding: 20px; border: 1px solid var(--line); border-radius: 13px; background: var(--card); box-shadow: var(--shadow); }
+    .structure-card h3 { margin: 0 0 8px; }
+    .structure-card ul { margin: 12px 0 0; padding-left: 18px; }
+    .structure-card li { margin: 7px 0; color: var(--ink-2); font-size: 13px; }
+    .badge { display: inline-flex; padding: 4px 7px; border-radius: 6px; font-size: 10px; font-weight: 850; }
+    .badge.author { color: var(--brand-2); background: var(--brand-soft); }
+    .badge.earn { color: #075985; background: #e0f2fe; }
+
+    .quiz { display: grid; gap: 10px; }
+    .quiz-item { padding: 17px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+    .quiz-item h3 { margin: 0 0 11px; font-size: 14px; }
+    .quiz-options { display: flex; flex-wrap: wrap; gap: 7px; }
+    .quiz-option { border: 1px solid var(--line); border-radius: 8px; background: var(--brand-faint); padding: 7px 10px; cursor: pointer; color: var(--ink-2); font-size: 11px; font-weight: 780; }
+    .quiz-option.correct { border-color: #55b783; background: var(--green-soft); color: var(--green); }
+    .quiz-option.wrong { border-color: #e48a9c; background: var(--red-soft); color: var(--red); }
+    .quiz-feedback { min-height: 18px; margin-top: 8px; color: var(--ink-3); font-size: 11px; }
+
+    .step-output { margin: 17px 0 12px; padding: 14px; border-left: 3px solid var(--brand); border-radius: 0 9px 9px 0; background: var(--brand-faint); }
+    .step-output b { color: var(--brand); font-size: 10px; text-transform: uppercase; letter-spacing: .09em; }
+    .step-output p { margin: 4px 0 0; font-size: 13px; }
+    .prompt-list { display: grid; gap: 7px; }
+    .prompt-list div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font-size: 12px; color: var(--ink-2); }
+    .prompt-list div::before { content: "→"; margin-right: 8px; color: var(--brand); font-weight: 900; }
+
+    .lens-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+    .lens-card { border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: var(--shadow); overflow: hidden; }
+    .lens-button { width: 100%; border: 0; padding: 16px 18px; color: white; display: flex; justify-content: space-between; align-items: center; text-align: left; cursor: pointer; }
+    .lens-card:nth-child(1) .lens-button { background: linear-gradient(135deg, #2c66e5, #2146a7); }
+    .lens-card:nth-child(2) .lens-button { background: linear-gradient(135deg, #149987, #087064); }
+    .lens-card:nth-child(3) .lens-button { background: linear-gradient(135deg, #dc7900, #ad5900); }
+    .lens-card:nth-child(4) .lens-button { background: linear-gradient(135deg, #cf276d, #9d174d); }
+    .lens-button .small { display: block; font-size: 9px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; opacity: .86; }
+    .lens-button b { font-size: 15px; }
+    .lens-body { display: none; padding: 8px 17px 14px; }
+    .lens-body.is-open { display: block; }
+    .lens-item { padding: 11px 0; border-bottom: 1px dashed var(--line); }
+    .lens-item:last-child { border-bottom: 0; }
+    .lens-item b { display: block; font-size: 12px; }
+    .lens-item span { color: var(--ink-2); font-size: 11px; }
+
+    .maturity-card { position: relative; overflow: hidden; }
+    .maturity-card::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: linear-gradient(90deg, var(--brand), var(--brand-3)); transform-origin: left; }
+    .maturity-card:nth-child(1)::after { transform: scaleX(.33); }
+    .maturity-card:nth-child(2)::after { transform: scaleX(.66); }
+    .maturity-card:nth-child(3)::after { transform: scaleX(1); }
+    .failure-grid { grid-template-columns: repeat(3, 1fr); }
+    .failure { border-color: #f4ced8; background: var(--red-soft); }
+    .failure h3 { color: var(--red); }
+
+    .callout { padding: 30px; border-radius: 17px; color: white; background: linear-gradient(130deg, #29153c, #552192 72%, #7129c9); box-shadow: var(--shadow); }
+    .callout h2 { margin: 8px 0 6px; font-size: 28px; }
+    .callout p { max-width: 900px; margin: 0; color: #eadfff; }
+    .callout-rule { margin-top: 17px; padding: 14px 16px; border: 1px solid rgba(255,255,255,.18); border-radius: 10px; background: rgba(255,255,255,.08); }
+    .callout-actions { display: flex; gap: 9px; margin-top: 16px; }
+    .callout .soft-button, .callout .print-button { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: white; }
+
+    .source-map { margin-bottom: 22px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--card); box-shadow: var(--shadow); }
+    .source-map-row { display: grid; grid-template-columns: 185px 1fr auto; gap: 16px; align-items: center; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+    .source-map-row:last-child { border-bottom: 0; }
+    .source-map-row b { font-size: 13px; }
+    .source-map-row span { color: var(--ink-2); font-size: 12px; }
+    .source-map-row .cite { margin-left: 0; vertical-align: middle; }
+    .source-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .source-card { position: relative; padding: 20px 20px 18px 62px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: var(--shadow); scroll-margin-top: 86px; }
+    .source-card:target { border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 16%, transparent), var(--shadow); }
+    .source-card.internal { background: linear-gradient(180deg, var(--card), var(--brand-faint)); }
+    .source-number { position: absolute; top: 18px; left: 18px; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: var(--brand-soft); color: var(--brand-2); font-size: 12px; font-weight: 900; }
+    .source-card h3 { margin: 0 0 5px; font-size: 15px; line-height: 1.3; }
+    .source-meta { margin-bottom: 9px; color: var(--ink-3); font-size: 11px; font-weight: 750; }
+    .source-card p { margin: 0 0 10px; color: var(--ink-2); font-size: 12px; }
+    .source-card a { color: var(--brand-2); font-size: 12px; font-weight: 850; text-decoration: none; }
+    .source-card a:hover { text-decoration: underline; }
+    .source-tag { display: inline-block; margin-top: 2px; padding: 3px 7px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-2); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+    .source-footnote { margin: 18px 0 0; color: var(--ink-3); font-size: 11px; }
+
+    footer { padding: 34px 0 60px; color: var(--ink-3); font-size: 12px; }
+    .footer-row { display: flex; justify-content: space-between; gap: 20px; }
+    .back-top { color: var(--brand-2); font-weight: 750; text-decoration: none; }
+
+    .toast { position: fixed; right: 22px; bottom: 22px; z-index: 1000; transform: translateY(20px); opacity: 0; pointer-events: none; padding: 10px 14px; border-radius: 10px; background: #21152e; color: white; box-shadow: var(--shadow); font-size: 12px; transition: .2s ease; }
+    .toast.is-visible { transform: translateY(0); opacity: 1; }
+
+    @media (max-width: 980px) {
+      .hero-grid { grid-template-columns: 1fr; gap: 28px; }
+      .hero-aside { max-width: 520px; }
+      .formula { grid-template-columns: 1fr 26px 1fr; }
+      .formula-piece:last-child { grid-column: 1 / -1; }
+      .compare-grid { grid-template-columns: 1fr 1fr; }
+      .benefit-grid { grid-template-columns: 1fr 1fr; }
+      .agent-flow { grid-template-columns: 1fr 1fr; }
+      .agent-step::after { display: none; }
+      .anatomy-explorer, .process-explorer { grid-template-columns: 220px 1fr; }
+      .failure-grid { grid-template-columns: 1fr 1fr; }
+      .source-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { width: min(100% - 28px, var(--wrap)); }
+      .site-nav {
+        display: none; position: absolute; top: 64px; left: 14px; right: 14px; flex-direction: column; align-items: stretch;
+        padding: 10px; border: 1px solid var(--line); border-radius: 13px; background: var(--card); box-shadow: var(--shadow);
+      }
+      .site-nav.is-open { display: flex; }
+      .site-nav a { padding: 11px; }
+      .menu-button { display: inline-grid; place-items: center; }
+      .brand-sub { display: none; }
+      .hero { padding: 58px 0 68px; }
+      .summary-card { grid-template-columns: auto 1fr; }
+      .summary-card .copy-note, .summary-card .print-button { grid-column: auto; }
+      main section { padding: 52px 0; }
+      .formula { grid-template-columns: 1fr; }
+      .formula-sign { text-align: center; }
+      .formula-piece:last-child { grid-column: auto; }
+      .graph-card { grid-template-columns: 1fr; }
+      .graph-stage, .graph-inspector { min-height: auto; }
+      .compare-grid, .benefit-grid, .note-grid.cols-3, .maturity-grid, .failure-grid { grid-template-columns: 1fr; }
+      .state-panels, .assessment, .structure-grid, .lens-grid { grid-template-columns: 1fr; }
+      .source-map-row { grid-template-columns: 1fr; gap: 5px; }
+      .provenance-note { flex-wrap: wrap; }
+      .provenance-note a { margin-left: 0; width: 100%; }
+      .agent-flow { grid-template-columns: 1fr; }
+      .anatomy-explorer, .process-explorer { grid-template-columns: 1fr; }
+      .anatomy-menu, .process-menu { grid-template-columns: 1fr 1fr; }
+      .anatomy-panel, .step-panel { min-height: 0; }
+      .statement-grid, .statement-grid.bottom { grid-template-columns: 1fr; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .footer-row { flex-direction: column; }
+    }
+
+    @media (max-width: 480px) {
+      .hero h1 { font-size: 40px; }
+      .summary-card { grid-template-columns: auto 1fr; }
+      .summary-card .copy-note, .summary-card .print-button { width: 100%; grid-column: 1 / -1; }
+      .anatomy-menu, .process-menu { grid-template-columns: 1fr; }
+      .triple { grid-template-columns: 1fr; text-align: center; }
+      .triples .predicate { padding: 3px 0; }
+    }
+
+    @media print {
+      .site-header, .read-progress, .copy-note, .print-button, .soft-button, .menu-button, .toast { display: none !important; }
+      body { background: white; color: #111; }
+      .hero { color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      main section { break-inside: avoid; }
+      .tab-panel, .anatomy-panel, .step-panel, .lens-body { display: block !important; }
+      .graph-card, .assessment, .anatomy-explorer, .process-explorer { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body id="top">
+  <div class="read-progress" aria-hidden="true"></div>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap nav-shell">
+      <a class="brand-link" href="#top" aria-label="Ontology Notes home">
+        <span class="brand-mark">◆</span>
+        <span>Ontology Notes <span class="brand-sub">· single-page guide</span></span>
+      </a>
+      <nav class="site-nav" data-site-nav aria-label="Page sections">
+        <a href="#what">What it is</a>
+        <a href="#why">Why useful</a>
+        <a href="#anatomy">Anatomy</a>
+        <a href="#build">How to build</a>
+        <a href="#sources">Sources</a>
+      </nav>
+      <div class="nav-actions">
+        <button class="icon-button" type="button" data-theme-toggle aria-label="Switch theme">◐</button>
+        <button class="menu-button" type="button" data-menu-toggle aria-expanded="false" aria-label="Open navigation">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <header class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow">Interactive ontology primer</span>
+        <h1>Ontology is a shared model of meaning.</h1>
+        <p class="lede">It names the important things in a domain, explains how they relate, and states the rules and context that make those relationships meaningful.<sup class="cite"><a href="#ref-2" title="Noy &amp; McGuinness, Ontology Development 101">2</a><a href="#ref-4" title="W3C OWL 2 Primer">4</a></sup></p>
+      </div>
+      <aside class="hero-aside">
+        <div class="label">Use this note to understand</div>
+        <p>The definition, business value, building blocks, and practical development process—using one consistent CPG example.</p>
+        <div class="hero-pills"><span>Definition</span><span>Usefulness</span><span>Anatomy</span><span>Build process</span></div>
+      </aside>
+    </div>
+  </header>
+
+  <div class="wrap summary-strip">
+    <div class="summary-card">
+      <div class="summary-icon">◎</div>
+      <div>
+        <div class="kicker">One-line definition</div>
+        <p>An ontology is a <strong>shared contract for what things mean and how they can connect</strong>.<sup class="cite"><a href="#ref-2" title="Noy &amp; McGuinness, Ontology Development 101">2</a><a href="#ref-4" title="W3C OWL 2 Primer">4</a></sup></p>
+      </div>
+      <button class="copy-note" type="button" data-copy="An ontology is a shared contract for what things mean and how they can connect.">Copy note</button>
+      <button class="print-button" type="button" data-print>Print / PDF</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="provenance-note">
+      <span aria-hidden="true">⌁</span>
+      <span><strong>Source basis:</strong> the attached AGOS discovery framework, supplemented by Stanford, W3C, GS1, ProductOntology, and the cited agentic-systems talk. Numbered markers link to the full references.</span>
+      <a href="#sources">View sources ↓</a>
+    </div>
+  </div>
+
+  <main id="main">
+    <section id="what" data-section>
+      <div class="wrap">
+        <div class="section-head">
+          <h2><span class="section-number">01</span>What is an ontology?</h2>
+          <p class="section-sub">A practical ontology is not simply a glossary. It combines concepts, semantic relationships, constraints, and shared definitions so people and systems can interpret information consistently.<sup class="cite"><a href="#ref-2" title="Noy &amp; McGuinness, Ontology Development 101">2</a><a href="#ref-4" title="W3C OWL 2 Primer">4</a><a href="#ref-5" title="W3C SHACL Recommendation">5</a></sup></p>
+        </div>
+
+        <div class="formula" aria-label="Ontology formula">
+          <div class="formula-piece"><b>Concepts</b><span>Product, Brand, Retailer</span></div>
+          <div class="formula-sign">+</div>
+          <div class="formula-piece"><b>Relationships</b><span>belongs to, sells, targets</span></div>
+          <div class="formula-sign">+</div>
+          <div class="formula-piece"><b>Rules &amp; context</b><span>what is valid, where, and when</span></div>
+          <div class="formula-sign">+</div>
+          <div class="formula-piece"><b>Shared vocabulary</b><span>one agreed meaning</span></div>
+        </div>
+
+        <div class="subhead">
+          <h3>One business fact, three views</h3>
+          <p>Switch views to see how the same idea moves from human language to semantic structure and stored data.</p>
+        </div>
+
+        <div class="tabs" data-tabs>
+          <div class="tab-list" role="tablist" aria-label="Business fact views">
+            <button class="tab-button" type="button" role="tab" aria-selected="true" data-tab="human">Human sentence</button>
+            <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab="ontology">Ontology view</button>
+            <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab="data">Data view</button>
+          </div>
+          <div class="tab-panel is-active" data-panel="human" role="tabpanel">
+            <h3>How a business user says it</h3>
+            <div class="sentence"><span class="token entity">Retailer A</span> <span class="token relation">sells</span> <span class="token entity">Dove Shampoo 180 ml</span> under a <span class="token entity">20% promotion</span>.</div>
+            <p>The sentence is understandable to a person, but the reusable concepts and relationships are implicit.</p>
+          </div>
+          <div class="tab-panel" data-panel="ontology" role="tabpanel">
+            <h3>How ontology makes the meaning explicit</h3>
+            <div class="triples">
+              <div class="triple"><span class="subject">Retailer</span><span class="predicate">sells →</span><span class="object">SKU</span></div>
+              <div class="triple"><span class="subject">SKU</span><span class="predicate">belongsTo →</span><span class="object">Brand</span></div>
+              <div class="triple"><span class="subject">Promotion</span><span class="predicate">appliesTo →</span><span class="object">SKU</span></div>
+            </div>
+            <p>The ontology defines reusable types of things and the valid semantic connections between them.<sup class="cite"><a href="#ref-3" title="W3C RDF 1.1 Primer">3</a><a href="#ref-4" title="W3C OWL 2 Primer">4</a></sup></p>
+          </div>
+          <div class="tab-panel" data-panel="data" role="tabpanel">
+            <h3>How one implementation may store the fact</h3>
+            <div class="code-note">retailer_id: R-101
+sku_id: SKU-204
+brand_id: B-008
+promotion_id: P-311
+discount_pct: 20
+
+R-101 --sells--> SKU-204
+SKU-204 --belongsTo--> B-008
+P-311 --appliesTo--> SKU-204</div>
+            <p>The records contain facts. The ontology supplies their business meaning.</p>
+          </div>
+        </div>
+
+        <div class="subhead">
+          <h3>Click the mini ontology</h3>
+          <p>Select a node or relationship. The inspector explains its role.</p>
+        </div>
+
+        <div class="graph-card">
+          <div class="graph-stage" aria-label="Interactive CPG ontology graph">
+            <svg viewBox="0 0 760 360" role="img" aria-labelledby="graph-title graph-desc">
+              <title id="graph-title">A simple CPG ontology graph</title>
+              <desc id="graph-desc">Retailer A sells Dove Shampoo 180 ml. The SKU belongs to Dove, and a promotion applies to it.</desc>
+              <defs>
+                <marker id="arrow-purple" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#7c36df"></path></marker>
+              </defs>
+              <g class="graph-edge" tabindex="0" role="button" data-graph-title="sells" data-graph-kind="Relationship" data-graph-description="Connects a retailer to a SKU that it makes available for purchase." data-graph-tip="Ontology statement: Retailer can sell SKU.">
+                <path d="M180 176 C225 176,252 176,300 176" fill="none" stroke="#7c36df" stroke-width="2.4" marker-end="url(#arrow-purple)"></path>
+                <rect x="213" y="153" width="57" height="24" rx="7" fill="#f3ebff"></rect><text x="241.5" y="169" text-anchor="middle" font-size="12" font-weight="750" fill="#6d28d9">sells</text>
+              </g>
+              <g class="graph-edge" tabindex="0" role="button" data-graph-title="belongsTo" data-graph-kind="Relationship" data-graph-description="Links a specific SKU to the Brand under which it is marketed." data-graph-tip="Direction matters: SKU belongsTo Brand.">
+                <path d="M480 154 C535 125,555 102,590 91" fill="none" stroke="#7c36df" stroke-width="2.4" marker-end="url(#arrow-purple)"></path>
+                <rect x="500" y="109" width="84" height="24" rx="7" fill="#f3ebff"></rect><text x="542" y="125" text-anchor="middle" font-size="12" font-weight="750" fill="#6d28d9">belongsTo</text>
+              </g>
+              <g class="graph-edge" tabindex="0" role="button" data-graph-title="appliesTo" data-graph-kind="Relationship" data-graph-description="Connects a promotion to the SKU whose price or offer it changes." data-graph-tip="This edge can also carry dates, channel, market, and eligibility context.">
+                <path d="M585 277 C535 258,515 224,478 205" fill="none" stroke="#7c36df" stroke-width="2.4" marker-end="url(#arrow-purple)"></path>
+                <rect x="510" y="226" width="80" height="24" rx="7" fill="#f3ebff"></rect><text x="550" y="242" text-anchor="middle" font-size="12" font-weight="750" fill="#6d28d9">appliesTo</text>
+              </g>
+              <g class="graph-node" tabindex="0" role="button" data-graph-title="Retailer A" data-graph-kind="Instance of Retailer" data-graph-description="A specific selling organization. The ontology defines Retailer; the graph contains this actual instance." data-graph-tip="A stable enterprise ID or GLN could identify this node.">
+                <rect x="30" y="142" width="150" height="68" rx="15" fill="#dbeafe" stroke="#2563eb" stroke-width="2"></rect><text x="105" y="168" text-anchor="middle" font-size="10" font-weight="800" fill="#1e40af">RETAILER</text><text x="105" y="190" text-anchor="middle" font-size="15" font-weight="800" fill="#1e3a8a">Retailer A</text>
+              </g>
+              <g class="graph-node" tabindex="0" role="button" data-graph-title="Dove Shampoo 180 ml" data-graph-kind="Instance of SKU" data-graph-description="A specific sellable trade item. It is more precise than the broader Product concept." data-graph-tip="Product and SKU often need separate concepts because pack size, GTIN, price, and inventory operate at SKU level.">
+                <rect x="300" y="136" width="180" height="80" rx="16" fill="#d7f5ee" stroke="#0f907d" stroke-width="2"></rect><text x="390" y="162" text-anchor="middle" font-size="10" font-weight="800" fill="#0f766e">SKU</text><text x="390" y="184" text-anchor="middle" font-size="15" font-weight="800" fill="#115e59">Dove Shampoo</text><text x="390" y="202" text-anchor="middle" font-size="12" fill="#0f766e">180 ml</text>
+              </g>
+              <g class="graph-node" tabindex="0" role="button" data-graph-title="Dove" data-graph-kind="Instance of Brand" data-graph-description="A specific brand entity connected to the SKU through belongsTo." data-graph-tip="Brand can remain simple or carry ownership, portfolio, geography, and history—depending on the use case.">
+                <rect x="590" y="55" width="135" height="68" rx="15" fill="#fff2d8" stroke="#d97706" stroke-width="2"></rect><text x="657.5" y="81" text-anchor="middle" font-size="10" font-weight="800" fill="#b45309">BRAND</text><text x="657.5" y="103" text-anchor="middle" font-size="15" font-weight="800" fill="#92400e">Dove</text>
+              </g>
+              <g class="graph-node" tabindex="0" role="button" data-graph-title="20% off" data-graph-kind="Instance of Promotion" data-graph-description="A specific promotion that applies to the SKU." data-graph-tip="A valid model may constrain dates, discount limits, markets, channels, and conflicts.">
+                <rect x="585" y="257" width="145" height="68" rx="15" fill="#ffe3ef" stroke="#c52067" stroke-width="2"></rect><text x="657.5" y="283" text-anchor="middle" font-size="10" font-weight="800" fill="#be185d">PROMOTION</text><text x="657.5" y="305" text-anchor="middle" font-size="15" font-weight="800" fill="#9d174d">20% off</text>
+              </g>
+            </svg>
+          </div>
+          <aside class="graph-inspector" aria-live="polite">
+            <div class="kicker" id="graph-kind">How to use</div>
+            <h3 id="graph-name">Select an item</h3>
+            <p id="graph-description">Click a coloured node or a labelled arrow to inspect its role in the ontology.</p>
+            <div class="graph-tip" id="graph-tip">Tip: nodes are things; labelled arrows explain how those things relate.</div>
+          </aside>
+        </div>
+
+        <div class="subhead">
+          <h3>Ontology is not the same as…</h3>
+          <p>These concepts work together, but each answers a different question.</p>
+        </div>
+        <div class="compare-grid">
+          <article class="compare-card"><h3>Taxonomy</h3><p>How should concepts be classified into broader and narrower categories?</p><div class="example">Shampoo → Hair Care → Personal Care</div></article>
+          <article class="compare-card"><h3>Data model</h3><p>How should information be structured and stored in tables, fields, keys, or documents?</p><div class="example">SKU table with brand_id foreign key</div></article>
+          <article class="compare-card is-focus"><h3>Ontology</h3><p>What do the concepts mean, how can they relate, and which rules apply?</p><div class="example">SKU belongsTo Brand</div></article>
+          <article class="compare-card"><h3>Knowledge graph</h3><p>Which actual entities and relationships are currently known?</p><div class="example">SKU-204 belongsTo Dove</div></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="why" data-section>
+      <div class="wrap">
+        <div class="section-head">
+          <h2><span class="section-number">02</span>Why is ontology useful?</h2>
+          <p class="section-sub">Its value is not the diagram itself. Its value is that systems and people can reuse the same meaning across data, decisions, analytics, governance, and AI agents.<sup class="cite"><a href="#ref-2" title="Noy &amp; McGuinness, Ontology Development 101">2</a><a href="#ref-9" title="Why Agentic Systems Need Ontologies">9</a></sup></p>
+        </div>
+
+        <div class="subhead" style="margin-top:0">
+          <h3>See the difference</h3>
+          <p>The underlying data may be similar; the difference is whether meaning is explicit and reusable.</p>
+        </div>
+        <div class="state-switch" role="group" aria-label="Compare states">
+          <button class="is-active" type="button" data-state-button="without">Without ontology</button>
+          <button type="button" data-state-button="with">With ontology</button>
+        </div>
+        <div class="state-panels is-active" data-state-panel="without">
+          <article class="state-panel bad"><h3>Business language fragments</h3><ul><li>CRM says Customer, commerce says Shopper, loyalty says Member.</li><li>Product and SKU are used interchangeably even when pack size matters.</li><li>Every dashboard recreates category and channel mappings.</li><li>An AI agent guesses what “eligible product” means.</li></ul></article>
+          <article class="state-panel bad"><h3>Implementation becomes brittle</h3><ul><li>Joins depend on undocumented IDs and one-off lookup tables.</li><li>Rules are scattered across pipelines and applications.</li><li>Numbers do not reconcile because definitions differ.</li><li>Change requires manual impact analysis across systems.</li></ul></article>
+        </div>
+        <div class="state-panels" data-state-panel="with">
+          <article class="state-panel good"><h3>Meaning becomes shared</h3><ul><li>Customer, Shopper, and Member are mapped or distinguished explicitly.</li><li>Product, SKU, pack, and assortment have clear roles.</li><li>Business definitions, aliases, and context are reusable.</li><li>Agents can resolve intent through defined relationships.</li></ul></article>
+          <article class="state-panel good"><h3>Implementation becomes governable</h3><ul><li>Canonical IDs and source mappings are documented.</li><li>Rules and ownership are visible and testable.</li><li>Metrics reuse consistent definitions.</li><li>Change impact can be traced through relationships and consumers.</li></ul></article>
+        </div>
+
+        <div class="subhead">
+          <h3>Six kinds of value</h3>
+          <p>Filter the cards by the part of the project you are working on.</p>
+        </div>
+        <div class="filters" role="group" aria-label="Benefit filters">
+          <button class="filter-button is-active" type="button" data-filter="all">All</button>
+          <button class="filter-button" type="button" data-filter="data">Data</button>
+          <button class="filter-button" type="button" data-filter="analytics">Analytics</button>
+          <button class="filter-button" type="button" data-filter="agent">AI &amp; agents</button>
+          <button class="filter-button" type="button" data-filter="governance">Governance</button>
+        </div>
+        <div class="benefit-grid">
+          <article class="benefit-card" data-category="data governance"><div class="benefit-icon">⌘</div><h3>Connect systems by meaning</h3><p>Map different names, IDs, and structures to shared concepts and relationships.</p><div class="solves">Solves: brittle cross-system joins and duplicate mapping.</div></article>
+          <article class="benefit-card" data-category="analytics data"><div class="benefit-icon">▦</div><h3>Make metrics comparable</h3><p>Reuse the same definitions of Product, Market, Channel, Customer, and Promotion.</p><div class="solves">Solves: dashboards that disagree because their dimensions differ.</div></article>
+          <article class="benefit-card" data-category="agent analytics"><div class="benefit-icon">⌁</div><h3>Improve semantic retrieval</h3><p>Retrieve through relationships such as Brand → SKU → Promotion → Retailer, not keywords alone.</p><div class="solves">Solves: missed context and weak multi-hop retrieval.</div></article>
+          <article class="benefit-card" data-category="agent governance"><div class="benefit-icon">✓</div><h3>Validate agent actions</h3><p>Check whether a proposed action is semantically valid before an agent executes it.</p><div class="solves">Solves: syntactically valid but business-invalid tool calls.</div></article>
+          <article class="benefit-card" data-category="governance data"><div class="benefit-icon">◎</div><h3>Expose ownership and provenance</h3><p>Record who owns a concept, which source supports a fact, and when it changed.</p><div class="solves">Solves: unresolved conflicts and silent definition drift.</div></article>
+          <article class="benefit-card" data-category="agent analytics data"><div class="benefit-icon">↻</div><h3>Reuse domain knowledge</h3><p>Keep meaning separate from one application so multiple products can consume it.</p><div class="solves">Solves: rebuilding the same domain logic in every solution.</div></article>
+        </div>
+
+        <div class="subhead">
+          <h3>Example: a promotion agent</h3>
+          <p>A user asks an agent to create a 20% promotion for all Dove shampoo products at Retailer A.<sup class="cite"><a href="#ref-5" title="W3C SHACL Recommendation">5</a><a href="#ref-9" title="Why Agentic Systems Need Ontologies">9</a></sup></p>
+        </div>
+        <div class="agent-flow">
+          <article class="agent-step"><div class="step-label">1 · Interpret</div><h3>Understand intent</h3><p>The LLM identifies Brand, product category, retailer, discount, and requested action.</p></article>
+          <article class="agent-step"><div class="step-label">2 · Resolve</div><h3>Find eligible SKUs</h3><p>The ontology guides the path Brand → Product → SKU and Retailer → carries → SKU.</p></article>
+          <article class="agent-step"><div class="step-label">3 · Validate</div><h3>Check business rules</h3><p>Confirm discount limits, dates, market, approvals, and conflicting promotions.</p></article>
+          <article class="agent-step"><div class="step-label">4 · Execute</div><h3>Create only valid actions</h3><p>The agent invokes tools after semantic and policy checks, with an audit trail.</p></article>
+        </div>
+
+        <div class="subhead">
+          <h3>Do you actually need an ontology?</h3>
+          <p>Select the conditions that apply. The result is guidance, not a formal assessment.</p>
+        </div>
+        <div class="assessment">
+          <div class="check-list">
+            <label class="check-row"><input type="checkbox" data-assessment /><span><b>Different systems use different terms or IDs</b><span>Example: Customer versus Member; Product versus SKU.</span></span></label>
+            <label class="check-row"><input type="checkbox" data-assessment /><span><b>Users need multi-hop questions answered</b><span>Example: brand → SKU → retailer → promotion → sales.</span></span></label>
+            <label class="check-row"><input type="checkbox" data-assessment /><span><b>Business definitions are ambiguous or contested</b><span>Teams interpret the same term differently.</span></span></label>
+            <label class="check-row"><input type="checkbox" data-assessment /><span><b>Rules must constrain AI or operational actions</b><span>Not every plausible action is allowed.</span></span></label>
+            <label class="check-row"><input type="checkbox" data-assessment /><span><b>Context changes meaning</b><span>Market, channel, consent, time, or lifecycle changes applicability.</span></span></label>
+          </div>
+          <aside class="assessment-result" aria-live="polite">
+            <div class="score-bubble"><span id="assessment-score">0/5</span></div>
+            <h3 id="assessment-title">Keep it lightweight</h3>
+            <p id="assessment-text">A clear taxonomy or data model may be enough. Add ontology only where shared meaning or relationships are genuinely ambiguous.</p>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="anatomy" data-section>
+      <div class="wrap">
+        <div class="section-head">
+          <h2><span class="section-number">03</span>What is inside an ontology?</h2>
+          <p class="section-sub">The labels are easy. The real design work is deciding which things deserve to be concepts, which are actual facts, and which relationships and rules matter.<sup class="cite"><a href="#ref-2" title="Noy &amp; McGuinness, Ontology Development 101">2</a><a href="#ref-4" title="W3C OWL 2 Primer">4</a><a href="#ref-5" title="W3C SHACL Recommendation">5</a></sup></p>
+        </div>
+
+        <div class="anatomy-explorer">
+          <div class="anatomy-menu" role="tablist" aria-label="Ontology building blocks">
+            <button class="anatomy-button is-active" type="button" data-anatomy="classes"><span class="num">1</span><span><b>Classes</b><small>Types of things</small></span><span>›</span></button>
+            <button class="anatomy-button" type="button" data-anatomy="instances"><span class="num">2</span><span><b>Instances</b><small>Actual things</small></span><span>›</span></button>
+            <button class="anatomy-button" type="button" data-anatomy="relationships"><span class="num">3</span><span><b>Relationships</b><small>How things connect</small></span><span>›</span></button>
+            <button class="anatomy-button" type="button" data-anatomy="properties"><span class="num">4</span><span><b>Properties</b><small>What describes them</small></span><span>›</span></button>
+            <button class="anatomy-button" type="button" data-anatomy="constraints"><span class="num">5</span><span><b>Constraints</b><small>What must be true</small></span><span>›</span></button>
+            <button class="anatomy-button" type="button" data-anatomy="context"><span class="num">6</span><span><b>Context</b><small>Alias, source, owner</small></span><span>›</span></button>
+          </div>
+
+          <div>
+            <article class="anatomy-panel is-active" data-anatomy-panel="classes"><div class="kicker">Building block 1</div><h3>Classes / concepts</h3><p>The kinds of things that exist in the domain. Classes form the reusable vocabulary.</p><div class="detail-grid"><div class="detail-box"><b>CPG examples</b><span>Product, SKU, Brand, Retailer, Promotion, Market</span></div><div class="detail-box"><b>Question answered</b><span>What kind of thing is this?</span></div><div class="detail-box"><b>Hierarchy example</b><span>Shampoo is a type of Hair Care Product</span></div><div class="detail-box"><b>Common mistake</b><span>Turning every field into a class</span></div></div></article>
+            <article class="anatomy-panel" data-anatomy-panel="instances"><div class="kicker">Building block 2</div><h3>Instances</h3><p>Specific, identifiable examples of classes—the facts that populate the model.</p><div class="detail-grid"><div class="detail-box"><b>CPG examples</b><span>Dove; Retailer A; SKU-204; Promotion P-311</span></div><div class="detail-box"><b>Question answered</b><span>Which actual thing are we talking about?</span></div><div class="detail-box"><b>Identity example</b><span>SKU-204 may be identified by a GTIN</span></div><div class="detail-box"><b>Common mistake</b><span>Confusing “Shampoo” with one specific shampoo SKU</span></div></div></article>
+            <article class="anatomy-panel" data-anatomy-panel="relationships"><div class="kicker">Building block 3</div><h3>Relationships</h3><p>Named, directional connections that make meaning traversable.</p><div class="detail-grid"><div class="detail-box"><b>CPG examples</b><span>SKU belongsTo Brand; Retailer sells SKU</span></div><div class="detail-box"><b>Question answered</b><span>How can two concepts connect?</span></div><div class="detail-box"><b>Design note</b><span>Use precise verbs and define direction</span></div><div class="detail-box"><b>Common mistake</b><span>Using vague edges such as “related to”</span></div></div></article>
+            <article class="anatomy-panel" data-anatomy-panel="properties"><div class="kicker">Building block 4</div><h3>Properties</h3><p>Descriptive values attached to a thing or sometimes to a relationship.</p><div class="detail-grid"><div class="detail-box"><b>CPG examples</b><span>netContent, discountPercent, startDate, GTIN</span></div><div class="detail-box"><b>Question answered</b><span>What describes this concept or fact?</span></div><div class="detail-box"><b>Datatype example</b><span>discountPercent is numeric</span></div><div class="detail-box"><b>Common mistake</b><span>Encoding a relationship as ungoverned text</span></div></div></article>
+            <article class="anatomy-panel" data-anatomy-panel="constraints"><div class="kicker">Building block 5</div><h3>Constraints</h3><p>Rules that state what is valid, required, permitted, or impossible.</p><div class="detail-grid"><div class="detail-box"><b>CPG examples</b><span>endDate follows startDate; one SKU has one primary GTIN</span></div><div class="detail-box"><b>Question answered</b><span>What must be true?</span></div><div class="detail-box"><b>Agent value</b><span>Reject a business-invalid action before execution</span></div><div class="detail-box"><b>Common mistake</b><span>Assuming OWL alone replaces all operational validation</span></div></div></article>
+            <article class="anatomy-panel" data-anatomy-panel="context"><div class="kicker">Building block 6</div><h3>Context, provenance, and governance</h3><p>Meaning often depends on source, market, time, owner, consent, and alternative vocabulary.</p><div class="detail-grid"><div class="detail-box"><b>CPG examples</b><span>market applicability, source system, steward, synonym</span></div><div class="detail-box"><b>Question answered</b><span>Where, when, for whom, and according to whom?</span></div><div class="detail-box"><b>Evidence example</b><span>A relationship is supported by POS data for a date range</span></div><div class="detail-box"><b>Common mistake</b><span>Adding provenance and consent after deployment</span></div></div></article>
+          </div>
+        </div>
+
+        <div class="subhead">
+          <h3>Read one statement precisely</h3>
+          <p>A semantic statement is easiest to read as Subject → Relationship → Object, with properties and constraints around it.</p>
+        </div>
+        <div class="statement-grid">
+          <article class="statement-card"><div class="role">Subject</div><h3>Promotion P-311</h3><p>A specific instance of the class Promotion.</p></article>
+          <article class="statement-card"><div class="role">Relationship</div><h3>appliesTo</h3><p>A semantic connection from a Promotion to an eligible SKU.</p></article>
+          <article class="statement-card"><div class="role">Object</div><h3>SKU-204</h3><p>A specific SKU representing Dove Shampoo 180 ml.</p></article>
+        </div>
+        <div class="statement-grid bottom">
+          <article class="statement-card"><div class="role">Properties</div><h3>discount = 20% · startDate · endDate</h3><p>Values attached to the promotion or relationship.</p></article>
+          <article class="statement-card"><div class="role">Constraint</div><h3>endDate must follow startDate</h3><p>A rule that lets a system reject an invalid fact or action.</p></article>
+        </div>
+
+        <div class="subhead">
+          <h3>Structure versus evidence</h3>
+          <p>A useful ontology contains both, but they should not be created in the same way.</p>
+        </div>
+        <div class="structure-grid">
+          <article class="structure-card"><span class="badge author">Author cheaply</span><h3>Structure</h3><p>What things are and how they relate. Draft during discovery as a testable hypothesis.</p><ul><li>Entity set and hierarchy</li><li>Core relationships—the spine</li><li>Canonical identifiers and reconciliation rules</li><li>Alignment with external standards</li></ul></article>
+          <article class="structure-card"><span class="badge earn">Earn empirically</span><h3>Content and weights</h3><p>How often, how strongly, for whom, and in which context. Estimate from real signal.</p><ul><li>Aliases and synonym coverage</li><li>Relationship strengths or affinities</li><li>Market, channel, culture, and lifecycle context</li><li>Recency, emergence, and change over time</li></ul></article>
+        </div>
+
+        <div class="subhead">
+          <h3>Quick check: class, instance, relationship, or constraint?</h3>
+          <p>Choose the best role for each item.</p>
+        </div>
+        <div class="quiz">
+          <article class="quiz-item" data-answer="class"><h3>Shampoo</h3><div class="quiz-options"><button class="quiz-option" data-choice="class">Class</button><button class="quiz-option" data-choice="instance">Instance</button><button class="quiz-option" data-choice="relationship">Relationship</button><button class="quiz-option" data-choice="constraint">Constraint</button></div><div class="quiz-feedback" aria-live="polite"></div></article>
+          <article class="quiz-item" data-answer="instance"><h3>Dove Intense Repair Shampoo 180 ml, GTIN 089…</h3><div class="quiz-options"><button class="quiz-option" data-choice="class">Class</button><button class="quiz-option" data-choice="instance">Instance</button><button class="quiz-option" data-choice="relationship">Relationship</button><button class="quiz-option" data-choice="constraint">Constraint</button></div><div class="quiz-feedback" aria-live="polite"></div></article>
+          <article class="quiz-item" data-answer="relationship"><h3>belongsToBrand</h3><div class="quiz-options"><button class="quiz-option" data-choice="class">Class</button><button class="quiz-option" data-choice="instance">Instance</button><button class="quiz-option" data-choice="relationship">Relationship</button><button class="quiz-option" data-choice="constraint">Constraint</button></div><div class="quiz-feedback" aria-live="polite"></div></article>
+          <article class="quiz-item" data-answer="constraint"><h3>A promotion end date must be later than its start date.</h3><div class="quiz-options"><button class="quiz-option" data-choice="class">Class</button><button class="quiz-option" data-choice="instance">Instance</button><button class="quiz-option" data-choice="relationship">Relationship</button><button class="quiz-option" data-choice="constraint">Constraint</button></div><div class="quiz-feedback" aria-live="polite"></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="build" data-section>
+      <div class="wrap">
+        <div class="section-head">
+          <h2><span class="section-number">04</span>How do you build an ontology?</h2>
+          <p class="section-sub">Discover first. Model second. Validate continuously. A useful ontology is distilled from business decisions, domain expertise, systems, standards, constraints, and evidence.<sup class="cite"><a href="#ref-1" title="AGOS Ontology Discovery Framework">1</a><a href="#ref-2" title="Noy &amp; McGuinness, Ontology Development 101">2</a></sup></p>
+        </div>
+
+        <div class="process-explorer">
+          <div class="process-menu" role="tablist" aria-label="Ontology development steps">
+            <button class="process-button is-active" type="button" data-process="decisions"><span class="num">1</span><span><b>Define decisions</b><small>Scope by use case</small></span><span>›</span></button>
+            <button class="process-button" type="button" data-process="discover"><span class="num">2</span><span><b>Discover the domain</b><small>Read every lens</small></span><span>›</span></button>
+            <button class="process-button" type="button" data-process="spine"><span class="num">3</span><span><b>Sketch the spine</b><small>Small level-1 model</small></span><span>›</span></button>
+            <button class="process-button" type="button" data-process="map"><span class="num">4</span><span><b>Map sources</b><small>IDs, aliases, evidence</small></span><span>›</span></button>
+            <button class="process-button" type="button" data-process="validate"><span class="num">5</span><span><b>Populate &amp; validate</b><small>Let data correct it</small></span><span>›</span></button>
+            <button class="process-button" type="button" data-process="govern"><span class="num">6</span><span><b>Govern &amp; evolve</b><small>Keep it alive</small></span><span>›</span></button>
+          </div>
+          <div>
+            <article class="step-panel is-active" data-process-panel="decisions"><div class="step-label">Step 1</div><h3>Start with decisions and competency questions</h3><p>Define what people or systems must decide, retrieve, validate, or automate. This controls scope and granularity.</p><div class="step-output"><b>Output</b><p>A short list of questions the ontology-enabled solution must answer.</p></div><div class="prompt-list"><div>Which SKUs are eligible for this promotion?</div><div>Which products are sold by this retailer in this market?</div><div>Which promotions conflict in date, channel, or audience?</div></div></article>
+            <article class="step-panel" data-process-panel="discover"><div class="step-label">Step 2</div><h3>Discover the domain through multiple lenses</h3><p>Read the business, catalog, data, systems, users, experts, standards, workflows, KPIs, time, privacy, governance, and technical constraints.</p><div class="step-output"><b>Output</b><p>A domain term inventory, decision map, source inventory, ownership view, and list of open ambiguities.</p></div><div class="prompt-list"><div>Which terms do domain experts use informally?</div><div>Where do source IDs collide or diverge?</div><div>Which relationships are observed versus merely desired?</div></div></article>
+            <article class="step-panel" data-process-panel="spine"><div class="step-label">Step 3</div><h3>Sketch a level-1 ontology—the spine</h3><p>Model the few concepts and relationships required by the competency questions. Keep it explainable and easy to change.</p><div class="step-output"><b>Output</b><p>A one-page concept-and-relationship model with definitions and examples.</p></div><div class="prompt-list"><div>Can every node justify itself through a decision?</div><div>Are Product, SKU, Pack, Brand, and Category separated clearly?</div><div>Are relationships directional and unambiguous?</div></div></article>
+            <article class="step-panel" data-process-panel="map"><div class="step-label">Step 4</div><h3>Map systems, identifiers, aliases, and standards</h3><p>Connect each concept to source fields, canonical keys, alternative names, owners, and applicable external vocabularies such as GS1.<sup class="cite"><a href="#ref-6" title="GS1 Web Vocabulary">6</a><a href="#ref-7" title="GS1 Global Product Classification">7</a><a href="#ref-8" title="Product Types Ontology">8</a></sup></p><div class="step-output"><b>Output</b><p>A mapping specification explaining how source data becomes canonical concepts and relationships.</p></div><div class="prompt-list"><div>Which key identifies the same entity across systems?</div><div>Which terms are true synonyms—and which are only similar?</div><div>Which industry definitions should be reused?</div></div></article>
+            <article class="step-panel" data-process-panel="validate"><div class="step-label">Step 5</div><h3>Populate, test, and let the data disagree</h3><p>Use representative and then scaled data to expose missing concepts, impossible links, poor coverage, unexpected aliases, and context effects.</p><div class="step-output"><b>Output</b><p>A corrected ontology, coverage metrics, validation rules, and a prioritised gap list.</p></div><div class="prompt-list"><div>Can the model answer the original questions with real records?</div><div>Which expected relationships cannot be populated?</div><div>Which affinities must be estimated rather than asserted?</div></div></article>
+            <article class="step-panel" data-process-panel="govern"><div class="step-label">Step 6</div><h3>Assign ownership and a change process</h3><p>Ontology is a maintained product. Define who owns each domain, approves changes, handles conflicts, versions releases, and checks downstream impact.</p><div class="step-output"><b>Output</b><p>Named stewards, review cadence, versioning rules, issue workflow, and adoption measures.</p></div><div class="prompt-list"><div>Who arbitrates conflicting definitions?</div><div>How are breaking changes communicated?</div><div>Which teams and applications consume the ontology?</div></div></article>
+          </div>
+        </div>
+
+        <div class="subhead">
+          <h3>Four discovery lenses</h3>
+          <p>Open each lens. Together they prevent the ontology from becoming only a data dictionary or only a business whiteboard.<sup class="cite"><a href="#ref-1" title="AGOS Ontology Discovery Framework">1</a></sup></p>
+        </div>
+        <div class="lens-grid">
+          <article class="lens-card"><button class="lens-button" type="button" aria-expanded="true" data-lens><span><span class="small">Lens A</span><b>What exists</b></span><span>−</span></button><div class="lens-body is-open"><div class="lens-item"><b>Product and catalog</b><span>What does the domain contain, and how is it structured?</span></div><div class="lens-item"><b>Captured data</b><span>Which relationships are observable rather than aspirational?</span></div><div class="lens-item"><b>Systems and schemas</b><span>Where are systems of record, keys, and collisions?</span></div><div class="lens-item"><b>Standards</b><span>Which vocabulary has the industry already agreed on?</span></div></div></article>
+          <article class="lens-card"><button class="lens-button" type="button" aria-expanded="false" data-lens><span><span class="small">Lens B</span><b>Who it is for</b></span><span>+</span></button><div class="lens-body"><div class="lens-item"><b>Customers and users</b><span>How do they describe things in their own language?</span></div><div class="lens-item"><b>Channels</b><span>Where do interactions happen, and what is visible?</span></div><div class="lens-item"><b>Markets and culture</b><span>Does meaning or relevance change by geography?</span></div><div class="lens-item"><b>Domain experts</b><span>What tacit groupings are used outside formal systems?</span></div></div></article>
+          <article class="lens-card"><button class="lens-button" type="button" aria-expanded="false" data-lens><span><span class="small">Lens C</span><b>Why it exists</b></span><span>+</span></button><div class="lens-body"><div class="lens-item"><b>Business strategy</b><span>What matters enough to be represented?</span></div><div class="lens-item"><b>Decisions and workflows</b><span>Which action does each concept or relationship enable?</span></div><div class="lens-item"><b>Measurement</b><span>Which relationships must be quantifiable?</span></div><div class="lens-item"><b>Time and lifecycle</b><span>What changes by season, stage, or historical point?</span></div></div></article>
+          <article class="lens-card"><button class="lens-button" type="button" aria-expanded="false" data-lens><span><span class="small">Lens D</span><b>What constrains it</b></span><span>+</span></button><div class="lens-body"><div class="lens-item"><b>Privacy, consent, regulation</b><span>Which facts may be held, inferred, or asserted?</span></div><div class="lens-item"><b>Governance</b><span>Who owns definitions and resolves conflict?</span></div><div class="lens-item"><b>Technology</b><span>What depth is feasible within cost, latency, and platform limits?</span></div><div class="lens-item"><b>Evidence</b><span>Which claims require source and provenance?</span></div></div></article>
+        </div>
+
+        <div class="subhead">
+          <h3>What maturity actually means</h3>
+          <p>Maturity is not simply more nodes. It is more of the model being supported, populated, and contextualised by evidence.<sup class="cite"><a href="#ref-1" title="AGOS Ontology Discovery Framework">1</a></sup></p>
+        </div>
+        <div class="maturity-grid">
+          <article class="maturity-card"><span class="mini-label">Level 1</span><h3>The spine</h3><p>A small structural hypothesis: core concepts, hierarchy, relationships, IDs, and definitions.</p></article>
+          <article class="maturity-card"><span class="mini-label">Level 2</span><h3>Filled and aliased</h3><p>Real data populates the model, corrects edges, and adds vocabulary, synonyms, and provenance.</p></article>
+          <article class="maturity-card"><span class="mini-label">Level 3</span><h3>Weighted and contextual</h3><p>Relationships gain evidence-backed strength, market applicability, recency, and temporal dynamics.</p></article>
+        </div>
+
+        <div class="subhead">
+          <h3>Failure modes to avoid</h3>
+          <p>Each usually signals that a discovery lens or governance step was skipped.<sup class="cite"><a href="#ref-1" title="AGOS Ontology Discovery Framework">1</a></sup></p>
+        </div>
+        <div class="failure-grid">
+          <article class="failure"><h3>⚠ Museum ontology</h3><p>A polished graph that no real decision, query, or workflow consumes.</p></article>
+          <article class="failure"><h3>⚠ Vocabulary fragmentation</h3><p>Each pipeline invents its own terms, so reports and systems cannot reconcile.</p></article>
+          <article class="failure"><h3>⚠ Whiteboard weights</h3><p>Affinity or applicability is guessed instead of estimated from signal.</p></article>
+          <article class="failure"><h3>⚠ Retrofit consent</h3><p>Privacy, source, and permissible use are added after the model is operational.</p></article>
+          <article class="failure"><h3>⚠ Bolted-on time</h3><p>History, seasonality, lifecycle, and changing relationships are discovered too late.</p></article>
+          <article class="failure"><h3>⚠ Ontology rot</h3><p>No owner or release process exists, so definitions drift while consumers keep using them.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="sources" data-section>
+      <div class="wrap">
+        <div class="section-head">
+          <h2><span class="section-number">05</span>Sources &amp; references</h2>
+          <p class="section-sub">The numbered markers throughout the page link here. The source map shows which references support each part of the note; the examples and synthesis remain tailored to this learning page.</p>
+        </div>
+
+        <div class="source-map" aria-label="Source map by section">
+          <div class="source-map-row"><b>Definition &amp; anatomy</b><span>Core ontology concepts, classes, properties, individuals, and semantic relationships.</span><sup class="cite"><a href="#ref-2">2</a><a href="#ref-3">3</a><a href="#ref-4">4</a><a href="#ref-5">5</a></sup></div>
+          <div class="source-map-row"><b>Business value &amp; agents</b><span>Shared meaning, reuse, reasoning, action validation, and agent guardrails.</span><sup class="cite"><a href="#ref-2">2</a><a href="#ref-5">5</a><a href="#ref-9">9</a></sup></div>
+          <div class="source-map-row"><b>CPG standards</b><span>Product vocabulary, classification, and reusable product-type identifiers.</span><sup class="cite"><a href="#ref-6">6</a><a href="#ref-7">7</a><a href="#ref-8">8</a></sup></div>
+          <div class="source-map-row"><b>Development process</b><span>Discovery-first design, competency questions, iterative modelling, evidence, maturity, and governance.</span><sup class="cite"><a href="#ref-1">1</a><a href="#ref-2">2</a></sup></div>
+        </div>
+
+        <div class="source-grid">
+          <article class="source-card internal" id="ref-1">
+            <div class="source-number">1</div>
+            <h3>AGOS Ontology Discovery Framework</h3>
+            <div class="source-meta">Internal working document · August 2026 · supplied with this task</div>
+            <p>Primary source for the discovery-first framing, four discovery quadrants, structure-versus-weights distinction, ontology maturity levels, and failure modes.</p>
+            <span class="source-tag">Attached source</span>
+          </article>
+
+          <article class="source-card" id="ref-2">
+            <div class="source-number">2</div>
+            <h3>Ontology Development 101: A Guide to Creating Your First Ontology</h3>
+            <div class="source-meta">Natalya F. Noy &amp; Deborah L. McGuinness · Stanford University</div>
+            <p>Foundational guide covering why ontologies are developed, classes, properties, instances, scope, reuse, competency questions, and iterative development.</p>
+            <a href="https://protege.stanford.edu/publications/ontology_development/ontology101-noy-mcguinness.html" target="_blank" rel="noopener noreferrer">Open Stanford guide ↗</a>
+          </article>
+
+          <article class="source-card" id="ref-3">
+            <div class="source-number">3</div>
+            <h3>RDF 1.1 Primer</h3>
+            <div class="source-meta">World Wide Web Consortium (W3C)</div>
+            <p>Reference for RDF graphs, subject–predicate–object statements, identifiers, linked data, and common RDF serialisations.</p>
+            <a href="https://www.w3.org/TR/rdf11-primer/" target="_blank" rel="noopener noreferrer">Open W3C primer ↗</a>
+          </article>
+
+          <article class="source-card" id="ref-4">
+            <div class="source-number">4</div>
+            <h3>OWL 2 Web Ontology Language Primer</h3>
+            <div class="source-meta">World Wide Web Consortium (W3C)</div>
+            <p>Reference for formally defined ontologies containing classes, properties, individuals, data values, and logical reasoning.</p>
+            <a href="https://www.w3.org/TR/owl2-primer/" target="_blank" rel="noopener noreferrer">Open OWL 2 primer ↗</a>
+          </article>
+
+          <article class="source-card" id="ref-5">
+            <div class="source-number">5</div>
+            <h3>Shapes Constraint Language (SHACL)</h3>
+            <div class="source-meta">W3C Recommendation · 20 July 2017</div>
+            <p>Reference for validating RDF graphs against explicit conditions and for expressing data-shape constraints used in operational checks.</p>
+            <a href="https://www.w3.org/TR/shacl/" target="_blank" rel="noopener noreferrer">Open SHACL specification ↗</a>
+          </article>
+
+          <article class="source-card" id="ref-6">
+            <div class="source-number">6</div>
+            <h3>GS1 Web Vocabulary</h3>
+            <div class="source-meta">GS1 · product and commerce linked-data vocabulary</div>
+            <p>CPG reference for stable product, organisation, offer, and identification terms expressed for Linked Data and aligned with other GS1 standards.</p>
+            <a href="https://ref.gs1.org/standards/webvoc/" target="_blank" rel="noopener noreferrer">Open GS1 vocabulary ↗</a>
+          </article>
+
+          <article class="source-card" id="ref-7">
+            <div class="source-number">7</div>
+            <h3>GS1 Global Product Classification (GPC)</h3>
+            <div class="source-meta">GS1 · standard product classification</div>
+            <p>Reference for standardized product-category hierarchy and attributes, useful when aligning an enterprise CPG taxonomy with external standards.</p>
+            <a href="https://gpc-browser.gs1.org/" target="_blank" rel="noopener noreferrer">Open GPC browser ↗</a>
+          </article>
+
+          <article class="source-card" id="ref-8">
+            <div class="source-number">8</div>
+            <h3>The Product Types Ontology</h3>
+            <div class="source-meta">ProductOntology.org · Martin Hepp</div>
+            <p>Further reading on precise product-type identifiers that complement Schema.org and GoodRelations, with RDF/XML, Turtle, RDFa, and Microdata examples.</p>
+            <a href="https://www.productontology.org/" target="_blank" rel="noopener noreferrer">Open ProductOntology.org ↗</a>
+          </article>
+
+          <article class="source-card" id="ref-9">
+            <div class="source-number">9</div>
+            <h3>Why Agentic Systems Need Ontologies</h3>
+            <div class="source-meta">Frank Coyle · AI Engineer World's Fair 2026</div>
+            <p>Source for the agentic-systems example: explicit domain models, inference, constraints, and semantic validation inside an agent loop.</p>
+            <a href="https://ai.engineer/talks/Sir59K8ZDPU-ontologies-for-agentic-systems" target="_blank" rel="noopener noreferrer">Open talk and transcript ↗</a>
+          </article>
+        </div>
+
+        <p class="source-footnote">Last reviewed: 16 October 2026. Reference 1 is an internal source supplied by the user and therefore has no public URL. External links open in a new tab.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="callout">
+          <div class="label">The line to remember</div>
+          <h2>Discovery creates understanding; ontology compresses it into a shared contract.<sup class="cite"><a href="#ref-1" title="AGOS Ontology Discovery Framework">1</a></sup></h2>
+          <p>Author the first structure cheaply from qualitative discovery. Let real data fill it, challenge it, and earn detailed vocabulary, context, and weights.</p>
+          <div class="callout-rule"><strong>The ontology is the contract; data is what fills and corrects it.</strong> A good first version is small, useful, testable, and owned.</div>
+          <div class="callout-actions"><button class="soft-button" type="button" data-copy="Ontology cheat sheet: Concepts + relationships + rules/context + shared vocabulary. Start with decisions, discover the domain, sketch the spine, map sources, validate with data, and govern changes.">Copy cheat sheet</button><button class="print-button" type="button" data-print>Print / Save as PDF</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-row"><span>Ontology Notes · concise, interactive learning page · sources included</span><a class="back-top" href="#top">Back to top ↑</a></div>
+  </footer>
+
+  <div class="toast" role="status" aria-live="polite">Copied</div>
+
+  <script>
+    (() => {
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+      const toast = $('.toast');
+      let toastTimer;
+      const showToast = (message) => {
+        toast.textContent = message;
+        toast.classList.add('is-visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 1600);
+      };
+
+      // Reading progress
+      const progress = $('.read-progress');
+      const updateProgress = () => {
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        progress.style.width = `${max > 0 ? (window.scrollY / max) * 100 : 0}%`;
+      };
+      addEventListener('scroll', updateProgress, { passive: true });
+      updateProgress();
+
+      // Mobile menu
+      const menuButton = $('[data-menu-toggle]');
+      const siteNav = $('[data-site-nav]');
+      menuButton.addEventListener('click', () => {
+        const open = siteNav.classList.toggle('is-open');
+        menuButton.setAttribute('aria-expanded', String(open));
+      });
+      $$('[data-site-nav] a').forEach(a => a.addEventListener('click', () => {
+        siteNav.classList.remove('is-open');
+        menuButton.setAttribute('aria-expanded', 'false');
+      }));
+
+      // Theme
+      const themeToggle = $('[data-theme-toggle]');
+      let savedTheme = null;
+      try { savedTheme = localStorage.getItem('ontology-theme'); } catch (_) { /* storage may be unavailable for local files */ }
+      if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+      themeToggle.addEventListener('click', () => {
+        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        try { localStorage.setItem('ontology-theme', next); } catch (_) { /* keep theme for this session */ }
+      });
+
+      // Active section nav
+      const navLinks = $$('[data-site-nav] a');
+      const sections = $$('[data-section]');
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          navLinks.forEach(link => link.classList.toggle('is-active', link.getAttribute('href') === `#${entry.target.id}`));
+        });
+      }, { rootMargin: '-25% 0px -65% 0px' });
+      sections.forEach(section => observer.observe(section));
+
+      // Tabs
+      $$('[data-tabs]').forEach(tabs => {
+        const buttons = $$('[data-tab]', tabs);
+        const panels = $$('[data-panel]', tabs);
+        buttons.forEach(button => button.addEventListener('click', () => {
+          buttons.forEach(b => b.setAttribute('aria-selected', String(b === button)));
+          panels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.panel === button.dataset.tab));
+        }));
+      });
+
+      // Graph inspector
+      $$('[data-graph-title]').forEach(item => {
+        const activate = () => {
+          $('#graph-kind').textContent = item.dataset.graphKind;
+          $('#graph-name').textContent = item.dataset.graphTitle;
+          $('#graph-description').textContent = item.dataset.graphDescription;
+          $('#graph-tip').textContent = item.dataset.graphTip;
+        };
+        item.addEventListener('click', activate);
+        item.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activate(); }
+        });
+      });
+
+      // State comparison
+      $$('[data-state-button]').forEach(button => button.addEventListener('click', () => {
+        $$('[data-state-button]').forEach(b => b.classList.toggle('is-active', b === button));
+        $$('[data-state-panel]').forEach(panel => panel.classList.toggle('is-active', panel.dataset.statePanel === button.dataset.stateButton));
+      }));
+
+      // Benefit filters
+      $$('[data-filter]').forEach(button => button.addEventListener('click', () => {
+        const filter = button.dataset.filter;
+        $$('[data-filter]').forEach(b => b.classList.toggle('is-active', b === button));
+        $$('.benefit-card').forEach(card => {
+          card.hidden = filter !== 'all' && !card.dataset.category.split(' ').includes(filter);
+        });
+      }));
+
+      // Assessment
+      const assessmentInputs = $$('[data-assessment]');
+      const updateAssessment = () => {
+        const score = assessmentInputs.filter(input => input.checked).length;
+        $('#assessment-score').textContent = `${score}/5`;
+        const states = [
+          ['Keep it lightweight', 'A clear taxonomy or data model may be enough. Add ontology only where shared meaning or relationships are genuinely ambiguous.'],
+          ['A small semantic layer may help', 'Model the few contested concepts or cross-system mappings that create friction.'],
+          ['Ontology is becoming useful', 'You have enough semantic complexity to justify a scoped ontology around priority questions.'],
+          ['Strong ontology case', 'Shared concepts, multi-hop relationships, or business rules appear central to the solution.'],
+          ['Strong ontology case', 'Shared concepts, multi-hop relationships, or business rules appear central to the solution.'],
+          ['Ontology should be a core design layer', 'Cross-system meaning, contextual relationships, and constrained actions all need an explicit, governed model.']
+        ];
+        $('#assessment-title').textContent = states[score][0];
+        $('#assessment-text').textContent = states[score][1];
+      };
+      assessmentInputs.forEach(input => input.addEventListener('change', updateAssessment));
+
+      // Anatomy explorer
+      $$('[data-anatomy]').forEach(button => button.addEventListener('click', () => {
+        $$('[data-anatomy]').forEach(b => b.classList.toggle('is-active', b === button));
+        $$('[data-anatomy-panel]').forEach(panel => panel.classList.toggle('is-active', panel.dataset.anatomyPanel === button.dataset.anatomy));
+      }));
+
+      // Quiz
+      $$('.quiz-item').forEach(item => {
+        const answer = item.dataset.answer;
+        const feedback = $('.quiz-feedback', item);
+        $$('.quiz-option', item).forEach(option => option.addEventListener('click', () => {
+          $$('.quiz-option', item).forEach(o => o.classList.remove('correct', 'wrong'));
+          const correct = option.dataset.choice === answer;
+          option.classList.add(correct ? 'correct' : 'wrong');
+          if (!correct) {
+            const correctButton = $(`.quiz-option[data-choice="${answer}"]`, item);
+            correctButton.classList.add('correct');
+          }
+          feedback.textContent = correct ? 'Correct.' : `Not quite. The best answer is ${answer}.`;
+        }));
+      });
+
+      // Process explorer
+      $$('[data-process]').forEach(button => button.addEventListener('click', () => {
+        $$('[data-process]').forEach(b => b.classList.toggle('is-active', b === button));
+        $$('[data-process-panel]').forEach(panel => panel.classList.toggle('is-active', panel.dataset.processPanel === button.dataset.process));
+      }));
+
+      // Lenses
+      $$('[data-lens]').forEach(button => button.addEventListener('click', () => {
+        const body = button.nextElementSibling;
+        const open = body.classList.toggle('is-open');
+        button.setAttribute('aria-expanded', String(open));
+        button.lastElementChild.textContent = open ? '−' : '+';
+      }));
+
+      // Copy and print
+      $$('[data-copy]').forEach(button => button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(button.dataset.copy);
+          showToast('Copied to clipboard');
+        } catch {
+          const area = document.createElement('textarea');
+          area.value = button.dataset.copy;
+          document.body.appendChild(area);
+          area.select();
+          document.execCommand('copy');
+          area.remove();
+          showToast('Copied to clipboard');
+        }
+      }));
+      $$('[data-print]').forEach(button => button.addEventListener('click', () => window.print()));
+    })();
+  </script>
+</body>
+</html>
