@@ -4,8 +4,9 @@ import base64
 import uuid
 from typing import Any
 import httpx
-from fastapi import HTTPException
 from .config import Settings
+from . import codes
+from .errors import ServiceError
 
 
 class RegistryError(Exception):
@@ -43,9 +44,9 @@ class RegistryClient:
                 headers={'Authorization': f'Bearer {await self._access_token()}'},
             )
         except httpx.TimeoutException as exc:
-            raise RegistryError(503, f'Registry timeout: {exc}') from exc
+            raise RegistryError(503, 'Registry timeout') from exc
         except httpx.RequestError as exc:
-            raise RegistryError(503, f'Registry unavailable: {exc}') from exc
+            raise RegistryError(503, 'Registry unavailable') from exc
         if response.status_code >= 400:
             # Do not expose full raw Google errors to browsers; callers see status only.
             raise RegistryError(response.status_code, f'Agent Registry returned HTTP {response.status_code}')
@@ -121,11 +122,26 @@ def operation_done(obj: dict) -> bool:
     return bool(obj.get('done'))
 
 
+PENDING, DONE, REFUSED = 'pending', 'done', 'refused'
+
+
+async def follow_operation(registry, name: str, done: dict | None = None) -> str:
+    """Where a recorded Registry operation stands (#530): PENDING, DONE, or
+    REFUSED (it ended with an error, or the Registry refused the read).
+    `done` is the operation as already returned, to skip the read."""
+    try:
+        result = done or await registry.operation(name)
+        return DONE if operation_done(result) else PENDING
+    except RegistryError:
+        return REFUSED
+
+
 def explain_registry_error(error: RegistryError):
     code = error.status
+    # Fixed messages only (#512): the status survives, the Registry's text doesn't.
     if code in (404, 403):
         # Never transform permissions failures into successful reads.
-        raise HTTPException(code, detail=str(error))
+        raise ServiceError(code, codes.NOT_ACCESSIBLE if code == 404 else codes.FORBIDDEN, 'Skill unavailable' if code == 404 else 'Agent Registry denied access')
     if code == 409:
-        raise HTTPException(409, detail='Agent Registry resource conflict')
-    raise HTTPException(502 if code < 500 else 503, detail=str(error))
+        raise ServiceError(409, codes.CONFLICT, 'Agent Registry resource conflict')
+    raise ServiceError(502 if code < 500 else 503, codes.DEPENDENCY, 'Agent Registry is unavailable. Try again shortly.')
