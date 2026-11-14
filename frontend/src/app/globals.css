@@ -19,6 +19,8 @@
 
   /* The page and the board behind the cards: white with a hint of lavender. */
   --color-canvas: #fefcff;
+  /* The strongest tint of the lavender glow that lies on it (#550). */
+  --color-canvas-glow: #f4ecff;
 
   /* Text: near-black and a grey, both with a little purple in them. */
   --color-ink: #24212d;
@@ -111,6 +113,30 @@
   @apply enabled:active:opacity-90;
   @apply disabled:cursor-not-allowed disabled:opacity-40;
   @apply focus-visible:focus-ring;
+}
+
+/*
+ * What the board lies on (#550): the canvas colour with a soft lavender glow,
+ * strongest towards the right and the bottom, gone by the top left. It is a
+ * background of the page, fixed to the window: it does not pan or zoom with
+ * the board, takes no pointer events and is not part of the Konva stage, so
+ * it is in no export or saved board. Pages that cover the board (Assets,
+ * Skills, Settings, sign-in) have backgrounds of their own over it.
+ */
+@utility board-backdrop {
+  background-color: var(--color-canvas);
+  background-image:
+    radial-gradient(55% 50% at 62% 40%, color-mix(in srgb, var(--color-canvas-glow) 65%, transparent), transparent 72%),
+    radial-gradient(45% 75% at 100% 62%, var(--color-canvas-glow), transparent 75%),
+    linear-gradient(to top, color-mix(in srgb, var(--color-canvas-glow) 85%, transparent), transparent 24%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+@layer base {
+  body {
+    @apply board-backdrop;
+  }
 }
 
 /*
