@@ -34,6 +34,8 @@
   --color-line-strong: #dcd7e4;
 
   /* The one accent: primary actions, the active tool, selection, focus.
+     COLORS.selected in constants/canvas.constants.ts repeats it for Konva,
+     as COLORS.placeholder repeats `subtle` above; change them together.
      The hover is also the accent for text on the soft fill. */
   --color-accent: #a100ff;
   --color-accent-hover: #8500d4;

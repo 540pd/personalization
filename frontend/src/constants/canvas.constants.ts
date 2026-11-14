@@ -1,11 +1,18 @@
 // Shared canvas values used across Board, NodePanel, KonvaNodePorts and ConnectionOverlay.
 
+// Konva paints with the canvas API and cannot read CSS variables, so the two
+// interface colours it shares with the stylesheets are written here as well:
+// `selected` is --color-accent and `placeholder` is --color-subtle in
+// app/globals.css (#551). Change them together; canvasColours.test.ts fails
+// if they differ. No other module writes an interface colour for the canvas.
 export const COLORS = {
   ink:          "#000000",
   paper:        "#ffffff",
-  selected:     "#2563eb",
+  selected:     "#a100ff",
   panelBorder:  "rgba(0,0,0,0.08)",
-  placeholder:  "#f5f5f5",
+  // The wash over the board while a file is dragged across it.
+  dropScrim:    "rgba(0,0,0,0.04)",
+  placeholder:  "#f5f4f8",
   mediaFill:    "#1e1e2e",
   mediaStroke:  "#6b6b8a",
   // A Frame has to be findable without selecting it (#115). The border does

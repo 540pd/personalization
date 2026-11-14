@@ -9,7 +9,7 @@
 // point.
 
 import { useEffect, useRef, useState } from "react";
-import { LABEL_FONT_SIZE, LABEL_LINE_HEIGHT, Z_INDEX } from "@/constants/canvas.constants";
+import { COLORS, LABEL_FONT_SIZE, LABEL_LINE_HEIGHT, Z_INDEX } from "@/constants/canvas.constants";
 import { trackPointer } from "@/lib/dom/pointer";
 
 // A line box is taller than the glyphs it holds; the surplus sits half above
@@ -20,7 +20,10 @@ const HALF_LEADING = (LABEL_LINE_HEIGHT - LABEL_FONT_SIZE) / 2;
 const MIN_INPUT_W = 40;
 // Must match between the input and its sizing mirror, or the two drift apart.
 const FIELD_PAD = "0 3px";
-const FIELD_BORDER = "1px solid #000000";
+const FIELD_BORDER = `1px solid ${COLORS.ink}`;
+// A name is DOM text over the board, so it reads the stylesheet's text
+// colour directly (#551) rather than a value of its own.
+const LABEL_INK = "var(--color-ink)";
 
 interface NodeLabelProps {
   value: string;
@@ -105,7 +108,7 @@ export default function NodeLabel({
     fontSize: LABEL_FONT_SIZE,
     lineHeight: `${LABEL_LINE_HEIGHT}px`,
     fontFamily: "inherit",
-    color: "#404040",
+    color: LABEL_INK,
     pointerEvents: "auto",
     // Above the ports so a rename is always reachable, and below the nav rail
     // so a node dragged under it takes its name with it. Was a bare 52 with a
@@ -211,8 +214,8 @@ export default function NodeLabel({
           ...fieldText,
           width: "100%",
           minWidth: 0,
-          color: "#404040",
-          background: "#ffffff",
+          color: LABEL_INK,
+          background: "var(--color-surface)",
           outline: "none",
         }}
       />
