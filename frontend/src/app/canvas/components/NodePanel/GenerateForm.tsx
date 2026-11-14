@@ -119,7 +119,12 @@ export default function GenerateForm({
           onOpenLibrary={onOpenLibrary}
         />
 
-        {spec.brand && <BrandSwitch settings={settings} onChange={onSettingsChange} />}
+        {spec.brand && (
+          <>
+            <BrandSwitch settings={settings} onChange={onSettingsChange} />
+            <hr className="node-panel-divider" />
+          </>
+        )}
 
         {showAdvanced && Advanced && (
           <div>
