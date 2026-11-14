@@ -53,12 +53,12 @@ test.describe("node > compose", () => {
     await addNode(page, /^Compose$/);
 
     await expect(box(page)).toContainText("Double-click to write");
-    await expect(page.locator("h2.node-panel-title")).toHaveCount(0);
+    await expect(page.locator("h2.node-form-header-title")).toHaveCount(0);
 
     // Clicking it again, selected, still opens nothing.
     await box(page).click();
     await page.waitForTimeout(300);
-    await expect(page.locator("h2.node-panel-title")).toHaveCount(0);
+    await expect(page.locator("h2.node-form-header-title")).toHaveCount(0);
   });
 
   test("has an output port and no input port", async ({ page }) => {

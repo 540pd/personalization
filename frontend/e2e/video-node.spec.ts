@@ -105,7 +105,7 @@ test.describe("node > video", () => {
     await openBoard(page);
     await addVideoNode(page);
 
-    await expect(page.locator("h2.node-panel-title")).toHaveText("Create Video");
+    await expect(page.locator("h2.node-form-header-title")).toHaveText("Create Video");
     // Video has duration and resolution, not aspect ratio and quality.
     await page.locator("button:has-text('Advanced')").first().click();
     await page.waitForTimeout(250);

@@ -156,7 +156,7 @@ test.describe("Prompt panel: @ skills and agents (#239)", () => {
     await expect(menu(page)).toBeVisible();
     await box(page).press("Escape");
     await expect(menu(page)).toHaveCount(0);
-    await expect(page.locator("h2.node-panel-title")).toHaveText("Prompt");
+    await expect(page.locator("h2.node-form-header-title")).toHaveText("Prompt");
     await expect(box(page)).toHaveValue("@to");
 
     // A later @ opens it again; an insert is one undo step, as typing is.

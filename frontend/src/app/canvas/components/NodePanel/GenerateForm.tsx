@@ -9,11 +9,12 @@
 
 import { useState, useRef, useMemo } from "react";
 import { useDismiss } from "@/lib/dom/useDismiss";
-import { X, ChevronDown, Check, Loader2 } from "lucide-react";
+import { ChevronDown, Check, Loader2 } from "lucide-react";
 import { Z_INDEX } from "@/constants/canvas.constants";
 import type { NodeKindSpec, NodeSettings } from "./nodeKinds";
 import MentionInput from "./MentionInput";
 import BrandSwitch from "./BrandSwitch";
+import NodeFormHeader from "./NodeFormHeader";
 import { mentionNotes, resolveMentions, type Mentionables } from "../../mentions/mentions";
 
 const NO_MENTIONABLES: Mentionables = { skills: [], agents: [] };
@@ -26,6 +27,8 @@ export interface GenerateDraft {
 
 export interface GenerateFormProps {
   spec: NodeKindSpec;
+  /** The node's name on the board, shown in the header (#561). */
+  nodeName?: string;
   /**
    * All of this is parent-owned, because this component unmounts whenever the
    * panel collapses. Keeping the draft or the in-flight flag here would throw
@@ -53,7 +56,7 @@ export interface GenerateFormProps {
 }
 
 export default function GenerateForm({
-  spec, draft, onDraftChange, settings, onSettingsChange, busy, busyLabel, error, notice,
+  spec, nodeName, draft, onDraftChange, settings, onSettingsChange, busy, busyLabel, error, notice,
   onClose, onInstructionBlur, onSubmit, mentionables = NO_MENTIONABLES, onOpenLibrary,
 }: GenerateFormProps) {
   // Only chrome state lives here; resetting it on reopen is harmless.
@@ -90,51 +93,42 @@ export default function GenerateForm({
       // The layering order is TypeScript's (Z_INDEX), as the rail's is.
       style={{ zIndex: Z_INDEX.panelForm }}
     >
-      {/* Header */}
-      <div className="node-panel-header">
-        <div>
-          <h2 className="node-panel-title">{spec.title}</h2>
+      <NodeFormHeader title={spec.title} nodeName={nodeName} onClose={onClose}>
+        <div className="node-panel-model-wrapper" ref={modelPickerRef}>
+          <button onClick={() => setIsModelOpen((v) => !v)} className="node-panel-model-trigger">
+            <span>
+              {spec.models.find((m) => m.id === model)?.label ?? model}
+              {modelFrom && <span className="node-panel-model-from"> · from @{modelFrom}</span>}
+            </span>
+            <ChevronDown
+              size={12}
+              className={`node-panel-chevron ${isModelOpen ? "node-panel-chevron-open" : ""}`}
+            />
+          </button>
 
-          <div className="node-panel-model-wrapper" ref={modelPickerRef}>
-            <button onClick={() => setIsModelOpen((v) => !v)} className="node-panel-model-trigger">
-              <span>
-                {spec.models.find((m) => m.id === model)?.label ?? model}
-                {modelFrom && <span className="node-panel-model-from"> · from @{modelFrom}</span>}
-              </span>
-              <ChevronDown
-                size={12}
-                className={`node-panel-chevron ${isModelOpen ? "node-panel-chevron-open" : ""}`}
-              />
-            </button>
-
-            {isModelOpen && (
-              <div className="node-panel-model-dropdown">
-                {spec.models.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => {
-                      onDraftChange({ ...draft, model: m.id });
-                      setIsModelOpen(false);
-                    }}
-                    className={`node-panel-model-option ${
-                      model === m.id
-                        ? "node-panel-model-option-active"
-                        : "node-panel-model-option-inactive"
-                    }`}
-                  >
-                    <span>{m.label}</span>
-                    {model === m.id && <Check size={13} className="node-panel-model-check" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          {isModelOpen && (
+            <div className="node-panel-model-dropdown">
+              {spec.models.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    onDraftChange({ ...draft, model: m.id });
+                    setIsModelOpen(false);
+                  }}
+                  className={`node-panel-model-option ${
+                    model === m.id
+                      ? "node-panel-model-option-active"
+                      : "node-panel-model-option-inactive"
+                  }`}
+                >
+                  <span>{m.label}</span>
+                  {model === m.id && <Check size={13} className="node-panel-model-check" />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-
-        <button onClick={onClose} className="node-panel-close-button" aria-label="Close">
-          <X size={15} />
-        </button>
-      </div>
+      </NodeFormHeader>
 
       {/* Scrollable body */}
       <div className="node-panel-body">

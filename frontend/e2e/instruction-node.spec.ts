@@ -58,7 +58,7 @@ test.describe("node > instruction", () => {
     await openBoard(page);
     await addNode(page, /^Prompt$/);
 
-    await expect(page.locator("h2.node-panel-title")).toHaveText("Prompt");
+    await expect(page.locator("h2.node-form-header-title")).toHaveText("Prompt");
     // A text node has no aspect ratio or quality to choose.
     await expect(page.locator(".node-panel-options")).toHaveCount(0);
   });
