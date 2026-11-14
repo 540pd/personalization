@@ -9,7 +9,6 @@ refused or no-op one, leaves an audit record (no owner key, no SKILL.md).
 import argparse
 import asyncio
 import sys
-from .store import stamp
 from . import codes
 from .errors import ServiceError
 
@@ -20,7 +19,7 @@ def _audit(svc, action: str, op: dict, operator: str, reason: str, before: str, 
     svc.store.record_audit({
         'action': action, 'operationId': op['operationId'], 'skillId': op['skillId'],
         'operator': operator, 'reason': reason, 'force': force,
-        'statusBefore': before, 'statusAfter': after, 'outcome': outcome, 'at': stamp(),
+        'statusBefore': before, 'statusAfter': after, 'outcome': outcome, 'at': svc.clock.stamp(),
     })
 
 

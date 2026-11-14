@@ -29,10 +29,10 @@ def test_the_production_parts_are_made_when_not_passed(monkeypatch):
     assert made == ['firestore'] and isinstance(parts.store, store_module.FirestoreStore)
 
 
-def test_one_clock_reaches_service_and_helper():
-    clock = lambda: 42.0  # noqa: E731
+def test_one_clock_reaches_every_part(clock):
     parts = make_parts(clock=clock)
     assert parts.service.clock is clock and parts.helper.clock is clock
+    assert parts.store.clock is clock and parts.service.publishing.clock is clock
 
 
 def test_the_app_starts_on_build_services(monkeypatch):

@@ -5,6 +5,7 @@ is made that is passed in (no Firestore or Registry client in tests)."""
 from dataclasses import dataclass
 from pathlib import Path
 from .catalog import ToolCatalog, catalog_from_settings
+from .clock import SYSTEM, Clock
 from .config import Settings
 from .helper import SkillHelper
 from .llm import LLMClient, llm_client
@@ -28,18 +29,20 @@ class Services:
 
 
 def build_services(cfg: Settings, *, store=None, registry=None, catalog: ToolCatalog | None = None,
-                   llm: LLMClient | None = None, clock=None) -> Services:
+                   llm: LLMClient | None = None, clock: Clock | None = None) -> Services:
+    clock = clock or SYSTEM  # the one clock every part reads (#535)
     if store is None:
         from .store import FirestoreStore
-        store = FirestoreStore(cfg.firestore_project_id, cfg.publish_operation_retention_days)
+        store = FirestoreStore(cfg.firestore_project_id, cfg.publish_operation_retention_days, clock=clock)
+    else:
+        store.clock = clock  # a store passed in writes its timestamps from the same clock
     if registry is None:
         from .registry import RegistryClient
         registry = RegistryClient(cfg)
     if catalog is None:
-        catalog = catalog_from_settings(cfg, DATA_DIR)
-    timing = {'clock': clock} if clock is not None else {}
+        catalog = catalog_from_settings(cfg, DATA_DIR, clock)
     return Services(
-        service=SkillService(store, registry, catalog, cfg, **timing),
-        helper=SkillHelper(cfg, catalog, store, llm if llm is not None else llm_client(cfg), **timing),
+        service=SkillService(store, registry, catalog, cfg, clock),
+        helper=SkillHelper(cfg, catalog, store, llm if llm is not None else llm_client(cfg), clock),
         catalog=catalog, store=store, registry=registry,
     )

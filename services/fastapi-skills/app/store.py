@@ -5,22 +5,12 @@ and applies the writes a rule returns. FirestoreStore does both inside one
 transaction; Registry calls never happen inside one."""
 import copy
 import hashlib
-from datetime import datetime, timedelta, timezone
 from . import rules
+from .clock import SYSTEM, Clock
 from .errors import ServiceError
 from .rules import GONE, MAX_COMBINED_RAW_SKILL_BYTES, MAX_SKILLS_PER_OWNER, OPS, QUOTAS, SKILLS  # noqa: F401 (re-exported)
 
 AUDIT = 'skill_publish_audit'
-
-
-def stamp():
-    return datetime.now(timezone.utc).isoformat()
-
-
-def expire_at(days: int) -> datetime:
-    """When a finished operation may be deleted (#508). Only a Firestore TTL
-    policy reads it: no code decides anything from it."""
-    return datetime.now(timezone.utc) + timedelta(days=days)
 
 
 def key_for(owner: str, slug: str) -> str:
@@ -35,6 +25,7 @@ class RuleStore:
     """The store operations, each one rule. Subclasses supply `_run`, which runs
     a rule against their data atomically, and the plain reads and patches."""
     retention_days = 30
+    clock: Clock = SYSTEM
 
     def _run(self, rule, *args):
         raise NotImplementedError
@@ -49,29 +40,30 @@ class RuleStore:
         return self._decide(rules.reserve_skill, row)
 
     def finish_disable(self, skill_id: str) -> bool:
-        return self._decide(rules.finish_disable, skill_id, stamp())
+        return self._decide(rules.finish_disable, skill_id, self.clock.stamp())
 
     def take_draft_slot(self, owner: str, now: float, limit: int, window: float) -> bool:
         return self._decide(rules.take_draft_slot, owner, now, limit, window)
 
     def reserve_operation(self, row: dict):
-        return self._decide(rules.reserve_operation, row, stamp())
+        return self._decide(rules.reserve_operation, row, self.clock.stamp())
 
     def finish_operation(self, row: dict):
-        return self._decide(rules.finish_operation, row, stamp(), expire_at(self.retention_days))
+        return self._decide(rules.finish_operation, row, self.clock.stamp(), self.clock.expire_at(self.retention_days))
 
     def fail_operation(self, row: dict, error: str) -> bool:
-        return self._decide(rules.fail_operation, row, error, stamp(), expire_at(self.retention_days))
+        return self._decide(rules.fail_operation, row, error, self.clock.stamp(), self.clock.expire_at(self.retention_days))
 
 
 class FirestoreStore(RuleStore):
     """Transactions span metadata only; Registry calls occur strictly outside transactions."""
-    def __init__(self, project_id: str, retention_days: int = 30, db=None):
+    def __init__(self, project_id: str, retention_days: int = 30, db=None, clock: Clock = SYSTEM):
         if db is None:
             from google.cloud import firestore
             db = firestore.Client(project=project_id)
         self.db = db
         self.retention_days = retention_days
+        self.clock = clock
 
     def _in_transaction(self, work):
         """Runs `work(tx)` in a Firestore transaction, retried on contention."""
@@ -102,13 +94,13 @@ class FirestoreStore(RuleStore):
         return rows if include_disabled else [r for r in rows if r.get('status') not in GONE]
 
     def patch_skill(self, skill_id: str, fields: dict):
-        self.db.collection(SKILLS).document(skill_id).update({**fields, 'updatedAt': stamp()})
+        self.db.collection(SKILLS).document(skill_id).update({**fields, 'updatedAt': self.clock.stamp()})
 
     def get_operation(self, op_id: str) -> dict | None:
         return self._get(OPS, op_id)
 
     def patch_operation(self, op_id: str, fields: dict):
-        self.db.collection(OPS).document(op_id).update({**fields, 'updatedAt': stamp()})
+        self.db.collection(OPS).document(op_id).update({**fields, 'updatedAt': self.clock.stamp()})
 
     def record_audit(self, row: dict):
         """An operator action on a publish operation (#508)."""
@@ -117,7 +109,8 @@ class FirestoreStore(RuleStore):
 
 class MemoryStore(RuleStore):
     """Test double: dicts, one process, no persistence. Same rules as Firestore."""
-    def __init__(self, retention_days: int = 30):
+    def __init__(self, retention_days: int = 30, clock: Clock = SYSTEM):
+        self.clock = clock
         self.skills = {}
         self.ops = {}
         self.quotas = {}

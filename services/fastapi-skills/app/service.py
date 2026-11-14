@@ -1,7 +1,6 @@
 """The Skills service (#530): Skill CRUD and ownership here; disable and
 metadata in lifecycle.py; publishing in publish.py. SkillService is the one
 front the routes, the operator CLI and the tests call."""
-import time
 from .catalog import ToolCatalog
 from .config import Settings
 from .deps import Deps, Part, digest
@@ -9,7 +8,8 @@ from .lifecycle import Lifecycle
 from .models import SkillCreate, PublishRequest, PublishStatus
 from .publish import UPLOAD_TIMEOUT, PublishFlow  # noqa: F401 (UPLOAD_TIMEOUT re-exported)
 from .registry import RegistryError, explain_registry_error, operation_done, operation_uuid
-from .store import key_for, stamp
+from .clock import SYSTEM, Clock
+from .store import key_for
 
 
 def _shared(name):
@@ -24,7 +24,7 @@ class SkillService(Part):
     cfg = _shared('cfg')
     clock = _shared('clock')
 
-    def __init__(self, store, registry, catalog: ToolCatalog, cfg: Settings, clock=time.time):
+    def __init__(self, store, registry, catalog: ToolCatalog, cfg: Settings, clock: Clock = SYSTEM):
         super().__init__(Deps(store, registry, catalog, cfg, clock))
         self.lifecycle = Lifecycle(self.deps)
         self.publishing = PublishFlow(self.deps)
@@ -41,7 +41,7 @@ class SkillService(Part):
             'schemaVersion': 1, 'skillId': skill_id, 'ownerKey': owner,
             'registryResource': resource, 'status': 'creating',
             'createHash': digest(request.model_dump()),
-            'createdAt': stamp(), 'updatedAt': stamp(),
+            'createdAt': self.clock.stamp(), 'updatedAt': self.clock.stamp(),
             'latestPublishedRevision': None, 'activePublishOp': None,
         })
         if row['status'] != 'creating':

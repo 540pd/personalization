@@ -1,7 +1,6 @@
 """Stuck publish operations (#508): an upload deadline, reconciliation for one
 that reached the Registry, an operator path with an audit record, and a TTL
 field that nothing decides from."""
-import time
 import pytest
 from fastapi import HTTPException
 from app import operator
@@ -37,17 +36,9 @@ class CrashingRegistry(FakeRegistry):
         return result
 
 
-class Clock:
-    def __init__(self):
-        self.now = time.time()
-
-    def __call__(self):
-        return self.now
-
-
 @pytest.fixture
-def env():
-    store, registry, clock = MemoryStore(), CrashingRegistry(), Clock()
+def env(clock):
+    store, registry = MemoryStore(), CrashingRegistry()
     cfg = Settings(google_cloud_project='test-project', registry_location='us', publish_upload_deadline_seconds=DEADLINE)
     svc = make_parts(cfg, store=store, registry=registry, clock=clock).service
     return svc, store, registry, clock
@@ -78,7 +69,7 @@ async def test_crash_before_upload_blocks_until_the_deadline_then_fails(env):
     with pytest.raises(HTTPException) as blocked:
         await svc.publish('usr_A', sid, PublishRequest(markdown=MD + '\nMore\n', tool_names=['brand.read']), 'key-other-01')
     assert blocked.value.status_code == 409
-    clock.now += DEADLINE + 1
+    clock.advance(DEADLINE + 1)
     status = await svc.publish_status('usr_A', sid, op_id)
     assert status.status == 'failed' and status.error == UPLOAD_TIMEOUT
     assert store.get_skill(sid)['activePublishOp'] is None
@@ -90,7 +81,7 @@ async def test_crash_before_upload_blocks_until_the_deadline_then_fails(env):
 async def test_a_new_publish_frees_a_skill_nobody_polls(env):
     svc, store, registry, clock = env
     sid, op_id = await crashed_publish(svc, registry, 'before')
-    clock.now += DEADLINE + 1
+    clock.advance(DEADLINE + 1)
     # No poll: the next publish of the Skill reads the stuck one first.
     result = await svc.publish('usr_A', sid, PublishRequest(markdown=MD + '\nMore\n', tool_names=['brand.read']), 'key-other-01')
     assert result.status in ('pending_activation', 'published')
@@ -102,7 +93,7 @@ async def test_a_new_publish_frees_a_skill_nobody_polls(env):
 async def test_resending_the_crashed_publish_after_the_deadline_does_not_upload(env):
     svc, store, registry, clock = env
     sid, op_id = await crashed_publish(svc, registry, 'before')
-    clock.now += DEADLINE + 1
+    clock.advance(DEADLINE + 1)
     again = await svc.publish('usr_A', sid, PublishRequest(markdown=MD, tool_names=['brand.read']), 'key-crashed-1')
     assert again.status == 'failed'
     assert registry.revision_calls == 0
@@ -113,7 +104,7 @@ async def test_crash_after_upload_is_reconciled_not_failed(env):
     svc, store, registry, clock = env
     sid, op_id = await crashed_publish(svc, registry, 'after')
     assert registry.revision_calls == 1
-    clock.now += DEADLINE * 10
+    clock.advance(DEADLINE * 10)
     status = await svc.publish_status('usr_A', sid, op_id)
     assert status.status != 'failed'
     status = await svc.publish_status('usr_A', sid, op_id)
@@ -135,7 +126,7 @@ async def test_recorded_registry_operation_is_never_failed_by_the_deadline(env):
     async def running(name):
         return {'name': name, 'done': False}
     registry.operation = running
-    clock.now += DEADLINE * 10
+    clock.advance(DEADLINE * 10)
     assert (await svc.publish_status('usr_A', sid, result.operation_id)).status == 'publishing'
 
 
@@ -162,7 +153,7 @@ async def test_repeated_recovery_changes_nothing_twice(env):
     again = await operator.fail(svc, op_id, 'ops@example.com', 'second')
     assert again['outcome'] == 'no_change'
     assert reserved(store) == 0  # released once, not twice
-    clock.now += DEADLINE + 1
+    clock.advance(DEADLINE + 1)
     assert (await operator.reconcile(svc, op_id, 'ops@example.com', 'third'))['outcome'] == 'no_change'
     assert [r['outcome'] for r in store.audit] == ['changed', 'no_change', 'no_change']
 

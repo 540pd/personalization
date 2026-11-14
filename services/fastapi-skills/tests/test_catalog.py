@@ -14,14 +14,6 @@ from support import MD, make_parts
 DATA = Path(__file__).resolve().parent.parent / 'data'
 
 
-class Clock:
-    def __init__(self):
-        self.now = 1000.0
-
-    def __call__(self):
-        return self.now
-
-
 @pytest.fixture
 def catalog_file(tmp_path):
     path = tmp_path / 'tool_catalog.json'
@@ -50,26 +42,24 @@ def test_revision_follows_the_content(catalog_file):
     assert FileCatalogProvider(catalog_file).load().revision != before
 
 
-def test_withdrawn_tool_fails_once_the_cache_expires(catalog_file):
-    clock = Clock()
+def test_withdrawn_tool_fails_once_the_cache_expires(catalog_file, clock):
     catalog = ToolCatalog(catalog_file, cache_seconds=60, clock=clock)
     first = catalog.validate(['brand.read'])
     assert first.valid
     withdraw(catalog_file, 'brand.read')
-    clock.now += 59
+    clock.advance(59)
     assert catalog.validate(['brand.read']).valid  # still inside the 60 s window
-    clock.now += 1
+    clock.advance(1)
     later = catalog.validate(['brand.read'])
     assert not later.valid
     assert later.catalog_revision != first.catalog_revision
 
 
-def test_unreadable_catalog_fails_closed_without_stale_fallback(catalog_file):
-    clock = Clock()
+def test_unreadable_catalog_fails_closed_without_stale_fallback(catalog_file, clock):
     catalog = ToolCatalog(catalog_file, clock=clock)
     assert catalog.validate(['brand.read']).valid
     catalog_file.write_text('{not json')
-    clock.now += 60
+    clock.advance(60)
     with pytest.raises(HTTPException) as failure:
         catalog.validate(['brand.read'])
     assert failure.value.status_code == 503

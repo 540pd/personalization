@@ -1,9 +1,9 @@
 """AI helper produces an editable SKILL.md draft; it has no publish permission."""
 import asyncio
-import time
 from .models import DraftIssue, SkillDraftRequest, SkillDraftResponse
 from .catalog import ToolCatalog
 from .packaging import TOOLS_FIELD, declared_tools, validate_markdown
+from .clock import SYSTEM, Clock
 from .config import Settings
 from .llm import GeminiClient, LLMClient
 from . import codes
@@ -16,7 +16,7 @@ DRAFT_WINDOW_SECONDS = 3600
 class SkillHelper:
     """Drafts a SKILL.md with a model (PACK PY-04), bounded (#511): input sizes,
     the whole prompt, a per-owner rate, the model call's time; never publishes."""
-    def __init__(self, cfg: Settings, catalog: ToolCatalog, store=None, llm: LLMClient | None = None, clock=time.time):
+    def __init__(self, cfg: Settings, catalog: ToolCatalog, store=None, llm: LLMClient | None = None, clock: Clock = SYSTEM):
         self.cfg = cfg
         self.catalog = catalog
         self.store = store
@@ -48,7 +48,7 @@ class SkillHelper:
         if len(prompt) > self.cfg.skill_helper_max_prompt_chars:
             raise ServiceError(422, codes.VALIDATION, 'The request is too long for the draft helper')
         if self.store is not None and not self.store.take_draft_slot(
-            owner, self.clock(), self.cfg.skill_helper_drafts_per_hour, DRAFT_WINDOW_SECONDS
+            owner, self.clock.time(), self.cfg.skill_helper_drafts_per_hour, DRAFT_WINDOW_SECONDS
         ):
             raise ServiceError(429, codes.RATE_LIMITED, 'Too many drafts this hour. Try again later.')
 

@@ -35,6 +35,7 @@ app/
   publish.py      idempotent, recoverable publish state machine (upload deadline included)
   lifecycle.py    disable and metadata changes, followed to the end of their Registry operations
   deps.py         the dependencies the parts share, and the ownership check
+  clock.py        the one Clock (wall time, monotonic, record stamps); FakeClock for tests
   wiring.py       build_services: the one place the parts are put together (app, operator CLI, tests)
   packaging.py    validate SKILL.md + deterministic zip
   catalog.py      allowlist tool validator

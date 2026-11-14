@@ -1,12 +1,12 @@
 """Idempotent, recoverable publishing (#496, #508, #530): reserve, upload the
 revision, wait for it to be active, make it the default; a poll or the next
 publish advances it, and one that never reached the Registry times out."""
-from datetime import datetime, timezone
+from datetime import datetime
 from .deps import Part, digest
 from .models import PublishRequest, PublishStatus
 from .packaging import build_zip, declared_tools, validate_markdown
 from .registry import RegistryError, explain_registry_error, operation_done, operation_uuid
-from .store import operation_key, stamp
+from .store import operation_key
 from . import codes
 from .errors import ServiceError
 
@@ -16,7 +16,7 @@ UPLOAD_TIMEOUT = 'Publish timed out before upload; publish again'
 class PublishFlow(Part):
     def _past_upload_deadline(self, op: dict) -> bool:
         created = datetime.fromisoformat(op['createdAt']).timestamp()
-        return self.clock() - created >= self.cfg.publish_upload_deadline_seconds
+        return self.clock.time() - created >= self.cfg.publish_upload_deadline_seconds
 
     def response(self, op: dict) -> PublishStatus:
         return PublishStatus(
@@ -57,7 +57,7 @@ class PublishFlow(Part):
             'registryOperation': None, 'promotionOperation': None,
             'catalogRevision': validation.catalog_revision,
             # From the same clock the upload deadline is measured with.
-            'createdAt': datetime.fromtimestamp(self.clock(), timezone.utc).isoformat(), 'updatedAt': stamp(),
+            'createdAt': self.clock.stamp(), 'updatedAt': self.clock.stamp(),
         })
         return await self.advance(op, archive=archive)
 
