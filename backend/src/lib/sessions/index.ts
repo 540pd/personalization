@@ -1,6 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { isFirestoreMode } from "../firestore.js";
-import { localDataDir } from "../storageMode.js";
+import { storeFor } from "../storageMode.js";
 import { identityStore, owners } from "../identity/index.js";
 import type { Owner } from "../identity/index.js";
 import { sessionConfig, type SessionConfig } from "./config.js";
@@ -131,15 +130,11 @@ export function sessionService({ store, getOwner, setOwnerDisabled, config, now 
   return { create, resolve, revoke, disableOwner, config };
 }
 
-let _store: SessionStore | null = null;
+const pickSessionStore = storeFor<SessionStore>({ firestore: () => firestoreSessionStore(), local: localSessionStore, memory: memorySessionStore });
 
 /** The session store for this process's storage mode, made on first use. */
 export function sessionStore(): SessionStore {
-  if (!_store) {
-    const dir = localDataDir();
-    _store = isFirestoreMode() ? firestoreSessionStore() : dir ? localSessionStore(dir) : memorySessionStore();
-  }
-  return _store;
+  return pickSessionStore();
 }
 
 let _service: ReturnType<typeof sessionService> | null = null;

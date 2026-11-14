@@ -4,9 +4,9 @@
 
 import path from "node:path";
 import type { Firestore } from "@google-cloud/firestore";
-import { getFirestoreClient, isFirestoreMode } from "../firestore.js";
+import { getFirestoreClient } from "../firestore.js";
 import { inside, readAllJson, writeAtomic } from "../localDisk.js";
-import { localDataDir } from "../storageMode.js";
+import { storeFor } from "../storageMode.js";
 
 /** What the page says about where the sender was; every field optional. */
 export interface SupportContext {
@@ -72,13 +72,9 @@ export function firestoreSupportStore(db: Firestore = getFirestoreClient()): Sup
   };
 }
 
-let _store: SupportStore | null = null;
+const pickSupportStore = storeFor<SupportStore>({ firestore: () => firestoreSupportStore(), local: localSupportStore, memory: memorySupportStore });
 
 /** The store for this process's storage mode, made on first use. */
 export function supportStore(): SupportStore {
-  if (!_store) {
-    const dir = localDataDir();
-    _store = isFirestoreMode() ? firestoreSupportStore() : dir ? localSupportStore(dir) : memorySupportStore();
-  }
-  return _store;
+  return pickSupportStore();
 }

@@ -3,33 +3,24 @@
 // lives. The
 // board's content arrives in #324; this is the list a user's boards come in.
 
-import { isFirestoreMode } from "../firestore.js";
 import { firestoreBoardContentStore, firestoreBoardStore } from "./firestore.js";
 import { localBoardContentStore, localBoardStore } from "./local.js";
 import { memoryBoardContentStore, memoryBoardStore } from "./memory.js";
-import { localDataDir } from "../storageMode.js";
+import { storeFor } from "../storageMode.js";
 import type { BoardContentStore, BoardStore } from "./types.js";
 
 export type { Board, BoardContentStore, BoardStore, SavedContent, WriteResult } from "./types.js";
 
-let _store: BoardStore | null = null;
+const pickBoardStore = storeFor<BoardStore>({ firestore: () => firestoreBoardStore(), local: localBoardStore, memory: memoryBoardStore });
 
 /** The store for this process's storage mode, made on first use. */
 export function boardStore(): BoardStore {
-  if (!_store) {
-    const dir = localDataDir();
-    _store = isFirestoreMode() ? firestoreBoardStore() : dir ? localBoardStore(dir) : memoryBoardStore();
-  }
-  return _store;
+  return pickBoardStore();
 }
 
-let _content: BoardContentStore | null = null;
+const pickBoardContentStore = storeFor<BoardContentStore>({ firestore: () => firestoreBoardContentStore(), local: localBoardContentStore, memory: memoryBoardContentStore });
 
 /** Board content (#324), kept where the board records are. */
 export function boardContentStore(): BoardContentStore {
-  if (!_content) {
-    const dir = localDataDir();
-    _content = isFirestoreMode() ? firestoreBoardContentStore() : dir ? localBoardContentStore(dir) : memoryBoardContentStore();
-  }
-  return _content;
+  return pickBoardContentStore();
 }

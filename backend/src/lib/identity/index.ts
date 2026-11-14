@@ -1,6 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { isFirestoreMode } from "../firestore.js";
-import { localDataDir } from "../storageMode.js";
+import { storeFor } from "../storageMode.js";
 import type { VerifiedGoogleIdentity } from "../googleIdToken.js";
 import { linkIdFor, linkKey, type LinkKey } from "./linkKey.js";
 import { firestoreIdentityStore, localIdentityStore, memoryIdentityStore } from "./stores.js";
@@ -9,15 +8,11 @@ import { CorruptIdentityLinkError, type IdentityStore, type Owner } from "./type
 export type { IdentityStore, Owner, OwnerStatus } from "./types.js";
 export { linkIdFor, linkKey } from "./linkKey.js";
 
-let _store: IdentityStore | null = null;
+const pickIdentityStore = storeFor<IdentityStore>({ firestore: () => firestoreIdentityStore(), local: localIdentityStore, memory: memoryIdentityStore });
 
 /** The identity store for this process's storage mode, made on first use. */
 export function identityStore(): IdentityStore {
-  if (!_store) {
-    const dir = localDataDir();
-    _store = isFirestoreMode() ? firestoreIdentityStore() : dir ? localIdentityStore(dir) : memoryIdentityStore();
-  }
-  return _store;
+  return pickIdentityStore();
 }
 
 /** A new owner key: `usr_` (the form the FastAPI service requires) + 24 random bytes, opaque, never derived from the account. */
